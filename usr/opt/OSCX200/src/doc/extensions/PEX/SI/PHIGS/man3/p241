@@ -1,0 +1,233 @@
+.\"##
+.\" $XConsortium: p241,v 5.2 91/08/16 16:25:20 hersh Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "OPEN WORKSTATION" 3P "29 February 1991"
+.SH NAME
+OPEN WORKSTATION \- open a workstation
+.IX "X Window System" "OPEN WORKSTATION" "X Window System" "OPEN WORKSTATION"
+.IX "Workstations" "OPEN WORKSTATION"
+.IX "Workstation Types" "OPEN WORKSTATION"
+.IX "Metafiles" "OPEN WORKSTATION"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+popen_ws ( ws_id, conn_id, ws_type )
+Pint	ws_id;	\fIworkstation identifier\fP
+Pconnid *conn_id;	\fIconnection identifier\fP
+Pint	ws_type;	\fIworkstation type\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2OPEN WORKSTATION\s+2 opens a workstation of the specified workstation type.
+The workstation state list is created and initialized to conform as nearly as
+possible to the workstation description table associated with the specified
+workstation type.
+If the workstation is successfully opened, the \s-2PHIGS\s+2 workstation
+state variable is set to \s-2WSOP\s+2.
+.LP
+\s-2PEX-SI\s0 supports two predefined workstation types, \fIx_tool\fR and
+\fIx_drawable\fR.  Their characteristics are described below.
+In addition, the application can create and modify its own workstation types
+with the \s-2WORKSTATION TYPE CREATE\s+2 and \S-2WORKSTATION TYPE SET\s+2
+functions.
+.LP
+If the workstation is opened successfully, a specific workstation type is
+created and associated with the open workstation.
+This specific workstation type contains the workstation description table
+that describes the capabilities of the opened workstation.
+The specific workstation type can be retrieved with
+\s-2INQUIRE WORKSTATION CONNECTION AND TYPE\s+2.
+.SS C Input Parameters
+.IP \fIws_id\fP
+The workstation identifier to be associated with this workstation.
+This value is used to identify the workstation in subsequent \s-2PHIGS\s+2
+function calls.
+.IP \fIconn_id\fP
+A pointer to the connection identifier of the workstation.  The type of value to
+use depends on the workstation type:
+.RS
+.IP "x_tool"
+If the \fIconn_id\fP is \s-2NULL\s+2, a window is created on the default
+server.
+If the \fIconn_id\fP is not \s-2NULL\s+2, it is interpreted as a display
+name and a window for the workstation is
+created on the named server,
+provided that server supports the X extension.
+An example of using this would be:
+.RS
+.IP
+Popen_ws (ws_id, (char*)"unix:0", phigs_ws_type_x_tool);
+.RE
+.IP "x_drawable"
+The connection identifier must be a pointer to a Pconnid_x_drawable
+structure, cast to a char*.
+Pconnid_x_drawable is defined in phigs.h as follows:
+.sp
+.nf
+.ta .5i +1.0i +1.25i
+typdef struct {
+	Display	*display;
+	XID	drawable_id;
+} Pconnid_x_drawable;
+.RE
+.fi
+.IP \fIws_type\fP
+The type of workstation to open.
+Recognized types are described fully in the \fIAvailable Workstation Types\fP
+section below.  They are declared in phigs.h.
+A short summary is listed here:
+.RS
+.IP "\fIphigs_ws_type_x_tool\fP"
+\s-2PHIGS\s+2 creates an X window for the workstation on a specified
+or default server.
+.IP "\fIphigs_ws_type_x_drawable\fP"
+\s-2PHIGS\s+2 uses a specified X window for the workstation.
+.RE
+.SS Execution
+\s-2OPEN WORKSTATION\s+2 opens a \s-2PHIGS\s+2 workstation of the specified
+type and associates it with the specified workstation identifier.
+.LP
+When a workstation is opened, \s-2PHIGS\s+2 creates a copy of
+the workstation type specified in the \s-2OPEN WORSTATION\s+2 call and
+binds it to the opened workstation.
+This copy is called the \fIspecific\fP workstation type.
+The workstation description table \s-2(WDT)\s+2 of this specific type is
+checked against the capabilities of the server and
+window \s-2PHIGS\s+2 is using for the workstation.
+If the capabilities specified by the \s-2WDT\s+2 cannot be realized with
+that server and window, \s-2PHIGS\s+2 modifies the \s-2WDT\s+2
+of the specific workstation type to reflect the available capabilities.
+The workstation type parameter to \s-2OPEN WORKSTATION\s+2 is not
+modified; only the specific workstation type is (potentially) modified.
+The specific workstation type bound to a workstation can be retrieved with
+the \s-2PHIGS\s+2 function \s-2INQUIRE WORKSTATION CONNECTION AND TYPE\s+2.
+.LP
+Some of a workstation type's workstation description table values can be
+changed by the application prior to opening a workstation of that type.
+See \s-2WORKSTATION TYPE CREATE\s+2 and \s-2WORKSTATION TYPE SET\s+2 for
+more information on this.
+.SS Available Workstation Types
+.SS "\fIphigs_ws_type_x_tool\fP"
+\s-2PHIGS\s+2 creates an X window on a specified or default server and
+uses it for the PHIGS workstation's display surface.
+If the \s-2PHIGS\s+2 Monitor is running (see \s-2OPEN PHIGS\s+2),
+the default category of this workstation type is \s-2OUTIN\s+2,
+which indicates that both input and output are available;
+otherwise the default category is \s-2OUTPUT\s+2.
+.LP
+If the category is \s-2OUTIN\s+2, \s-2PHIGS\s+2 creates an additional
+input-only window that it uses to detect pointer events for its Locator,
+Stroke, and Pick input devices.
+This window is transparent, overlies the output window completely, and
+duplicates any size and position changes made to the ouput window.
+.LP
+Many of the characteristics of an x_tool workstation type,
+such as its size and position, can be set prior to opening the workstation.
+See \s-2WORKSTATION TYPE CREATE\s+2 and \s-2WORKSTATION TYPE SET\s+2 for a
+complete list of the modifiable characteristics and their default settings.
+.SS "\fIphigs_ws_type_x_drawable\fP"
+\s-2PHIGS\s+2 uses an application-specified X window for the PHIGS
+workstation's display surface.
+The window to use is specified in the connection identifier parameter.
+The window must be open and associated with a server that supports the
+\s-2PEX\s+2 extension.
+.LP
+If the \s-2PHIGS\s+2 Monitor is running (see \s-2OPEN PHIGS\s+2),
+the default category of this workstation type is \s-2OUTIN\s+2,
+which indicates that both input and output are available;
+otherwise the default category is \s-2OUTPUT\s+2.
+.LP
+Some of the characteristics of an x_drawable workstation type,
+such as its size and position, can be set prior to opening the workstation.
+See \s-2WORKSTATION TYPE CREATE\s+2 and \s-2WORKSTATION TYPE SET\s+2 for a
+complete list of the modifiable characteristics and their default settings.
+.SS "Window System Interaction"
+Workstation \s-2DC\s+2 limits correspond to the window size used by
+the \s-2PHIGS\s+2 workstation when the \s-2PHIGS\s+2 workstation is opened.
+The units are drawable coordinates.  When the \s-2API\s+2 responds to
+a window resize event, more or less of the window will be exposed;
+the \s-2PHIGS\s+2 output will not be scaled.
+Decreases in size cause portions of the \s-2PHIGS\s+2 output to be
+clipped away if the new size is less than the \s-2PHIGS\s+2 viewport limits.
+Size increase beyond the viewport limits will not reveal any additional
+\s-2PHIGS\s+2 ouput.
+.LP
+\s-2PHIGS\s+2 automatically redraws the \s-2PHIGS\s+2 workstation when portions of
+it are exposed, such as when it is brought to the top of other windows or
+moved from an iconic state to an open state.
+This redrawing may potentially change portions of the workstation state
+list by making the ``state of visual representation'' correct and making
+all requested entries current.
+.LP
+For both tool and drawable workstations, a DestroyNotify event on the
+workstation's window will cause \s-2PHIGS\s+2 to exit.
+A DestroyNotify event is generated either by the application or more
+likely by the operator when he destroys or ``Quit''s the window.
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state (\s-2PHOP, *, *, *\s+2)
+.IP 050
+Ignoring function, connection identifier not recognized by the implementation
+.IP 053
+Ignoring function, workstation identifier already is in use
+.IP 052
+Ignoring function, workstation type not recognized by the implementation
+.IP 055
+Ignoring function, workstation cannot be opened
+for an implementation-dependent reason
+.IP 063
+Ignoring function, opening this workstation would exceed the maximum number
+of simultaneously open workstations
+.IP -168
+Ignoring function, cannot open workstation on a read-only visual with no
+predefined colormap properties
+.IP -169
+Ignoring function, cannot create an X colormap resource
+.IP -200
+Ignoring function, cannot connect to the designated or default server
+.IP -201
+Ignoring function, the specified or default X server does not support
+a compatible PEX extension
+.IP -202
+Ignoring function, an X allocation error has occurred
+.IP -203
+Ignoring function, can't create an Xt shell
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INQUIRE SET OF OPEN WORKSTATIONS (3P)"
+.SM "OPEN PHIGS (3P)"
+.SM "CLOSE WORKSTATION (3P)"
+.SM "INQUIRE WORKSTATION CONNECTION AND TYPE (3P)"
+.SM "INQUIRE WORKSTATION STATE VALUE (3P)"
+.SM "WORKSTATION TYPE CREATE (3P)"
+.SM "WORKSTATION TYPE SET (3P)"
+.fi

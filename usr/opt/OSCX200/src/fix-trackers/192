@@ -1,0 +1,144 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203192036.AA13539@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2417) close XBUG #5044, #5049: Xmu: xset and xsetroot don't work on Sun with patch 2404
+				  Xmu: String To Cursor converter nit
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Thu, 19 Mar 92 15:36:45 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xmu: xset and xsetroot don't work on Sun with patch 2404
+        ### bug number:   5044
+        ### area:         Xmu
+        ### severity:     medium
+        ### comments:     deficient object files and shared libraries bite us again
+        ### status:       fixed, lib/Xmu/StrToCurs.c 1.19
+
+        Subject: Xmu: String To Cursor converter nit
+        ### bug number:   5049
+        ### area:         Xmu
+        ### severity:     low
+        ### comments:     
+        ### status:       fixed, lib/Xmu/StrToCurs.c 1.19
+
+*** /tmp/,RCSt1a13451	Thu Mar 19 15:31:55 1992
+--- lib/Xmu/StrToCurs.c	Thu Mar 19 15:25:40 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: StrToCurs.c,v 1.18 92/03/06 14:09:58 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: StrToCurs.c,v 1.19 92/03/19 15:22:29 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 49,54 ****
+--- 49,63 ----
+  #endif
+  #endif /* PATH_MAX */
+  
++ /* Kludge source to avoid encountering broken shared library linkers
++    which insist on resolving references unused by the application,
++    and broken object file formats that don't correctly distinguish
++    references to procedures from references to data.
++  */
++ #if defined(SUNSHLIB) || defined(SVR4)
++ #define XMU_KLUDGE
++ #endif
++ 
+  /*
+   * XmuConvertStringToCursor:
+   *
+***************
+*** 113,118 ****
+--- 122,130 ----
+  	XrmValue cvtArg;
+  	Boolean success;
+  	Display *dpy = DisplayOfScreen(screen);
++ #ifdef XMU_KLUDGE
++ 	Cardinal num;
++ #endif
+  
+  	fields = sscanf(name, "FONT %s %d %s %d",
+  			source_name, &source_char,
+***************
+*** 123,136 ****
+  	}
+  
+  	fromString.addr = source_name;
+! 	fromString.size = strlen(source_name);
+  	toFont.addr = (XPointer) &source_font;
+  	toFont.size = sizeof(Font);
+  	cvtArg.addr = (XPointer) &dpy;
+  	cvtArg.size = sizeof(Display *);
+  	/* XXX using display of screen argument as message display */
+  	success = XtCallConverter(dpy, XtCvtStringToFont, &cvtArg,
+  				  (Cardinal)1, &fromString, &toFont, NULL);
+  	if (!success) {
+  	    XtStringConversionWarning(name, XtRCursor);
+  	    return;
+--- 135,155 ----
+  	}
+  
+  	fromString.addr = source_name;
+! 	fromString.size = strlen(source_name) + 1;
+  	toFont.addr = (XPointer) &source_font;
+  	toFont.size = sizeof(Font);
+  	cvtArg.addr = (XPointer) &dpy;
+  	cvtArg.size = sizeof(Display *);
+  	/* XXX using display of screen argument as message display */
++ #ifdef XMU_KLUDGE
++ 	/* XXX Sacrifice caching */
++ 	num = 1;
++ 	success = XtCvtStringToFont(dpy, &cvtArg, &num, &fromString, &toFont,
++ 				    NULL);
++ #else
+  	success = XtCallConverter(dpy, XtCvtStringToFont, &cvtArg,
+  				  (Cardinal)1, &fromString, &toFont, NULL);
++ #endif
+  	if (!success) {
+  	    XtStringConversionWarning(name, XtRCursor);
+  	    return;
+***************
+*** 149,160 ****
+  
+  	  case 4:		/* specified mask font & char */
+  	    fromString.addr = mask_name;
+! 	    fromString.size = strlen(mask_name);
+  	    toFont.addr = (XPointer) &mask_font;
+  	    toFont.size = sizeof(Font);
+  	    /* XXX using display of screen argument as message display */
+  	    success = XtCallConverter(dpy, XtCvtStringToFont, &cvtArg,
+  				      (Cardinal)1, &fromString, &toFont, NULL);
+  	    if (!success) {
+  		XtStringConversionWarning(name, XtRCursor);
+  		return;
+--- 168,186 ----
+  
+  	  case 4:		/* specified mask font & char */
+  	    fromString.addr = mask_name;
+! 	    fromString.size = strlen(mask_name) + 1;
+  	    toFont.addr = (XPointer) &mask_font;
+  	    toFont.size = sizeof(Font);
+  	    /* XXX using display of screen argument as message display */
++ #ifdef XMU_KLUDGE
++ 	    /* XXX Sacrifice caching */
++ 	    num = 1;
++ 	    success = XtCvtStringToFont(dpy, &cvtArg, &num, &fromString,
++ 					&toFont, NULL);
++ #else
+  	    success = XtCallConverter(dpy, XtCvtStringToFont, &cvtArg,
+  				      (Cardinal)1, &fromString, &toFont, NULL);
++ #endif
+  	    if (!success) {
+  		XtStringConversionWarning(name, XtRCursor);
+  		return;

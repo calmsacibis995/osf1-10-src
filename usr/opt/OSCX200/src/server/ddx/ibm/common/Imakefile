@@ -1,0 +1,178 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.4 91/07/16 22:54:21 gildea Exp $
+#include <Server.tmpl>
+
+SRCS =		ibmColor.c \
+		ibmInit.c \
+		ibmIO.c \
+		ibmKeybd.c \
+		ibmMouse.c \
+		ibmQuery.c \
+		ibmScreen.c \
+		ibmSave.c \
+		ibmUtils.c
+
+LIBOBJS =	ibmColor.o\
+		ibmInit.o\
+		ibmIO.o \
+		ibmScreen.o \
+		ibmKeybd.o \
+		ibmMouse.o \
+		ibmQuery.o \
+		ibmSave.o \
+		ibmUtils.o
+
+OTHROBJS =
+
+IMMEDIATE_OBJS = $(OTHROBJS) $(LIBOBJS)
+
+INFOOBJS =	ibmDate.o
+
+OBJS =		$(IMMEDIATE_OBJS) $(INFOOBJS)
+
+#define	ListCreate(name)\
+SCREENS0= name
+#define	ListCreateEmpty()\
+SCREENS0=
+#define	ListAdd(last,new,name)\
+SCREENS/**/new= $(SCREENS/**/last) name
+#define	ListAddEmpty(last,new)\
+SCREENS/**/new= $(SCREENS/**/last)
+
+
+#if ibmInclude8514
+ListCreate(-DIBM_8514)
+#else
+ListCreateEmpty()
+#endif
+#if ibmIncludeADAM
+ListCreate(-DIBM_ADAM)
+#else
+ListCreateEmpty()
+#endif
+#if ibmIncludeCFBLANNO
+ListAdd(0,1,-DIBM_CFBLANNO)
+#else
+ListAddEmpty(0,1)
+#endif
+#if ibmIncludeMFBLANNO
+ListAdd(1,2,-DIBM_MFBLANNO)
+#else
+ListAddEmpty(1,2)
+#endif
+#if ibmIncludeAPA16
+ListAdd(2,3,-DIBM_APA16)
+#else
+ListAddEmpty(2,3)
+#endif
+#if ibmIncludeEGA
+ListAdd(3,4,-DIBM_EGA)
+#else
+ListAddEmpty(3,4)
+#endif
+#if ibmIncludePED
+ListAdd(4,5,-DIBM_PED)
+#else
+ListAddEmpty(4,5)
+#endif
+#if ibmIncludeVGA
+ListAdd(5,6,-DIBM_VGA)
+#else
+ListAddEmpty(5,6)
+#endif
+#if ibmIncludeSKYWAY
+ListAdd(6,7,-DIBM_SKYWAY)
+#else
+ListAddEmpty(6,7)
+#endif
+#if ibmIncludeDSS
+ListAdd(7,8,-DIBM_DSS)
+#else
+ListAddEmpty(7,8)
+#endif
+#if ibmIncludeEXPWY
+ListAdd(8,9,-DIBM_EXPWY)
+#else
+ListAddEmpty(8,9)
+#endif
+SCREENS= $(SCREENS9)
+
+#if ibmSpecialMalloc
+DEFINES =  -DIBM_SPECIAL_MALLOC $(SCREENS)
+#else
+DEFINES = $(SCREENS)
+#endif
+
+INCLUDES = -I. -I../../../include -I$(INCLUDESRC) -I../OPERATING_SYSTEM
+
+#if DebugServer && ProfileServer
+DebuggedAndProfiledLibraryObjectRule()
+#else
+# if DebugServer
+DebuggedLibraryObjectRule()
+# else
+#  if ProfileServer
+ProfiledLibraryObjectRule()
+#  else
+NormalLibraryObjectRule()
+#  endif
+# endif
+#endif
+
+all::	$(OBJS)
+NormalRelocatableTarget(ibmcomm,$(LIBOBJS))
+
+#if ProfileServer
+ProfiledRelocatableTarget(ibmcomm,$(LIBOBJS))
+#endif
+#if DebugServer
+DebuggedRelocatableTarget(ibmcomm,$(LIBOBJS))
+#endif
+
+DependTarget()
+
+#ifdef RtAIX
+ibmDate.o: FRC
+	$(CC) $(CFLAGS) \
+	 -DDATE="\"`date`\"" \
+	 -DHOST="\"`hostname | awk -f awkhprog `\"" \
+	 -DDEVELOPER="\"`who -A`\"" \
+	-c ibmDate.c
+#else
+ibmDate.o: FRC
+	$(CC) $(CFLAGS) \
+	 -DDATE="\"`date`\"" \
+	 -DHOST="\"`hostname`\"" \
+	 -DDEVELOPER="\"`who am i|sed 1q|sed -e 's/.*\!//'|sed -e 's/[	 ].*$$//'`\"" \
+	-c ibmDate.c
+#endif
+
+FRC:
+
+ibmScreen.o ibmInit.o ibmIO.o ibmUtils.o:	Imakefile
+
+LintLibraryTarget(ibmcomm,$(SRCS))
+NormalLintTarget($(SRCS))

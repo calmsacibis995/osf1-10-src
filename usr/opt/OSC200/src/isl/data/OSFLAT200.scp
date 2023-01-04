@@ -1,0 +1,114 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: OSFLAT200.scp,v $ $Revision: 1.1.7.4 $ (DEC) $Date: 1993/11/09 20:20:21 $
+# 
+:	-Global Vars
+
+KODBDIR=usr/share/lib/kernel_options
+KODB=$KODBDIR/kernel_options.db
+LATDEV=/dev/lat
+MAJ=5
+MIN=5000
+OPTNAME="Local Area Transport Support"
+TMPDB=$KOBDIR/,kernel_options.db
+
+:	-Error
+#		write and error string to stderr
+
+Error()
+{
+	1>&2 echo "$*"
+}
+
+
+:	-KernOptMod
+#		change the option field of a kernel option in the
+#	kernel options database
+#
+#	given:	$1 - the new value for the field
+#		$2 - the name of the entry to modify
+
+
+KernOptMod()
+{ (
+	[ -f $TMPDB ] &&
+	{
+		Error "$KODB being modified; cannot update."
+		return 1
+	}
+	VAL=$1
+	OPT=$2
+
+	ENT=`egrep "^$OPT" $KODB` ||
+	{
+		Error "Option $OPT not found in $KODB."
+		return 1
+	}
+	egrep -v "^$OPT" $KODB > $TMPDB
+
+	IFS=:
+	set xx $ENT
+	ENTNAME=$2
+	shift 3
+
+	echo "$ENTNAME:$VAL\c" >> $TMPDB
+	while [ $# -gt 0 ]
+	do
+		echo ":$1\c" >> $TMPDB
+		shift
+	done
+
+	echo >> $TMPDB
+
+	mv $TMPDB $KODB
+) }
+
+
+
+case "$ACT" in
+C)
+	case "$1" in
+	INSTALL)
+		# create LAT device - remove old one first
+		(rm -f $LATDEV > /dev/null 2>&1)
+        	(mknod $LATDEV c $MAJ $MIN > /dev/null 2>&1; chmod 666 /dev/lat)
+
+		# update the kernel option database
+
+		KernOptMod M "$OPTNAME"
+		;;
+	esac
+	;;
+POST_D)
+	# remove LAT device
+	(rm -f $LATDEV > /dev/null 2>&1)
+
+	# update the kernel option database
+
+	KernOptMod O "$OPTNAME"
+	;;
+esac
+exit 0

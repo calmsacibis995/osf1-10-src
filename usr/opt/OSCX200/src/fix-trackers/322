@@ -1,0 +1,220 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205181759.AA25310@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2549) addendum to seq: 2543, font service protocol
+Date: Mon, 18 May 92 13:59:52 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+My previous change to the FlushClient routine was incorrect.
+Here is the fix.
+
+*** /tmp/da25170	Mon May 18 13:52:01 1992
+--- fonts/server/os/io.c	Mon May 18 13:51:29 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: io.c,v 1.8 92/05/15 10:38:59 gildea Exp $ */
+  /*
+   * i/o functions
+   */
+--- 1,4 ----
+! /* $XConsortium: io.c,v 1.9 92/05/18 13:50:44 gildea Exp $ */
+  /*
+   * i/o functions
+   */
+***************
+*** 316,327 ****
+      }
+  }
+  
+- static int  padlength[4] = {0, 3, 2, 1};
+- 
+  int
+! FlushClient(client, oc)
+      ClientPtr   client;
+      OsCommPtr   oc;
+  {
+      ConnectionOutputPtr oco = oc->output;
+      int         fd = oc->fd;
+--- 316,328 ----
+      }
+  }
+  
+  int
+! FlushClient(client, oc, extraBuf, extraCount, padsize)
+      ClientPtr   client;
+      OsCommPtr   oc;
++     char       *extraBuf;
++     int         extraCount;
++     int         padsize;
+  {
+      ConnectionOutputPtr oco = oc->output;
+      int         fd = oc->fd;
+***************
+*** 334,340 ****
+      if (!oco)
+  	return 0;
+      written = 0;
+!     notWritten = oco->count;
+      todo = notWritten;
+      while (notWritten) {
+  	long        before = written;
+--- 335,341 ----
+      if (!oco)
+  	return 0;
+      written = 0;
+!     notWritten = oco->count + extraCount + padsize;
+      todo = notWritten;
+      while (notWritten) {
+  	long        before = written;
+***************
+*** 342,351 ****
+  	int         i = 0;
+  	long        len;
+  
+- 	/* XXX - now that FlushClient doesn't take an extraBuffer
+- 	   argument, we don't really need the fancy writev code.
+- 	   */
+- 
+  	/*-
+  	 * You could be very general here and have "in" and "out" iovecs and
+  	 * write a loop without using a macro, but what the heck.  This
+--- 343,348 ----
+***************
+*** 376,381 ****
+--- 373,380 ----
+  	}
+  
+  	InsertIOV((char *) oco->buf, oco->count);
++ 	InsertIOV(extraBuf, extraCount);
++ 	InsertIOV(padBuffer, padsize);
+  
+  	errno = 0;
+  	if ((len = writev(fd, iov, i)) >= 0) {
+***************
+*** 413,420 ****
+  		oco->size = notWritten + OutputBufferSize;
+  		oco->buf = obuf;
+  	    }
+  	    oco->count = notWritten;
+! 	    return 0;
+  	} else {
+  	    close(fd);
+  	    MarkClientException(client);
+--- 412,423 ----
+  		oco->size = notWritten + OutputBufferSize;
+  		oco->buf = obuf;
+  	    }
++ 	    if ((len = extraCount - written) > 0) {
++ 		bcopy(extraBuf + written,
++ 		      (char *) oco->buf + oco->count, len);
++ 	    }
+  	    oco->count = notWritten;
+! 	    return extraCount;
+  	} else {
+  	    close(fd);
+  	    MarkClientException(client);
+***************
+*** 441,447 ****
+      }
+      oc->output = (ConnectionOutputPtr) NULL;
+  
+!     return 0;
+  }
+  
+  void
+--- 444,450 ----
+      }
+      oc->output = (ConnectionOutputPtr) NULL;
+  
+!     return extraCount;
+  }
+  
+  void
+***************
+*** 474,480 ****
+  		BITSET(OutputPending, oc->fd);
+  		NewOutputPending = TRUE;
+  	    } else {
+! 		(void) FlushClient(client, oc);
+  	    }
+  	}
+      }
+--- 477,483 ----
+  		BITSET(OutputPending, oc->fd);
+  		NewOutputPending = TRUE;
+  	    } else {
+! 		(void) FlushClient(client, oc, (char *) NULL, 0, 0);
+  	    }
+  	}
+      }
+***************
+*** 507,519 ****
+  	oc->output = oco;
+      }
+      if (oco->count + count + padBytes > oco->size) {
+- 	register int i;
+- 
+  	BITCLEAR(OutputPending, oc->fd);
+  	NewOutputPending = FALSE;
+! 	i = FlushClient(client, oc);
+! 	if (i < 0)
+! 	    return i;
+      }
+      NewOutputPending = TRUE;
+      BITSET(OutputPending, oc->fd);
+--- 510,518 ----
+  	oc->output = oco;
+      }
+      if (oco->count + count + padBytes > oco->size) {
+  	BITCLEAR(OutputPending, oc->fd);
+  	NewOutputPending = FALSE;
+! 	return FlushClient(client, oc, buf, count, padBytes);
+      }
+      NewOutputPending = TRUE;
+      BITSET(OutputPending, oc->fd);
+***************
+*** 530,535 ****
+--- 529,536 ----
+  {
+      write_to_client_internal(client, count, buf, 0);
+  }
++ 
++ static int  padlength[4] = {0, 3, 2, 1};
+  
+  WriteToClient(client, count, buf)
+      ClientPtr   client;
+*** /tmp/da25189	Mon May 18 13:52:03 1992
+--- fonts/server/os/connection.c	Mon May 18 13:51:33 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: connection.c,v 1.18 92/05/15 10:41:39 gildea Exp $ */
+  /*
+   * handles connections
+   */
+--- 1,4 ----
+! /* $XConsortium: connection.c,v 1.19 92/05/18 13:51:29 gildea Exp $ */
+  /*
+   * handles connections
+   */
+***************
+*** 468,474 ****
+      OsCommPtr   oc = (OsCommPtr) client->osPrivate;
+  
+      if (oc->output && oc->output->count)
+! 	FlushClient(client, oc);
+      ConnectionTranslation[oc->fd] = 0;
+      close_fd(oc);
+      client->osPrivate = (pointer) NULL;
+--- 468,474 ----
+      OsCommPtr   oc = (OsCommPtr) client->osPrivate;
+  
+      if (oc->output && oc->output->count)
+! 	FlushClient(client, oc, (char *) NULL, 0, 0);
+      ConnectionTranslation[oc->fd] = 0;
+      close_fd(oc);
+      client->osPrivate = (pointer) NULL;

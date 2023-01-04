@@ -1,0 +1,62 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/* BuildSystemHeader added automatically */
+/* $Header: /usr/sde/x11/rcs/x11/src/./motif/clients/paint/paint_icon.h,v 1.1.2.2 92/12/11 08:35:18 devrcs Exp $ */
+/*
+**************************************************************************
+**                   DIGITAL EQUIPMENT CORPORATION                      **
+**                         CONFIDENTIAL                                 **
+**    NOT FOR MODIFICATION OR REDISTRIBUTION IN ANY MANNER WHATSOEVER   **
+**************************************************************************
+*/
+#define paint_icon_width 32
+#define paint_icon_height 32
+static char paint_icon_bits[] = {
+   0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x0001, 0x0000, 0x0000, 0x0080,
+   0x00fd, 0x00ff, 0x00ff, 0x00bf, 0x0005, 0x0000, 0x00c0, 0x00bf,
+   0x0005, 0x0000, 0x00e0, 0x00b0, 0x0005, 0x0000, 0x0060, 0x00b0,
+   0x0005, 0x0000, 0x0030, 0x00b0, 0x0005, 0x0000, 0x0038, 0x00b8,
+   0x0005, 0x0000, 0x003f, 0x00bc, 0x0005, 0x00c0, 0x003f, 0x00ae,
+   0x0005, 0x00e0, 0x00ff, 0x00a7, 0x0005, 0x00f0, 0x00ff, 0x00a3,
+   0x0005, 0x00f8, 0x00fe, 0x00a1, 0x0005, 0x003c, 0x00ff, 0x00a1,
+   0x0005, 0x009e, 0x00ff, 0x00a1, 0x0005, 0x00ce, 0x00ff, 0x00a1,
+   0x0005, 0x00e7, 0x00ff, 0x00a1, 0x0005, 0x00f7, 0x00ff, 0x00a1,
+   0x0005, 0x00f3, 0x00ff, 0x00a0, 0x0085, 0x00fb, 0x00ff, 0x00a0,
+   0x0085, 0x00fb, 0x007f, 0x00a0, 0x0085, 0x00ff, 0x007f, 0x00a0,
+   0x0085, 0x00ff, 0x003f, 0x00a0, 0x0085, 0x00ff, 0x001f, 0x00a0,
+   0x0085, 0x00ff, 0x0007, 0x00a0, 0x00c5, 0x00ff, 0x0001, 0x00a0,
+   0x00f5, 0x003f, 0x0000, 0x00a0, 0x00f5, 0x0003, 0x0000, 0x00a0,
+   0x0005, 0x0000, 0x0000, 0x00a0, 0x00fd, 0x00ff, 0x00ff, 0x00bf,
+   0x0001, 0x0000, 0x0000, 0x0080, 0x00ff, 0x00ff, 0x00ff, 0x00ff};
+
+#define window_icon_width 17
+#define window_icon_height 17
+static char window_icon_bits[] = {
+   0x00, 0x00, 0x00, 0xfe, 0xff, 0x00, 0x02, 0x98, 0x00, 0x02, 0xc8, 0x00,
+   0x02, 0xef, 0x00, 0x82, 0xbf, 0x00, 0xc2, 0x9f, 0x00, 0xe2, 0x9e, 0x00,
+   0x62, 0x9f, 0x00, 0xb2, 0x8f, 0x00, 0xf2, 0x8f, 0x00, 0xfa, 0x87, 0x00,
+   0xfa, 0x83, 0x00, 0xfa, 0x80, 0x00, 0x02, 0x80, 0x00, 0xfe, 0xff, 0x00,
+   0x00, 0x00, 0x00};

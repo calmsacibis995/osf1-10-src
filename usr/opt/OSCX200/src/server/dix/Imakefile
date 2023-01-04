@@ -1,0 +1,88 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.38 92/05/28 12:19:17 rws Exp $
+#include <Server.tmpl>
+
+SRCS = atom.c colormap.c cursor.c devices.c dispatch.c dixutils.c events.c \
+	extension.c gc.c globals.c glyphcurs.c grabs.c \
+	main.c property.c resource.c swaprep.c swapreq.c \
+	tables.c window.c initatoms.c dixfonts.c \
+	GlobalResource.c
+OBJS = atom.o colormap.o cursor.o devices.o dispatch.o dixutils.o events.o \
+	extension.o gc.o globals.o glyphcurs.o grabs.o \
+	main.o property.o resource.o swaprep.o swapreq.o \
+	tables.o window.o initatoms.o dixfonts.o \
+	GlobalResource.o
+STATIC_SRCS = main_static.c extension_static.c dixfonts_static.c
+STATIC_OBJS = main_static.o extension_static.o dixfonts_static.o
+SHARED_SRCS = extension_load.c dixfonts_load.c
+SHARED_OBJS = extension_load.o dixfonts_load.o
+
+    INCLUDES = -I. -I../include -I$(INCLUDESRC) -I$(FONTSRC)/include
+    LINTLIBS = ../os/llib-los.ln
+
+/*
+ * The following configuration parameters may be set in the appropriate
+ * .macros files or site.def in the directory util/imake.includes/:
+ *
+ *     DefaultFontPath                COMPILEDDEFAULTFONTPATH
+ *     DefaultRGBDatabase             RGB_DB
+ *
+ * The sample util/imake.includes/Imake.tmpl will provide generic defaults.
+ * The values in site.h are simply a last line of defense and should not be
+ * changed.
+ */
+
+#ifdef DefaultFontPath
+DEFAULTFONTPATH = DefaultFontPath
+SITE_FONT_PATH = -DCOMPILEDDEFAULTFONTPATH=\"$(DEFAULTFONTPATH)\"
+#endif
+
+#ifdef DefaultRGBDatabase
+DEFAULTRGBDATABASE = DefaultRGBDatabase
+   SITE_RGB_DB = -DRGB_DB=\"$(DEFAULTRGBDATABASE)\"
+#endif
+
+#ifdef DefaultDisplayClass
+DEFAULTDISPLAYCLASS = DefaultDisplayClass
+   SITE_DISPLAY_CLASS = -DCOMPILEDDISPLAYCLASS=\"$(DEFAULTDISPLAYCLASS)\"
+#endif
+
+SITE_DEFINES = $(SITE_FONT_PATH) $(SITE_RGB_DB) $(SITE_DISPLAY_CLASS)
+
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(dix,$(OBJS) $(STATIC_OBJS))
+LintLibraryTarget(dix,$(SRCS) $(STATIC_SRCS))
+NormalLintTarget($(SRCS) $(STATIC_SRCS))
+
+#if SharedServerLibs
+SharedLibraryTarget(dix,.,$(OBJS) $(SHARED_OBJS))
+InstallSharedLibrary(dix,.,$(INSTALLSERVERLIBSDIR))
+#endif
+
+SpecialCObjectRule(globals,$(ICONFIGFILES),$(SITE_DEFINES))
+
+DependTarget()

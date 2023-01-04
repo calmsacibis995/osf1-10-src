@@ -1,0 +1,842 @@
+#!/sbin/sh
+#	install.1: installation for standalone environment.
+#
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+
+:	--Function Definitions
+
+# external functions
+SHELL_LIB=${SHELL_LIB:=/kit/isl}
+. $SHELL_LIB/Wait
+. $SHELL_LIB/Ticker
+. $SHELL_LIB/Strings
+. $SHELL_LIB/Error
+
+# override the default ticker pipe - there is no /var/tmp....
+
+_Ticker_PIPE=/tmp/pipe$$
+
+
+
+:	-CheckPart
+#		make sure that a set of custom partitions are usable
+#	for system installation.
+#
+#	given:	$1 - name of file contining partition info to check
+#	does:	check 'a' and 'b' partitions against hard coded minima
+#	return:	0 if partitions are OK, 1 otherwise
+#
+#	note:	this routine assumes it knows what "cdl" output looks like
+
+CheckPart()
+{ (
+	#! these are bogus
+	MINROOTSIZE=16348
+	MINSWAPSIZE=65536
+
+	# note redirection after "done"
+	while read LINE
+	do
+		set xx $LINE; shift
+
+		# check the size of the 'a' partition. Earlier versions
+		#  of the software checked the 'b' partition also. This
+		#  is not correct because the 'b' parition is not a required
+		#  partition during an advanced installation
+
+		case "$1$2" in
+		"a---")
+			A_OFFSET=$3
+			A_SIZE=$4
+			A_END=`expr $A_OFFSET + $A_SIZE - 1`
+			[ "$A_SIZE" -lt "$MINROOTSIZE" ] &&
+			{
+				return 1
+			}
+			;;
+		esac
+	done
+	return 0
+) }
+
+
+
+:	-ChoosePart
+#		select default or existing partition tables
+#
+#	given:	$1 - NPART,UPART for drive
+#		$2 - TPART for drive
+#	does:
+#	return:
+
+ChoosePart()
+{ (
+	NUPART=$1
+	TPART=$2
+
+	#%{ LOCALIZE
+
+	DP_BANNER="
+The following table shows the default disk partitions."
+	EP_BANNER="
+The following table shows the existing disk partitions."
+	EP_CONTINUE="
+Do you want to continue the installation with these defaults? ($LC_Y/$LC_N): \c"
+	EP_EXIT="
+The installation program is exiting. Restart the installation to select
+a different system disk.
+"
+	EP_NOT_SUITABLE="
+The partition tables on the disk $NUPART are not suitable for
+use as a system disk. If you choose to continue the installation with
+$NUPART as the system disk, the following default partitions
+will be used:
+"
+
+	QUERY1="
+Select one of the following partition tables to be displayed
+for the system disk $NUPART $TPART:
+
+	1) Default disk label
+	2) Existing disk label
+
+Enter your choice: \c"
+
+	QUERY2="Are these the partitions you want? ($LC_Y/$LC_N) [$LC_Y]: \c"
+
+	#}% LOCALIZE
+
+	dd < $EDAT 2> $NUL | CheckPart ||
+	{
+		echo "$EP_NOT_SUITABLE"
+		echo "$DP"
+		while :
+		do
+			echo "$EP_CONTINUE"
+			read USER_INPUT
+			USER_INPUT=`ToLower $USER_INPUT`
+			case "$USER_INPUT" in
+			$LC_N)	# do not continue installation
+				echo "$EP_EXIT"
+				return 2
+				;;
+			$LC_Y)	return 1
+				;;
+			esac
+		done
+	}
+
+	while :
+	do
+		echo "$QUERY1"
+		read USER_INPUT
+		PT=`ToLower $USER_INPUT`
+
+		case $PT in
+		1)	FILE=$DDAT
+			echo "$DP_BANNER"
+			;;
+		2)	FILE=$EDAT
+			echo "$EP_BANNER"
+			;;
+		*)	continue
+			;;
+		esac
+
+		dd < $FILE 2> $NUL
+
+		while :
+		do
+			echo "$QUERY2"
+			read USER_INPUT
+			USER_INPUT=`ToLower $USER_INPUT`
+
+			case "$USER_INPUT" in
+			$LC_N)	continue 2
+				;;
+			$LC_Y|"")
+				break 2
+			esac
+		done
+	done
+
+	case $PT in
+	1)	# default partitions
+		return 1
+		;;
+	2)	# custom partitions - preserve the label and partitions
+		# write new bootblocks
+		disklabel /dev/r$CPART > /label.sav 2> $DLTMP ||
+		{
+			Error "Error:
+The installation procedure cannot read the existing system disk label
+and cannot update boot blocks.
+
+disklabel diagnostic:
+"
+			1>&2 cat $DLTMP
+			return 1
+		}
+		disklabel -z /dev/r$CPART 2> $DLTMP ||
+		{
+			Error "Error:
+The installation procedure cannot prepare the system disk for new boot blocks.
+
+disklabel diagnostic:
+"
+			1>&2 cat $DLTMP
+			return 1
+		}
+		disklabel -Rr /dev/r$CPART /label.sav $TROOT > $DLTMP 2>&1 ||
+		{
+			Error "Error:
+The installation procedure cannot restore the system disk label
+and cannot update boot blocks.
+
+disklabel diagnostic:"
+
+			1>&2 cat $DLTMP
+			return 1
+		}
+
+		return 0
+	esac
+
+) }
+
+
+
+:	-CustomPartitions
+#		Code to handle customized partitions - replace with
+#	call to a C program that does the same using the disk labels
+#
+#	given:	$1 - {NPART}{UPART} for system disk
+#		$2 - {TPART} for system disk
+#	does:	check if customer has usable custom partitions and if
+#		so, checks if the user wants to use them.
+#	return:	0 if the customer wants to keep partitions, 1 otherwise
+
+
+CustomPartitions()
+{
+	[ $ISL_ADVFLAG = 0 ] &&
+	{
+		# BASIC installation, no custom partitions
+		return 1
+	}
+	[ $# = 2 ] ||
+	{
+		Error "Partitions arg error $#, $*"
+		exit 1
+	}
+
+	NUPART=$1
+	TPART=$2
+
+	DDAT=/tmp/dp.dat
+	EDAT=/tmp/ep.dat
+
+	cdl -E $NUPART > $EDAT 2> /dev/null ||
+	{
+		# no partitions on the disk, use defaults
+		return 1
+	}
+	cdl -D $TPART $NUPART > $DDAT
+
+	DP=`dd < $DDAT 2> $NUL`
+	EP=`dd < $EDAT 2> $NUL`
+
+        [ "$DP" = "$EP" ] && return 1
+
+	ChoosePart $NUPART $TPART
+	STAT=$?
+	case "$STAT" in
+	2)	exit 1
+		;;
+	esac
+	return $STAT
+}
+
+
+
+:	-GetMupInfo
+#		read MUP info from distribution
+#
+#
+
+GetMupInfo()
+{ (
+	cd /mnt
+
+	case "$TLOAD" in
+	REMOTE)
+
+		MUPDIR=`expr $HARDROOT : '\(.*\)/hROOT'`
+		MUPFILE="hMUPCTRL"
+		rsh $NLOAD -l ris -n "cd $MUPDIR/instctrl;tar cf - ." |
+			dd > $MUPFILE 2> $NUL
+		;;
+	esac ||
+	{
+		Error "Cannot read upgrade control file."
+		exit 1
+	}			
+) }
+
+
+
+:	-LocalStrings
+#		define the message strings
+#
+#	given:	nil
+#	does:	some assignments
+#	return:	nil
+#
+
+LocalStrings()
+{
+	ISL_SWID="DEC OSF/1"			# product name
+
+	ISL_IGNAME="$ISL_SWID Installation Guide"
+
+	MSG3="
+*** SYSTEM DISK SELECTION ***
+
+The $ISL_IGNAME explains the following table
+of system disk drives.  Select one of the disks in the table
+to contain the root file system: "
+
+	MSG4="
+The installation procedure is now restoring the root file system to
+partition 'a' of the system disk,"
+
+	MSG5="
+The installation procedure is now checking the root file system
+on partition 'a' of the system disk,"
+
+	ERMSG1="
+This error causes the installation procedure to stop.  One possible
+cause for the error is a corrupt system disk. You may want to replace
+the current disk or use another system disk, and begin the installation
+again. If this error message appears a second time, contact a Digital
+representative."
+
+	ERMSG2="
+The installation software could not access your distribution device.
+Make sure the distribution device is online and ready before you
+respond to the next prompt."
+
+	ERMSG3="
+The installation software could not access your system disk. Make sure
+the system disk drive is online and write-enabled (if applicable to
+your disk drive) before you select the disk from the table."
+
+	ERMSG4="
+The installation software could not find a ROOT image on the
+distribution media."
+
+	E_CALL_DEC="
+Contact a Digital field service representative."
+
+	LC_Y=y
+	LC_N=n
+}
+
+
+
+:	-Main
+#		Main program
+#
+#	given:	nil
+#	does:	walk the user thru setting up a root file system
+#	return: 0 if successful, 1 otherwise
+#		will return 1 is SYSADM is selected
+
+Main()
+{
+	# we're using the system path from .profile
+
+	NUL=/dev/null
+	D=/dev
+	DLTMP=/tmp/dl$$tmp		# log for disklabel messages
+
+	DISK_MEDIA_DIR="ALPHA/BASE"
+	BASE_MEDIA_DIR="$DISK_MEDIA_DIR"
+	MPK_MEDIA_DIR="ALPHA/*/ROOT"
+	HMPK_MEDIA_DIR="ALPHA/*/hROOT"
+
+	LocalStrings		# set message strings
+
+	# installation types
+	BASIC=1
+	ADVANCED=2
+	SYSADM=3
+
+
+	while : true
+	do
+		echo "
+*** STANDALONE SYSTEM ENVIRONMENT ***
+
+  Select the BASIC option to install the mandatory 
+  software subsets for your system configuration.
+
+  Select the ADVANCED option to display optional 
+  software subsets from a menu and/or customize 
+  system disks and partitions.
+
+  Select the SYSTEM MANAGEMENT option to customize disk
+  partitions on the system disk.
+
+
+Select one of the following options:
+
+
+	1) BASIC Installation
+	2) ADVANCED Installation
+
+	3) SYSTEM Management
+
+Enter your choice: \c"
+
+		read USER_INPUT
+		USER_INPUT=`echo $USER_INPUT`
+
+		case "$USER_INPUT" in
+		$BASIC)	ISL_ADVFLAG=0
+			DEF_PT=1
+			break
+			;;
+		$ADVANCED)
+			ISL_ADVFLAG=1
+			DEF_PT=0
+			break
+			;;
+		$SYSADM)
+			return 1
+			;;
+		esac
+	done
+
+
+	trap '
+		while :
+		do
+			Ticker off
+			echo "
+Do you want to quit the installation? ($LC_Y/$LC_N) []: \c"
+
+			read USER_INPUT
+			USER_INPUT=`ToLower $USER_INPUT`
+
+			case $USER_INPUT in
+			$LC_Y)	echo "Restart your installation."
+				exit 1
+				;;
+			$LC_N)	break
+				;;
+			esac
+
+	done ' 1 2 3
+
+	# get the state information written by .profile
+
+	. $ISLINFO	# $ISLINFO should be in the environment
+
+
+	# determine the system disk
+
+	SelectSystemDisk || return 1
+
+
+	(cd $D; 2>&1 MAKEDEV $BROOT $CPART > $NUL) ||
+	{
+		echo "
+The MAKEDEV command could not make the special files for the system disk,
+	$NROOT$UROOT. $ERMSG1"
+		return 1
+	}
+	cd /
+
+	echo "
+
+Initializing the system disk $TROOT, $NROOT$UROOT..."
+
+	CustomPartitions $NROOT$UROOT $TROOT ||
+	{
+		# this is either a BASIC install or 
+		# an ADVANCED with default partition tables
+
+		disklabel -z /dev/r$CPART > $NUL 2>&1
+		if [ "$ISL_ADVFLAG" = 0 ]; then
+		{
+			echo n | disklabel -wr /dev/r$CPART $TROOT > $DLTMP 2>&1
+		}
+		else
+		{
+			disklabel -wr /dev/r$CPART $TROOT > $DLTMP 2>&1
+
+		}; fi ||
+		{
+			Error "Error:
+The installation procedure is unable to initialize the system disk label.
+
+disklabel diagnostic:"
+
+			1>&2 cat $DLTMP
+			return 1
+		}
+	}
+
+	Ticker on
+
+	2>&1 newfs $D/$CROOT $TROOT >> /FILESYS.log ||
+	{
+		Ticker off
+		Error "
+The newfs command failed to construct a file system on
+partition 'a' of the system disk, $NROOT$UROOT. $ERMSG1"
+		return 1
+	}
+
+
+	mount $D/$BROOT /mnt ||
+	{
+		Ticker off
+		Error "
+The mount command failed to mount partition 'a' of the system
+disk, $NROOT$UROOT. $ERMSG1"
+		return 1
+	}
+
+	# Restore the ROOT
+	cd /mnt
+	case $TLOAD in
+	REMOTE)
+		# get ROOT pathname. uses $RISDIR from $ISLINFO
+
+		SOFTROOT=`rsh $NLOAD -l ris -n "echo $RISDIR/*/ROOT"`
+
+		[ -f /hinstall ] &&
+			HARDROOT=`rsh $NLOAD -l ris -n "echo $RISDIR/*/hROOT"`
+
+		# restore the ROOT and hROOT from the server
+		for K in $SOFTROOT $HARDROOT
+		do
+			rsh $NLOAD -l ris -n "dd if=$K bs=10k 2> $NUL" |
+				restore Yrf - 2> $NUL ||
+			{
+				Ticker off
+				Error "
+The installation failed to restore the $K image
+from the server.  $ERMSG1"
+				umount /mnt
+				return 1
+			}
+		done
+
+		# copy netstart and hosts to the root for use
+		#  by the disk-resident phase of the installation
+
+		cp /netstart netstart 2> $NUL
+		cp /etc/hosts etc/hosts 2> $NUL
+		;;
+
+	CDROM)
+		# CDROM is already mounted on /kit
+
+		FOUND_ROOT=
+		[ -f /hinstall ] || HMPK_MEDIA_DIR=
+		for K in $MPK_MEDIA_DIR $HMPK_MEDIA_DIR
+		{
+			[ -f /kit/$K ] &&
+			{
+				FOUND_ROOT=1
+				restore Yrf /kit/$K 2> $NUL ||
+				{
+					Ticker off
+					Error "
+The restore command could not access the $K root file system dump image.
+$ERMSG1
+"
+					cd /
+					umount /mnt
+					return 1
+				}
+			}
+		}
+		[ "$FOUND_ROOT" ] ||
+		{
+			Ticker off
+			Error "$ERMSG4"
+			Error "$E_CALL_DEC"
+			cd /
+			umount /mnt
+			return 1
+		}
+		;;
+	esac
+
+	echo "
+BLOAD=$BLOAD
+BROOT=$BROOT
+CLOAD=$CLOAD
+CROOT=$CROOT
+ISL_ADVFLAG=$ISL_ADVFLAG
+NLOAD=$NLOAD
+NROOT=$NROOT
+PLOAD=$PLOAD
+PROOT=$PROOT
+RISDIR=$RISDIR
+RISENT=$RISENT
+RISHOME=$RISHOME
+TLOAD=$TLOAD
+TROOT=$TROOT
+ULOAD=$ULOAD
+UROOT=$UROOT
+WARN=$WARN
+" > /mnt/$ISLINFO
+
+
+	cd /
+	echo "
+*** BOOTSTRAP COMMAND SEQUENCE ***" >> /install.log
+
+	case "$TLOAD" in
+	REMOTE )
+		echo "
+Distribution source is remote server $NLOAD" >> /install.log
+		;;
+	esac
+
+	# copy files to /mnt...
+	cp /tmp/showboot /mnt/tmp/showboot
+	cp /FILESYS.log /mnt/FILESYS.log
+
+	# call GetMupInfo to enable hardware update auto-mupping.
+	# GetMupInfo
+
+	(
+		# create device files for system disk
+		cd /mnt/$D
+		./MAKEDEV $NROOT$UROOT > $NUL 2>&1
+	)
+
+	Ticker off
+	echo "The system disk has been initialized."
+
+	cat /tmp/showboot >> /install.log
+	cp /install.log /mnt/install.log
+	umount /mnt
+
+	# check the new root. -o forces a check even if the clean
+	#  byte is set.
+
+	fsck -o $D/$CROOT > $NUL 2>&1 ||
+	{
+		echo "
+The fsck command failed to complete a file system consistency check
+for the file system on partition 'a' of the system disk, $NROOT$UROOT.
+$ERMSG1 "
+		return 1
+	}
+
+	echo "
+	*** BOOTSTRAP COMMAND SEQUENCE ***"
+
+	cat /tmp/showboot
+
+	return 0
+}
+
+
+:	-SelectSystemDisk
+#
+#		walk the user thru the selection of the system disk
+#
+#	given:	nil
+#	does:	runs finder to get a disk selection
+#			validate the selection, informing the user of potentially
+#				tricky ramifications
+#	return:	0 on success, 1 of there is an error or the user wants
+#				to bail out
+#
+
+SelectSystemDisk()
+{
+
+	while : true; do
+	{
+		ROUTINE="SYSTEM DISK"
+		export ROUTINE
+		echo "$MSG3"
+
+		FROOT=`finder -r` ||
+		{
+			echo "
+No valid device is found. $E_CALL_DEC"
+			return 1
+		}
+
+		set xx $FROOT; shift
+
+		TROOT=$1;	NROOT=$2;	UROOT=$3;	PROOT=a
+		BROOT=$NROOT$UROOT$PROOT
+		CROOT=r$BROOT
+		CPART=$NROOT${UROOT}c
+
+		WARN=$4
+
+		case "$NROOT$UROOT" in
+		$NLOAD$ULOAD)
+			echo "
+You attempted to allocate the root file system on $NROOT$UROOT, which
+contains your distribution medium. Select another disk device from the
+table."
+			continue
+			;;
+		esac
+
+
+		[ "$WARN" ] &&
+		{
+			GOADV=1		# do advanced
+			RETRY=2		# select another drive
+			BAIL=3		# leave the installation
+
+			if [ "$ISL_ADVFLAG" = 0 ]; then
+			{
+				while : ; do
+				{
+					# attempt to install to a small drive
+					echo "
+	You selected $TROOT, device number $UROOT. This device is not
+	supported for BASIC installations.
+
+	Select one of the following courses of action:
+
+		$GOADV) Perform ADVANCED installation to $NROOT$UROOT
+		$RETRY) Select another drive
+		$BAIL) Exit the Installation
+
+	Enter your choice: \c"
+
+					read USER_INPUT
+
+					USER_INPUT=`ToLower $USER_INPUT`
+					case "$USER_INPUT" in
+					$GOADV)
+						ISL_ADVFLAG=1
+						DEF_PT=0
+						break
+						;;
+					$RETRY)
+						continue 2
+						;;
+					$BAIL)
+						return 1
+						;;
+					esac
+
+					echo "Please enter a number between $GOADV and $BAIL"
+				}; done
+			}
+			else
+			{
+				# advanced. Warn about lack of defaults
+				while :; do
+				{
+					echo "
+	You selected $TROOT, device number $UROOT. This device will not
+	support a default file system layout. If you choose to continue
+	the installation with this device, you will need to place some
+	of your file systems on another device.
+
+	Select one of the following courses of action:
+
+		$GOADV) Continue ADVANCED installation to $NROOT$UROOT
+		$RETRY)	Select another drive
+		$BAIL) Exit the Installation
+
+	Enter your choice: \c"
+
+					read USER_INPUT
+
+					USER_INPUT=`ToLower $USER_INPUT`
+					case "$USER_INPUT" in
+					$GOADV)
+						break
+						;;
+					$RETRY)
+						continue 2
+						;;
+					$BAIL)
+						return 1
+						;;
+					esac
+
+					echo "Please enter a number between $GOADV and $BAIL"
+				
+				}; done
+
+			}; fi
+
+		}
+
+
+		while : true; do
+		{
+			echo "
+You selected $TROOT, device number $UROOT. Make sure this disk drive
+is online and write-enabled (if applicable to your disk drive), then
+confirm your choice.
+
+Use $TROOT, $NROOT$UROOT, for your system disk? ($LC_Y/$LC_N) []: \c"
+
+			read USER_INPUT
+			USER_INPUT=`ToLower $USER_INPUT`
+			case $USER_INPUT in
+			$LC_Y)	break
+				;;
+			$LC_N)	continue 2
+				;;
+			*)	echo "
+
+You must answer '$LC_Y' or '$LC_N' to the following."
+				continue
+				;;
+			esac
+		
+		}; done
+		return 0
+
+	}; done
+
+
+}
+[ "$CHECK_SYNTAX" ] || Main "$@"
+

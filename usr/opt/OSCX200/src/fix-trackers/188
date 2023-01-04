@@ -1,0 +1,129 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203162223.AA07593@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2411) Close XBUG #4915: xwininfo: English unit calculations are incorrect
+Date: Mon, 16 Mar 92 17:23:24 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xwininfo: English unit calculations are incorrect
+        ### bug number:   4915
+        ### area:         xwininfo
+        ### severity:     low
+
+
+*** /tmp/da07549	Mon Mar 16 17:21:11 1992
+--- clients/xwininfo/xwininfo.c	Mon Mar 16 17:20:24 1992
+***************
+*** 4,10 ****
+   * xwininfo.c	- MIT Project Athena, X Window system window
+   *		  information utility.
+   *
+!  * $XConsortium: xwininfo.c,v 1.52 91/05/11 22:32:49 gildea Exp $
+   *
+   *	This program will report all relevant information
+   *	about a specific window.
+--- 4,10 ----
+   * xwininfo.c	- MIT Project Athena, X Window system window
+   *		  information utility.
+   *
+!  * $XConsortium: xwininfo.c,v 1.53 92/03/16 17:19:38 gildea Exp $
+   *
+   *	This program will report all relevant information
+   *	about a specific window.
+***************
+*** 103,110 ****
+    bmm = xmm + ymm;
+  }
+  
+- double drem();
+- 
+  #define MILE (5280*12)
+  #define YARD (3*12)
+  #define FOOT (12)
+--- 103,108 ----
+***************
+*** 118,149 ****
+      sprintf(nbuf+strlen(nbuf), " (");
+    }
+    if(metric) {
+!     sprintf(nbuf+strlen(nbuf),"%.2f mm%s", ((float) n)*nmm/np, english?"; ":"");
+    }
+    if(english) {
+!     float in;
+      int mi, yar, ft, inr;
+!     in = ((float) n)*(nmm/25.4)/np;
+!     inr = (int)in;
+      if(inr>=MILE) {
+        mi = inr/MILE;
+        inr %= MILE;
+!       sprintf(nbuf+strlen(nbuf), "%d %s(?!?), ",
+  	      mi, (mi==1)?"mile":"miles");
+      }
+      if(inr>=YARD) {
+        yar = inr/YARD;
+        inr %= YARD;
+!       sprintf(nbuf+strlen(nbuf), "%d %s, ",
+  	      yar, (yar==1)?"yard":"yards");
+      }
+      if(inr>=FOOT) {
+        ft = inr/FOOT;
+        inr  %= FOOT;
+!       sprintf(nbuf+strlen(nbuf), "%d %s, ",
+  	      ft, (ft==1)?"foot":"feet");
+      }
+!     sprintf(nbuf+strlen(nbuf), "%.2f inches", in);
+    }
+    if (english || metric) strcat (nbuf, ")");
+    return(nbuf);
+--- 116,161 ----
+      sprintf(nbuf+strlen(nbuf), " (");
+    }
+    if(metric) {
+!     sprintf(nbuf+strlen(nbuf),"%.2f mm%s", ((double) n)*nmm/np, english?"; ":"");
+    }
+    if(english) {
+!     double inch_frac;
+!     Bool printed_anything = False;
+      int mi, yar, ft, inr;
+! 
+!     inch_frac = ((double) n)*(nmm/25.4)/np;
+!     inr = (int)inch_frac;
+!     inch_frac -= (double)inr;
+      if(inr>=MILE) {
+        mi = inr/MILE;
+        inr %= MILE;
+!       sprintf(nbuf+strlen(nbuf), "%d %s(?!?)",
+  	      mi, (mi==1)?"mile":"miles");
++       printed_anything = True;
+      }
+      if(inr>=YARD) {
+        yar = inr/YARD;
+        inr %= YARD;
+!       if (printed_anything)
+! 	  sprintf(nbuf+strlen(nbuf), ", ");
+!       sprintf(nbuf+strlen(nbuf), "%d %s",
+  	      yar, (yar==1)?"yard":"yards");
++       printed_anything = True;
+      }
+      if(inr>=FOOT) {
+        ft = inr/FOOT;
+        inr  %= FOOT;
+!       if (printed_anything)
+! 	  sprintf(nbuf+strlen(nbuf), ", ");
+!       sprintf(nbuf+strlen(nbuf), "%d %s",
+  	      ft, (ft==1)?"foot":"feet");
++       printed_anything = True;
+      }
+!     if (!printed_anything || inch_frac != 0.0 || inr != 0) {
+!       if (printed_anything)
+! 	  sprintf(nbuf+strlen(nbuf), ", ");
+!       sprintf(nbuf+strlen(nbuf), "%.2f inches", inr+inch_frac);
+!     }
+    }
+    if (english || metric) strcat (nbuf, ")");
+    return(nbuf);

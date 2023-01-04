@@ -1,0 +1,124 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211051938.AA07528@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2717) close XBUG #5609: xrdb: cpp symbol defined multiple times for identical visuals
+Date: Thu, 05 Nov 92 14:38:18 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5609
+### area:         xrdb
+### severity:     low
+### comments:     
+
+*** /tmp/d07446	Thu Nov  5 14:35:53 1992
+--- clients/xrdb/xrdb.c	Thu Nov  5 14:33:12 1992
+***************
+*** 1,7 ****
+  /*
+   * xrdb - X resource manager database utility
+   *
+!  * $XConsortium: xrdb.c,v 11.62 92/09/14 18:54:49 rws Exp $
+   */
+  
+  /*
+--- 1,7 ----
+  /*
+   * xrdb - X resource manager database utility
+   *
+!  * $XConsortium: xrdb.c,v 11.64 92/11/05 14:32:27 rws Exp $
+   */
+  
+  /*
+***************
+*** 486,492 ****
+      Screen *screen;
+      Visual *visual;
+      XVisualInfo vinfo, *vinfos;
+!     int nv;
+      char name[50];
+      
+      screen = ScreenOfDisplay(display, scrno);
+--- 486,492 ----
+      Screen *screen;
+      Visual *visual;
+      XVisualInfo vinfo, *vinfos;
+!     int nv, i, j;
+      char name[50];
+      
+      screen = ScreenOfDisplay(display, scrno);
+***************
+*** 511,520 ****
+  	    AddSimpleDef(defs, "COLOR");
+  	    break;
+      }
+!     while (--nv >= 0) {
+! 	sprintf(name, "CLASS_%s_%d",
+! 		ClassNames[vinfos[nv].class], vinfos[nv].depth);
+! 	AddNum(defs, name, vinfos[nv].visualid);
+      }
+      XFree((char *)vinfos);
+  }
+--- 511,527 ----
+  	    AddSimpleDef(defs, "COLOR");
+  	    break;
+      }
+!     for (i = 0; i < nv; i++) {
+! 	for (j = i; --j >= 0; ) {
+! 	    if (vinfos[j].class == vinfos[i].class &&
+! 		vinfos[j].depth == vinfos[i].depth)
+! 		break;
+! 	}
+! 	if (j < 0) {
+! 	    sprintf(name, "CLASS_%s_%d",
+! 		    ClassNames[vinfos[i].class], vinfos[i].depth);
+! 	    AddNum(defs, name, vinfos[i].visualid);
+! 	}
+      }
+      XFree((char *)vinfos);
+  }
+***************
+*** 789,795 ****
+  	(oper == OPLOAD || oper == OPMERGE || oper == OPOVERRIDE)) {
+  	need_real_defines = True;
+  	strcpy(tmpname2, "/tmp/xrdbD_XXXXXX");
+! 	(void) mktemp(tmpname);
+      }
+  #endif
+  
+--- 796,802 ----
+  	(oper == OPLOAD || oper == OPMERGE || oper == OPOVERRIDE)) {
+  	need_real_defines = True;
+  	strcpy(tmpname2, "/tmp/xrdbD_XXXXXX");
+! 	(void) mktemp(tmpname2);
+      }
+  #endif
+  
+*** /tmp/d07481	Thu Nov  5 14:36:14 1992
+--- clients/xrdb/xrdb.man	Thu Nov  5 14:35:21 1992
+***************
+*** 1,4 ****
+! .\" $XConsortium: xrdb.man,v 11.33 92/09/14 18:59:22 rws Exp $
+  .TH XRDB 1 "Release 5" "X Version 11"
+  .SH NAME
+  xrdb - X server resource database utility
+--- 1,4 ----
+! .\" $XConsortium: xrdb.man,v 11.34 92/11/05 14:35:10 rws Exp $
+  .TH XRDB 1 "Release 5" "X Version 11"
+  .SH NAME
+  xrdb - X server resource database utility
+***************
+*** 105,110 ****
+--- 105,112 ----
+  A symbol is defined for each visual supported for the screen.
+  The symbol includes the class of the visual and its depth;
+  the value is the numeric id of the visual.
++ (If more than one visual has the same class and depth, the numeric id
++ of the first one reported by the server is used.)
+  .TP 8
+  .B HEIGHT=\fInum\fP
+  the height of the root window in pixels.

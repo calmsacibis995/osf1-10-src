@@ -1,0 +1,3286 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210200006.AA19669@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2695) close XBUG #5571: Xlib: (Ximp) keyEvent dropping/dis-order problem (1 of 7)
+Date: Mon, 19 Oct 92 20:06:30 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5571
+### area:         Xlib
+### severity:     low
+### comments:     part 1 of 7
+
+*** /tmp/d18491	Mon Oct 19 19:29:30 1992
+--- lib/X/Imakefile	Mon Oct 19 19:11:13 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.136 92/08/31 16:24:52 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.137 92/10/19 19:11:02 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+***************
+*** 871,878 ****
+  
+  #if BuildXimp
+  
+! XFILESEARCHPATHDEFAULT = XFileSearchPathDefault
+! SRCH_DEFINES = -DXFILESEARCHPATHDEFAULT=\"$(XFILESEARCHPATHDEFAULT)\"
+  
+  LCHDRS = \
+  	XIMProto.h \
+--- 871,882 ----
+  
+  #if BuildXimp
+  
+! #ifdef XlibI18nPath
+! XLIBI18N_PATH = XlibI18nPath
+! #else
+! XLIBI18N_PATH = $(LIBDIR)
+! #endif
+! SRCH_DEFINES = -DXLIBI18N_PATH=\"$(XLIBI18N_PATH)\"
+  
+  LCHDRS = \
+  	XIMProto.h \
+***************
+*** 894,899 ****
+--- 898,904 ----
+  	XimpLCUtil.c \
+  	XimpLCd.c \
+  	XimpLkup.c \
++ 	XimpLocal.c \
+  	XimpMCT.c \
+  	XimpMDrS.c \
+  	XimpMEsc.c \
+***************
+*** 901,906 ****
+--- 906,912 ----
+  	XimpMPer.c \
+  	XimpMPrTxt.c \
+  	XimpMTxtPr.c \
++ 	XimpParser.c \
+  	XimpPrTxt.c \
+  	XimpTxtPr.c \
+  	XimpRm.c \
+***************
+*** 938,943 ****
+--- 944,950 ----
+  	XimpLCUtil.o \
+  	XimpLCd.o \
+  	XimpLkup.o \
++ 	XimpLocal.o \
+  	XimpMCT.o \
+  	XimpMDrS.o \
+  	XimpMEsc.o \
+***************
+*** 951,956 ****
+--- 958,964 ----
+  	XimpWDrS.o \
+  	XimpWEsc.o \
+  	XimpWExt.o \
++ 	XimpParser.o \
+  	XimpWPer.o \
+  	XimpWPrTxt.o \
+  	XimpWTxtPr.o \
+***************
+*** 975,980 ****
+--- 983,989 ----
+  LinkSourceFile(XimpLCUtil.c,Ximp)					@@\
+  LinkSourceFile(XimpLCd.c,Ximp)						@@\
+  LinkSourceFile(XimpLkup.c,Ximp)						@@\
++ LinkSourceFile(XimpLocal.c,Ximp)					@@\
+  LinkSourceFile(XimpMCT.c,Ximp)						@@\
+  LinkSourceFile(XimpMDrS.c,Ximp)						@@\
+  LinkSourceFile(XimpMEsc.c,Ximp)						@@\
+***************
+*** 982,987 ****
+--- 991,997 ----
+  LinkSourceFile(XimpMPer.c,Ximp)						@@\
+  LinkSourceFile(XimpMPrTxt.c,Ximp)					@@\
+  LinkSourceFile(XimpMTxtPr.c,Ximp)					@@\
++ LinkSourceFile(XimpParser.c,Ximp)					@@\
+  LinkSourceFile(XimpPrTxt.c,Ximp)					@@\
+  LinkSourceFile(XimpRm.c,Ximp)						@@\
+  LinkSourceFile(XimpSJIS.c,Ximp)						@@\
+*** /tmp/d18514	Mon Oct 19 19:30:07 1992
+--- lib/X/Ximp/XimpLCUtil.c	Mon Oct 19 19:24:52 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpLCUtil.c,v 1.7 92/04/14 13:29:21 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpLCUtil.c,v 1.8 92/10/19 19:24:49 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 75,125 ****
+  extern char *getenv();
+  #endif
+  
+! enum {
+!     CODESET,
+!     ENCODING,
+!     EXT_FONT,
+!     FONT,
+!     GL_ENCODING,
+!     GR_ENCODING,
+!     LENGTH,
+!     NAME,
+!     STRING
+! } keyword_value;
+  
+  typedef struct KeywordRec {
+      char *name;
+-     int cmp_len;
+      int value;
+  } KeywordRec;
+  
+  static KeywordRec keyword_tbl[] = {
+!     { "CODESET", 7, CODESET },
+!     { "ENCODING", 8, ENCODING },
+!     { "EXT_FONT", 8, EXT_FONT },
+!     { "FONT", 4, FONT },
+!     { "GL", 2, GL_ENCODING },
+!     { "GR", 2, GR_ENCODING },
+!     { "LENGTH", 6, LENGTH },
+!     { "NAME", 4, NAME },
+      0,
+  };
+  
+! static int
+! get_token(buf, len)
+!     char *buf;
+!     int len;
+  {
+      KeywordRec *keyword = keyword_tbl;
+  
+!     while (keyword->name) {
+! 	if (keyword->cmp_len <= len)
+! 	    if (_Ximp_NCompareISOLatin1(buf,keyword->name,keyword->cmp_len)==0)
+! 	    	return keyword->value;
+  
+! 	keyword++;
+      }
+!     return STRING;
+  }
+  
+  static char *
+--- 75,170 ----
+  extern char *getenv();
+  #endif
+  
+! static void free_charset();
+  
++ static enum {
++     T_NONE = E_LAST,
++     T_CHARSET,
++     T_CODESET,
++     T_FALSE,
++     T_FONT,
++     T_INITIAL_STATE_GL,
++     T_INITIAL_STATE_GR,
++     T_LENGTH,
++     T_MB_CUR_MAX,
++     T_MB_ENCODING,
++     T_STRING,
++     T_STATE_DEPEND_ENCODING,
++     T_TRUE,
++     T_WC_ENCODING,
++     T_WC_ENCODING_MASK,
++     T_WC_SHIFT_BITS
++ } token_value;
++ 
+  typedef struct KeywordRec {
+      char *name;
+      int value;
+  } KeywordRec;
+  
+  static KeywordRec keyword_tbl[] = {
+!     { "CHARSET", T_CHARSET },
+!     { "CODESET", T_CODESET },
+!     { "ENCODING", T_CHARSET },
+!     { "FALSE", T_FALSE },
+!     { "FONT", T_FONT },
+!     { "GL", E_GL},
+!     { "GR", E_GR},
+!     { "INITIAL_STATE_GL", T_INITIAL_STATE_GL},
+!     { "INITIAL_STATE_GR", T_INITIAL_STATE_GR},
+!     { "LENGTH", T_LENGTH },
+!     { "MB_ENCODING", T_MB_ENCODING },
+!     { "MB_CUR_MAX", T_MB_CUR_MAX },
+!     { "STATE_DEPEND_ENCODING", T_STATE_DEPEND_ENCODING },
+!     { "TRUE", T_TRUE },
+!     { "WC_ENCODING_MASK", T_WC_ENCODING_MASK },
+!     { "WC_ENCODING", T_WC_ENCODING },
+!     { "WC_SHIFT_BITS", T_WC_SHIFT_BITS },
+!     { "<SS>", E_SS },
+!     { "<LSL>", E_LSL },
+!     { "<LSR>", E_LSR },
+      0,
+  };
+  
+! #define SKIP_WHITE(str)		\
+!     while (*(str) == ' ' || *(str) == '\t' || *(str) == '\n') str++;
+! #define SKIP_TO_WHITE(str)	\
+!     while (*(str) && *(str) != ' ' && *(str) != '\t' && *(str) != '\n') str++;
+! 
+! static char *
+! get_token(src, dst, token)
+!     char *src;
+!     char *dst;
+!     int *token;
+  {
+      KeywordRec *keyword = keyword_tbl;
++     char *str;
++     int len, tmp_len;
+  
+!     SKIP_WHITE(src)
+!     str = src;
+!     SKIP_TO_WHITE(str)
+!     len = str - src;
+!     if (len == 0)
+! 	return NULL;
+  
+!     strncpy(dst, src, len);
+!     *token = T_STRING;
+! 
+!     for ( ; keyword->name; keyword++) {
+! 	tmp_len = strlen(keyword->name);
+! 	if (tmp_len > len)
+! 	    continue;
+! 
+! 	if (!_Ximp_NCompareISOLatin1(dst, keyword->name, tmp_len)) {
+! 	    *token = keyword->value;
+! 	    len = tmp_len;
+! 	    break;
+! 	}
+      }
+! 
+!     dst[len] = '\0';
+! 
+!     return src + len;
+  }
+  
+  static char *
+***************
+*** 145,505 ****
+      return str;
+  }
+  
+! static int def_line_no;
+  
+! static char *default_data[] = {
+!     "NAME C",
+!     "CODESET0",
+!     "Length 1",
+!     "GL",
+!     "Encoding",
+!     "ISO8859-1 GL",
+!     "Font",
+!     "ISO8859-1 GL",
+!     0,
+! };
+! 
+! static char *
+! get_line(fd, buf, buf_len)
+!     FILE *fd;
+!     char *buf;
+!     int buf_len;
+  {
+!     int length, token;
+  
+!     if (fd) {
+! 	while (fgets(buf, buf_len, fd)) {
+! 	    if (buf[0] == '#')
+! 	    	continue;
+! 	    return buf;
+! 	}
+! 	return NULL;
+!     } else {
+! 	if (default_data[def_line_no]) {
+! 	    strcpy(buf, default_data[def_line_no]);
+! 	    def_line_no++;
+! 	    return buf;
+! 	}
+! 	return NULL;
+      }
+- }
+  
+! #ifndef XFILESEARCHPATHDEFAULT
+! #define XFILESEARCHPATHDEFAULT "/usr/lib/X11/%L/%T/%N%S:/usr/lib/X11/%l/%T/%N%S:/usr/lib/X11/%T/%N%S"
+  #endif
+! #ifndef LIBDIR
+! #define LIBDIR	"/usr/lib/X11"
+! #endif
+  
+! #define MAX_PATH	512
+  
+! static FILE *
+! open_codeset_file(locale, name)
+! char *locale;
+! char *name;
+  {
+!     char ch, buf[BUFSIZE], *bufptr, *strptr1, *strptr2, *path;
+!     char lang[MAX_PATH], territory[MAX_PATH], codeset[MAX_PATH];
+!     Bool first;
+      FILE *fd;
+  
+!     strptr1 = index(locale, '_');
+!     strptr2 = index(locale, '.');
+! 
+!     *lang = *territory = *codeset = 0;
+!     if (strptr1) {
+! 	strncpy(lang, locale, strptr1 - locale);
+! 	lang[strptr1 - locale] = 0;
+! 	strptr1++;
+! 	if (strptr2) {
+! 	    strncpy(territory, strptr1, strptr2 - strptr1);
+! 	    territory[strptr2 - strptr1] = 0;
+! 	    strcpy(codeset, strptr2 + 1);
+! 	} else
+! 	    strcpy(territory, strptr1);
+!     } else {
+! 	if (strptr2) {
+! 	    strncpy(lang, locale, strptr2 - locale);
+! 	    lang[strptr2 - locale] = 0;
+! 	    strcpy(codeset, strptr2 + 1);
+! 	} else 
+! 	    strcpy(lang, locale);
+!     }
+! 
+!     if ((path = getenv("XFILESEARCHPATH")) == NULL)
+!     	path = XFILESEARCHPATHDEFAULT;
+!     first = True;
+!     bufptr = buf;
+!     while (1) {
+! 	ch = *path++;
+! 	if (ch != ':')
+! 	    first = False;
+! 	switch (ch) {
+! 	    case ':':
+! 	    	if (first) {
+! 		    strcpy(buf, name);
+! 		    bufptr += strlen(strptr1);
+! 		}
+! 	    case '\0':
+! end:
+! 		*bufptr = 0;
+! 		if (fd = fopen(buf, "r"))
+! 		    return fd;
+! 		if (ch == '\0') {
+! 		    sprintf(buf, "%s/%s/%s", LIBDIR, locale, name);
+! 		    return fopen(buf, "r");
+! 		}
+! 	    	first = True;
+! 	    	bufptr = buf;
+  		continue;
+! 	    case '%':
+! 		switch (ch = *path++) {
+! 		    case 'N': 
+! 			strptr1 = name;
+! 			break;
+! 		    case 'L':
+! 			strptr1 = locale;
+! 			break;
+! 		    case 'l':
+! 			strptr1 = lang;
+! 			break;
+! 		    case 't':
+! 			strptr1 = territory;
+! 			break;
+! 		    case 'c':
+! 			strptr1 = codeset;
+! 			break;
+! 		    case '\0':
+! 			goto end;
+! 		    case '%':
+! 		    case ':':
+! 			*bufptr++ = ch;
+! 		    default:
+! 			continue;
+! 		}
+! 		strcpy(bufptr, strptr1);
+! 		bufptr += strlen(strptr1);
+  		continue;
+! 	    default:
+! 		*bufptr++ = ch;
+! 		break;
+  	}
+      }
+  }
+  
+! static int
+! get_encoding(name, len)
+      char *name;
+-     int len;
+  {
+!     EncodingRec *encoding_ptr, **table_ptr;
+  
+!     table_ptr = encoding_table;
+  
+!     while (encoding_ptr = *table_ptr++)
+! 	if (_Ximp_NCompareISOLatin1(encoding_ptr->charset_name, name, len) == 0)
+! 	    return encoding_ptr->lindex;
+      
+!     return -1;
+  }
+  
+! #define CODESET_FILE	"Codeset"
+  
+  Bool
+! _Ximp_load_codeset_data(lcd)
+!     Ximp_XLCd lcd;
+  {
+!     XLCdXimpRec *lcpart = lcd->ximp_lcpart;
+!     CodeSetRec codeset_tbl[MAX_CODESET], *codeset;
+!     FontSetDataRec font_data_tbl[MAX_FONTSET], *font_data;
+!     EncodingIndexRec *index_ptr;
+!     char buf[BUFSIZE], *bufptr;
+!     char name_buf[BUFSIZE], *name_bufptr;
+!     int token, last_token, word_len, lindex;
+!     int i, tmp, font_data_num, cur_num, max_num = -1;
+!     FILE *fd;
+  
+!     fd = open_codeset_file(lcd->core.name, CODESET_FILE);
+!     if (fd == NULL) {
+! 	if (strcmp(lcd->core.name, "C"))
+! 	    return False;
+! 	def_line_no = 0;
+      }
+  
+!     codeset = codeset_tbl;
+!     for (i = 0; i < MAX_CODESET; i++, codeset++) {
+! 	codeset->char_length = 1;
+! 	codeset->msb_mask = GL;
+! 	codeset->index_num = 0;
+! 	codeset->encoding_index = NULL;
+      }
+-     lcpart->codeset_name = NULL;
+-     lcpart->codeset = NULL;
+-     lcpart->fontset_data = NULL;
+-     codeset = codeset_tbl;
+-     font_data_num = 0;
+-     font_data = font_data_tbl;
+-     name_bufptr = name_buf;
+-     cur_num = 0;
+  
+!     while (get_line(fd, buf, BUFSIZE)) {
+! 	bufptr = buf;
+! 	if ((bufptr = get_word(bufptr, &word_len)) == 0)
+  	    continue;
+! 	token = get_token(bufptr, word_len);
+! 	bufptr += word_len;
+  	switch (token) {
+! 	    case NAME:
+! 		if ((bufptr = get_word(bufptr, &word_len)) == 0)
+  		    continue;
+! 		if ((lcpart->codeset_name = Xmalloc(word_len + 1)) == NULL)
+  		    goto error;
+! 		strncpy(lcpart->codeset_name, bufptr, word_len);
+! 		lcpart->codeset_name[word_len] = 0;
+! 		break;
+! 	    case CODESET:
+! 		bufptr--;
+! 		tmp = *bufptr - '0';
+! 		if (tmp >= 0 && tmp <= 9) {
+! 		    cur_num = tmp;
+! 		    max_num = max(cur_num, max_num);
+! 		    codeset = codeset_tbl + cur_num;
+  		}
+! 		break;
+! 	    case GL_ENCODING:
+! 	    case GR_ENCODING:
+! 		codeset->msb_mask = (token == GL_ENCODING) ? GL : GR;
+! 		break;
+! 	    case LENGTH:
+! 		if ((bufptr = get_word(bufptr, &word_len)) == 0)
+  		    continue;
+! 		tmp = *bufptr - '0';
+! 		if (tmp >= 0 && tmp <= 9)
+! 		    codeset->char_length = tmp;
+! 		break;
+! 	    case ENCODING:
+! 	    case FONT:
+! 	    case EXT_FONT:
+! 		break;
+! 	    case STRING:
+! 		bufptr -= word_len;
+! 		if (last_token == ENCODING) {
+! 		    if ((lindex = get_encoding(bufptr, word_len)) == -1)
+  			continue;
+  
+! 		    bufptr += word_len;
+! 		    if ((bufptr = get_word(bufptr, &word_len)) == 0)
+  			continue;
+- 		    token = get_token(bufptr, word_len);
+- 		    if (token != GL_ENCODING && token != GR_ENCODING)
+- 			continue;
+  
+! 		    tmp = codeset->index_num;
+! 		    if (tmp == 0)
+! 			index_ptr = (EncodingIndexRec *) 
+! 					Xmalloc(sizeof(EncodingIndexRec));
+! 		    else
+! 			index_ptr = (EncodingIndexRec *)
+! 					Xrealloc(codeset->encoding_index,
+! 						 sizeof(EncodingIndexRec) * 
+! 						 (tmp + 1));
+! 		    if (index_ptr == NULL)
+  			goto error;
+! 		    codeset->encoding_index = index_ptr;
+! 		    index_ptr += tmp;
+! 		    index_ptr->lindex = lindex;
+! 		    index_ptr->msb_mask = (token == GL_ENCODING) ? GL : GR;
+! 		    codeset->index_num = tmp + 1;
+! 		} else if (last_token == FONT || last_token == EXT_FONT) {
+! 		    strncpy(name_bufptr, bufptr, word_len);
+! 		    name_bufptr[word_len] = 0;
+! 
+! 		    bufptr += word_len;
+! 		    if ((bufptr = get_word(bufptr, &word_len)) == 0)
+  			continue;
+! 		    token = get_token(bufptr, word_len);
+! 		    if (token != GL_ENCODING && token != GR_ENCODING)
+! 			continue;
+  
+! 		    font_data->cset_number = cur_num;
+! 		    font_data->font_name = name_bufptr;
+! 		    font_data->msb_mask = (token == GL_ENCODING) ? GL : GR;
+! 		    font_data->ext_flag = (last_token == EXT_FONT);
+! 		    font_data++;
+! 		    font_data_num++;
+! 
+! 		    name_bufptr += strlen(name_bufptr) + 1;
+  		}
+  		continue;
+  	}
+- 	last_token = token;
+      }
+  
+!     max_num++;
+!     if (max_num == 0)
+! 	goto error;
+!     if ((codeset = (CodeSetRec *) Xmalloc(max_num*sizeof(CodeSetRec))) == NULL)
+! 	goto error;
+!     if ((font_data = (FontSetDataRec *) Xmalloc(font_data_num * 
+! 					sizeof(FontSetDataRec))) == NULL)
+! 	goto error;
+!     if ((name_bufptr = (char *) Xmalloc(name_bufptr - name_buf)) == NULL)
+! 	goto error;
+  
+-     lcpart->codeset_num = max_num;
+-     lcpart->codeset = codeset;
+-     lcpart->fontset_data_num = font_data_num;
+-     lcpart->fontset_data = font_data;
+-     for (i = 0; i < max_num; i++, codeset++)
+- 	*codeset = codeset_tbl[i];
+-     for (i = 0; i < font_data_num; i++, font_data++) {
+- 	*font_data = font_data_tbl[i];
+- 	strcpy(name_bufptr, font_data->font_name);
+- 	font_data->font_name = name_bufptr;
+- 	name_bufptr += strlen(name_bufptr) + 1;
+-     }
+- 
+      return True;
+  
+  error:
+!     codeset = codeset_tbl;
+!     for (i = 0; i < MAX_CODESET; i++, codeset++)
+! 	if (codeset->encoding_index)
+! 	    Xfree(codeset->encoding_index);
+  
+-     if (lcpart->codeset_name)
+- 	Xfree(lcpart->codeset_name);
+-     if (lcpart->codeset)
+- 	Xfree(lcpart->codeset);
+-     if (lcpart->fontset_data)
+- 	Xfree(lcpart->fontset_data);
+- 
+      return False;
+  }
+  
+! void
+! _Ximp_free_codeset(lcd)
+!     Ximp_XLCd lcd;
+  {
+!     XLCdXimpRec *lcpart = lcd->ximp_lcpart;
+!     CodeSetRec *codeset;
+!     FontSetDataRec *font_data;
+!     int i;
+  
+!     if (lcpart->codeset_name)
+! 	Xfree(lcpart->codeset_name);
+!     if (codeset = lcpart->codeset) {
+! 	for (i = 0; i < lcpart->codeset_num; i++, codeset++)
+! 	    if (codeset->index_num)
+! 		Xfree(codeset->encoding_index);
+! 	Xfree(lcpart->codeset);
+      }
+!     if (font_data = lcpart->fontset_data) {
+! 	if (font_data->font_name)
+! 	    Xfree(font_data->font_name);
+! 	Xfree(font_data);
+      }
+  }
+  
+  #ifdef X_NOT_STDC_ENV
+  #ifndef toupper
+--- 190,722 ----
+      return str;
+  }
+  
+! #ifndef XLIBI18N_PATH
+! #define XLIBI18N_PATH	"/usr/lib/X11"
+! #endif
+  
+! FILE *
+! _XlcOpenLocaleFile(dir, locale, name)
+!     char *dir;
+!     char *locale;
+!     char *name;
+  {
+!     FILE *fd;
+!     char buf[BUFSIZE], locale_file[BUFSIZE];
+  
+!     if (locale)
+! 	sprintf(locale_file, "%s/%s", locale, name);
+!     else
+! 	strcpy(locale_file, name);
+! 
+!     if (dir) {
+! 	sprintf(buf, "%s/%s", dir, locale_file);
+! 	if (fd = fopen(buf, "r"))
+! 	    return fd;
+      }
+  
+!     if (dir = getenv("XLIBI18N_PATH")) {
+! 	sprintf(buf, "%s/%s", dir, locale_file);
+! 	if (fd = fopen(buf, "r"))
+! 	    return fd;
+!     }
+! #ifdef sun
+!     if (dir = getenv("OPENWINHOME")) {
+! 	sprintf(buf, "%s/lib/locale/%s", dir, locale_file);
+! 	if (fd = fopen(buf, "r"))
+! 	    return fd;
+!     }
+  #endif
+!     sprintf(buf, "%s/%s", XLIBI18N_PATH, locale_file);
+  
+!     return fopen(buf, "r");
+! }
+  
+! #ifndef LOCALE_ALIAS
+! #define LOCALE_ALIAS	"locale.alias"
+! #endif
+! 
+! static Bool
+! get_locale_name(locale, name_ret)
+!     char *locale;
+!     char *name_ret;
+  {
+!     char *bufptr, buf[BUFSIZE];
+!     int length;
+      FILE *fd;
+  
+!     if (fd = _XlcOpenLocaleFile(NULL, NULL, LOCALE_ALIAS)) {
+! 	while (fgets(buf, BUFSIZE, fd)) {
+! 	    bufptr = get_word(buf, &length);
+! 	    if (bufptr == NULL)
+  		continue;
+! 	    bufptr[length] = '\0';
+! 	    if (strcmp(locale, bufptr))
+  		continue;
+! 
+! 	    bufptr += length + 1;
+! 	    bufptr = get_word(bufptr, &length);
+! 	    if (bufptr == NULL)
+! 		continue;
+! 	    
+! 	    bufptr[length] = '\0';
+! 	    locale = bufptr;
+! 	    break;
+  	}
+      }
++ 
++     if (fd)
++ 	fclose(fd);
++ 
++     strcpy(name_ret, locale);
++ 
++     return True;
+  }
+  
+! static Bool
+! set_locale_name(lcd, core_name, name)
+!     XimpLCd lcd;
+!     char *core_name;
+      char *name;
+  {
+!     char *language, *territory, *codeset, *str, buf[BUFSIZE];
+!     int length;
+  
+!     length = strcmp(core_name, name) ? strlen(core_name) : 0;
+!     length += strlen(name) * 2 + 5;
+  
+!     str = (char *) Xmalloc(length);
+!     if (str == NULL)
+! 	return False;
+! 
+!     strcpy(buf, name);
+! 
+!     if (codeset = rindex(buf, '.'))
+! 	*codeset++ = '\0';
+! 
+!     if (territory = rindex(buf, '_'))
+! 	*territory++ = '\0';
+! 
+!     language = buf;
+! 
+!     strcpy(str, core_name);
+!     lcd->core.name = str;
+!     if (strcmp(core_name, name)) {
+! 	str += strlen(str) + 1;
+! 
+! 	strcpy(str, name);
+!     }
+!     lcd->locale.name = str;
+!     str += strlen(str) + 1;
+! 
+!     if (language)
+! 	strcpy(str, language);
+!     else
+! 	*str = '\0';
+!     lcd->locale.language = str;
+!     str += strlen(str) + 1;
+! 	
+! 
+!     if (territory)
+! 	strcpy(str, territory);
+!     else
+! 	*str = '\0';
+!     lcd->locale.territory = str;
+!     str += strlen(str) + 1;
+! 
+!     if (codeset)
+! 	strcpy(str, codeset);
+!     else
+! 	*str = '\0';
+!     lcd->locale.codeset = str;
+! 
+!     return True;
+! }
+! 
+! XimpLCd
+! _XlcCreateLC(core_name, methods, lc_methods)
+!     char *core_name;
+!     XLCdMethods methods;
+!     LCMethods lc_methods;
+! {
+!     char name[BUFSIZE];
+!     XimpLCd lcd;
+! 
+!     if (get_locale_name(core_name, name) == False)
+! 	return (XimpLCd) NULL;
+      
+!     lcd = (XimpLCd) Xmalloc(sizeof(XimpLCdRec));
+!     if (lcd == NULL)
+! 	return (XimpLCd) NULL;
+!     bzero((char *) lcd, sizeof(XimpLCdRec));
+! 
+!     if (set_locale_name(lcd, core_name, name) == False) {
+! 	_XlcDestroyLC(lcd);
+! 	return (XimpLCd) NULL;
+!     }
+! 
+!     lcd->methods = methods;
+!     lcd->lc_methods = lc_methods;
+! 
+!     return lcd;
+  }
+  
+! void
+! _XlcDestroyLC(lcd)
+!     XimpLCd lcd;
+! {
+!     if (lcd->core.name)
+! 	XFree(lcd->core.name);
+!     
+!     XFree(lcd);
+! }
+  
++ static Bool
++ add_charset_list(codeset, charset)
++     CodeSet codeset;
++     CharSet charset;
++ {
++     CharSet *new;
++     int num;
++ 
++     if (num = codeset->charset_num)
++ 	new = (CharSet *) Xrealloc(codeset->charset_list,
++ 				   (num + 1) * sizeof(CharSet));
++     else
++ 	new = (CharSet *) Xmalloc(sizeof(CharSet));
++ 
++     if (new == NULL)
++ 	return False;
++ 
++     new[num++] = charset;
++     codeset->charset_list = new;
++     codeset->charset_num = num;
++ 
++     return True;
++ }
++ 
++ static CodeSet
++ add_codeset(locale)
++     Locale locale;
++ {
++     CodeSet new, *new_list;
++     int num;
++ 
++     new = (CodeSet) Xmalloc(sizeof(CodeSetRec));
++     if (new == NULL)
++ 	return NULL;
++     bzero((char *) new, sizeof(CodeSetRec));
++ 
++     if (num = locale->codeset_num)
++ 	new_list = (CodeSet *) Xrealloc(locale->codeset_list,
++ 					(num + 1) * sizeof(CodeSet));
++     else
++ 	new_list = (CodeSet *) Xmalloc(sizeof(CodeSet));
++ 
++     if (new_list == NULL)
++ 	goto error;
++ 
++     new_list[num] = new;
++     locale->codeset_list = new_list;
++     locale->codeset_num = num + 1;
++ 
++     return new;
++ 
++ error:
++     XFree(new);
++ 
++     return NULL;
++ }
++ 
+  Bool
+! _XlcAddParseList(locale, type, encoding, codeset)
+!     Locale locale;
+!     EncodingType type;
+!     char *encoding;
+!     CodeSet codeset;
+  {
+!     ParseInfo new, *new_list;
+!     char *str;
+!     unsigned char ch;
+!     int num;
+  
+!     str = (char *) Xmalloc(strlen(encoding) + 1);
+!     if (str == NULL)
+! 	return False;
+!     strcpy(str, encoding);
+! 
+!     new = (ParseInfo) Xmalloc(sizeof(ParseInfoRec));
+!     if (new == NULL)
+! 	goto error;
+!     bzero((char *) new, sizeof(ParseInfoRec));
+! 
+!     if (locale->mb_parse_table == NULL) {
+! 	locale->mb_parse_table = (unsigned char *) Xmalloc(256); /* 2^8 */
+! 	if (locale->mb_parse_table == NULL)
+! 	    goto error;
+! 	bzero((char *) locale->mb_parse_table, 256);
+      }
+  
+!     if (num = locale->mb_parse_list_num)
+! 	new_list = (ParseInfo *) Xrealloc(locale->mb_parse_list,
+! 					  (num + 2) * sizeof(ParseInfo));
+!     else {
+! 	new_list = (ParseInfo *) Xmalloc(2 * sizeof(ParseInfo));
+      }
+  
+!     if (new_list == NULL)
+! 	goto error;
+! 
+!     new_list[num] = new;
+!     new_list[num + 1] = (ParseInfo) NULL;
+!     locale->mb_parse_list = new_list;
+!     locale->mb_parse_list_num = num + 1;
+! 
+!     ch = (unsigned char) *str;
+!     if (locale->mb_parse_table[ch] == 0)
+! 	locale->mb_parse_table[ch] = num + 1;
+! 
+!     new->type = type;
+!     new->encoding = str;
+!     new->codeset = codeset;
+! 
+!     if (codeset->parse_info == NULL)
+! 	codeset->parse_info = new;
+! 
+!     return True;
+! 
+! error:
+!     XFree(str);
+!     if (new)
+! 	XFree(new);
+! 
+!     return False;
+! }
+! 
+! static FontSetData
+! add_fontset(locale)
+!     Locale locale;
+! {
+!     FontSetData new;
+!     int num;
+! 
+!     if (num = locale->fontset_data_num)
+! 	new = (FontSetData) Xrealloc(locale->fontset_data,
+! 				 (num + 1) * sizeof(FontSetDataRec));
+!     else
+! 	new = (FontSetData) Xmalloc(sizeof(FontSetDataRec));
+! 
+!     if (new == NULL)
+! 	return NULL;
+! 
+!     locale->fontset_data_num = num + 1;
+!     locale->fontset_data = new;
+! 
+!     new += num;
+!     bzero((char *) new, sizeof(FontSetDataRec));
+! 
+!     return new;
+! }
+! 
+! Bool
+! _XlcLoadCodeSet(lcd)
+!     XimpLCd lcd;
+! {
+!     Locale locale = &lcd->locale;
+!     CodeSetRec *codeset;
+!     CharSet charset;
+!     FontSetData font_data;
+!     char *next, buf[BUFSIZE], tmp[256], tmp2[256];
+!     int num, cur_num, token, category, type, tmp_token;
+!     unsigned long mask;
+!     FILE *fd = NULL;
+! 
+!     fd = _XlcOpenLocaleFile(NULL, locale->name, CODESET_FILE);
+! 
+!     if (fd == NULL && locale->language)
+! 	fd = _XlcOpenLocaleFile(NULL, locale->language, CODESET_FILE);
+! 
+!     if (fd == NULL)
+! 	return False;
+! 
+!     locale->codeset_num = 0;
+!     locale->fontset_data_num = 0;
+!     codeset = NULL;
+! 
+!     while (fgets(buf, BUFSIZE,fd)) {
+! 	next = get_token(buf, tmp, &token);
+! 	if (next == NULL)
+  	    continue;
+! 
+  	switch (token) {
+! 	    case T_CODESET:
+! 		next = get_token(next, tmp, &tmp_token);
+! 		if (next == NULL)
+  		    continue;
+! 		cur_num = atoi(tmp);
+! 		codeset = add_codeset(locale);
+! 		if (codeset == NULL)
+  		    goto error;
+! 		codeset->cs_num = cur_num;
+! 		category = token;
+! 		continue;
+! 	    case E_GL:
+! 	    case E_GR:
+! 		if (codeset == NULL)
+! 		    continue;
+! 		codeset->side = (token == E_GL) ? GL : GR;
+! 		continue;
+! 	    case T_LENGTH:
+! 	    case T_MB_CUR_MAX:
+! 	    case T_WC_SHIFT_BITS:
+! 		next = get_token(next, tmp, &tmp_token);
+! 		if (next == NULL)
+! 		    continue;
+! 		num = *tmp - '0';
+! 		if (num >= 0 && num <= 9) {
+! 		    if (token == T_LENGTH && codeset)
+! 			codeset->length = num;
+! 		    else if (token == T_MB_CUR_MAX)
+! 			locale->mb_cur_max = num;
+! 		    else if (token == T_WC_SHIFT_BITS)
+! 			locale->wc_shift_bits = num;
+  		}
+! 		continue;
+! 	    case T_MB_ENCODING:
+! 		if (codeset == NULL)
+  		    continue;
+! 		num = 0;
+! 		type = E_SS;	/* for BC */
+! 		while (next = get_token(next, tmp, &token)) {
+! 		    if (token == E_SS || token == E_LSL || token == E_LSR) {
+! 			type = token;
+  			continue;
++ 		    }
++ 		    tmp2[num] = (char) strtol(tmp, NULL, 0);	/* XXX */
++ 		    if (tmp2[num] == '\0')
++ 			break;
++ 		    num++;
++ 		}
++ 		if (num == 0)
++ 		    continue;
++ 		tmp2[num] = '\0';
++ 		_XlcAddParseList(locale, type, tmp2, codeset);
++ 		continue;
++ 	    case T_WC_ENCODING_MASK:
++ 	    case T_WC_ENCODING:
++ 		next = get_token(next, tmp, &tmp_token);
++ 		if (next == NULL)
++ 		    continue;
++ 		mask = (unsigned long) strtol(tmp, NULL, 0);	/* XXX */
++ 		if (token == T_WC_ENCODING_MASK)
++ 		    locale->wc_encode_mask = mask;
++ 		else if (token == T_WC_ENCODING && codeset)
++ 		    codeset->wc_encoding = mask;
++ 		continue;
++ 	    case T_STATE_DEPEND_ENCODING:
++ 		next = get_token(next, tmp, &token);
++ 		if (next == NULL)
++ 		    continue;
++ 		locale->state_dependent = (token == T_TRUE) ? True : False;
++ 		continue;
++ 	    case T_INITIAL_STATE_GL:
++ 	    case T_INITIAL_STATE_GR:
++ 		if (codeset == NULL)
++ 		    continue;
++ 		if (token == T_INITIAL_STATE_GL)
++ 		    locale->initial_state_GL = codeset;
++ 		else
++ 		    locale->initial_state_GR = codeset;
++ 		continue;
++ 	    case T_CHARSET:
++ 	    case T_FONT:
++ 		category = token;
++ 		continue;
++ 	    case T_STRING:
++ 		if (*tmp == '#')
++ 		    continue;
++ 		if (category == T_CHARSET && codeset) {
++ 		    next = get_token(next, tmp2, &token);
++ 		    if (next == NULL ||
++ 			token != E_GL && token != E_GR)
++ 			continue;
+  
+! 		    charset = _XlcGetCharSetFromName(tmp,
+! 				(token == E_GL) ? GL : GR);
+! 		    if (charset == NULL)
+  			continue;
+  
+! 		    if (add_charset_list(codeset, charset) == False)
+  			goto error;
+! 		} else if (category == T_FONT) {
+! 		    next = get_token(next, tmp2, &token);
+! 		    if (next == NULL ||
+! 			token != E_GL && token != E_GR)
+  			continue;
+! 		    
+! 		    font_data = add_fontset(locale);
+! 		    if (font_data == NULL)
+! 			goto error;
+! 		    
+! 		    font_data->font_name = (char *) Xmalloc(strlen(tmp) + 1);
+! 		    if (font_data->font_name == NULL)
+! 			goto error;
+! 		    strcpy(font_data->font_name, tmp);
+  
+! 		    font_data->cs_num = cur_num;
+! 		    font_data->side = (token == E_GL) ? GL : GR;
+  		}
+  		continue;
+  	}
+      }
+  
+!     fclose(fd);
+  
+      return True;
+  
+  error:
+!     free_charset(lcd);
+!     fclose(fd);
+  
+      return False;
+  }
+  
+! static void
+! free_charset(lcd)
+!     XimpLCd lcd;
+  {
+!     Locale locale = &lcd->locale;
+!     CodeSet *codeset;
+!     ParseInfo *parse_info;
+!     FontSetData font_data;
+!     int num;
+  
+!     if (num = locale->fontset_data_num) {
+! 	for (font_data = locale->fontset_data; num-- > 0; font_data++)
+! 	    if (font_data->font_name)
+! 		XFree(font_data->font_name);
+! 	XFree(locale->fontset_data);
+      }
+! 
+!     if (locale->mb_parse_table)
+! 	XFree(locale->mb_parse_table);
+!     if (num = locale->mb_parse_list_num) {
+! 	for (parse_info = locale->mb_parse_list; num-- > 0; parse_info++) {
+! 	    if ((*parse_info)->encoding)
+! 		XFree((*parse_info)->encoding);
+! 	    XFree(*parse_info);
+! 	}
+! 	XFree(locale->mb_parse_list);
+      }
++ 
++     if (num = locale->codeset_num) {
++ 	for (codeset = locale->codeset_list; num-- > 0; codeset++) {
++ 	    if ((*codeset)->charset_list)
++ 		XFree((*codeset)->charset_list);
++ 	}
++ 	XFree(locale->codeset_list);
++     }
+  }
++ 
+  
+  #ifdef X_NOT_STDC_ENV
+  #ifndef toupper
+*** /tmp/d18533	Mon Oct 19 19:30:19 1992
+--- lib/X/Ximp/XIMProto.h	Mon Oct 19 19:23:46 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XIMProto.h,v 1.6 92/07/29 10:15:02 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 1,8 ----
+! /* $XConsortium: XIMProto.h,v 1.7 92/10/19 19:23:05 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by FUJITSU LIMITED
++               Copyright 1991, 1992 by Sun Microsystems, Inc.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 8,94 ****
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! not be used in advertising or publicity pertaining to distribution
+! of the software without specific, written prior permission.
+! FUJITSU LIMITED makes no representations about the suitability of
+! this software for any purpose.  It is provided "as is" without
+! express or implied warranty.
+  
+! FUJITSU LIMITED DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+! INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+! IN NO EVENT SHALL FUJITSU LIMITED BE LIABLE FOR ANY SPECIAL, INDIRECT
+! OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+! OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+  OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+                                 fujiwara@a80.tech.yk.fujitsu.co.jp
+! 
+  ******************************************************************/
+  
+  /* Ximp implementation revision */
+! #define XIMP_REVISION "Ximp Revision 3.3"
+  
+  /* Ximp Protocol Version */
+  #define XIMP_PROTOCOL_VERSION "XIMP.3.5"
+  
+  /* Input Context ID */
+  typedef unsigned long	ICID;
+  
+! /* ClientMessage No. */
+  
+  /* client <=> frontend  */
+! #define  XIMP_KEYPRESS		 1
+  
+! /* client => frontend  */
+! /* Base Protocol       */
+! #define  XIMP_CREATE		 2
+! #define  XIMP_DESTROY		 3
+! #define  XIMP_BEGIN		 4
+! #define  XIMP_END		 5
+! #define  XIMP_SETFOCUS		 6
+! #define  XIMP_UNSETFOCUS	 7
+! #define  XIMP_CHANGE		 8
+! #define  XIMP_MOVE		 9
+! #define  XIMP_RESET		10
+! #define  XIMP_SETVALUE		11
+! #define  XIMP_GETVALUE		12
+! 
+! /* Callback  Protocol  */
+! #define  XIMP_PREEDITSTART_RETURN	20
+! #define  XIMP_PREEDITCARET_RETURN	21
+! 
+! /* frontend => client  */
+! /* Base Protocol       */
+! #define  XIMP_CREATE_RETURN	 2
+! #define  XIMP_CONVERSION_BEGIN	30
+! #define  XIMP_PROCESS_BEGIN	30
+! #define  XIMP_CONVERSION_END	31
+! #define  XIMP_PROCESS_END	31
+! #define  XIMP_READPROP		32
+! #define  XIMP_GETVALUE_RETURN	33
+! #define  XIMP_RESET_RETURN	34
+! 
+! /* Callback  Protocol  */
+! #define  XIMP_GEOMETRY		40
+! #define  XIMP_PREEDITSTART	41
+! #define  XIMP_PREEDITDONE	42
+! #define  XIMP_PREEDITDRAW	43
+! #define  XIMP_PREEDITDRAW_CM	44
+! #define  XIMP_PREEDITCARET	45
+! #define  XIMP_STATUSSTART	46
+! #define  XIMP_STATUSDONE	47
+! #define  XIMP_STATUSDRAW	48
+! #define  XIMP_STATUSDRAW_CM	49
+! #define  XIMP_PREEDITDRAW_TINY	50
+! 
+  /* Extension Protocol */
+! #define  XIMP_EXTENSION		90
+  
+! /* frontend = ERROR => client */
+! #define  XIMP_ERROR		99
+  
+  /* Error Notify from IM Server */
+  /*  Detail Error Number */
+  #define  XIMP_NoError			0	/* No Error */
+--- 9,189 ----
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! and Sun Microsystems, Inc.not be used in advertising or publicity
+! pertaining to distribution of the software without specific, written
+! prior permission. FUJITSU LIMITED and Sun Microsystems, Inc. makes no
+! representations about the suitability of this software for any purpose. 
+! It is provided "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SUN MICROSYSTEMS, INC DISCLAIM ALL WARRANTIES WITH 
+! REGARD TO THIS SOFTWARE,INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+! AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED BE LIABLE FOR ANY SPECIAL, 
+! INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM 
+! LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+  OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+                                 fujiwara@a80.tech.yk.fujitsu.co.jp
+!           Hideki Hiura         Sun Microsystems, Inc.
+! 	                       hhiura@Sun.COM
+  ******************************************************************/
+  
+  /* Ximp implementation revision */
+! #define XIMP_REVISION "Ximp Revision 3.4"
+  
+  /* Ximp Protocol Version */
++ #ifdef XIMP_40
++ #define XIMP_PROTOCOL_VERSION "XIMP.4.0"
++ #else
+  #define XIMP_PROTOCOL_VERSION "XIMP.3.5"
++ #endif /* XIMP_40 */
+  
++ /* Ximp Protocol Version Number */
++ #ifdef XIMP_40
++ #define XIMP_VERSION_NUMBER 40
++ #endif /* XIMP_40 */
++ 
+  /* Input Context ID */
+  typedef unsigned long	ICID;
+  
+! /* ClientMessage No.  Ximp 4.0 */
+  
+  /* client <=> frontend  */
+! #define  XIMP_KEYRELEASE4               100
+! #define  XIMP_KEYPRESS4			101
+! /* client ==> frontend  * Base Protocol */
+! #define  XIMP_CREATE4			102
+! #define  XIMP_DESTROY4			103
+! #define  XIMP_REG_KEY_PRESSED4		104
+! #define  XIMP_SETFOCUS4			105
+! #define  XIMP_UNSETFOCUS4		106
+! #define  XIMP_CLIENT_WINDOW4		107
+! #define  XIMP_FOCUS_WINDOW4		108
+! #define  XIMP_MOVE4			109
+! #define  XIMP_RESET4			110
+! #define  XIMP_SETVALUE4			111
+! #define  XIMP_GETVALUE4			112
+! /*                      * Callback  Protocol */
+! #define  XIMP_PREEDITSTART_RETURN4	120
+! #define  XIMP_PREEDITCARET_RETURN4	121
+! /* client <== frontend  * Base Protocol  */
+! #define  XIMP_SPROC_STARTED4		130
+! #define  XIMP_SPROC_STOPPED4		131
+! #define  XIMP_READPROP4			132
+! #define  XIMP_CLIENT_WINDOW_RETURN4	133
+! #define  XIMP_FOCUS_WINDOW_RETURN4	134
+! #define  XIMP_GETVALUE_RETURN4		135
+! #define  XIMP_RESET_RETURN4		136
+! #define  XIMP_CREATE_RETURN4		137
+! #define  XIMP_KEYPRESS_RETURN4		138
+! #define  XIMP_KEYRELEASE_RETURN4        139
+! /*                      * Callback  Protocol */
+! #define  XIMP_GEOMETRY4			140
+! #define  XIMP_PREEDITSTART4		150
+! #define  XIMP_PREEDITDONE4		151
+! #define  XIMP_PREEDITDRAW4		152
+! #define  XIMP_PREEDITDRAW_CM4		153
+! #define  XIMP_PREEDITDRAW_CM_TINY4	154
+! #define  XIMP_PREEDITDRAW_CM_FEEDBACK4	155
+! #define  XIMP_PREEDITCARET4		156
+! #define  XIMP_STATUSSTART4		160
+! #define  XIMP_STATUSDONE4		161
+! #define  XIMP_STATUSDRAW4		162
+! #define  XIMP_STATUSDRAW_CM4		163
+! /* client => IM Server for frontend method */
+! #define  XIMP_EVENTMASK_NOTIFY4         200
+! /* client <== frontend for frontend method */
+! #define  XIMP_EVENTMASK_NOTIFY_RETURN4  201
+! /* Extension Protocol */
+! #define  XIMP_EXTENSION4		500
+! /* client <== frontend  * Error Protocol */
+! #define  XIMP_ERROR4			999
+  
+! /* ClientMessage No.  Ximp 3.5 */
+! /* client <=> frontend  */
+! #define  XIMP_KEYPRESS3		 1
+! /* client ==> frontend  * Base Protocol */
+! #define  XIMP_CREATE3			 2
+! #define  XIMP_DESTROY3			 3
+! #define  XIMP_BEGIN3			 4
+! #define  XIMP_END3			 5
+! #define  XIMP_SETFOCUS3			 6
+! #define  XIMP_UNSETFOCUS3		 7
+! #define  XIMP_CHANGE3			 8
+! #define  XIMP_MOVE3			 9
+! #define  XIMP_RESET3			10
+! #define  XIMP_SETVALUE3			11
+! #define  XIMP_GETVALUE3			12
+! /*                      * Callback  Protocol */
+! #define  XIMP_PREEDITSTART_RETURN3	20
+! #define  XIMP_PREEDITCARET_RETURN3	21
+! /* client <== frontend  * Base Protocol  */
+! #define  XIMP_CREATE_RETURN3		 2
+! #define  XIMP_CONVERSION_BEGIN3		30
+! #define  XIMP_PROCESS_BEGIN3		30
+! #define  XIMP_CONVERSION_END3		31
+! #define  XIMP_PROCESS_END3		31
+! #define  XIMP_READPROP3			32
+! #define  XIMP_GETVALUE_RETURN3		33
+! #define  XIMP_RESET_RETURN3		34
+! /*                      * Callback  Protocol */
+! #define  XIMP_GEOMETRY3			40
+! #define  XIMP_PREEDITSTART3		41
+! #define  XIMP_PREEDITDONE3		42
+! #define  XIMP_PREEDITDRAW3		43
+! #define  XIMP_PREEDITDRAW_CM3		44
+! #define  XIMP_PREEDITCARET3		45
+! #define  XIMP_STATUSSTART3		46
+! #define  XIMP_STATUSDONE3		47
+! #define  XIMP_STATUSDRAW3		48
+! #define  XIMP_STATUSDRAW_CM3		49
+! #define  XIMP_PREEDITDRAW_TINY3		50
+  /* Extension Protocol */
+! #define  XIMP_EXTENSION3		90
+! /* client <== frontend  * Error Protocol */
+! #define  XIMP_ERROR3			99
+  
+! /* For Backward Compatibility */
+! #ifndef XIMP_40
+! #define  XIMP_KEYPRESS			XIMP_KEYPRESS3
+! #define  XIMP_CREATE			XIMP_CREATE3
+! #define  XIMP_DESTROY			XIMP_DESTROY3
+! #define  XIMP_BEGIN			XIMP_BEGIN3
+! #define  XIMP_END			XIMP_END3
+! #define  XIMP_SETFOCUS			XIMP_SETFOCUS3
+! #define  XIMP_UNSETFOCUS		XIMP_UNSETFOCUS3
+! #define  XIMP_CHANGE			XIMP_CHANGE3
+! #define  XIMP_MOVE			XIMP_MOVE3
+! #define  XIMP_RESET			XIMP_RESET3
+! #define  XIMP_SETVALUE			XIMP_SETVALUE3
+! #define  XIMP_GETVALUE			XIMP_GETVALUE3
+! #define  XIMP_PREEDITSTART_RETURN	XIMP_PREEDITSTART_RETURN3
+! #define  XIMP_PREEDITCARET_RETURN	XIMP_PREEDITCARET_RETURN3
+! #define  XIMP_CREATE_RETURN		XIMP_CREATE_RETURN3
+! #define  XIMP_CONVERSION_BEGIN		XIMP_CONVERSION_BEGIN3
+! #define  XIMP_PROCESS_BEGIN		XIMP_PROCESS_BEGIN3
+! #define  XIMP_CONVERSION_END		XIMP_CONVERSION_END3
+! #define  XIMP_PROCESS_END		XIMP_PROCESS_END3
+! #define  XIMP_READPROP			XIMP_READPROP3
+! #define  XIMP_GETVALUE_RETURN		XIMP_GETVALUE_RETURN3
+! #define  XIMP_RESET_RETURN		XIMP_RESET_RETURN3
+! #define  XIMP_GEOMETRY			XIMP_GEOMETRY3
+! #define  XIMP_PREEDITSTART		XIMP_PREEDITSTART3
+! #define  XIMP_PREEDITDONE		XIMP_PREEDITDONE3
+! #define  XIMP_PREEDITDRAW		XIMP_PREEDITDRAW3
+! #define  XIMP_PREEDITDRAW_CM		XIMP_PREEDITDRAW_CM3
+! #define  XIMP_PREEDITCARET		XIMP_PREEDITCARET3
+! #define  XIMP_STATUSSTART		XIMP_STATUSSTART3
+! #define  XIMP_STATUSDONE		XIMP_STATUSDONE3
+! #define  XIMP_STATUSDRAW		XIMP_STATUSDRAW3
+! #define  XIMP_STATUSDRAW_CM		XIMP_STATUSDRAW_CM3
+! #define  XIMP_PREEDITDRAW_TINY		XIMP_PREEDITDRAW_TINY3
+! #define  XIMP_EXTENSION			XIMP_EXTENSION3
+! #define  XIMP_ERROR			XIMP_ERROR3
+! #endif /* !XIMP_40 */
+  
++ 
+  /* Error Notify from IM Server */
+  /*  Detail Error Number */
+  #define  XIMP_NoError			0	/* No Error */
+***************
+*** 113,126 ****
+  #define  _XIMP_BASE		"_XIMP_" /* Root Window _XIP_<locale_name> */
+  
+  /* IMS Window Property Name */
+! #define  _XIMP_VERSION		"_XIMP_VERSION"
+! #define  _XIMP_STYLE		"_XIMP_STYLE"
+! #define  _XIMP_KEYS		"_XIMP_KEYS"
+! #define  _XIMP_SERVERNAME	"_XIMP_SERVERNAME"
+! #define  _XIMP_SERVERVERSION	"_XIMP_SERVERVERSION"
+! #define  _XIMP_EXTENSIONS	"_XIMP_EXTENSIONS"
+! #define  _XIMP_PREEDITMAXSIZE	"_XIMP_PREEDITMAXSIZE"
+! #define  _XIMP_VENDORNAME	"_XIMP_VENDORNAME"
+  
+  /* Client Window Property Name */
+  #define  _XIMP_LIBVERSION	"_XIMP_VERSION"
+--- 208,224 ----
+  #define  _XIMP_BASE		"_XIMP_" /* Root Window _XIP_<locale_name> */
+  
+  /* IMS Window Property Name */
+! #define  _XIMP_VERSION			"_XIMP_VERSION"
+! #define  _XIMP_STYLE			"_XIMP_STYLE"
+! #define  _XIMP_SPROC_STARTED_KEYS	"_XIMP_SPROC_STARTED_KEYS"
+! #define  _XIMP_SPROC_STOPPED_KEYS	"_XIMP_SPROC_STOPPED_KEYS"
+! #define  _XIMP_KEYS			"_XIMP_KEYS"
+! #define  _XIMP_SERVERNAME		"_XIMP_SERVERNAME"
+! #define  _XIMP_SERVERVERSION		"_XIMP_SERVERVERSION"
+! #define  _XIMP_EXTENSIONS		"_XIMP_EXTENSIONS"
+! #define  _XIMP_PREEDITMAXSIZE		"_XIMP_PREEDITMAXSIZE"
+! #define  _XIMP_VENDORNAME		"_XIMP_VENDORNAME"
+! #define  _XIMP_TYPE			"_XIMP_TYPE"
+  
+  /* Client Window Property Name */
+  #define  _XIMP_LIBVERSION	"_XIMP_VERSION"
+***************
+*** 155,187 ****
+  #define  LOOKUP_CHOICES_DRAW_REQ	5
+  #define  LOOKUP_CHOICES_DONE_REQ	6
+  
+  /* mask (XIMP_CREATE, XIMP_SETVALUE, XIMP_GETVALUE) */
+! #define XIMP_FOCUS_WIN_MASK		(1L <<  0)
+! #define XIMP_PRE_AREA_MASK		(1L <<  1)
+! #define XIMP_PRE_FG_MASK		(1L <<  2)
+! #define XIMP_PRE_BG_MASK		(1L <<  3)
+! #define XIMP_PRE_COLORMAP_MASK		(1L <<  4)
+! #define XIMP_PRE_BGPIXMAP_MASK		(1L <<  5)
+! #define XIMP_PRE_LINESP_MASK		(1L <<  6)
+! #define XIMP_PRE_CURSOR_MASK		(1L <<  7)
+! #define XIMP_PRE_AREANEED_MASK		(1L <<  8)
+! #define XIMP_PRE_SPOTL_MASK		(1L <<  9)
+! #define XIMP_STS_AREA_MASK		(1L << 10)
+! #define XIMP_STS_FG_MASK		(1L << 11)
+! #define XIMP_STS_BG_MASK		(1L << 12)
+! #define XIMP_STS_COLORMAP_MASK		(1L << 13)
+! #define XIMP_STS_BGPIXMAP_MASK		(1L << 14)
+! #define XIMP_STS_LINESP_MASK		(1L << 15)
+! #define XIMP_STS_CURSOR_MASK		(1L << 16)
+! #define XIMP_STS_AREANEED_MASK		(1L << 17)
+! #define XIMP_STS_WINDOW_MASK		(1L << 18)
+! #define XIMP_PRE_FONT_MASK		(1L << 19)
+! #define XIMP_STS_FONT_MASK		(1L << 20)
+  
+! /* FRONTEND or BACKEND MODE */
+! #define XIMP_FRONTEND	 0
+! #define XIMP_BACKEND	 1
+  
+  /*  XIMP_PREEDITDRAW_CM status value
+   * post Ximp 3.4 protocol maybe compliant. 
+   * XIMP status flag will may contain the supplementary infomations to 
+--- 253,357 ----
+  #define  LOOKUP_CHOICES_DRAW_REQ	5
+  #define  LOOKUP_CHOICES_DONE_REQ	6
+  
++ 
+  /* mask (XIMP_CREATE, XIMP_SETVALUE, XIMP_GETVALUE) */
+! /* Ximp 4.0 */
+! #define XIMP_FOCUS_WIN_MASK4		(1L <<  0)
+! #define XIMP_PRE_AREA_MASK4		(1L <<  1)
+! #define XIMP_PRE_AREANEED_MASK4		(1L <<  2)
+! #define XIMP_PRE_COLORMAP_MASK4		(1L <<  3)
+! #define XIMP_PRE_STD_COLORMAP_MASK4	(1L <<  4)
+! #define XIMP_PRE_FG_MASK4		(1L <<  5)
+! #define XIMP_PRE_BG_MASK4		(1L <<  6)
+! #define XIMP_PRE_BGPIXMAP_MASK4		(1L <<  7)
+! #define XIMP_PRE_LINESP_MASK4		(1L <<  8)
+! #define XIMP_PRE_CURSOR_MASK4		(1L <<  9)
+! #define XIMP_PRE_SPOTL_MASK4		(1L << 10)
+! #define XIMP_STS_AREA_MASK4		(1L << 11)
+! #define XIMP_STS_AREANEED_MASK4		(1L << 12)
+! #define XIMP_STS_COLORMAP_MASK4		(1L << 13)
+! #define XIMP_STS_STD_COLORMAP_MASK4	(1L << 14)
+! #define XIMP_STS_FG_MASK4		(1L << 15)
+! #define XIMP_STS_BG_MASK4		(1L << 16)
+! #define XIMP_STS_BGPIXMAP_MASK4		(1L << 17)
+! #define XIMP_STS_LINESP_MASK4		(1L << 18)
+! #define XIMP_STS_CURSOR_MASK4		(1L << 19)
+! #define XIMP_STS_WINDOW_MASK4		(1L << 20)
+! #define XIMP_PRE_FONT_MASK4		(1L << 21)
+! #define XIMP_STS_FONT_MASK4		(1L << 22)
+! #define XIMP_SERVERTYPE_MASK4		(1L << 23)
+  
+! /* Ximp 3.5 */
+! #define XIMP_FOCUS_WIN_MASK3          (1L <<  0)
+! #define XIMP_PRE_AREA_MASK3           (1L <<  1)
+! #define XIMP_PRE_FG_MASK3             (1L <<  2)
+! #define XIMP_PRE_BG_MASK3             (1L <<  3)
+! #define XIMP_PRE_COLORMAP_MASK3       (1L <<  4)
+! #define XIMP_PRE_BGPIXMAP_MASK3       (1L <<  5)
+! #define XIMP_PRE_LINESP_MASK3         (1L <<  6)
+! #define XIMP_PRE_CURSOR_MASK3         (1L <<  7)
+! #define XIMP_PRE_AREANEED_MASK3       (1L <<  8)
+! #define XIMP_PRE_SPOTL_MASK3          (1L <<  9)
+! #define XIMP_STS_AREA_MASK3           (1L << 10)
+! #define XIMP_STS_FG_MASK3             (1L << 11)
+! #define XIMP_STS_BG_MASK3             (1L << 12)
+! #define XIMP_STS_COLORMAP_MASK3       (1L << 13)
+! #define XIMP_STS_BGPIXMAP_MASK3       (1L << 14)
+! #define XIMP_STS_LINESP_MASK3         (1L << 15)
+! #define XIMP_STS_CURSOR_MASK3         (1L << 16)
+! #define XIMP_STS_AREANEED_MASK3       (1L << 17)
+! #define XIMP_STS_WINDOW_MASK3         (1L << 18)
+! #define XIMP_PRE_FONT_MASK3           (1L << 19)
+! #define XIMP_STS_FONT_MASK3           (1L << 20)
+  
++ /* mask (For Backward Compatibility) */
++ #ifndef XIMP_40
++ #define XIMP_FOCUS_WIN_MASK	 	XIMP_FOCUS_WIN_MASK3
++ #define XIMP_PRE_AREA_MASK		XIMP_PRE_AREA_MASK3
++ #define XIMP_PRE_FG_MASK		XIMP_PRE_FG_MASK3
++ #define XIMP_PRE_BG_MASK		XIMP_PRE_BG_MASK3
++ #define XIMP_PRE_COLORMAP_MASK		XIMP_PRE_COLORMAP_MASK3
++ #define XIMP_PRE_BGPIXMAP_MASK		XIMP_PRE_BGPIXMAP_MASK3
++ #define XIMP_PRE_LINESP_MASK		XIMP_PRE_LINESP_MASK3
++ #define XIMP_PRE_CURSOR_MASK		XIMP_PRE_CURSOR_MASK3
++ #define XIMP_PRE_AREANEED_MASK		XIMP_PRE_AREANEED_MASK3
++ #define XIMP_PRE_SPOTL_MASK		XIMP_PRE_SPOTL_MASK3
++ #define XIMP_STS_AREA_MASK		XIMP_STS_AREA_MASK3
++ #define XIMP_STS_FG_MASK		XIMP_STS_FG_MASK3
++ #define XIMP_STS_BG_MASK		XIMP_STS_BG_MASK3
++ #define XIMP_STS_COLORMAP_MASK		XIMP_STS_COLORMAP_MASK3
++ #define XIMP_STS_BGPIXMAP_MASK		XIMP_STS_BGPIXMAP_MASK3
++ #define XIMP_STS_LINESP_MASK		XIMP_STS_LINESP_MASK3
++ #define XIMP_STS_CURSOR_MASK		XIMP_STS_CURSOR_MASK3
++ #define XIMP_STS_AREANEED_MASK		XIMP_STS_AREANEED_MASK3
++ #define XIMP_STS_WINDOW_MASK		XIMP_STS_WINDOW_MASK3
++ #define XIMP_PRE_FONT_MASK		XIMP_PRE_FONT_MASK3
++ #define XIMP_STS_FONT_MASK		XIMP_STS_FONT_MASK3
++ #endif /* !XIMP_40 */
++ 
++ /* MODE(FRONTEND or BACKEND), TYPE(Type1,2,3) and SYNC/ASYNC */
++ #define XIMP_FRONTEND4		(1L << 0)
++ #define XIMP_BACKEND4		(1L << 1)
++ #define XIMP_TYPE1		(1L << 2)
++ #define XIMP_TYPE2		(1L << 3)
++ #define XIMP_TYPE3		(1L << 4)
++ #define XIMP_SYNC		(1L << 5)
++ #define XIMP_FE_TYPE1		(XIMP_FRONTEND4 | XIMP_TYPE1)
++ #define XIMP_FE_TYPE2		(XIMP_FRONTEND4 | XIMP_TYPE2)
++ #define XIMP_FE_TYPE3		(XIMP_FRONTEND4 | XIMP_TYPE3)
++ #define XIMP_BE_TYPE1		(XIMP_BACKEND4  | XIMP_TYPE1)
++ #define XIMP_BE_TYPE2		(XIMP_BACKEND4  | XIMP_TYPE2)
++ #define XIMP_SYNC_BE_TYPE1	(XIMP_SYNC      | XIMP_BE_TYPE1)
++ #define XIMP_SYNC_BE_TYPE2	(XIMP_SYNC      | XIMP_BE_TYPE2)
++ 
++ /* MODE(FRONTEND or BACKEND) For Backward Compatibility */
++ #define XIMP_FRONTEND_BC_MASK	(1L << 0)
++ #define XIMP_BACKEND_BC_MASK	(1L << 1)
++ 
++ /* mask (For Backward Compatibility) */
++ #define XIMP_FRONTEND		0
++ #define XIMP_BACKEND		1
++ 
+  /*  XIMP_PREEDITDRAW_CM status value
+   * post Ximp 3.4 protocol maybe compliant. 
+   * XIMP status flag will may contain the supplementary infomations to 
+***************
+*** 213,224 ****
+  	unsigned long		modifier;
+  	unsigned long		modifier_mask;
+  	KeySym			keysym;
+! 	} Ximp_Key;
+  
+  typedef struct {
+  	unsigned short		 count_keys;
+  	Ximp_Key		*keys_list;
+! 	} Ximp_KeyList;
+  
+  typedef struct _Ximp_Area {
+  	long		x;
+--- 383,394 ----
+  	unsigned long		modifier;
+  	unsigned long		modifier_mask;
+  	KeySym			keysym;
+! } Ximp_Key;
+  
+  typedef struct {
+  	unsigned short		 count_keys;
+  	Ximp_Key		*keys_list;
+! } Ximp_KeyList;
+  
+  typedef struct _Ximp_Area {
+  	long		x;
+***************
+*** 225,273 ****
+  	long		y;
+  	long		width;
+  	long		height;
+! 	} Ximp_AreaRec;
+  
+  typedef struct _Ximp_Point {
+  	long		x;
+  	long		y;
+! 	} Ximp_PointRec;
+  
+  typedef struct _Ximp_Size {
+  	long		width;
+  	long		height;
+! 	} Ximp_SizeRec;
+  
+  /* kana-kanji conversion window attributes */
+  
+! #define XIMP_PREEDIT_MAX_LONG 14
+! #define XIMP_PREEDIT_MAX_CHAR 56
+  
+! typedef struct  _Ximp_Preedit {
+  	Ximp_AreaRec	Area;
+  	unsigned long   Foreground;
+  	unsigned long   Background;
+- 	Colormap	Colormap;
+  	Pixmap		Bg_Pixmap;
+  	long		LineSpacing;
+  	Cursor		Cursor;
+! 	Ximp_SizeRec	AreaNeeded;
+! 	Ximp_PointRec    SpotLocation;
+! 	} Ximp_PreeditPropRec;
+  
+! #define XIMP_STATUS_MAX_LONG 13
+! #define XIMP_STATUS_MAX_CHAR 52
+  
+! typedef struct  _Ximp_Status {
+  	Ximp_AreaRec	Area;
+  	unsigned long   Foreground;
+  	unsigned long   Background;
+- 	Colormap	Colormap;
+  	Pixmap		Bg_Pixmap;
+  	long		LineSpacing;
+  	Cursor		Cursor;
+- 	Ximp_SizeRec	AreaNeeded;
+  	Window		window;
+! 	} Ximp_StatusPropRec;
+  
+  /* for CallBack */
+  typedef struct _Ximp_PreeditDrawDataPropRec {
+--- 395,513 ----
+  	long		y;
+  	long		width;
+  	long		height;
+! } Ximp_AreaRec;
+  
+  typedef struct _Ximp_Point {
+  	long		x;
+  	long		y;
+! } Ximp_PointRec;
+  
+  typedef struct _Ximp_Size {
+  	long		width;
+  	long		height;
+! } Ximp_SizeRec;
+  
+  /* kana-kanji conversion window attributes */
+  
+! #ifdef XIMP_40
+  
+! #define XIMP_PREEDIT_MAX_LONG4 15
+! #define XIMP_PREEDIT_MAX_CHAR4 60
+! 
+! typedef struct  _Ximp_Preedit4 {
+  	Ximp_AreaRec	Area;
++ 	Ximp_SizeRec	AreaNeeded;
++ 	Ximp_PointRec   SpotLocation;
++ 	Colormap	Colormap;
++ 	Atom		StdColormap;
+  	unsigned long   Foreground;
+  	unsigned long   Background;
+  	Pixmap		Bg_Pixmap;
+  	long		LineSpacing;
+  	Cursor		Cursor;
+! } Ximp_PreeditPropRec4;
+  
+! #define XIMP_PREEDIT_MAX_LONG3 14
+! #define XIMP_PREEDIT_MAX_CHAR3 56
+  
+! typedef struct  _Ximp_Preedit3 {
+!         Ximp_AreaRec    Area;
+!         unsigned long   Foreground;
+!         unsigned long   Background;
+!         Colormap        Colormap;
+!         Pixmap          Bg_Pixmap;
+!         long            LineSpacing;
+!         Cursor          Cursor;
+!         Ximp_SizeRec    AreaNeeded;
+!         Ximp_PointRec   SpotLocation;
+! } Ximp_PreeditPropRec3;
+! 
+! #define XIMP_STATUS_MAX_LONG4 14
+! #define XIMP_STATUS_MAX_CHAR4 56
+! #define XIMP_STATUS_MAX_LONG4 14
+! #define XIMP_STATUS_MAX_CHAR4 56
+! 
+! typedef struct  _Ximp_Status4 {
+  	Ximp_AreaRec	Area;
++ 	Ximp_SizeRec	AreaNeeded;
++ 	Colormap	Colormap;
++ 	Atom		StdColormap;
+  	unsigned long   Foreground;
+  	unsigned long   Background;
+  	Pixmap		Bg_Pixmap;
+  	long		LineSpacing;
+  	Cursor		Cursor;
+  	Window		window;
+! } Ximp_StatusPropRec4;
+! 
+! #define XIMP_STATUS_MAX_LONG3 13
+! #define XIMP_STATUS_MAX_CHAR3 52
+!  
+! typedef struct  _Ximp_Status3 {
+!         Ximp_AreaRec    Area;
+!         unsigned long   Foreground;
+!         unsigned long   Background;
+!         Colormap        Colormap;
+!         Pixmap          Bg_Pixmap;
+!         long            LineSpacing;
+!         Cursor          Cursor;
+!         Ximp_SizeRec    AreaNeeded;
+!         Window          window;
+! } Ximp_StatusPropRec3;
+! 
+! #else /* XIMP_40 */ /* For Backward Compatibility  */
+! 
+! #define XIMP_PREEDIT_MAX_LONG  14
+! #define XIMP_PREEDIT_MAX_CHAR  56
+! 
+! typedef struct  _Ximp_Preedit {
+!         Ximp_AreaRec    Area;
+!         unsigned long   Foreground;
+!         unsigned long   Background;
+!         Colormap        Colormap;
+!         Pixmap          Bg_Pixmap;
+!         long            LineSpacing;
+!         Cursor          Cursor;
+!         Ximp_SizeRec    AreaNeeded;
+!         Ximp_PointRec   SpotLocation;
+! } Ximp_PreeditPropRec;
+! 
+! #define XIMP_STATUS_MAX_LONG  13
+! #define XIMP_STATUS_MAX_CHAR  52
+!  
+! typedef struct  _Ximp_Status {
+!         Ximp_AreaRec    Area;
+!         unsigned long   Foreground;
+!         unsigned long   Background;
+!         Colormap        Colormap;
+!         Pixmap          Bg_Pixmap;
+!         long            LineSpacing;
+!         Cursor          Cursor;
+!         Ximp_SizeRec    AreaNeeded;
+!         Window          window;
+! } Ximp_StatusPropRec;
+! 
+! #endif /* XIMP_40 */
+  
+  /* for CallBack */
+  typedef struct _Ximp_PreeditDrawDataPropRec {
+*** /tmp/d18552	Mon Oct 19 19:30:30 1992
+--- lib/X/Ximp/XimpCallbk.c	Mon Oct 19 19:24:01 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpCallbk.c,v 1.6 92/07/29 10:15:36 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by Fuji Xerox Co.,Ltd.
+--- 1,4 ----
+! /* $XConsortium: XimpCallbk.c,v 1.7 92/10/19 19:23:51 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by Fuji Xerox Co.,Ltd.
+***************
+*** 29,37 ****
+  CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Auther: Kazunori Nishihara,  Fuji Xerox Co.,Ltd.
+            Takashi Fujiwara     FUJITSU LIMITED
+            Hideki Hiura         Sun Microsystems, Inc.
+!           Makoto Wakamatsu     Sony Corporation
+  ******************************************************************/
+  
+  #define NEED_EVENTS
+--- 29,39 ----
+  CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Auther: Kazunori Nishihara,  Fuji Xerox Co.,Ltd.
++                                kaz@ssdev.ksp.fujixerox.co.jp
+            Takashi Fujiwara     FUJITSU LIMITED
++                                fujiwara@a80.tech.yk.fujitsu.co.jp
+            Hideki Hiura         Sun Microsystems, Inc.
+!                                hhiura@Sun.COM
+  ******************************************************************/
+  
+  #define NEED_EVENTS
+***************
+*** 41,49 ****
+  
+  #include "Ximplc.h"
+  
+- #define XIMP_MAXBUF	256
+  
+  extern void	_Ximp_IM_SendMessage();
+  
+  void
+  _Ximp_CallGeometryCallback(xic, event)
+--- 43,51 ----
+  
+  #include "Ximplc.h"
+  
+  
+  extern void	_Ximp_IM_SendMessage();
++ extern Bool     _Ximp_CMPredicate8();
+  
+  void
+  _Ximp_CallGeometryCallback(xic, event)
+***************
+*** 59,79 ****
+  }
+  
+  void
+! _Ximp_CallPreeditStartCallback(xic, event)
+!     Ximp_XIC        xic;
+      XClientMessageEvent *event;
+  {
+      register XIMCallback *cb;
+               int          data;
+  
+!     cb = &xic->core.preedit_attr.callbacks.start;
+      if (cb->callback) {
+! 	data = (*(int (*) ()) cb->callback) (xic, cb->client_data, NULL);
+! 
+      } else {
+  	data = -1;
+      }
+!     _Ximp_IM_SendMessage(xic, XIMP_PREEDITSTART_RETURN, data, NULL, NULL);
+  }
+  
+  void
+--- 61,81 ----
+  }
+  
+  void
+! _Ximp_CallPreeditStartCallback(ic, event)
+!     Ximp_XIC        ic;
+      XClientMessageEvent *event;
+  {
+      register XIMCallback *cb;
+               int          data;
+  
+!     cb = &ic->core.preedit_attr.callbacks.start;
+      if (cb->callback) {
+! 	data = (*(int (*) ()) cb->callback) (ic, cb->client_data, NULL);
+! 	ic->ximp_icpart->cbstatus |= XIMPCBPREEDITACTIVE ;
+      } else {
+  	data = -1;
+      }
+!     _Ximp_IM_SendMessage(ic, XIMP_PREEDITSTART_RETURN(ic), data, NULL, NULL);
+  }
+  
+  void
+***************
+*** 86,91 ****
+--- 88,94 ----
+      cb = &xic->core.preedit_attr.callbacks.done;
+      if (cb->callback) {
+  	(*cb->callback) (xic, cb->client_data, NULL);
++ 	xic->ximp_icpart->cbstatus &= ~XIMPCBPREEDITACTIVE ;
+      }
+  }
+  
+***************
+*** 167,193 ****
+  		    /*
+  		     * wide_char is union with multi_byte.
+  		     */
+! 		    cbtext.string.wide_char = (wchar_t *) Xmalloc(ctlen * sizeof(wchar_t));
+! 		    bzero(cbtext.string.wide_char, sizeof(wchar_t) * ctlen);
+! 		    
+! 		    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 			cbtext.encoding_is_wchar = True;
+! 			if (_Ximp_cttowcs(xic->core.im->core.lcd, ctext,
+! 					  nitems, cbtext.string.wide_char,
+! 					  &length, NULL) < 0) {
+! 			    length = 0;
+  			}
+- 		    } else {
+- 			cbtext.encoding_is_wchar = False;
+- 			if (_Ximp_cttombs(xic->core.im->core.lcd, ctext,
+- 					  nitems, cbtext.string.multi_byte,
+- 				          &length, NULL) < 0) {
+- 			    length = 0;
+- 			}
+  		    }
+! 		    
+  		    if (cbtext.feedback == NULL) {
+! 			if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+  			    if (!(cbtext.length = length)) {
+  				if (cbtext.string.wide_char)
+  				  Xfree(cbtext.string.wide_char);
+--- 170,200 ----
+  		    /*
+  		     * wide_char is union with multi_byte.
+  		     */
+! 
+! 		    if( (cbtext.string.wide_char = (wchar_t *) Xmalloc(ctlen * sizeof(wchar_t))) == NULL ) {
+! 			length = 0;
+! 		    }
+! 		    else {
+! 			bzero(cbtext.string.wide_char, sizeof(wchar_t) * ctlen);
+! 			if (IS_USE_WCHAR(xic)) {
+! 			    cbtext.encoding_is_wchar = True;
+! 			    if (_Ximp_cttowcs(xic->core.im->core.lcd, ctext,
+! 					      nitems, cbtext.string.wide_char,
+! 					      &length, NULL) < 0) {
+! 				length = 0;
+! 			    }
+! 			} else {
+! 			    cbtext.encoding_is_wchar = False;
+! 			    if (_Ximp_cttombs(xic->core.im->core.lcd, ctext,
+! 					      nitems, cbtext.string.multi_byte,
+! 					      &length, NULL) < 0) {
+! 				length = 0;
+! 			    }
+  			}
+  		    }
+! 
+  		    if (cbtext.feedback == NULL) {
+! 			if (IS_USE_WCHAR(xic)) {
+  			    if (!(cbtext.length = length)) {
+  				if (cbtext.string.wide_char)
+  				  Xfree(cbtext.string.wide_char);
+***************
+*** 240,249 ****
+  	} else {
+  	    CallData.text = &cbtext;
+  	}
+- 	
+  
+  	(*cb->callback) (xic, cb->client_data, &CallData);
+! 	if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+  	    if (cbtext.string.wide_char) {
+  		Xfree((XPointer) (cbtext.string.wide_char));
+  	    }
+--- 247,255 ----
+  	} else {
+  	    CallData.text = &cbtext;
+  	}
+  
+  	(*cb->callback) (xic, cb->client_data, &CallData);
+! 	if (IS_USE_WCHAR(xic)) {
+  	    if (cbtext.string.wide_char) {
+  		Xfree((XPointer) (cbtext.string.wide_char));
+  	    }
+***************
+*** 267,307 ****
+      }
+  }
+  
+- static Bool
+- _Ximp_DCMPredicate( d, ev, arg0 )
+- Display		*d;
+- XEvent		*ev;
+- XPointer	arg0;
+- {
+-     XimpCMPredicateArg	arg = (XimpCMPredicateArg)arg0;
+-     ICID		icid;
+-     int			n;
+- 
+-     if( ev->type == ClientMessage ) {
+- 	if( ev->xclient.message_type == arg->type ) {
+- 	    if( ev->xclient.format == 8 ) {
+- 		for( icid = 0, n = 0; n < 4; n++ ) {
+- 		    icid <<= 8;
+- 		    icid += ev->xclient.data.b[n];
+- 		}
+- 		if( icid == arg->icid )
+- 		    return( True );
+- 	    }
+- 	    else if( ev->xclient.format == 32  &&
+- 		     ev->xclient.data.l[0] == XIMP_ERROR  &&
+- 		     ev->xclient.data.l[1] == arg->icid ) {
+- 		return( True );
+- 	    }
+- 	}
+-     }
+-     else if( ev->type == DestroyNotify ) {
+- 	if( ev->xdestroywindow.window == arg->owner ) {
+- 	    return( True );
+- 	}
+-     }
+- }
+- 
+- 
+  void
+  _Ximp_CallPreeditDrawCallback2(xic, event)
+      Ximp_XIC        xic;
+--- 273,278 ----
+***************
+*** 314,325 ****
+      int             length;
+      XEvent          ev;
+      short	    pdcbStatus = (short) ((event->data.l[2] >> 16) & 0xffffl);
+!     int             ctlen;
+      Atom            type;
+      int             format;
+      unsigned long   nitems, after;
+      XimpCMPredicateArgRec	Arg;
+  
+      bzero(&CallData, sizeof(XIMPreeditDrawCallbackStruct));
+      bzero(&cbtext, sizeof(XIMText));
+  
+--- 285,302 ----
+      int             length;
+      XEvent          ev;
+      short	    pdcbStatus = (short) ((event->data.l[2] >> 16) & 0xffffl);
+!     int             ctlen = 0;
+      Atom            type;
+      int             format;
+      unsigned long   nitems, after;
++     unsigned char	*tmp;		/* for multiple ClientMessage */
++     unsigned char	*tmpp;		/* for multiple ClientMessage */
++     int			 work;
++     int		    i;
+      XimpCMPredicateArgRec	Arg;
+  
++     tmpp = tmp = NULL;
++ 
+      bzero(&CallData, sizeof(XIMPreeditDrawCallbackStruct));
+      bzero(&cbtext, sizeof(XIMText));
+  
+***************
+*** 357,363 ****
+  		if (!(pdcbStatus & XIMP_PDCBSTATUS_FEEDBACKS_VIA_PROP)) {
+  		    /* error */
+  		} else {
+! 		    /*
+  		     * Not implemented yet.
+  		     */
+  		    if (XGetWindowProperty(xic->core.im->core.display,
+--- 334,340 ----
+  		if (!(pdcbStatus & XIMP_PDCBSTATUS_FEEDBACKS_VIA_PROP)) {
+  		    /* error */
+  		} else {
+! 		    /*  
+  		     * Not implemented yet.
+  		     */
+  		    if (XGetWindowProperty(xic->core.im->core.display,
+***************
+*** 372,439 ****
+  		}
+  	    }
+  	} else { /* if preedit text is exist */
+! 	    /*
+! 	     * Following Client message must be the preedit string.
+! 	     */
+! 	    Arg.type = ((Ximp_XIM)xic->core.im)->ximp_impart->improtocol_id;
+! 	    Arg.owner = ((Ximp_XIM)xic->core.im)->ximp_impart->fe_window;
+! 	    Arg.icid = xic->ximp_icpart->icid;
+! 	    if( !_XimpIfEvent( xic, &ev, _Ximp_DCMPredicate, (XPointer)&Arg ) )
+! 		return;
+  
+! 	    ctlen = ev.xclient.data.b[4];
+  	    length = ctlen * XIMP_MB_CUR_MAX(xic->core.im->core.lcd);
+  	    
+! 	    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 		cbtext.string.wide_char = (wchar_t *) Xmalloc((length + 1) * sizeof(wchar_t));
+! 		bzero(cbtext.string.wide_char, sizeof(wchar_t) * (length + 1));
+! 		cbtext.encoding_is_wchar = True;
+! 		if (_Ximp_cttowcs(xic->core.im->core.lcd,
+! 			          &ev.xclient.data.b[5], ev.xclient.data.b[4],
+! 			          cbtext.string.wide_char,
+! 			          &length, NULL) < 0) {
+  		    length = 0;
+  		}
+  		cbtext.length = length;
+  	    } else {
+! 		cbtext.string.multi_byte = Xmalloc(length + 1);
+! 		bzero(cbtext.string.multi_byte, length + 1);
+! 		cbtext.encoding_is_wchar = False;
+! 		if (_Ximp_cttombs(xic->core.im->core.lcd,
+! 				  &ev.xclient.data.b[5], ev.xclient.data.b[4],
+! 				  cbtext.string.multi_byte,
+! 				  &length, NULL) < 0) {
+  		    length = 0;
+  		}
+! 		
+! 		if ((length =
+! 		     _Ximp_mbs_charlen(xic->core.im->core.lcd,
+  				       cbtext.string.multi_byte,
+  				       length)) < 0) {
+! 		    length = 0 ;
+! 		    if (cbtext.string.multi_byte)
+! 			Xfree(cbtext.string.multi_byte);
+! 		    cbtext.string.multi_byte = NULL;
+  		}
+  		cbtext.length = length;
+- 		
+  	    }
+! 	    
+! 	    
+! 	    if (event->data.l[4] != -1) {
+! 		int             i;
+! 		
+! 		cbtext.feedback = (XIMFeedback *) Xmalloc(cbtext.length * sizeof(XIMFeedback));
+! 		for (i = 0; i < (int) cbtext.length; i++) {
+! 		    cbtext.feedback[i] = event->data.l[4];
+! 		}
+! 	    } else {
+  		cbtext.feedback = NULL;
+  	    }
+- 
+  	}
+  	(*cb->callback) (xic, cb->client_data, &CallData);
+! 	if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+  	    if (cbtext.string.wide_char)
+  	      Xfree((XPointer) (cbtext.string.wide_char));
+  	} else {
+--- 349,416 ----
+  		}
+  	    }
+  	} else { /* if preedit text is exist */
+! 	    unsigned char *ct = NULL ;
+  
+! 	    ctlen = _Ximp_CombineMultipleCM(xic, &ct);
+! 
+  	    length = ctlen * XIMP_MB_CUR_MAX(xic->core.im->core.lcd);
+  	    
+! 	    if (IS_USE_WCHAR(xic)) {
+! 		if( (cbtext.string.wide_char = (wchar_t *) Xmalloc((length + 1) * sizeof(wchar_t))) == NULL ) {
+  		    length = 0;
+  		}
++ 		else {
++ 		    bzero(cbtext.string.wide_char, sizeof(wchar_t) * (length + 1));
++ 		    cbtext.encoding_is_wchar = True;
++ 		    if (_Ximp_cttowcs(xic->core.im->core.lcd,
++ 				      ct, ctlen,
++ 				      cbtext.string.wide_char,
++ 				      &length, NULL) < 0) {
++ 			length = 0;
++ 		    }
++ 		}
+  		cbtext.length = length;
+  	    } else {
+! 		if( (cbtext.string.multi_byte = Xmalloc(length + 1)) == NULL ) {
+  		    length = 0;
+  		}
+! 		else {
+! 		    bzero(cbtext.string.multi_byte, length + 1);
+! 		    cbtext.encoding_is_wchar = False;
+! 		    if (_Ximp_cttombs(xic->core.im->core.lcd,
+! 				      ct, ctlen,
+! 				      cbtext.string.multi_byte,
+! 				      &length, NULL) < 0) {
+! 			length = 0;
+! 		    }
+! 		    else if ((length = _Ximp_mbs_charlen(xic->core.im->core.lcd,
+  				       cbtext.string.multi_byte,
+  				       length)) < 0) {
+! 			length = 0;
+! 		    }
+  		}
+  		cbtext.length = length;
+  	    }
+! 	    if(pdcbStatus & XIMP_PDCBSTATUS_NOFEEDBACK) {
+  		cbtext.feedback = NULL;
++ 	    } else if(pdcbStatus & XIMP_PDCBSTATUS_FEEDBACKS_VIA_PROP) {
++ 		    if (XGetWindowProperty(xic->core.im->core.display,
++ 					   ((Ximp_XIM) xic->core.im)->ximp_impart->fe_window,
++ 					   event->data.l[4], 0, 4096, True, AnyPropertyType,
++ 					   &type, &format, &nitems, &after,
++ 					   (unsigned char **) &cbtext.feedback) == Success) {
++ 			cbtext.length = nitems;
++ 		    } else {
++ 			cbtext.length = 0 ;
++ 		    }
++ 	    } else {
++ 		if( cbtext.feedback = (XIMFeedback *) Xmalloc(cbtext.length * sizeof(XIMFeedback)) )
++ 		    for (i = 0; i < (int) cbtext.length; i++)
++ 			cbtext.feedback[i] = event->data.l[4];
+  	    }
+  	}
+  	(*cb->callback) (xic, cb->client_data, &CallData);
+! 	if (IS_USE_WCHAR(xic)) {
+  	    if (cbtext.string.wide_char)
+  	      Xfree((XPointer) (cbtext.string.wide_char));
+  	} else {
+***************
+*** 440,445 ****
+--- 417,424 ----
+  	    if (cbtext.string.multi_byte)
+  	      Xfree((XPointer) (cbtext.string.multi_byte));
+  	}
++ 	if(tmp)
++ 		Xfree((unsigned char *) tmp);
+  	if (cbtext.feedback)
+  	  Xfree((XPointer) cbtext.feedback);
+      }
+***************
+*** 454,460 ****
+      XIMPreeditDrawCallbackStruct CallData;
+      XIMText         cbtext;
+      unsigned long text_data[2];
+!     static wchar_t local_buf[16];
+      int length = 16;
+  
+      bzero(&CallData, sizeof(XIMPreeditDrawCallbackStruct));
+--- 433,439 ----
+      XIMPreeditDrawCallbackStruct CallData;
+      XIMText         cbtext;
+      unsigned long text_data[2];
+!     static wchar_t local_buf[16] = {0};		/* rm bss data */
+      int length = 16;
+  
+      bzero(&CallData, sizeof(XIMPreeditDrawCallbackStruct));
+***************
+*** 485,491 ****
+      text_data[1] = htonl(event->data.l[4]);
+  
+      if (cb->callback) {
+! 	if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+  	    cbtext.encoding_is_wchar = True;
+  	    cbtext.string.wide_char = local_buf;
+  	    if (_Ximp_cttowcs(xic->core.im->core.lcd, (char *)text_data, (event->data.l[2] & 0xffl), cbtext.string.wide_char, &length, NULL) >= 0) {
+--- 464,470 ----
+      text_data[1] = htonl(event->data.l[4]);
+  
+      if (cb->callback) {
+! 	if (IS_USE_WCHAR(xic)) {
+  	    cbtext.encoding_is_wchar = True;
+  	    cbtext.string.wide_char = local_buf;
+  	    if (_Ximp_cttowcs(xic->core.im->core.lcd, (char *)text_data, (event->data.l[2] & 0xffl), cbtext.string.wide_char, &length, NULL) >= 0) {
+***************
+*** 504,511 ****
+  }
+  
+  void
+! _Ximp_CallPreeditCaretCallback(xic, event)
+!     Ximp_XIC        xic;
+      XClientMessageEvent *event;
+  {
+      register XIMCallback *cb;
+--- 483,490 ----
+  }
+  
+  void
+! _Ximp_CallPreeditCaretCallback(ic, event)
+!     Ximp_XIC        ic;
+      XClientMessageEvent *event;
+  {
+      register XIMCallback *cb;
+***************
+*** 513,527 ****
+  #define ToXIMCaretStyle(x) ((XIMCaretStyle)(x))
+  #define ToXIMCaretDirection(x) ((XIMCaretDirection)(x))
+  
+!     cb = &xic->core.preedit_attr.callbacks.caret;
+      if (cb->callback) {
+  	CallData.position = event->data.l[2];
+  	CallData.direction = ToXIMCaretDirection(event->data.l[3]);
+  	CallData.style = ToXIMCaretStyle(event->data.l[4]);
+! 	(*cb->callback) (xic, cb->client_data, &CallData);
+! 
+!         _Ximp_IM_SendMessage(xic, XIMP_PREEDITCARET_RETURN,
+! 				CallData.position, NULL, NULL);
+      }
+  }
+  
+--- 492,505 ----
+  #define ToXIMCaretStyle(x) ((XIMCaretStyle)(x))
+  #define ToXIMCaretDirection(x) ((XIMCaretDirection)(x))
+  
+!     cb = &ic->core.preedit_attr.callbacks.caret;
+      if (cb->callback) {
+  	CallData.position = event->data.l[2];
+  	CallData.direction = ToXIMCaretDirection(event->data.l[3]);
+  	CallData.style = ToXIMCaretStyle(event->data.l[4]);
+! 	(*cb->callback) (ic, cb->client_data, &CallData);
+! 	    _Ximp_IM_SendMessage(ic, XIMP_PREEDITCARET_RETURN(ic),
+! 		CallData.position, NULL, NULL);
+      }
+  }
+  
+***************
+*** 535,540 ****
+--- 513,519 ----
+      cb = &xic->core.status_attr.callbacks.start;
+      if (cb->callback) {
+  	(*cb->callback) (xic, cb->client_data, NULL);
++ 	xic->ximp_icpart->cbstatus |= XIMPCBSTATUSACTIVE ;
+      }
+  }
+  
+***************
+*** 548,553 ****
+--- 527,533 ----
+      cb = &xic->core.status_attr.callbacks.done;
+      if (cb->callback) {
+  	(*cb->callback) (xic, cb->client_data, NULL);
++ 	xic->ximp_icpart->cbstatus &= ~XIMPCBSTATUSACTIVE ;
+      }
+  }
+  
+***************
+*** 574,585 ****
+  	int             format;
+  	unsigned long   nitems, after;
+  	CallData.data.text = &cbtext;
+! 	if (XGetWindowProperty(xic->core.im->core.display,
+! 			  ((Ximp_XIM) xic->core.im)->ximp_impart->fe_window,
+! 			   event->data.l[4], 0, 4096, True, AnyPropertyType,
+! 			       &type, &format, &nitems, &after,
+! 			  (unsigned char **) &cbtext.feedback) == Success) {
+! 	    cbtext.length = nitems;
+  	} else {
+  	    cbtext.feedback = NULL;
+  	    cbtext.length = 0;
+--- 554,570 ----
+  	int             format;
+  	unsigned long   nitems, after;
+  	CallData.data.text = &cbtext;
+! 	if (event->data.l[4]) {
+! 	    if (XGetWindowProperty(xic->core.im->core.display,
+! 			      ((Ximp_XIM) xic->core.im)->ximp_impart->fe_window,
+! 			       event->data.l[4], 0, 4096, True, AnyPropertyType,
+! 				   &type, &format, &nitems, &after,
+! 			      (unsigned char **) &cbtext.feedback) == Success) {
+! 		cbtext.length = nitems;
+! 	    } else {
+! 		cbtext.feedback = NULL;
+! 		cbtext.length = 0;
+! 	    }
+  	} else {
+  	    cbtext.feedback = NULL;
+  	    cbtext.length = 0;
+***************
+*** 589,624 ****
+  			   event->data.l[3], 0, 4096, True, AnyPropertyType,
+  			       &type, &format, &nitems, &after,
+  			       (unsigned char **) &text) == Success) {
+! 	    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 		cbtext.string.wide_char = (wchar_t *) Xmalloc((XIMP_MAXBUF + 1) * sizeof(wchar_t));
+! 		bzero(cbtext.string.wide_char, (XIMP_MAXBUF + 1) * sizeof(wchar_t));
+! 		length = XIMP_MAXBUF;
+! 		if (_Ximp_cttowcs(xic->core.im->core.lcd, text, nitems,
+! 				  cbtext.string.wide_char,
+! 				  &length, NULL) < 0) {
+  		    length = 0;
+  		}
+  		cbtext.length = length;
+  		Xfree((XPointer) text);
+  		cbtext.encoding_is_wchar = True;
+  	    } else {
+! 		cbtext.string.multi_byte = Xmalloc(XIMP_MAXBUF + 1);
+! 		bzero(cbtext.string.multi_byte, XIMP_MAXBUF + 1);
+! 		length = XIMP_MAXBUF;
+! 		if (_Ximp_cttombs(xic->core.im->core.lcd, text, nitems,
+! 				  cbtext.string.multi_byte,
+! 				  &length, NULL) < 0) {
+  		    length = 0;
+  		}
+! 		if (cbtext.length == 0) {
+! 		    if ((length =
+! 			 _Ximp_mbs_charlen(xic->core.im->core.lcd,
+  					   cbtext.string.multi_byte,
+  					   length)) < 0) {
+! 			length = 0 ;
+! 			if (cbtext.string.multi_byte)
+! 			    Xfree(cbtext.string.multi_byte);
+! 			cbtext.string.multi_byte = NULL;
+  		    }
+  		    cbtext.length  = length;
+  		}
+--- 574,613 ----
+  			   event->data.l[3], 0, 4096, True, AnyPropertyType,
+  			       &type, &format, &nitems, &after,
+  			       (unsigned char **) &text) == Success) {
+! 	    if (IS_USE_WCHAR(xic)) {
+! 		if( (cbtext.string.wide_char = (wchar_t *) Xmalloc((XIMP_MAXBUF + 1) * sizeof(wchar_t))) == NULL ) {
+  		    length = 0;
+  		}
++ 		else {
++ 		    bzero(cbtext.string.wide_char, (XIMP_MAXBUF + 1) * sizeof(wchar_t));
++ 		    length = XIMP_MAXBUF;
++ 		    if (_Ximp_cttowcs(xic->core.im->core.lcd, text, nitems,
++ 				      cbtext.string.wide_char,
++ 				      &length, NULL) < 0) {
++ 			length = 0;
++ 		    }
++ 		}
+  		cbtext.length = length;
+  		Xfree((XPointer) text);
+  		cbtext.encoding_is_wchar = True;
+  	    } else {
+! 		if( (cbtext.string.multi_byte = Xmalloc(XIMP_MAXBUF + 1)) == NULL ) {
+  		    length = 0;
+  		}
+! 		else {
+! 		    bzero(cbtext.string.multi_byte, XIMP_MAXBUF + 1);
+! 		    length = XIMP_MAXBUF;
+! 		    if (_Ximp_cttombs(xic->core.im->core.lcd, text, nitems,
+! 				      cbtext.string.multi_byte,
+! 				      &length, NULL) < 0) {
+! 			length = 0;
+! 		    }
+! 		    if (cbtext.length == 0) {
+! 			if ((length = _Ximp_mbs_charlen(xic->core.im->core.lcd,
+  					   cbtext.string.multi_byte,
+  					   length)) < 0) {
+! 			    length = 0 ;
+! 			}
+  		    }
+  		    cbtext.length  = length;
+  		}
+***************
+*** 626,638 ****
+  		cbtext.encoding_is_wchar = False;
+  	    }
+  	} else {
+! 	    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 		cbtext.string.wide_char = (wchar_t *) Xmalloc(sizeof(wchar_t));
+! 		cbtext.string.wide_char[0] = 0;
+  		cbtext.length = 0;
+  	    } else {
+! 		cbtext.string.multi_byte = Xmalloc(1);
+! 		cbtext.string.multi_byte[0] = 0;
+  		cbtext.length = 0;
+  	    }
+  	}
+--- 615,625 ----
+  		cbtext.encoding_is_wchar = False;
+  	    }
+  	} else {
+! 	    if (IS_USE_WCHAR(xic)) {
+! 		cbtext.string.wide_char = (wchar_t *) NULL;
+  		cbtext.length = 0;
+  	    } else {
+! 		cbtext.string.multi_byte = NULL;
+  		cbtext.length = 0;
+  	    }
+  	}
+***************
+*** 639,649 ****
+  	if (cb->callback) {
+  	    (*cb->callback) (xic, cb->client_data, &CallData);
+  	}
+! 	if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 	    Xfree((XPointer) (cbtext.string.wide_char));
+! 	} else {
+! 	    Xfree((XPointer) (cbtext.string.multi_byte));
+  	}
+  	if (cbtext.feedback)
+  	    Xfree((XPointer) cbtext.feedback);
+      } else {			/* XIMBitmapType */
+--- 626,641 ----
+  	if (cb->callback) {
+  	    (*cb->callback) (xic, cb->client_data, &CallData);
+  	}
+! 	if (IS_USE_WCHAR(xic) ) {
+! 	    if( cbtext.string.wide_char ) {
+! 		Xfree((XPointer) (cbtext.string.wide_char));
+! 	    }
+  	}
++ 	else {
++ 	    if( cbtext.string.multi_byte ) {
++ 		Xfree((XPointer) (cbtext.string.multi_byte));
++ 	    }
++ 	}
+  	if (cbtext.feedback)
+  	    Xfree((XPointer) cbtext.feedback);
+      } else {			/* XIMBitmapType */
+***************
+*** 659,709 ****
+      Ximp_XIC        xic;
+      XClientMessageEvent *event;
+  {
+!     register XIMCallback	*cb;
+!     char			*text;
+!     int             		length;
+      XIMStatusDrawCallbackStruct CallData;
+!     XIMText         		cbtext;
+!     XEvent          		ev;
+!     XimpCMPredicateArgRec	Arg;
+  
+      cb = &xic->core.status_attr.callbacks.draw;
+      CallData.type = ToXIMStatusDataType(event->data.l[2]);
+      if (CallData.type == XIMTextType) {
+  	CallData.data.text = &cbtext;
+! 
+! 	Arg.type = ((Ximp_XIM)xic->core.im)->ximp_impart->improtocol_id;
+! 	Arg.owner = ((Ximp_XIM)xic->core.im)->ximp_impart->fe_window;
+! 	Arg.icid = xic->ximp_icpart->icid;
+! 	if( !_XimpIfEvent( xic, &ev, _Ximp_DCMPredicate, (XPointer)&Arg ) )
+! 	    return;
+! 
+  	if (cb->callback) {
+! 	    length = ev.xclient.data.b[4];
+! 	    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 		cbtext.string.wide_char = (wchar_t *) Xmalloc((XIMP_MAXBUF + 1) * sizeof(wchar_t));
+! 		bzero(cbtext.string.wide_char,(XIMP_MAXBUF + 1) * sizeof(wchar_t));
+  		cbtext.encoding_is_wchar = True;
+! 		if (_Ximp_cttowcs(xic->core.im->core.lcd,
+! 				  &ev.xclient.data.b[5], ev.xclient.data.b[4],
+! 				  cbtext.string.wide_char,
+! 				  &length, NULL) < 0) {
+  		    length = 0;
+  		}
+  	    } else {
+- 		cbtext.string.multi_byte = Xmalloc(length + 1);
+- 		bzero(cbtext.string.multi_byte, length + 1);
+  		cbtext.encoding_is_wchar = False;
+! 		if (_Ximp_cttombs(xic->core.im->core.lcd,
+! 				  &ev.xclient.data.b[5], ev.xclient.data.b[4],
+! 				  cbtext.string.multi_byte,
+! 				  &length, NULL) < 0) {
+  		    length = 0;
+  		}
+! 		if ((length = _Ximp_mbs_charlen(xic->core.im->core.lcd,
+! 				           cbtext.string.multi_byte,
+! 				           length)) < 0) {
+! 		    length = 0;
+  		}
+  	    }
+  	    cbtext.length = length;
+--- 651,705 ----
+      Ximp_XIC        xic;
+      XClientMessageEvent *event;
+  {
+!     register XIMCallback *cb;
+!     unsigned char        *ct = NULL;
+!     int             length;
+      XIMStatusDrawCallbackStruct CallData;
+!     XIMText         cbtext;
+!     int		    ctlen = 0;	/* for multiple ClientMessage */
+  
+      cb = &xic->core.status_attr.callbacks.draw;
+      CallData.type = ToXIMStatusDataType(event->data.l[2]);
+      if (CallData.type == XIMTextType) {
+  	CallData.data.text = &cbtext;
+! 	
+! 	ctlen = _Ximp_CombineMultipleCM(xic, &ct);
+! 	
+  	if (cb->callback) {
+! 	    length = ctlen * XIMP_MB_CUR_MAX(xic->core.im->core.lcd);
+! 	    if (IS_USE_WCHAR(xic)) {
+  		cbtext.encoding_is_wchar = True;
+! 		if( (cbtext.string.wide_char = (wchar_t *) Xmalloc((XIMP_MAXBUF + 1) * sizeof(wchar_t))) == NULL ) {
+  		    length = 0;
+  		}
++ 		else {
++ 		    bzero(cbtext.string.wide_char,(XIMP_MAXBUF + 1) * sizeof(wchar_t));
++ 		    if (_Ximp_cttowcs(xic->core.im->core.lcd,
++ 				      ct, ctlen,
++ 				      cbtext.string.wide_char,
++ 				      &length, NULL) < 0) {
++ 			length = 0;
++ 		    }
++ 		}
+  	    } else {
+  		cbtext.encoding_is_wchar = False;
+! 		if( (cbtext.string.multi_byte = Xmalloc(length + 1)) == NULL ) {
+  		    length = 0;
+  		}
+! 		else {
+! 		    bzero(cbtext.string.multi_byte, length + 1);
+! 		    if (_Ximp_cttombs(xic->core.im->core.lcd,
+! 				      ct, ctlen,
+! 				      cbtext.string.multi_byte,
+! 				      &length, NULL) < 0) {
+! 			length = 0;
+! 		    }
+! 		    Xfree((XPointer) ct);
+! 		    if ((length = _Ximp_mbs_charlen(xic->core.im->core.lcd,
+! 					       cbtext.string.multi_byte,
+! 					       length)) < 0) {
+! 			length = 0;
+! 		    }
+  		}
+  	    }
+  	    cbtext.length = length;
+***************
+*** 710,729 ****
+  	    if (event->data.l[4] != -1) {
+  		int             i;
+  
+! 		cbtext.feedback = (XIMFeedback *) Xmalloc(cbtext.length * sizeof(long));
+! 		for (i = 0; i < (int) cbtext.length; i++) {
+! 		    cbtext.feedback[i] = event->data.l[4];
+! 		}
+  	    } else {
+  		cbtext.feedback = NULL;
+  	    }
+  	    (*cb->callback) (xic, cb->client_data, &CallData);
+! 	    if (((Ximp_XIM) xic->core.im)->ximp_impart->use_wchar) {
+! 		Xfree((XPointer) (cbtext.string.wide_char));
+! 	    } else {
+! 		Xfree((XPointer) (cbtext.string.multi_byte));
+  	    }
+! 	    Xfree((XPointer) cbtext.feedback);
+  	}
+      } else {			/* XIMBitmapType */
+  	if (cb->callback) {
+--- 706,730 ----
+  	    if (event->data.l[4] != -1) {
+  		int             i;
+  
+! 		if( cbtext.feedback = (XIMFeedback *) Xmalloc(cbtext.length * sizeof(long)) )
+! 		    for (i = 0; i < (int) cbtext.length; i++)
+! 			cbtext.feedback[i] = event->data.l[4];
+  	    } else {
+  		cbtext.feedback = NULL;
+  	    }
+  	    (*cb->callback) (xic, cb->client_data, &CallData);
+! 	    if( IS_USE_WCHAR(xic) ) {
+! 		if( cbtext.string.wide_char ) {
+! 		    Xfree((XPointer) (cbtext.string.wide_char));
+! 		}
+  	    }
+! 	    else {
+! 		if( cbtext.string.multi_byte ) {
+! 		    Xfree((XPointer) (cbtext.string.multi_byte));
+! 		}
+! 	    }
+! 	    if (cbtext.feedback)
+! 		Xfree((XPointer) cbtext.feedback);
+  	}
+      } else {			/* XIMBitmapType */
+  	if (cb->callback) {
+*** /tmp/d18571	Mon Oct 19 19:30:42 1992
+--- lib/X/Ximp/XimpConv.c	Mon Oct 19 19:24:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpConv.c,v 1.6 92/04/14 13:28:45 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpConv.c,v 1.7 92/10/19 19:24:01 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 70,85 ****
+  
+  #define CHAR_LENGTH(xxxtocs) \
+      unsigned char buf[BUFSIZE]; \
+-     int char_length; \
+      int buf_len, scan_len; \
+      int ret = 0; \
+  \
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd); \
+  \
+      while (from_len > 0) { \
+          buf_len = BUFSIZE; \
+!         scan_len = (*xxxtocs)(lcd, from_ptr, from_len, buf, &buf_len, \
+!                               NULL, &char_length); \
+          if (scan_len == -1) { \
+  	    ret = -1; \
+  	    goto error; \
+--- 70,86 ----
+  
+  #define CHAR_LENGTH(xxxtocs) \
+      unsigned char buf[BUFSIZE]; \
+      int buf_len, scan_len; \
+      int ret = 0; \
++     LCMethods methods = LC_METHODS(lcd); \
++     State state; \
+  \
+!     state = (*methods->create_state)(lcd); \
+!     (*methods->cnv_start)(state); \
+  \
+      while (from_len > 0) { \
+          buf_len = BUFSIZE; \
+!         scan_len = (*xxxtocs)(state, from_ptr, from_len, buf, &buf_len); \
+          if (scan_len == -1) { \
+  	    ret = -1; \
+  	    goto error; \
+***************
+*** 87,105 ****
+          if (scan_len == 0)  \
+  	    break; \
+  \
+! 	ret += buf_len / char_length; \
+          from_ptr += scan_len; \
+          from_len -= scan_len; \
+      } \
+  \
+  error: \
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd); \
+  \
+      return ret;
+  
+  int
+! _Ximp_str_charlen(lcd, strtocs, from, from_len)
+!     Ximp_XLCd lcd;
+      int (*strtocs)();
+      unsigned char *from;
+      int from_len;
+--- 88,107 ----
+          if (scan_len == 0)  \
+  	    break; \
+  \
+! 	ret += buf_len / state->codeset->length; \
+          from_ptr += scan_len; \
+          from_len -= scan_len; \
+      } \
+  \
+  error: \
+!     (*methods->cnv_end)(state); \
+!     (*methods->destroy_state)(state); \
+  \
+      return ret;
+  
+  int
+! _Xlc_str_charlen(lcd, strtocs, from, from_len)
+!     XLCd lcd;
+      int (*strtocs)();
+      unsigned char *from;
+      int from_len;
+***************
+*** 110,201 ****
+  
+  int
+  _Ximp_mbs_charlen(lcd, mbstr, mbstr_len)
+!     Ximp_XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+  {
+!     return _Ximp_str_charlen(lcd, lcd->ximp_lcpart->methods->mbstocs,
+! 			     mbstr, mbstr_len);
+  }
+  
+  
+  #define STRING_CONV(xxxtocs, cstoxxx) \
+      unsigned char buf[BUFSIZE]; \
+-     int cs_num; \
+      int to_length, buf_len, scan_len, tmp_len; \
+      int ret = -1; \
+  \
+      if (to_len) { \
+!         to_length = *to_len; \
+  	*to_len = 0; \
+      } else \
+!         to_length = MAXINT; \
+!     if (unconv_num) \
+!         *unconv_num = 0; \
+  \
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd); \
+  \
+      while (from_len > 0 && to_length > 0) { \
+!         buf_len = BUFSIZE; \
+!         scan_len = (*xxxtocs)(lcd, from_ptr, from_len, buf, &buf_len, \
+!                               &cs_num, NULL); \
+!         if (scan_len == -1) \
+!             goto error; \
+!         if (scan_len == 0)  \
+  	    break; \
+  \
+!         from_ptr += scan_len; \
+!         from_len -= scan_len; \
+  \
+!         tmp_len = to_length; \
+!         if ((*cstoxxx)(lcd, buf, buf_len, to_ptr, &tmp_len, cs_num) == -1) { \
+!             if (unconv_num) { \
+!                 *unconv_num += scan_len; \
+! 		continue; \
+! 	    } \
+  	    goto error; \
+!         } \
+  \
+  	if (to_ptr) \
+!             to_ptr += tmp_len; \
+  	if (to_len) \
+  	    *to_len += tmp_len; \
+!         to_length -= tmp_len; \
+      } \
+  \
+      ret =  from_ptr - from; \
+  \
+  error: \
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd); \
+  \
+      return ret;
+  
+! int
+! _Ximp_strtostr(lcd, strtocs, from, from_len, cstostr, to, to_len, unconv_num)
+!     Ximp_XLCd lcd;
+      int (*strtocs)();
+      unsigned char *from;
+      int from_len;
+-     int (*cstostr)();
+-     unsigned char *to;
+-     int *to_len;
+-     int *unconv_num;
+- {
+-     unsigned char *from_ptr = from;
+-     unsigned char *to_ptr = to;
+-     STRING_CONV(strtocs, cstostr)
+- }
+- 
+- int
+- _Ximp_strtowstr(lcd, strtocs, from, from_len, cstowstr, to, to_len, unconv_num)
+-     Ximp_XLCd lcd;
+-     int (*strtocs)();
+-     unsigned char *from;
+-     int from_len;
+      int (*cstowstr)();
+      wchar_t *to;
+      int *to_len;
+-     int *unconv_num;
+  {
+      unsigned char *from_ptr = from;
+      wchar_t *to_ptr = to;
+--- 112,183 ----
+  
+  int
+  _Ximp_mbs_charlen(lcd, mbstr, mbstr_len)
+!     XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+  {
+!     LCMethods methods = LC_METHODS(lcd);
+! 
+!     return _Xlc_str_charlen(lcd, methods->mbstocs, mbstr, mbstr_len);
+  }
+  
+  
+  #define STRING_CONV(xxxtocs, cstoxxx) \
+      unsigned char buf[BUFSIZE]; \
+      int to_length, buf_len, scan_len, tmp_len; \
+      int ret = -1; \
++     LCMethods methods = LC_METHODS(lcd); \
++     State state; \
+  \
+      if (to_len) { \
+! 	to_length = *to_len; \
+  	*to_len = 0; \
+      } else \
+! 	to_length = MAXINT; \
+  \
+!     state = (*methods->create_state)(lcd); \
+!     (*methods->cnv_start)(state); \
+  \
+      while (from_len > 0 && to_length > 0) { \
+! 	buf_len = BUFSIZE; \
+! 	scan_len = (*xxxtocs)(state, from_ptr, from_len, buf, &buf_len); \
+! 	if (scan_len == -1) \
+! 	    goto error; \
+! 	if (scan_len == 0)  \
+  	    break; \
+  \
+! 	from_ptr += scan_len; \
+! 	from_len -= scan_len; \
+  \
+! 	tmp_len = to_length; \
+! 	if ((*cstoxxx)(state, buf, buf_len, to_ptr, &tmp_len) == -1) { \
+  	    goto error; \
+! 	} \
+  \
+  	if (to_ptr) \
+! 	    to_ptr += tmp_len; \
+  	if (to_len) \
+  	    *to_len += tmp_len; \
+! 	to_length -= tmp_len; \
+      } \
+  \
+      ret =  from_ptr - from; \
+  \
+  error: \
+!     (*methods->cnv_end)(state); \
+!     (*methods->destroy_state)(state); \
+  \
+      return ret;
+  
+! static int
+! strtowstr(lcd, strtocs, from, from_len, cstowstr, to, to_len)
+!     XLCd lcd;
+      int (*strtocs)();
+      unsigned char *from;
+      int from_len;
+      int (*cstowstr)();
+      wchar_t *to;
+      int *to_len;
+  {
+      unsigned char *from_ptr = from;
+      wchar_t *to_ptr = to;
+***************
+*** 202,210 ****
+      STRING_CONV(strtocs, cstowstr)
+  }
+  
+! int
+! _Ximp_wstrtostr(lcd, wstrtocs, from, from_len, cstostr, to, to_len, unconv_num)
+!     Ximp_XLCd lcd;
+      int (*wstrtocs)();
+      wchar_t *from;
+      int from_len;
+--- 184,192 ----
+      STRING_CONV(strtocs, cstowstr)
+  }
+  
+! static int
+! wstrtostr(lcd, wstrtocs, from, from_len, cstostr, to, to_len)
+!     XLCd lcd;
+      int (*wstrtocs)();
+      wchar_t *from;
+      int from_len;
+***************
+*** 211,217 ****
+      int (*cstostr)();
+      unsigned char *to;
+      int *to_len;
+-     int *unconv_num;
+  {
+      wchar_t *from_ptr = from;
+      unsigned char *to_ptr = to;
+--- 193,198 ----
+***************
+*** 218,302 ****
+      STRING_CONV(wstrtocs, cstostr)
+  }
+  
+- int
+- _Ximp_wstrtowstr(lcd, wstrtocs,from,from_len, cstowstr,to,to_len, unconv_num)
+-     Ximp_XLCd lcd;
+-     int (*wstrtocs)();
+-     wchar_t *from;
+-     int from_len;
+-     int (*cstowstr)();
+-     wchar_t *to;
+-     int *to_len;
+-     int *unconv_num;
+- {
+-     wchar_t *from_ptr = from;
+-     wchar_t *to_ptr = to;
+-     STRING_CONV(wstrtocs, cstowstr)
+- }
+  
+- 
+  int
+- _Ximp_mbstowcs(lcd, mbstr, mbstr_len, wcstr, wcstr_len, unconv_num)
+-     Ximp_XLCd lcd;
+-     unsigned char *mbstr;
+-     int mbstr_len;
+-     wchar_t *wcstr;
+-     int *wcstr_len;
+-     int *unconv_num;
+- {
+-     if (lcd == NULL && (lcd = (Ximp_XLCd) _XlcCurrentLC()) == NULL)
+- 	return -1;
+- 
+-     return _Ximp_strtowstr(lcd, lcd->ximp_lcpart->methods->mbstocs, mbstr,
+- 			   mbstr_len, lcd->ximp_lcpart->methods->cstowcs,
+- 			   wcstr, wcstr_len, unconv_num);
+- }
+- 
+- 
+- int
+- _Ximp_wcstombs(lcd, wcstr, wcstr_len, mbstr, mbstr_len, unconv_num)
+-     Ximp_XLCd lcd;
+-     wchar_t *wcstr;
+-     int wcstr_len;
+-     unsigned char *mbstr;
+-     int *mbstr_len;
+-     int *unconv_num;
+- {
+-     if (lcd == NULL && (lcd = (Ximp_XLCd) _XlcCurrentLC()) == NULL)
+- 	return -1;
+- 
+-     return _Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wcstr,
+- 			   wcstr_len, lcd->ximp_lcpart->methods->cstombs,
+- 			   mbstr, mbstr_len, unconv_num);
+- }
+- 
+- int
+- _Ximp_strcpy(lcd, str1, str1_len, str2, str2_len, unconv_num)
+-     Ximp_XLCd lcd;
+-     register unsigned char *str1;
+-     register int str1_len;
+-     register unsigned char *str2;
+-     int *str2_len;
+-     int *unconv_num;
+- {
+-     unsigned char *str1_tmp = str1;
+- 
+-     if (str2_len && str1_len > *str2_len)
+- 	str1_len = *str2_len;
+- 
+-     while (str1_len--)
+- 	*str2++ = *str1++;
+- 
+-     if (unconv_num)
+- 	*unconv_num = 0;
+-     if (str2_len)
+- 	*str2_len = str1 - str1_tmp;
+- 
+-     return str1 - str1_tmp;
+- }
+- 
+- 
+- int
+  _Xmblen(str, len)
+      char *str;
+      int len;
+--- 199,206 ----
+***************
+*** 310,322 ****
+      char *str;
+      int len;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+      wchar_t tmp_wc;
+  
+      if (lcd == NULL)
+  	return -1;
+      if (str == NULL)
+! 	return lcd->ximp_lcpart->state_dependent;
+      if (len == 0)
+  	return 0;
+      if (*str == '\0') {
+--- 214,228 ----
+      char *str;
+      int len;
+  {
+!     XimpLCd lcd = (XimpLCd) _XlcCurrentLC();
+!     LCMethods methods = LC_METHODS(lcd);
+      wchar_t tmp_wc;
++     int one = 1;
+  
+      if (lcd == NULL)
+  	return -1;
+      if (str == NULL)
+! 	return lcd->locale.state_dependent;
+      if (len == 0)
+  	return 0;
+      if (*str == '\0') {
+***************
+*** 326,333 ****
+      if (wstr == NULL)
+  	wstr = &tmp_wc;
+  
+!     return _Ximp_strtowstr(lcd, lcd->ximp_lcpart->methods->mbstocs, str, len,
+! 			   lcd->ximp_lcpart->methods->cstowcs, wstr, 1, NULL);
+  }
+  
+  int
+--- 232,239 ----
+      if (wstr == NULL)
+  	wstr = &tmp_wc;
+  
+!     return strtowstr(lcd, methods->mbstocs, str, len, methods->cstowcs,
+! 		     wstr, &one);
+  }
+  
+  int
+***************
+*** 336,352 ****
+      wchar_t wc;
+  {
+      int len;
+  
+-     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+- 
+      if (lcd == NULL)
+  	return -1;
+      if (str == NULL)
+! 	return lcd->ximp_lcpart->state_dependent;
+      len = XIMP_MB_CUR_MAX(lcd);
+  
+!     if (_Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, &wc, 1,
+! 		lcd->ximp_lcpart->methods->cstombs, str, &len, NULL) < 0)
+  	return -1;
+      
+      return len;
+--- 242,258 ----
+      wchar_t wc;
+  {
+      int len;
++     XimpLCd lcd = (XimpLCd) _XlcCurrentLC();
++     LCMethods methods = LC_METHODS(lcd);
+  
+      if (lcd == NULL)
+  	return -1;
+      if (str == NULL)
+! 	return lcd->locale.state_dependent;
+      len = XIMP_MB_CUR_MAX(lcd);
+  
+!     if (wstrtostr(lcd, methods->wcstocs, &wc, 1, methods->cstombs,
+! 		  str, &len) < 0)
+  	return -1;
+      
+      return len;
+***************
+*** 358,372 ****
+      char *str;
+      int len;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+      
+!     if (_Ximp_strtowstr(lcd, lcd->ximp_lcpart->methods->mbstocs, str, 
+! 			strlen(str), lcd->ximp_lcpart->methods->cstowcs,
+! 			wstr, &len, NULL) < 0)
+  	return -1;
+  
+      return len;
+  }
+--- 264,282 ----
+      char *str;
+      int len;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+!     LCMethods methods = LC_METHODS(lcd);
+!     int length = len;
+  
+      if (lcd == NULL)
+  	return -1;
+      
+!     if (strtowstr(lcd, methods->mbstocs, str, strlen(str), methods->cstowcs,
+! 		  wstr, &len) < 0)
+  	return -1;
++     
++     if (len < length)
++ 	wstr[len] = (wchar_t) 0;
+  
+      return len;
+  }
+***************
+*** 377,391 ****
+      wchar_t *wstr;
+      int len;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     if (_Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wstr,
+! 			_Xwcslen(wstr), lcd->ximp_lcpart->methods->cstombs,
+! 			str, &len, NULL) < 0)
+  	return -1;
+  
+      return len;
+  }
+--- 287,304 ----
+      wchar_t *wstr;
+      int len;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+!     LCMethods methods = LC_METHODS(lcd);
+!     int length = len;
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     if (wstrtostr(lcd, methods->wcstocs, wstr, _Xwcslen(wstr), methods->cstombs,		  str, &len) < 0)
+  	return -1;
++     
++     if (len < length)
++ 	str[len] = '\0';
+  
+      return len;
+  }
+***************
+*** 431,439 ****
+--- 344,383 ----
+      return wstr_ptr - wstr;
+  }
+  
++ int
++ _Xwcscmp(wstr1, wstr2)
++     register wchar_t *wstr1, *wstr2;
++ {
++     for ( ; *wstr1 && *wstr2; wstr1++, wstr2++)
++ 	if (*wstr1 != *wstr2)
++ 	    break;
+  
++     return *wstr1 - *wstr2;
++ }
++ 
++ int
++ _Xwcsncmp(wstr1, wstr2, len)
++     register wchar_t *wstr1, *wstr2;
++     register len;
++ {
++     for ( ; *wstr1 && *wstr2 && len > 0; wstr1++, wstr2++, len--)
++ 	if (*wstr1 != *wstr2)
++ 	    break;
++ 
++     if (len <= 0)
++ 	return 0;
++ 
++     return *wstr1 - *wstr2;
++ }
++ 
++ 
+  char *
++ #ifndef DYNAMICLIB
+  XDefaultString()
++ #else
++ _XimpDefaultString(lcd)
++ XLCd  lcd ;
++ #endif
+  {
+      return "";
+  }

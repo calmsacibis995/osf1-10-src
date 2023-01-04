@@ -1,0 +1,98 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 5.18 92/02/25 14:29:04 eswu Exp $
+#include <Server.tmpl>
+
+#if BuildXInputExt || BuildPexExt || BuildPexClients || BuildXTrapExt \
+	|| BuildSMTExt || BuildLGI || BuildXieExt
+#define IHaveSubdirs
+#endif
+
+#if BuildXInputExt
+  XINPUTDIRS = xinput
+#endif
+#if BuildPexExt
+  PEXDIRS = PEX
+#else
+#if BuildPexClients
+  PEXDIRS = PEX/dipex/swap
+#endif
+#endif
+#if BuildXTrapExt
+  XTRAPDIRS = xtrap
+#endif
+#if BuildSMTExt
+  SMTDIRS = smt
+#endif
+#if BuildXTestExt
+  XTESTSRC = xtest.c xtest1di.c xtest1dd.c sleepuntil.c
+  XTESTOBJ = xtest.o xtest1di.o xtest1dd.o sleepuntil.o
+#endif
+#if HasShm
+  SHMSRCS = shm.c
+  SHMOBJS = shm.o
+#endif
+
+MULTIBUFOBJ = $(EXTENSIONSRC)/multibuf/server/multibuf_dix.c
+MULTIBUFOBJ = $(EXTENSIONSRC)/multibuf/server/multibuf_dix.o
+
+#if BuildLGI
+  LGIDIRS = 3dlib draw fillareas gl nurbs pex utils 
+#endif
+
+#if BuildXieExt
+  XIEDIRS = xie
+#endif
+
+       SRCS = shape.c $(SHMSRCS) $(MULTIBUFSRC) mitmisc.c kme.c $(XTESTSRC)
+       OBJS = shape.o $(SHMOBJS) $(MULTIBUFOBJ) mitmisc.o kme.o $(XTESTOBJ)
+   INCLUDES = -I../include -I$(INCLUDESRC) -I$(SERVERSRC)/include
+   LINTLIBS = ../../server/dix/llib-ldix.ln ../../server/os/4.2bsd/llib-los.ln
+        SUBDIRS = $(XINPUTDIRS) $(PEXDIRS) $(XTRAPDIRS) $(SMTDIRS) \
+	$(LGIDIRS) $(ECPEXDIRS) $(XIEDIRS) draw
+     SHSRCS = initext.c
+     SHOBJS = initext.o
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(ext,$(OBJS))
+LintLibraryTarget(ext,$(SRCS))
+NormalLintTarget($(SRCS))
+
+#if SharedServerLibs
+SharedLibraryTarget(ext,.,$(OBJS) $(SHOBJS))
+InstallSharedLibrary(ext,.,$(INSTALLSERVERLIBSDIR))
+#endif
+
+DependTarget()
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+#if HasSaberC
+saber_src:
+	/**/#load $(CFLAGS) $(SRCS)
+#endif

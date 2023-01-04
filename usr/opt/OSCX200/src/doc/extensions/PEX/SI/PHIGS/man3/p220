@@ -1,0 +1,198 @@
+.\"##
+.\" $XConsortium: p220,v 5.1 91/02/16 09:40:57 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.ds f \s-2INQUIRE VALUATOR DEVICE STATE\s+2
+.TH "INQUIRE VALUATOR DEVICE STATE" 3P "29 February 1991"
+.SH NAME
+INQUIRE VALUATOR DEVICE STATE\- inquire state of a valuator device
+.IX "Valuator Input Devices" "INQUIRE VALUATOR DEVICE STATE"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pinq_val_st ( ws, dev, store, err, op_mode, echo_switch, init_value, prompt_echo, 
+    echo_area, val_data)
+Pint	ws;	\fIworkstation identifier\fP
+Pint	dev;	\fIvaluator device number\fP
+Pstore	store;	\fIhandle to store object\fP
+Pint	*err;	\fIOUT error indicator\fP
+Pop_mode	*op_mode;	\fIOUT operating mode\fP
+Pecho_switch	*echo_switch;	\fIOUT echo switch\fP
+Pfloat	*init_value;	\fIOUT initial value\fP
+Pint	*prompt_echo;	\fIOUT prompt/echo type\fP
+Plimit	*echo_area;	\fIOUT echo area\fP
+Pval_data	**val_data;	\fIOUT data record\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.
+.SH DESCRIPTION
+.SS Purpose
+Use \*f to retrieve the current state of the specified valuator device.
+.SS C Input Parameters
+Applications using the \s-2C\s+2 binding must create a buffer to be used by this
+function as memory space for storing data associated with the device state.
+This buffer is passed as the \fIstore\fP argument.
+.LP 
+The store buffer is a data area managed by \s-2PHIGS\s+2. While the 
+application is responsible for creating the initial buffer through a call to 
+\s-2CREATE STORE\s+2, \s-2PHIGS\s+2 manages this area such that there is
+sufficient memory for the specific inquiry. The valuator device data record
+within the store buffer is accessed via the pointer pointed to by \fIval_data\fR.
+.IP \fIws\fP
+Workstation identifier. An integer specifying the workstation with which
+the specified valuator device is associated.
+.IP \fIdev\fP
+The device number of the valuator device.
+See the \fIAvailable Devices\fP section of \s-2INITIALIZE VALUATOR\s+2
+for a description of the available devices.
+.IP \fIstore\fP
+The memory buffer \s-2PHIGS\s+2 is to use for storing the information
+returned.  
+This buffer must exist prior to calling this function (see
+\s-2CREATE STORE (3P)\s+2).
+.SS C Output Parameters
+.IP \fIerr\fP
+A pointer to the location to store the error number of any error detected by this function.
+.IP \fIop_mode\fP
+The operating mode. Pop_mode is an enumerated type defined in
+phigs.h with the following values:
+.ta .5i
+.nf
+.sp .4
+typedef enum {
+.sp .2
+	POP_REQ,
+	POP_SAMPLE,
+	POP_EVENT
+.sp .2
+} Pop_mode;
+.fi
+.sp .4
+.bp
+.IP \fIecho_switch\fP
+The echo state. Pecho_switch is an enumerated type defined in
+phigs.h with the following values:
+.ta .5i
+.nf
+.sp .4
+typedef enum {
+.sp .2
+	PSWITCH_NO_ECHO,
+	PSWITCH_ECHO
+.sp .2
+} Pecho_switch;
+.fi
+.IP \fIinit_value\fP
+Initial value.
+.IP \fIprompt_echo\fP
+The prompt/echo type desired.
+See the \fIAvailable Devices\fP Section of \s-2INITIALIZE VALUATOR\s+2
+for a description of the available types.
+.IP \fIecho_area\fP
+A pointer to a variable of type Plimit that contains the echo area of
+the device. Plimit is defined in phigs.h as follows:
+.sp .4
+.nf
+.ta .5i  +1i  +1i   
+.sp .2
+typedef struct {
+.sp .2
+	Pfloat	x_min;	/* x min */
+	Pfloat	x_max;	/* x max */
+	Pfloat	y_min;	/* y min */
+	Pfloat	y_max;	/* y max */
+.sp .2
+} Plimit;
+.fi
+.IP \fIval_data\fP
+Pointer to a pointer that points to the valuator device state within \fIstore\fR.
+Pval_data is defined in phigs.h as follows:
+.sp .4
+.nf
+.ta .5i  +.5i  +.5i +.5i   
+.sp .2
+typedef struct {
+.sp .2
+	Pfloat	low;	/* low range limit */
+	Pfloat	high;	/* high range limit */
+	union {
+		struct {
+			Pint	unused;
+		} pet_r1;
+		struct {
+			char	*label;
+			char	*format;
+			char	*low_label;
+			char	*high_label;
+		} pet_u1;
+	} pets;
+.sp .2
+} Pval_data;
+.fi
+.
+.SS Execution
+\*f returns the current state of the
+specified valuator device, which is stored in the workstation
+state list of the workstation associated with the device.  The
+current state includes the operating mode, echo switch, initial value,
+prompt/echo type, echo area, and data record.
+See \s-2SET VALUATOR MODE\s+2 for a description of the operating mode and the
+echo switch, and how to set these values.
+See \s-2INITIALIZE VALUATOR\s+2 for a description of the initial valuator,
+prompt/echo type, echo area, and data record contents, and how to set these
+values.
+.LP
+In the event of an error, the \fIerror indicator\fP 
+indicates the error number of the error detected, and no other output data
+is returned.  If no error is detected, the \fIerror indicator\fP 
+is set to zero, and the inquired information will be available in the output
+parameters.  Since this is an inquiry function, \s-2ERROR HANDLING\s+2 is not
+invoked when an error is detected by this function.
+.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 061
+Ignoring function, specified workstation is neither of category \s-2INPUT\s+2
+nor of category \s-2OUTIN\s+2
+.IP 250
+Ignoring function, the specified device is not available
+on the specified workstation
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INITIALIZE VALUATOR (3P)"
+.SM "SET VALUATOR MODE (3P)"
+.SM "INQUIRE VALUATOR DEVICE STATE 3 (3P)"
+.SM "CREATE STORE (3P)"
+.SM "DELETE STORE (3P)"
+.fi

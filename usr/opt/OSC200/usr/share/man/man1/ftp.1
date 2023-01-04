@@ -1,0 +1,930 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ftp.1,v $ $Revision: 3.2.7.2 $ (DEC) $Date: 1993/11/10 18:47:48 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+.TH ftp 1
+.SH NAME
+.PP
+\*Lftp\*O \- Transfers files between a local and a remote host
+.SH SYNOPSIS
+.PP
+.sS
+\*Lftp\*O
+\*O[\*L-dgintv\*O]
+\*O[\*Vhost\*O]
+.sE
+.PP
+The \*Lftp\*O command is
+the interface to the File Transfer Protocol (FTP).  This
+.gL "File Transfer Protocol"
+.gL "FTP"
+command uses FTP to transfer files between the local host and a
+remote host or between two remote hosts.
+.SH FLAGS
+.PP
+The following flags can be entered on the shell command line.  (The
+the \*Lftp\*O command equivalents can also be entered at the \*Cftp>\*O
+prompt.)
+.VL 4m
+.LI "\*L-d\*O"
+Enables debugging by turning on the logging feature.  See
+the \*Ldebug\*O subcommand.
+.LI "\*L-g\*O"
+Disables the expansion of metacharacters in filenames. Interpreting
+metacharacters may be referred to as expanding (sometimes called
+.gL "metacharacter"
+.gL "glob"
+\*Vglobbing\*O) a filename.  See the \*Lglob\*O subcommand.
+.LI "\*L-i\*O"
+Disables interactive prompting during multiple file transfers.  See
+the \*Lprompt\*O, \*Lmget\*O, \*Lmput\*O, and
+\*Lmdelete\*O subcommands for descriptions of prompting during
+multiple file transfers.
+.LI "\*L-n\*O"
+Prevents an automatic login on the initial connection.  Otherwise,
+\*Lftp\*O searches for a \*L$HOME/\&.netrc\*O entry that describes the login and
+initialization process for the remote host.  See the
+\*Luser\*O subcommand.
+.LI "\*L-t\*O"
+Toggles packet tracing (see \*Ltrace\*O subcommand).
+.LI "\*L-v\*O"
+Displays all the responses from the remote server and provides data
+transfer statistics.  This is the default display mode when the output of the
+\*Lftp\*O command is to a device, such as the console or a
+display.  However, if output is redirected, such as through
+a pipe or to a file, or if the \*Lftp\*O command is started
+by a daemon, such as the \*Lcron\*O daemon, verbose mode is
+not in effect unless the \*L-v\*O flag or the \*Lverbose\*O
+subcommand is used.  See the \*Lverbose\*O subcommand.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "ftp command"
+.iX "File Transfer Protocol"
+.iX "files" "transferring"
+.iX "transferring files"
+.iX "protocols" "FTP"
+.iX "FTP"
+The FTP protocol is designed to allow transferring data between
+hosts that use dissimilar file systems.  Therefore, although the protocol
+provides a lot of flexibility for transferring data, it does not attempt
+to preserve file attributes that are specific to a particular file system
+(for example, the protection mode or modification times of a file).
+Additionally, the FTP protocol
+makes few assumptions about the overall structure of a file system and
+does not provide or allow such things as recursively copying
+subdirectories.
+.PP
+Note that if you are transferring files between OSF/1 systems (or other
+systems compatible with the UNIX operating system) and need to preserve
+file attributes or need to recursively copy subdirectories, you can use
+the \*Lrcp\*O command.
+.PP
+The \*Lftp\*O command provides subcommands for tasks such as
+listing remote directories, changing the current local and
+remote directory, transferring multiple files in a single
+request, creating and removing directories, and escaping to
+the local shell to perform shell commands.  The \*Lftp\*O
+command also provides for security by sending passwords to
+the remote host and permits automatic login, file transfer, and logoff.
+.PP
+If you execute \*Lftp\*O and do not specify a hostname, \*Lftp\*O
+immediately displays the \*Cftp>\*O prompt and waits for an
+\*Lftp\*O subcommand.  To connect to a remote host, you then execute the
+\*Lopen\*O subcommand.  When the \*Lftp\*O command connects to
+the remote host, \*Lftp\*O then prompts for the username and
+password before displaying the \*Cftp>\*O prompt again.
+\*Lftp\*O fails if no password is defined at the remote host
+for the specified username.
+.PP
+If you do specify the name of a remote host, \*Lftp\*O immediately tries
+to establish a connection to the specified host.  If \*Lftp\*O
+connects successfully, \*Lftp\*O searches for
+a local \*L$HOME/\&.netrc\*O file in your
+current directory or home directory.  If the file exists, \*Lftp\*O searches
+the file for an entry that initiates the login process and command
+macro definitions for the remote host.  If the \*L$HOME/\&.netrc\*O file or
+autologin entry does not exist,
+.gL "autologin"
+\*Lftp\*O prompts you for a username and password.  This occurs whether or
+not the hostname is entered on the command line.
+.PP
+If \*Lftp\*O
+finds a \*L$HOME/\&.netrc\*O autologin entry for the specified host,
+\*Lftp\*O attempts to use the information in that entry to automatically
+log in to the remote host.  The \*Lftp\*O command also loads any command
+macros defined in the entry.  In some cases (for example, when the
+required password is not listed in an autologin entry), \*Lftp\*O
+prompts for the password before displaying the \*Cftp>\*O
+prompt.  Once \*Lftp\*O completes the autologin process, \*Lftp\*O executes
+the \*Linit\*O macro if the macro is defined in the autologin
+entry.  If the \*Linit\*O macro does not exist or does not contain
+a \*Lquit\*O or \*Lbye\*O command, \*Lftp\*O then displays the
+\*Cftp>\*O prompt and waits for a subcommand.
+.PP
+The remote username that you specify either at the
+prompt or in a \*L$HOME/\&.netrc\*O file must
+exist and have a password defined at the remote host
+or \*Lftp\*O fails.
+.\"Removed Digital only
+.\"Begin Digital-specific information
+In addition, the remote user's shell must be listed
+in the \*L/etc/shells\*O file.
+.\"End Digital-specific information
+.PP
+.\"Removed Digital only
+.\"Begin Digital-specific information
+Users are authenticated as described in
+\*Lftpd\*O(8).
+.\"End Digital-specific information
+.PP
+The \*Lftp\*O command interpreter, which handles all commands entered at
+the \*Cftp>\*O prompt, provides facilities that are not
+available with most file transfer programs, such as:  the handling
+of filename arguments to \*Lftp\*O commands, the ability to
+collect a group of commands into a single command macro, and the ability
+to load macros from
+a \*L$HOME/\&.netrc\*O file.  These facilities are designed to
+allow simplifying repeated tasks and to allow using \*Lftp\*O in unattended
+mode.
+.PP
+The command interpreter handles filename arguments according to the
+following rules:
+.ML
+.LI
+If a \*L-\*O (dash) is specified for the argument, standard input is
+used for read operations and standard output is used for write
+operations.
+.LI
+If the first character of the filename is \*L|\*O (vertical bar),
+the remainder of the argument is interpreted as a shell command.  \*Lftp\*O
+then forks a shell, using \*Lpopen()\*O with the argument supplied, and
+reads (writes) from \*Lstdout\*O (\*Lstdin\*O).
+.sp
+If the shell command
+includes spaces, the argument must be quoted; for example, \*L| ls -lt\*O.
+A particularly useful example of this mechanism is \*Ldir |more\*O.
+.LI
+Failing the above checks, if globbing is enabled, local filenames are
+expanded according to the rules used in \*Lcsh\*O; c.f., the \*Lglob\*O
+command.  If the \*Lftp\*O command expects a single local file (for
+example, \*Lput\*O), only the first filename generated by the
+globbing operation is used.
+.LI
+For \*Lget\*O and \*Lmget\*O
+subcommands with unspecified local filenames, the local filename is
+the same as the
+remote filename, which may be altered by a \*Lcase\*O, \*Lntrans\*O,
+or \*Lnmap\*O setting.  The resulting filename can then be altered if
+\*Lrunique\*O is on.
+.LI
+For \*Lmput\*O commands and \*Lput\*O commands with unspecified remote
+filenames, the remote filename is the same as the local filename, which can be
+altered by a \*Lntrans\*O or \*Lnmap\*O setting.  The resulting filename
+can then be altered by the remote server if \*Lsunique\*O is on.
+.LE
+.PP
+Note that
+the \*Lftp\*O command interpreter does not support pipes.
+.PP
+To end an \*Lftp\*O session when you are running interactively, use the
+\*Lbye\*O or \*Lquit\*O
+subcommand or the End-of-File key sequence at
+the \*Cftp>\*O prompt.  To end a file transfer before
+it has been completed, use the Interrupt key sequence.  The
+default Interrupt key sequence is \*L<Ctrl-c>\*O.
+.PP
+The \*Lstty\*O command can be used to redefine this key sequence.
+Sending transfers (those from the local host to the
+remote host) are normally halted immediately.  Receiving transfers are halted by
+sending an \*LFTP ABOR\*O instruction to the remote FTP
+server and discarding all incoming file transfer packets until the
+remote server stops sending them.
+.PP
+If the remote server does not support
+the \*LABOR\*O instruction, the \*Cftp>\*O prompt will not
+appear until the remote server has sent all of the requested file.
+Additionally, if the remote server does something unexpected, the local
+\*Lftp\*O process may need to be ended manually.
+.\"Removed Digital specific reference
+.\" Begin Digital specific information
+.PP
+The \*Lftp\*O command uses the default Type-of-Service values
+recommended by RFC1060, which are as follows:
+.VL 4m
+.LI "\*Lftp-control\*O"
+Low delay
+.LI "\*Lftp-data\*O"
+High throughput
+.LE
+.PP
+You can configure these values by specifying them in the
+\*L/etc/iptos\*O file. For more information, see \*Liptos\*O(4).
+.\" End Digital specific information.
+.SH SUBCOMMANDS
+.PP
+The following \*Lftp\*O subcommands can be entered at the
+\*Cftp>\*O prompt.  If an argument for a subcommand includes
+spaces, enclose the argument within "" (double quotes).
+.VL 4m
+.LI "\*L!\*O[\*Vcommand\*O [\*Vargument\*O \&.\&.\&.]]"
+Invokes an interactive shell on the local host.  An optional
+command, with one or more optional arguments, can be specified.
+.LI "\*L$\*O \*Vmacro\*O [\*Vargument\*O \&.\&.\&.]"
+Executes the specified macro, previously defined with the
+\*Lmacdef\*O subcommand.  Arguments are not expanded.  See the
+\*Lmacdef\*O subcommand for further information.
+.LI "\*L?\*O [\*Vsubcommand\*O]"
+Displays a help message describing the subcommand.  If you do not specify
+\*Vsubcommand\*O, \*Lftp\*O displays a list of known subcommands.
+.LI "\*Laccount\*O [\*Vpassword\*O]"
+Sends a supplemental password that a remote host may require
+before granting access to its resources.  If the password is not
+supplied with the command, you are prompted for the password.
+The password does not appear on the screen.
+.LI "\*Lappend\*O \*Vlocal_file\*O [\*Vremote_file\*O]"
+Appends a local file to a file on the remote host.  If the remote
+filename is not specified, the local filename is used, altered
+by any setting made with the \*Lntrans\*O or
+\*Lnmap\*O subcommand.  The \*Lappend\*O subcommand uses the current
+values for \*Lform\*O, \*Lmode\*O,  \*Lstruct\*O,
+and \*Ltype\*O while appending the file.  For more information
+on these subcommands, see their individual descriptions.
+.LI "\*Lascii\*O"
+Sets the file transfer type to network ASCII.
+.\"Removed Digital only
+.\" Begin Digital-specific information
+This \*Lft\*O command is the
+default when \*Lftp\*O cannot determine that the remote system is a UNIX system.
+.\" End Digital-specific information
+File transfer may
+be more efficient with binary-image transfer.
+.LI "\*Lbell\*O"
+Sounds a bell after the completion of each file transfer.
+.LI "\*Lbinary\*O"
+Sets the file transfer type to binary image,
+by default,
+.\"Removed Digital only
+.\" Begin Digital-specific information
+if \*Lftp\*O can determine that
+the remote system is a UNIX system.
+.\" End Digital-specific information
+.\" Why have a BINARY subcommand?--vrm
+This can be more efficient than an ASCII transfer.
+.LI "\*Lbye\*O"
+Ends the File Transfer session and exits \*Lftp\*O.  Same as
+\*Lquit\*O.
+.LI "\*Lcase\*O"
+Sets a toggle for the case of filenames.  When \*Lcase\*O
+is on, remote filenames that appear in all capital letters are changed
+from uppercase to lowercase when written in the local directory.
+The default is off (uppercase remote filenames are written in
+uppercase in the local directory).
+.LI "\*Lcd\*O \*Vremote_directory\*O"
+Changes the remote working directory to the specified directory.
+.LI "\*Lcdup\*O"
+Changes the working directory on the remote host to the parent
+of the current directory.
+.LI "\*Lclose\*O"
+Ends the File Transfer session, but does not exit \*Lftp\*O.  Defined
+macros are erased.  Same as \*Ldisconnect\*O.
+.LI "\*Lcr\*O"
+Strips the carriage-return character from a carriage-return/linefeed
+sequence when receiving records during ASCII-type file transfers.
+(\*Lftp\*O terminates each ASCII-type record with a
+carriage-return/linefeed sequence during file transfers.)  This
+conforms with the OSF/1 and UNIX system convention for
+terminating records with a single linefeed.  Records
+on remote hosts that have different record termination
+conventions may have single linefeeds imbedded in records.  To
+distinguish these imbedded linefeeds from record delimiters,
+set \*Lcr\*O to \*Loff\*O.
+\*Lcr\*O toggles between \*Lon\*O and \*Loff\*O.
+.LI "\*Ldelete\*O \*Vremote_file\*O"
+Deletes the specified remote file.
+.LI "\*Ldebug\*O [\*Lon\*O | \*Loff\*O]"
+Prints each command sent to the remote host preceded by the string
+\*L-->\*O when \*Ldebug on\*O is specified.
+.LI "\*Ldir\*O [\*Vremote_directory\*O][\*Vlocal_file\*O]"
+Writes a listing of the contents of \*Vremote_directory\*O to
+the file \*Vlocal_file\*O.  If \*Vremote_directory\*O is not
+specified, \*Ldir\*O lists the contents of the current remote
+directory.  If \*Vlocal_file\*O is not specified or is
+a \*L-\*O (dash), \*Ldir\*O displays the listing on the local terminal.
+.LI "\*Ldisconnect\*O"
+See \*Lclose\*O.
+.LI "\*Lform\*O \*Vformat\*O"
+Specifies the form of the file transfer.
+.\"Begin Digital correction. 
+.\" The following sentence is incorrect.
+.\"The only form available is \*Lfile\*O.
+The only format available is \*Lnon-print\*O.
+.\"End Digital correction
+.LI "\*Lget\*O \*Vremote_file\*O [\*Vlocal_file\*O]"
+Copies the remote file to the local host.  If \*Vlocal_file\*O
+is not specified, the remote filename is used locally and is altered by
+any settings made by the \*Lcase\*O, \*Lntrans\*O, and
+\*Lnmap\*O subcommands.  The \*Lftp\*O command uses the current settings for
+\*Ltype\*O, \*Lform\*O, \*Lmode\*O, and \*Lstruct\*O
+while transferring the file.
+For additional information, refer to the description of each
+of these subcommands.
+.LI "\*Lglob\*O"
+Toggles filename expansion (globbing) for \*Lmdelete\*O,
+.gL "filename expansion"
+\*Lmget\*O, and \*Lmput\*O.  If globbing is off, filename
+arguments for these subcommands are not expanded.
+When globbing is enabled and a pattern-matching character is
+used in a subcommand that expects a single filename, results
+may be different than expected.  For example, the
+\*Lappend\*O and \*Lput\*O subcommands perform filename
+expansion and then use only the first filename generated.
+Other \*Lftp\*O subcommands, such as \*Lcd\*O, \*Ldelete\*O,
+\*Lget\*O, \*Lmkdir\*O, \*Lrename\*O, and \*Lrmdir\*O, do
+not perform filename expansion and take the pattern-matching
+characters literally.
+.sp
+Globbing for the \*Lmput\*O subcommand is done locally
+in the same way as for the
+\*Lcsh\*O command.  For \*Lmdelete\*O and \*Lmget\*O,
+each filename is expanded separately at the remote machine and the
+lists are not
+merged.  The expansion of a directory name may be different than the
+expansion of a filename, depending on the remote host and the \*Lftp\*O
+.gL "remote host"
+server.
+.sp
+To preview the expansion of a directory name, use the \*Lmls\*O subcommand:
+.iS
+mls \*Vremote_file\*L -
+\*O\c
+.iE
+.sp
+To transfer an entire directory subtree of files, transfer a
+\*Ltar\*O archive of the subtree in binary form, rather than using
+\*Lmget\*O or \*Lmput\*O.
+.LI "\*Lhash\*O"
+Toggles # (hash sign) printing.  When \*Lhash\*O is
+on, \*Lftp\*O displays one hash sign for each data block (1024 bytes)
+transferred.
+.LI "\*Lhelp\*O [\*Vsubcommand\*O]"
+Displays help information. Refer to the \*L?\*O subcommand.
+.LI "\*Llcd\*O [\*Vdirectory\*O]"
+Changes the working directory on the local host.  If you do not
+.gL "local host"
+specify a directory, \*Lftp\*O uses your home directory.
+.LI "\*Lls\*O [\*Vremote_directory\*O] [\*Vlocal_file\*O]"
+Writes an abbreviated file listing of a remote directory to a local
+file.  If \*Vremote_directory\*O is not specified, \*Lftp\*O lists the
+current remote directory.  If \*Vlocal_file\*O is not specified or
+is a \*L-\*O (dash), \*Lftp\*O displays the listing on the local terminal.
+.LI "\*Lmacdef\*O \*Vmacro\*O"
+Defines a subcommand macro.  Subsequent lines up to a null line (two
+consecutive linefeeds) are saved as the text of the macro.  Up to 16
+macros containing at most 4096 bytes for all macros can be defined.
+Macros remain defined until redefined or a \*Lclose\*O is executed.
+.sp
+The special characters
+$ (dollar sign) and \e (backslash) have special uses
+in \*Lftp\*O macros.  A \*L$\*O followed by one or more numbers is
+replaced by the corresponding macro parameter on the invocation line
+(refer to the \*L$\*O subcommand).  A \*L$\*O followed by an
+\*Li\*O indicates that the macro is to loop, with
+\*L$i\*O being replaced by consecutive parameters on each pass.
+The first macro parameter is used on the first pass, the second
+parameter is used on the second pass, and so on.  A \*L\e\*O
+prevents special treatment of the next character.  Use the
+\*L\e\*O to turn off the special meanings of \*L$\*O and \*L\e\*O.
+.LI "\*Lmdelete\*O \*Vremote_files\*O"
+Expands \*Vremote_files\*O and deletes the indicated remote files.
+.LI "\*Lmdir\*O [\*Vremote_directory\*O \&.\&.\&. \*Vlocal_file\*O]"
+Expands \*Vremote_directory\*O at the remote host and
+writes a listing of the contents of the \*Vremote_directory\*O
+to the \*Vlocal_file\*O.  If the \*Vremote_directory\*O
+argument contains a pattern-matching character, \*Lmdir\*O
+prompts for a \*Vlocal_file\*O if none is specified.  If
+the \*Vremote_directory\*O argument is a list of remote
+directories, separated by spaces, the last argument in the list must
+be either a local filename or a \*L-\*O (dash).
+If \*Vlocal_file\*O is -, \*Lmdir\*O displays the
+listing on the local terminal.  If interactive prompting is on
+(refer to the \*Lprompt\*O subcommand), \*Lftp\*O prompts you
+to verify that the last argument is a local file and not a remote
+directory.
+.LI "\*Lmget\*O \*Vremote_file\*O \&.\&.\&."
+Expands \*Vremote_files\*O at the remote host and copies the
+indicated remote files to the current directory on the local host.
+Refer to the \*Lglob\*O subcommand for more information on filename expansion.  The remote filenames are used locally and are altered
+by any settings made by the \*Lcase\*O, \*Lntrans\*O, and
+\*Lnmap\*O subcommands.  The \*Lftp\*O command uses the current settings for
+\*Ltype\*O, \*Lform\*O, \*Lmode\*O, and
+\*Lstructure\*O while transferring the files.  Refer to the
+description of each of these subcommands for additional information.
+.LI "\*Lmkdir\*O [\*Vremote_directory\*O]"
+Creates the directory \*Vremote_directory\*O on the remote
+host.
+.LI "\*Lmls\*O [\*Vremote_directory\*O \&.\&.\&. \*Vlocal_file\*O]"
+Expands \*Vremote_directory\*O at the remote host and
+writes an abbreviated file listing of the indicated remote directories
+to a local file.  If the \*Vremote_directory\*O
+argument contains a pattern-matching character, \*Lmls\*O
+prompts for a \*Vlocal_file\*O if none is specified.  If
+the \*Vremote_directory\*O argument is a list of remote
+directories, separated by spaces, the last argument in the list must
+be either a local filename or a \*L-\*O (dash).
+If \*Vlocal_file\*O is -, \*Lmls\*O displays the
+listing on the local terminal.  If interactive prompting is on
+(refer to the \*Lprompt\*O subcommand), \*Lftp\*O prompts you
+to verify that the last argument is a local file and not a remote
+directory.
+.LI "\*Lmode\*O [\*Vmode\*O]"
+Sets file transfer mode.  The only mode available is \*Lstream\*O.
+.LI "\*Lmodtime\*O [\*Vremote_file\*O]"
+Shows the last modification time of file on the remote machine.
+.LI "\*Lmput\*O [\*Vlocal_file\*O \&.\&.\&.]"
+Expands \*Vlocal_file\*O at the local host and copies the
+indicated local files to the remote host.  Refer to the \*Lglob\*O
+subcommand for more information on filename expansion.  The local filenames are used at the remote host and are altered by any settings made
+by the \*Lntrans\*O and \*Lnmap\*O subcommands.  The \*Lftp\*O command uses
+the current settings for \*Ltype\*O, \*Lform\*O,
+\*Lmode\*O, and \*Lstructure\*O while transferring the files.
+Refer to the description of each subcommand for additional information.
+.LI "\*Lnlist\*O [\*Vremote_directory\*O] [\*Vlocal_file\*O]"
+Prints a list of the files of a directory on the remote machine.
+If \*Vremote_directory\*O is left unspecified, the current working
+directory is used.  If interactive prompting is on, \*Lftp\*O prompts
+the user to verify that the last argument is indeed the target local file
+for receiving \*Lnlist\*O output.  If no local file is specified,
+the output is sent to the terminal.
+.LI "\*Lnmap\*O [\*Vinpattern outpattern\*O]"
+Sets or unsets the filename mapping mechanism.  If no arguments
+are specified, filename mapping is turned off.  If arguments are
+specified, source filenames are mapped for \*Lmget\*O and
+\*Lmput\*O operations and for \*Lget\*O and \*Lput\*O
+operations when the destination filename is not specified.  This
+subcommand is useful when the local and remote hosts use different
+filenaming conventions or practices.  Mapping follows the pattern set
+by \*Vinpattern\*O and \*Voutpattern\*O.
+.sp
+The \*Vinpattern\*O variable specifies the template for
+incoming filenames, which
+may have already been processed according to the \*Lcase\*O and
+\*Lntrans\*O settings.  The template variables \*L$1\*O
+through \*L$9\*O can be included in \*Vinpattern\*O.  All
+characters in \*Vinpattern\*O other than \*L$\*O and
+protected \*L$\*Os (that is, \*L\e$\*O) define the
+values of the template variables.  For example, if the
+\*Vinpattern\*O is \*L$1\&.$2\*O and the remote filename is \*Lmydata\&.dat\*O, the value of \*L$1\*O is
+\*Lmydata\*O and the value of \*L$2\*O is \*Ldat\*O.
+.sp
+The \*Voutpattern\*O variable determines the resulting filename.  The
+variables \*L$1\*O through \*L$9\*O are replaced by their
+values as derived from \*Vinpattern\*O and the variable
+\*L$0\*O is replaced by the original filename.  Additionally, the
+sequence [\*Vsequence1\*O,\*Vsequence2\*O] is replaced by
+the value of \*Vsequence1\*O if \*Vsequence1\*O is not null;
+otherwise, it is replaced by the value of \*Vsequence2\*O.  For example,
+the following subcommand
+would yield \*Lmyfile\&.data\*O from
+\*Lmyfile\&.data\*O or
+\*Lmyfile\&.data\&.old\*O, \*Lmyfile\&.file\*O
+from \*Lmyfile\*O, and \*Lmyfile\&.myfile\*O from \*L\&.myfile\*O:
+.iS
+nmap $1\&.$2\&.$3 [$1,$2]\&.[$2,file]
+\*O\c
+.iE
+.sp
+Spaces can be included in \*Voutpattern\*O.
+Use the \e (backslash) character to prevent the special
+meanings of \*L$\*O, \*L[\*O, \*L]\*O, and \*L,\*O (comma) in \*Voutpattern\*O.
+.LI "\*Lntrans\*O [\*Vin_characters\*O [\*Vout_characters\*O]]"
+Sets or unsets the filename character translation mechanism.  If no
+arguments are specified, character translation is turned off.  If
+arguments are specified, characters in source filenames are translated
+for \*Lmget\*O and \*Lmput\*O operations and for
+\*Lget\*O and \*Lput\*O operations when the destination filename is not specified.  This subcommand is useful when the local and
+remote hosts use different file naming conventions or practices.
+Character translation follows the pattern set by \*Vin_characters\*O and
+\*Vout_characters\*O.  Characters in a source filename matching
+characters in \*Vin_characters\*O are replaced by the corresponding
+characters in \*Vout_characters\*O.  If the string \*Vin_characters\*O is
+longer than the string \*Vout_characters\*O, characters in
+\*Vin_characters\*O are deleted if they have no corresponding character
+in \*Vout_characters\*O.
+.LI "\*Lopen\*O \*Vhost\*O [\*Vport\*O]"
+Establishes a connection to the FTP server at the specified
+\*Vhost\*O.  If the optional port number is specified, \*Lftp\*O will
+attempt to connect to a server at that port.  If the autologin feature
+is set (that is, \*L-n\*O was not specified on the command line),
+\*Lftp\*O will attempt to automatically log you in to the FTP server.
+You must also have a \*L$HOME/\&.netrc\*O file
+with the correct information in it and the correct permissions set.
+.LI "\*Lprompt\*O"
+Toggles interactive prompting.  If interactive prompting is on (the
+default), \*Lftp\*O will prompt for verification before retrieving,
+sending, or deleting multiple files during \*Lmget\*O,
+\*Lmput\*O, and \*Lmdelete\*O operations.  Otherwise, \*Lftp\*O
+will perform the operation on all files specified.
+.LI "\*Lproxy\*O [\*Vsubcommand\*O]"
+Executes an \*Lftp\*O command on a secondary control connection.  This
+subcommand allows \*Lftp\*O to simultaneously connect to two remote
+FTP servers for transferring files between the two servers.  To establish
+the secondary control connection, specify \*Lopen\*O as
+the first \*Lproxy\*O subcommand.  Enter the subcommand
+\*Lproxy ?\*O to see the other \*Lftp\*O subcommands that are
+executable on the secondary connection.  The following subcommands
+behave differently when prefaced by \*Lproxy\*O:
+.ML
+.LI
+The \*Lopen\*O subcommand does not define new macros during the autologin
+process.
+.LI
+The \*Lclose\*O subcommand does not erase existing macro definitions.
+.LI
+The \*Lget\*O and \*Lmget\*O subcommands transfer files from the host
+on the primary connection to the host on the secondary connection.
+.LI
+The \*Lput\*O, \*Lmput\*O, and \*Lappend\*O subcommands transfer
+files from the host on the secondary connection to the host on the
+primary connection.
+.sp
+File transfers require that the FTP server on the secondary
+connection support the \*LPASV\*O (passive) instruction.
+.LE
+.LI "\*Lput\*O \*Vlocal_file\*O [\*Vremote_file\*O]"
+Stores a local file on the remote host.  If you do not specify
+\*Vremote_file\*O, \*Lftp\*O uses the local filename to name the
+remote file, and the remote filename is altered by any settings made by
+the \*Lntrans\*O and \*Lnmap\*O subcommands.  The \*Lftp\*O command uses
+the current settings for \*Ltype\*O, \*Lform\*O,
+\*Lmode\*O, and \*Lstructure\*O while transferring the files.
+Refer to the description of each subcommand for additional information.
+.LI "\*Lpwd\*O"
+Displays the name of the current directory on the remote host.
+.LI "\*Lquit\*O"
+Ends the file transfer session and exits \*Lftp\*O.  A synonym for
+\*Lbye\*O.
+.LI "\*Lquote\*O \*Vstring\*O"
+Sends the specified \*Vstring\*O verbatim to the remote host.
+Unpredictable results can occur when you quote
+commands that involve data transfers.
+.LI "\*Lrecv\*O \*Vremote_file\*O [\*Vlocal_file\*O]"
+Copies the remote file to the local host.  A synonym for
+\*Lget\*O.
+.LI "\*Lreget\*O \*Vremote_file\*O [\*Vlocal_file\*O]"
+Acts like \*Lget\*O, except that if \*Vlocal_file\*O exists and is smaller
+than \*Vremote_file\*O, \*Vlocal_file\*O is presumed to be a partially
+transferred copy of \*Vremote_file\*O and the transfer is continued from
+the apparent point of failure.  This subcommand is useful when
+transferring very large files over networks that are prone to dropping
+connections.
+.LI "\*Lremotehelp\*O [\*Vsubcommand\*O]"
+Requests help from the remote FTP server.
+.LI "\*Lrename\*O \*Vfrom to\*O"
+Renames a file on the remote host.
+.LI "\*Lreset\*O"
+Clears the reply queue.  This command resynchronizes the
+command parsing.
+.LI "\*Lrestart\*O \*Vmarker\*O"
+Restarts the immediately following \*Lget\*O or \*Lput\*O at the
+indicated marker.  On systems that treat files as
+unstructured byte arrays (such as OSF/1 and UNIX systems),
+\*Vmarker\*O is simply a byte offset into the file.
+.LI "\*Lrmdir\*O \*Vremote_directory\*O"
+Removes the directory \*Vremote_directory\*O at the remote host.
+.LI "\*Lrunique\*O"
+Toggles whether unique filenames are created for local destination files
+during \*Lget\*O and \*Lmget\*O operations.  If creating unique local
+filenames is not enabled (the default), \*Lftp\*O overwrites local files.
+Otherwise, if a local file has the same name as specified for a local
+destination file, \*Lftp\*O modifies the specified name of the local
+destination file with \*L\&.1\*O.  If a local file is already
+using the new name, \*Lftp\*O appends the postfix \*L\&.2\*O to
+the specified name.  If a local file is already using this second name,
+\*Lftp\*O continues incrementing the postfix until it either finds a unique
+filename or reaches \*L\&.99\*O without finding a unique name.  If
+\*Lftp\*O cannot find a unique name, \*Lftp\*O reports an error and the
+transfer does not take place.  Note that \*Lrunique\*O does not
+affect local filenames generated from a shell command.
+.LI "\*Lsend\*O \*Vlocal_file\*O [\*Vremote_file\*O]"
+Stores a local file on the remote host.  A synonym for
+\*Lput\*O.
+.LI "\*Lsendport\*O"
+Toggles the use of FTP \*LPORT\*O instructions.  By default, \*Lftp\*O uses
+a \*LPORT\*O instruction when establishing a connection for each data transfer.
+When the use of \*LPORT\*O instructions is disabled,
+\*Lftp\*O does not use \*LPORT\*O instructions for
+data transfers.  The \*LPORT\*O instruction is useful when dealing
+with FTP servers that ignore \*LPORT\*O instructions while incorrectly
+indicating they were accepted.
+.LI "\*Lsize\*O"
+Returns the size of \*Vfile\*O on the remote machine in bytes.
+.LI "\*Lstatus\*O"
+Displays current status of \*Lftp\*O.
+.LI "\*Lstruct\*O [\*Vstructure\*O]"
+Sets data transfer structure type.
+.\"Begin Digital correction.
+.\" The following sentence is incorrect.
+.\"The only structure supported is \*Lstream\*O.
+The only structure supported is \*Lfile\*O.
+.\"End Digital correction.
+.LI "\*Lsunique\*O"
+Toggles whether unique filenames are created for remote destination files
+during \*Lput\*O and \*Lmput\*O operations.  If creating unique
+remote filenames is not enabled
+(the default), \*Lftp\*O overwrites remote files.
+Otherwise, if a remote file has the same name as specified for a remote
+destination file, the remote FTP server modifies the name of the
+remote destination file.  Note that the remote server must support the
+\*LSTOU\*O instruction.
+.LI "\*Lsystem\*O"
+Shows the type of operating system running on the remote machine.
+.LI "\*Ltenex\*O"
+Sets the file transfer type to that needed for TENEX machines.
+.LI "\*Ltrace\*O"
+Toggles packet tracing.
+.LI "\*Ltype\*O [\*Vtype\*O]"
+Sets the file transfer \*Ltype\*O to \*Vtype\*O.  If
+\*Vtype\*O is not specified, the current type is printed.  The
+default type is \*LASCII\*O.
+.LI "\*Luser\*O \*Vuser\*O [\*Vpassword\*O] [\*Vaccount\*O]"
+Identifies the local user as \*Vuser\*O to the remote
+.gL "local user"
+FTP server.  If \*Vpassword\*O or \*Vaccount\*O is
+not specified and the remote server requires it, \*Lftp\*O prompts for it
+locally.  If \*Vaccount\*O is required, \*Lftp\*O sends it to the
+remote server after the remote login process completes.
+.sp
+Note that, unless autologin is disabled by specifying \*L-n\*O on the
+command line, this process is done automatically for the initial
+connection to the remote server.
+You also need a \*L$HOME/\&.netrc\*O file in your home directory
+to issue an autologin.
+.LI "\*Lverbose\*O"
+Toggles verbose mode.  When verbose mode is on (the default), \*Lftp\*O
+displays all responses from the remote FTP server.  Additionally,
+\*Lftp\*O displays statistics on all file transfers when the transfers
+are completed.
+.LE
+.SS Aborting a File Transfer
+To abort a file transfer, use the Interrupt key sequence (often
+\*L<Ctrl-c>\*O).  Sending transfers are immediately halted.  Receiving
+transfers are halted by sending an FTP protocol \*LABOR\*O command
+to the remote server, and discarding any further data received.  The
+speed at which this is accomplished depends upon the remote server's
+support for \*LABOR\*O processing.  If the remote server does not support
+the \*LABOR\*O command, the prompt \*Cftp>\*O does not appear until
+the remote server has completed sending the requested file.
+.PP
+The Interrupt key sequence is ignored when \*Lftp\*O has completed any
+local processing and is awaiting a reply from the remote server.  A long
+delay in this mode may result from the \*LABOR\*O processing described
+above, or from unexpected behavior by the remote server, including
+violations of the FTP protocol.  If the delay results from unexpected
+remote server behavior, the local \*Lftp\*O program must be killed
+by hand.
+.SH EXAMPLES
+.PP
+.AL 3m
+.LI
+This example shows how user \*Lsmith\*O, who is
+logged in on \*Lhost1\*O, can log in on the remote host
+\*Lhost2\*O, check the current working directory on
+\*Lhost2\*O and list its contents,
+transfer a file, and then end the session.
+.iS
+\*C$\*L ftp host2
+\*O\c
+.iE
+If the connection to \*Lhost2\*O is successful, a verification
+message is displayed on the local system:
+.\"Begin Digital correction.
+.\"The following example was too wide.
+.\".oS
+.\"Connected to host2.abc.org
+.\"220 host2 FTP server (Version 5.47 90 02:27) ready.
+.\"Name (host2:smith): \*Lsmith\*C
+.\"Password:
+.\"\*O\c
+.\".oE
+.\"Replaced with the following.
+.oS
+Connected to host2.abc.org
+220 host2 FTP server (Version ...) ready.
+Name (host2:smith): \*Lsmith\*C
+Password:
+\*O\c
+.oE
+.\"End Digital correction.
+Enter your name and password when prompted by the system. A message
+similar to the following is then displayed on your local system:
+.oS
+230 User smith logged in
+
+ftp> _
+\*O\c
+.oE
+To set the file transfer type to binary, enter the \*Lbinary\*O
+subcommand after the \*Cftp>\*O prompt:
+.iS
+\*Cftp> \*Lbinary\*O\c
+\*O\c
+.iE
+A message similar to the following is displayed on your local system:
+.oS
+200 Type set to I
+\*O\c
+.oE
+To check the current working directory, enter the \*Lpwd\*O
+command after the \*Cftp>\*O prompt:
+.iS
+\*Cftp> \*Lpwd\*O\c
+\*O\c
+.iE
+A message similar to the following is displayed on your local system:
+.oS
+257 "u/smith" is current directory
+\*O\c
+.oE
+To list the contents of the current working directory, enter the \*Lls\*O
+command after the \*Cftp>\*O prompt:
+.iS
+\*Cftp> \*Lls\*O\c
+\*O\c
+.iE
+A message similar to the following is displayed on your local system:
+.oS
+200 PORT command successful.
+150 Opening data connection for /usr/bin/ls
+	(555\&.5\&.55\&.555) (0 bytes)
+printfile
+testfile
+226 Transfer complete.
+\*O\c
+.oE
+(The \*COpening data connection\*O message appears on one line,
+not on two lines as shown above.)
+.sp
+To transfer a file from the remote host to the local host, enter
+the \*Lget\*O or \*Lmget\*O subcommand following
+the \*Cftp>\*O prompt:
+.iS
+\*Cftp> \*Lget testfile tmp.testfile\*O\c
+\*O\c
+.iE
+A message similar to the following is displayed on your local system:
+.oS
+200 PORT command successful.
+150 Opening data connection for testfile
+	(555\&.5\&.55\&.555) (1201 bytes)
+226 Transfer complete.
+local:tmp.testfile remote:testfile
+\*O\c
+.oE
+(The \*COpening data connection\*O message appears on one line,
+not on two lines as shown above.)
+.sp
+To end the \*Lftp\*O session, enter the \*Lquit\*O subcommand
+after the \*Cftp>\*O prompt:
+.iS
+\*Cftp> \*Lquit\*C
+221 Goodbye.
+\*C$\*L \(ul
+\*O\c
+.iE
+.LI
+This example shows how user \*Lsmith\*O, who is logged in on
+\*Lhost1\*O,  can log in as the user
+\*Lsmith\*O on the remote host \*Lhost2\*O:
+.iS
+\*C$\*L ftp host2
+\*O\c
+.iE
+.\"Begin Digital correction.
+.\"The following example was too wide.
+.\".oS
+.\"Connected to host2.abc.org
+.\"220 host2 FTP server (Version 5.47 13 Mar 90 02:27) ready.
+.\"Name (host2:smith):
+.\"331 Passwd required for smith
+.\"Password:
+.\"230 User smith logged in
+.\"ftp>
+.\"\*O\c
+.\".oE
+.\"Replaced with the following
+.oS
+Connected to host2.abc.org
+220 host2 FTP server (Version ...) ready.
+Name (host2:smith):
+331 Passwd required for smith
+Password:
+230 User smith logged in
+ftp>
+\*O\c
+.oE
+.\"End Digital correction.
+.LI
+In this example, user \*Lsmith\*O
+makes a typing error:
+.iS
+\*C$\*L ftp test
+\*O\c
+.iE
+.\"Begin Digital correction.
+.\"The following example was too wide.
+.\".oS
+.\"Connected to test.abc.org
+.\"220 test FTP server (Version 5.47 13 Mar 90 02:27) ready.
+.\"Name (test:fred): \*Lmsith\*C
+.\"530 User msith unknown
+.\"ftp> \*Luser smith\*C
+.\"331 Passwd required for smith
+.\"Password:
+.\"230 User smith logged in
+.\"ftp>
+.\"\*O\c
+.\".oE
+.\"Replaced with the following:
+.oS
+Connected to test.abc.org
+220 test FTP server (Version ...) ready.
+Name (test:fred): \*Lmsith\*C
+530 User msith unknown
+ftp> \*Luser smith\*C
+331 Passwd required for smith
+Password:
+230 User smith logged in
+ftp>
+\*O\c
+.oE
+.\"End Digital correction.
+.LI
+In this example,
+user \*Lfred\*O issues the \*Lftp\*O command without
+specifying a hostname, then connects to \*Lhost1\*O using the \*Lopen\*O
+subcommand:
+.iS
+\*C$\*L ftp
+\*Cftp> \*Lopen host1\*O
+.iE
+.\"Begin Digital correction.
+.\"The following example was too wide.
+.\".oS
+.\"Connected to host1.abc.org
+.\"220 host1 FTP server (Version 5.47 13 Mar 90 02:27) ready.
+.\"Name (host1:fred):
+.\"331 Passwd required for fred
+.\"Password:
+.\"230 User fred logged in
+.\"ftp>
+.\"\*O\c
+.\".oE
+.\"Replaced with the following:
+.oS
+Connected to host1.abc.org
+220 host1 FTP server (Version ...) ready.
+Name (host1:fred):
+331 Passwd required for fred
+Password:
+230 User fred logged in
+ftp>
+\*O\c
+.oE
+.\"End Digital correction.
+.LE
+.SH FILES
+.PP
+.VL 11m
+.LI "\*L$HOME/\&.netrc\*O"
+Contains automatic login information.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lcsh\*O(1), \*Lftpd\*O(8), \*Lrcp\*O(1), \*Lstty\*O(1),
+\*Ltftp\*O(1)
+.PP
+Functions:  \*Lpopen\*O(3)
+.PP
+Files:  \*Lnetrc\*O(4), \*Liptos\*O(4).
+.EQ
+delim off
+.EN

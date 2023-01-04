@@ -1,0 +1,185 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ypserv.8,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/27 15:00:16 $
+.\"
+.TH ypserv 8
+.SH NAME
+ypserv, ypbind \- Network Information Service (NIS) server and binder processes
+.SH SYNOPSIS
+.PP
+.B /usr/sbin/ypserv
+.br
+.B /usr/sbin/ypbind [ \-S
+\*Vdomainname, servername1,servername2...\*O
+][
+.B \-ypset|-ypsetme
+]
+.SH DESCRIPTION
+.PP
+.iX "ypserv command"
+.iX "ypbind daemon"
+...\".NXA "ypbind daemon" "ypwhich command"
+...\".NXA "mount command (NFS)" "ypserv daemon"
+...\".NXA "ypserv daemon" "yppush command"
+.iX "YP server"
+.iX "YP binder"
+.PP
+The Network Information Service (NIS) provides a distributed data lookup service
+for sharing data among networked systems. NIS data is stored in
+database files called maps. The databases are \*Ldbm\*O(3)
+files stored in the \*L/var/yp/src\*O directory.
+These files are described in \*Lypfiles\*O(4).
+.PP
+The NIS daemons are \*L/usr/sbin/ypserv\*O,
+the NIS database lookup server, and \*L/usr/sbin/ypbind\*O,
+the YP binder. The software interface to NIS is described in \*Lypclnt\*O(3).
+Administrative tools are described in \*Lyppush\*O(8), \*Lypxfr\*O(8),
+\*Lyppoll\*O(8), and \*Lypwhich\*O(1).
+Tools to see the contents of NIS maps are described in \*Lypcat\*O(1),
+and \*Lypmatch\*O(1).
+Database generation and maintenance tools are described in \*Lypmake\*O(8),
+and \*Lmakedbm\*O(8).
+.PP
+Both the \*Lypserv\*O and \*Lypbind\*O daemons are activated at system startup
+time by \*L/sbin/init.d/nis\*O. The \*Lypserv\*O
+daemon runs only on an NIS server machine with a complete NIS database.
+The \*Lypbind\*O daemon runs on all machines using NIS,
+both NIS servers and clients.
+.SS ypserv Daemon
+.PP
+The \*Lypserv\*O daemon's
+primary function is to look up information in its local
+database of NIS maps.
+The operations performed by \*Lypserv\*O are defined
+for the programmer in the header file \*L<rpcsvc/yp_prot.h>\*O.
+.PP
+Communication with \*Lypserv\*O
+is by means of RPC calls.  Lookup functions are described in \*Lypclnt\*O(3),
+and are supplied as C-callable functions in \*L/libc\*O.
+.PP
+There are four lookup functions, all of which are
+performed on a specified map within an NIS domain:
+\*LMatch\*O, \*LGet_first\*O, \*LGet_next\*O, and \*LGet_all\*O.
+The \*LMatch\*O operation takes a key, and returns the associated value.
+The \*LGet_first\*O operation returns the first key-value pair from the map, and
+the \*LGet_next\*O operation returns the remaining key-value pairs.
+The \*LGet_all\*O operation ships the entire map to the requester.
+.PP
+Two other functions supply
+information about the map, rather than the map entries:
+\*LGet_order_number\*O, and \*LGet_master_name\*O.
+Both the order number and the master name exist in the map as
+key-value pairs, but the server will not return either through the
+usual lookup functions.  If the map is examined with \*Lmakedbm\*O(8),
+however, they are visible.
+.PP
+Other functions are used within the NIS
+subsystem itself, and are not of general interest to NIS clients.  They
+include the \*LDo_you_serve_this_domain?\*O,
+the \*LTransfer_map\*O, and the \*LReinitialize_internal_state\*O functions.
+.SS ypbind Daemon
+.PP
+The \*Lypbind\*O daemon's function
+is to remember information that enables client processes on a single node
+communicate with a \*Lypserv\*O process.
+The \*Lypbind\*O function \*Vmust\*O
+run on every machine that has NIS client service requirements.
+The \*Lypbind\*O function must be started through an entry in the
+\*L/sbin/init.d/nis\*O file.
+.PP
+The information \*Lypbind\*O remembers is called a
+.IR binding ,
+the association of a domain name with
+the internet address of the NIS server, and the port on that host at
+which the \*Lypserv\*O process is listening for
+service requests.  The process of binding is driven
+by client requests.  As a request for an unbound domain comes in, the
+\*Lypbind\*O process broadcasts on the net trying to find a \*Lypserv\*O
+process that serves maps within that domain.  Since the binding is
+established by broadcasting, there must be at least one \*Lypserv\*O
+process on every net.  Once a domain is bound by a particular \*Lypbind\*O,
+that same binding is given to every client process on the node.
+The \*Lypbind\*O process on the local node or a
+remote node may be queried for the
+binding of a particular domain by using the \*Lypwhich\*O(1) command.
+.PP
+Bindings are verified before they are given out to a client process.  If
+\*Lypbind\*O is unable to speak to the \*Lypserv\*O
+process it is bound to, it marks the domain as unbound, tells the client
+process that the domain is unbound, and tries to bind the domain
+once again.  Requests received for an unbound domain will fail
+immediately.
+In general, a bound domain is marked as unbound when the node
+running \*Lypserv\*O
+crashes or gets overloaded.  When the node gets overloaded, \*Lypbind\*O
+will try to bind to any NIS server (typically
+one that is less-heavily loaded) available on the net.
+.PP
+The \*Lypbind\*O process also accepts requests to
+set its binding for a particular
+domain.  The request is usually generated by the NIS subsystem itself.
+.SH FLAGS
+.PP
+.IP \-S 10
+Allows the system administrator to lock \*Lypbind\*O
+to a particular domain and set of servers. Up to four servers can
+be specified as follows:
+.oS
+/usr/sbin/ypbind \-S domainname,server1,server2,server3,server4
+.oE
+Note that there can not be any spaces around the commas in
+the command line. The \*L\-S\*O
+option ensures that this system only binds to the
+specified domain and to one of the specified servers.
+The servers used with the \*L\-S\*O
+option must have entries in the local \*L/etc/hosts\*O
+file.
+.IP \-ypset
+\*Lypbind\*O accepts all \*Lypset\*O
+requests, unless restricted by the \*L\-S\*O
+option.
+.IP \-ypsetme
+\*Lypbind\*O accepts only local \*Lypset\*O
+requests.
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.RS 5
+If neither \*L\-ypset\*O nor \*L\-ypsetme\*O are specified,
+\*Lypbind\*O does not accept \*Lypset\*O requests to bind
+to a particular server.
+.sp 6p
+.RE
+.SH FILES
+.PP
+If the file \*L/var/yp/ypserv.log\*O exists when
+\*Lypserv\*O starts up, log information is written to \*Lypserv.log\*O
+when error conditions occur.
+.SH RELATED INFORMATION
+.PP
+\*Lypcat\*O(1), \*Lypmatch\*O(1), \*Lypwhich\*O(1), \*Lypclnt\*O(3),
+\*Lypfiles\*O(4), \*Lyppush\*O(8), \*Lypxfr\*O(8)
+.br
+\*ENetwork Configuration\*O
+.br
+\*ENetwork and Communications Overview\*O
+.br
+\*ENetwork Administration and Problem Solving\*O
+.EQ
+delim off
+.EN

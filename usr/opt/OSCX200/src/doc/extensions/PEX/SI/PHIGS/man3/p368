@@ -1,0 +1,178 @@
+.\"##
+.\" $XConsortium: p368,v 5.1 91/02/16 09:44:15 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.\" 1. Substitute PHIGS Extension function name (in CAPS) for "PNAME" in line .\"below:
+.ds pN SET POLYMARKER REPRESENTATION PLUS
+.TH "\*(pN" 3P+ "29 February 1991"
+.SH NAME
+\*(pN \-
+use to define an extended
+polymarker attribute bundle on a workstation
+.IX "PHIGS Extension Functions" "\*(pN"
+.IX "Attribute Representations" "SET POLYMARKER REPRESENTATION PLUS"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.40i 3i
+.nf
+.\" 6. Insert C syntax below
+void
+pset_marker_rep_plus ( ws, index, rep )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	index;	\fIpolymarker bundle index \fP
+Pmarker_bundle_plus	*rep;	\fIpolymarker representation pointer\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET POLYMARKER REPRESENTATION PLUS\s+2 defines an
+extended polymarker attribute bundle on a workstation.
+.SS C Input Parameters
+.IP \fIws\fP
+The identifier of the workstation.
+.IP \fIindex\fP
+This is an index to the workstation marker bundle table.
+.IP \fIrep\fP
+A pointer to a Pmarker_bundle_plus structure. Pmarker_bundle_plus is defined as:
+.sp .2
+.nf
+.ta .5i +1i  +1i  +1.5i
+.sp .2
+typedef struct {
+.sp .2
+	Pint	type;	/* marker type */
+	Pfloat	size;	/* marker size scale factor */
+	Pgcolr	colr;	/* marker colour */
+.sp .2
+} Pmarker_bundle_plus;
+.fi
+.IP
+Pgcolr is defined as:
+.ta .5i +1.5i   +1i  +2i
+.nf
+.sp .4
+typedef struct {
+.sp .2
+	Pint	type;	/* indirect, RGB, CIE, HSV, HLS */
+	union {
+	     Pint	ind;	/* index in workstation colour bundle table */
+	     struct {
+	          Pfloat	x;	/* red, hue, etc. */
+	          Pfloat	y;	/* green, saturation, lightness, etc. */
+	          Pfloat	z;	/* blue, value, saturation, etc. */
+	     } general;
+	} val;
+} Pgcolr;
+.fi
+.sp
+\fIrep->type\fP is an integer value specifying a \fImarker type\fP;
+the following marker types are defined:
+.nf
+.ta .5i +.8i +1.5i +1i
+.sp .2
+.\" PT is a string for a "point".
+.ds PT \v'-0.2m'.\v'+0.2m'
+	1	PMARKER_DOT		\fIPoint\fP (\*(PT)
+	2	PMARKER_PLUS		\fIPlus sign\fP (\(pl)
+	3	PMARKER_ASTERISK		\fIAsterisk\fP (\(**)
+	4	PMARKER_CIRCLE		\fICircle\fP (\(ci)
+	5	PMARKER_CROSS		\fIX-mark\fP (\(mu)
+.sp .2
+.fi
+Support for marker types is workstation-dependent.
+The \fIPoint\fP (\*(PT) marker type is always the smallest dot possible,
+regardless of the marker size scale factor value applicable.  
+.sp
+\fIrep->size\fP is the \fImarker size scale factor\fP.  
+.sp
+\fIrep->colr\fP is the \fIpolymarker colour\fP,
+which selects a colour value from the workstation's colour table.  
+.SS Execution
+In the polymarker bundle table of the workstation state list, the given
+index is associated with the specified parameters.
+.LP
+The marker size scale factor is a scale factor applied to the nominal
+marker size. During structure traversal, the scale factor is multiplied
+by the nominal marker size on a workstation. The result is mapped by
+the workstation to the nearest available marker size.
+.LP
+Polymarker colour is a general colour, either an indirect or a
+direct colour in a specified colour model. If an indirect colour is
+specified and the specified colour index is not available during
+structure traversal, then colour index one is used.
+.LP
+The extended polymarker bundle table in the workstation state list has
+predefined entries taken from the workstation description table. A
+number of these entries are predefined for every workstation of category
+\s-2OUTPUT\s+2 or \s-2OUTIN\s+2. Any table entry, including the predefined
+entries, may be redefined with this function.
+.LP
+When polymarkers are displayed during structure traversal, the current
+polymarker index in the \s-2PHIGS\s+2 traversal state list
+refers to an entry in the extended polymarker bundle table. If the
+current polymarker index is not present in the extended polymarker
+bundle table, then polymarker index one is used. The setting of the 
+corresponding Aspect Source Flags(\s-2ASF\s+2s) determines which 
+aspects in the entry are used.
+.RE
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP, WSOP, *, *\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 059
+Ignoring function, the specified workstation does not have output capability
+(that is, the workstation category is neither \s-2OUTPUT\s+2,
+\s-2OUTIN\s+2, nor \s-2MO\s+2)
+.IP 100
+Ignoring function, the bundle index value is less than one
+.IP 103
+Ignoring function, setting this bundle table entry would exceed the maximum
+number of entries allowed in the workstation bundle table
+.IP 105
+Ignoring function, the specified marker type is not available on the 
+specified workstation
+.IP 110
+Ignoring function, the specified colour model is not available on the 
+workstation
+.IP 113
+Ignoring function, the colour index value is less than zero
+.IP 136
+Ignoring function, one of the components of the colour 
+specification is out of range
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET INDIVIDUAL ASF (3P)"
+.SM "INQUIRE POLYMARKER REPRESENTATION PLUS (3P+)"
+.SM "SET POLYMARKER REPRESENTATION (3P)"
+.SM "SET MARKER TYPE (3P)"
+.SM "SET MARKER SIZE SCALE FACTOR (3P)"
+.SM "SET POLYMARKER COLOUR INDEX (3P)"
+.SM "SET POLYMARKER COLOUR (3P+)"
+.SM "INQUIRE POLYMARKER FACILITIES (3P)"
+.fi

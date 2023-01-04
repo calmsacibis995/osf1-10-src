@@ -1,0 +1,158 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rwhod.8,v $ $Revision: 3.2.7.2 $ (DEC) $Date: 1993/11/29 19:45:56 $
+.\"
+.\"
+.\"  THIS OSF SOURCE FILE HAS BEEN MODIFIED BY DLIBRARY IN OSP
+.\"  If you need information about the changes, send mail 
+.\"  to dlibrary@ravine at Digital Equipment Corp.
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\" Copyright (c) 1983 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)rwhod.8	6.4 (Berkeley)
+.\" 
+.TH rwhod 8
+.SH NAME
+.PP
+\*Lrwhod\*O \- The system status server
+.SH SYNOPSIS
+.PP
+.\" Begin Digital-specific information
+.\" Added Environment note information.
+.\" End Digital-specific information
+.sS
+\*Lrwhod\*O [\*L-b\*O|\*L-l\*O]
+.sE
+.\" Begin Digital-specific information
+.\" Added Environment note information
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L-b\*O"
+Sets the broadcast only mode.
+Sends outgoing \*Lrwho\*O packets, but ignores incoming ones.
+.LI "\*L-l\*O"
+Sets the listen only mode.
+Collects incoming \*Lrwho\*O packets from the
+network, but does not broadcast \*Lrwho\*O data.
+.LE
+.\" End Digital-specific information
+.SH DESCRIPTION
+.iX "rwhod"
+.iX "servers"
+The \*Lrwhod\*O daemon is the server that maintains the database used by the
+\*Lrwho\*O(1) and \*Lruptime\*O(1) programs.  Its operation is predicated
+on the ability to \*Lbroadcast\*O messages on a network.
+.PP
+The \*Lrwhod\*O
+server operates as both a producer and consumer of status information.
+As a producer of information, it periodically
+queries the state of the system and constructs
+status messages, which are broadcast on a network.
+As a consumer of information, it listens for other
+\*Lrwhod\*O servers' status messages, validating them, then recording
+them in a collection of files located in the \*L/var/rwho\*O
+directory.
+.PP
+The server transmits and receives messages at the port indicated
+in the \*Lrwho\*O service specification; see \*Lservices\*O(4).
+The messages sent and received, are of the form:
+.oS
+struct  outmp {
+        char    out_line[8];            /* tty name */
+        char    out_name[8];            /* user id */
+        long    out_time;               /* time on */
+};
+.sp
+struct  whod {
+        char    wd_vers;
+        char    wd_type;
+        char    wd_fill[2];
+        int     wd_sendtime;
+        int     wd_recvtime;
+        char    wd_hostname[32];
+        int     wd_loadav[3];
+        int     wd_boottime;
+        struct  whoent {
+                struct  outmp we_utmp;
+                int     we_idle;
+        } wd_we[1024 / sizeof (struct whoent)];
+};
+.oE
+.PP
+All fields are converted to network byte order prior to
+transmission.  The load averages are as calculated by the
+\*Lw\*O(1) program, and represent load averages over the 5-, 10-, and 15-minute
+intervals prior to a server's transmission; they are multiplied by 100
+for representation in an integer.  The hostname
+included is that returned by the \*Lgethostname\*O(2)
+system call, with any trailing domain name omitted.
+The array at the end of the message contains information about
+the users logged in to the sending machine.  This information
+.\"Begin Digital correction.
+.\" changed utmp(5) to utmp(4)
+includes the contents of the \*Lutmp\*O(4)
+.\"End Digital correction.
+entry for each nonidle terminal line and a value indicating the
+time in seconds since a character was last received on the terminal line.
+.PP
+Messages received by the \*Lrwho\*O
+server are discarded unless they originated at an \*Lrwho\*O
+server's port.  In addition, if the host's name, as specified
+in the message, contains any unprintable ASCII characters, the
+message is discarded.  Valid messages received by
+\*Lrwhod\*O are placed in files named \*Lwhod\*O.\*Vhostname\*O
+in the \*L/var/rwho\*O directory.
+These files contain only the most recent message, in the
+format previously described.
+.PP
+Status messages are generated approximately once every
+3 minutes.  \*Lrwhod\*O performs an \*Lnlist\*O(3)
+on \*L/vmunix\*O every 30 minutes to guard against
+the possibility that this file is not the system
+image currently operating.
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/sbin/rwhod\*O"
+Specifies the command path
+.LE
+.SH "RELATED INFORMATION"
+.PP
+Commands: \*Lrwho\*O(1), \*Lruptime\*O(1)
+.EQ
+delim off
+.EN

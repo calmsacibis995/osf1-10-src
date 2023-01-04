@@ -1,0 +1,145 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9206112219.AA12885@kanga.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2597) close XBUG #5328: twm: move functions bound to keys no longer work
+Date: Thu, 11 Jun 92 18:19:37 EDT
+From: Dave Sternlicht <dave@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5328
+### area:         twm
+### severity:     medium
+### comments:     I have enabled f.move bound to a key as well
+
+
+*** /tmp/da12831	Thu Jun 11 18:15:18 1992
+--- clients/twm/menus.c	Thu Jun 11 18:16:01 1992
+***************
+*** 28,34 ****
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: menus.c,v 1.188 92/04/24 13:18:03 dave Exp $
+   *
+   * twm menu code
+   *
+--- 28,34 ----
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: menus.c,v 1.189 92/06/11 18:12:59 dave Exp $
+   *
+   * twm menu code
+   *
+***************
+*** 1335,1340 ****
+--- 1335,1342 ----
+      return false;
+  }
+  
++ extern int MovedFromKeyPress;
++ 
+  int
+  ExecuteFunction(func, action, w, tmp_win, eventp, context, pulldown)
+      int func;
+***************
+*** 1715,1729 ****
+  	    }
+  
+  	    /* test to see if we have a second button press to abort move */
+! 	    if (!menuFromFrameOrWindowOrTitlebar)
+! 	      if (Event.type == ButtonPress && DragWindow != None) {
+! 		if (Scr->OpaqueMove)
+! 		  XMoveWindow (dpy, DragWindow, origDragX, origDragY);
+! 		else
+! 		  MoveOutline(Scr->Root, 0, 0, 0, 0, 0, 0);
+! 		DragWindow = None;
+! 	      }
+! 
+  	    if (fromtitlebar && Event.type == ButtonPress) {
+  		fromtitlebar = False;
+  		CurrentDragX = origX = Event.xbutton.x_root;
+--- 1717,1731 ----
+  	    }
+  
+  	    /* test to see if we have a second button press to abort move */
+! 	    if (!menuFromFrameOrWindowOrTitlebar &&  !MovedFromKeyPress) {
+! 	        if (Event.type == ButtonPress && DragWindow != None) {
+! 		    if (Scr->OpaqueMove)
+! 		      XMoveWindow (dpy, DragWindow, origDragX, origDragY);
+! 		    else
+! 		        MoveOutline(Scr->Root, 0, 0, 0, 0, 0, 0);
+! 		    DragWindow = None;
+!                 }
+! 	    }
+  	    if (fromtitlebar && Event.type == ButtonPress) {
+  		fromtitlebar = False;
+  		CurrentDragX = origX = Event.xbutton.x_root;
+***************
+*** 1877,1882 ****
+--- 1879,1886 ----
+  	    }
+  
+  	}
++         MovedFromKeyPress = False;
++ 
+  
+  	if (!Scr->OpaqueMove && DragWindow == None)
+  	    UninstallRootColormap();
+*** /tmp/da12851	Thu Jun 11 18:15:21 1992
+--- clients/twm/events.c	Thu Jun 11 18:16:09 1992
+***************
+*** 28,34 ****
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: events.c,v 1.184 92/04/29 14:45:16 dave Exp $
+   *
+   * twm event handling
+   *
+--- 28,34 ----
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: events.c,v 1.185 92/06/11 18:14:34 dave Exp $
+   *
+   * twm event handling
+   *
+***************
+*** 553,558 ****
+--- 553,560 ----
+   ***********************************************************************
+   */
+  
++ int MovedFromKeyPress = False;
++ 
+  void
+  HandleKeyPress()
+  {
+***************
+*** 593,600 ****
+  	    /* weed out the functions that don't make sense to execute
+  	     * from a key press 
+  	     */
+! 	    if (key->func == F_MOVE || key->func == F_RESIZE)
+  		return;
+  
+  	    if (key->cont != C_NAME)
+  	    {
+--- 595,605 ----
+  	    /* weed out the functions that don't make sense to execute
+  	     * from a key press 
+  	     */
+! 	    if (key->func == F_RESIZE)
+  		return;
++             /* special case for F_MOVE/F_FORCEMOVE activated from a keypress */
++             if (key->func == F_MOVE || key->func == F_FORCEMOVE)
++                 MovedFromKeyPress = True;
+  
+  	    if (key->cont != C_NAME)
+  	    {
+

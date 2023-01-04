@@ -1,0 +1,161 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203120258.AA12936@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2408) xload: close XBUG #4616 OSF/1 and #4916 Motorola
+Date: Wed, 11 Mar 92 21:58:58 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xload: OSF/1 version can use the table() interface.
+        ### bug number:   4616
+        ### area:         xload
+        ### severity:     enhancement
+
+        Subject: xload: get_load.c compilation problem if MOTOROLA defined
+        ### bug number:   4916
+        ### area:         xload
+        ### severity:     medium
+
+*** /tmp/da12845	Wed Mar 11 21:54:39 1992
+--- clients/xload/get_load.c	Wed Mar 11 17:50:03 1992
+***************
+*** 1,7 ****
+  /*
+   * get_load - get system load
+   *
+!  * $XConsortium: get_load.c,v 1.26 91/07/25 14:20:25 rws Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * get_load - get system load
+   *
+!  * $XConsortium: get_load.c,v 1.29 92/03/11 17:49:35 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 108,113 ****
+--- 108,125 ----
+  #endif
+  #endif
+  
++ #ifdef __OSF1__
++ /*
++  * Use the table(2) interface; it doesn't require setuid root.
++  *
++  * Select 0, 1, or 2 for 5, 30, or 60 second load averages.
++  */
++ #ifndef WHICH_AVG
++ #define WHICH_AVG 1
++ #endif
++ #include <sys/table.h>
++ #endif
++ 
+  #ifdef SVR4
+  #ifndef FSCALE
+  #define FSCALE	(1 << 8)
+***************
+*** 331,336 ****
+--- 343,372 ----
+  
+  #else /* not LOADSTUB */
+  
++ #ifdef __OSF1__
++ 
++ void InitLoadPoint()
++ {
++ }
++ 
++ /*ARGSUSED*/
++ void GetLoadPoint( w, closure, call_data )
++      Widget   w;              /* unused */
++      caddr_t  closure;        /* unused */
++      caddr_t  call_data;      /* pointer to (double) return value */
++ {
++     double *loadavg = (double *)call_data;
++     struct tbl_loadavg load_data;
++ 
++     if (table(TBL_LOADAVG, 0, (char *)&load_data, 1, sizeof(load_data)) < 0)
++ 	xload_error("error reading load average", "");
++     *loadavg = (load_data.tl_lscale == 0) ?
++ 	load_data.tl_avenrun.d[WHICH_AVG] :
++ 	load_data.tl_avenrun.l[WHICH_AVG] / (double)load_data.tl_lscale;
++ }
++ 
++ #else /* not __OSF1__ */
++ 
+  #ifndef KMEM_FILE
+  #define KMEM_FILE "/dev/kmem"
+  #endif
+***************
+*** 680,686 ****
+          }
+          else
+          {
+!                 *loadavg = ((1.0 - cexp) * oldloadavg) ((rq / oc) * cexp);
+          }
+          oldloadavg = *loadavg;
+  	}
+--- 716,722 ----
+          }
+          else
+          {
+!                 *loadavg = ((1.0 - cexp) * oldloadavg) + ((rq / oc) * cexp);
+          }
+          oldloadavg = *loadavg;
+  	}
+***************
+*** 709,714 ****
+--- 745,751 ----
+  #endif /* sun else */
+  	return;
+  }
++ #endif /* __OSF1__ else */
+  #endif /* LOADSTUB else */
+  #endif /* KVM_ROUTINES else */
+  #endif /* SYSV && SYSV386 else */
+*** /tmp/da12862	Wed Mar 11 21:54:40 1992
+--- clients/xload/Imakefile	Wed Mar 11 21:53:58 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.26 91/07/17 00:46:30 gildea Exp $
+          DEPLIBS = XawClientDepLibs
+  LOCAL_LIBRARIES = XawClientLibs
+  #if defined(SunArchitecture) && defined(i386Architecture)
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.27 92/03/11 21:52:58 gildea Exp $
+          DEPLIBS = XawClientDepLibs
+  LOCAL_LIBRARIES = XawClientLibs
+  #if defined(SunArchitecture) && defined(i386Architecture)
+***************
+*** 22,30 ****
+  
+  AllTarget(xload)
+  NormalProgramTarget(xload,$(OBJS),$(DEPLIBS),$(LOCAL_LIBRARIES),NullParameter)
+  InstallProgramWithFlags(xload,$(BINDIR),$(INSTKMEMFLAGS))
+! InstallManPage(xload,$(MANDIR))
+  
+  InstallAppDefaults(XLoad)
+  
+  DependTarget()
+--- 22,35 ----
+  
+  AllTarget(xload)
+  NormalProgramTarget(xload,$(OBJS),$(DEPLIBS),$(LOCAL_LIBRARIES),NullParameter)
++ #ifndef OSF1Architecture
+  InstallProgramWithFlags(xload,$(BINDIR),$(INSTKMEMFLAGS))
+! #else
+! InstallProgram(xload,$(BINDIR))
+! #endif
+  
+  InstallAppDefaults(XLoad)
++ 
++ InstallManPage(xload,$(MANDIR))
+  
+  DependTarget()

@@ -1,0 +1,142 @@
+.\"##
+.\" $XConsortium: p322,v 5.1 91/02/16 09:43:14 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "SET GLOBAL TRANSFORMATION 3" 3P "29 February 1991"
+.SH NAME
+SET GLOBAL TRANSFORMATION 3 \- create structure element containing \s-2\&3D\s+2
+global modelling transformation matrix
+.IX "Modelling and Transformation Attributes" "SET GLOBAL TRANSFORMATION 3"
+.IX "Transformation Matrix" "SET GLOBAL TRANSFORMATION 3"
+.IX "Attributes, Modelling and Transformation Attributes" "SET GLOBAL TRANSFORMATION 3"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pset_global_tran3 ( xform )
+Pmatrix3	xform;	\fItransformation matrix\fP
+.fi
+.ft R
+.sE
+.SS Required PHIGS Operating States
+(PHOP, *, STOP, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET GLOBAL TRANSFORMATION 3\s+2 creates a structure element
+containing a \s-2\&3D\s+2 global modelling transformation matrix,
+which, during traversal, replaces the \fIcurrent global
+modelling transformation\fP.
+Then the local modelling transformation is composed with the new
+global modelling transformation to create a new composite modelling
+transformation, which maps the modelling
+coordinates \s-2(MC)\s+2 used to define individual output primitives
+to a unified world coordinate \s-2(WC)\s+2 space.
+.LP
+If the current edit mode is \s-2INSERT\s+2,
+the \s-2SET GLOBAL TRANSFORMATION 3\s+2 element
+is inserted into the open structure after the element pointed to
+by the current element pointer. If the edit mode is \s-2REPLACE\s+2, the
+\s-2SET GLOBAL TRANSFORMATION 3\s+2
+element replaces the element pointed to by the
+element pointer. In either case, the element pointer is updated to point
+to the new element.
+.SS C Input Parameter
+.IP \fIxform\fP
+The 4 \(mu 4 homogeneous \fItransformation matrix \s-2(T)\s+2\fP, of type:
+.sp .3
+.nf
+typedef  Pfloat  Pmatrix3[4][4];
+.fi
+.SS Execution
+.LP
+When traversal of a structure begins,
+the initial current local modelling transformation \s-2(L)\s+2 and
+the current global modelling transformation \s-2(G)\s+2
+are both the \s-2\&3D\s+2, 4 \(mu 4 identity matrix.
+.\"	A composite modelling transformation \s-2(C)\s+2 is by
+.\"	definition \s-2G\s+2 \(mu L\(aa at all times.
+The composite modelling transformation \s-2(C)\s+2 within a structure traversal
+is formed by the matrix multiplication of the
+current local modelling transformation \s-2(L)\s+2 and the
+current global modelling transformation \s-2(G)\s+2 as follows:
+.IP
+C \(<- G \(mu L
+.LP
+\s-2PHIGS\s+2 assumes representation of points as column vectors.  Hence, the order
+of composition in C \(<- G \(mu L (and throughout) is ``post-concatenation''
+or ``post-multiply.''
+.LP
+When a new structure is traversed, one step in the
+invocation of the referenced structure is to save the current modelling
+transformations (\s-2L\s+2, \s-2G\s+2, and \s-2C\s+2).  The child structure inherits the parent's
+composite modelling transformation \s-2(C)\s+2
+as its current global modelling transformation \s-2(G)\s+2, and
+an identity matrix as its initial
+current local modelling transformation \s-2(L)\s+2.
+The parent and child have equal composite modelling transformations \s-2(C)\s+2,
+because \s-2L\s+2 is the identity.  After traversal of the child structure network,
+the saved transformations are restored so that the parent is unaffected
+by the execution of a child.
+.LP
+When the \s-2SET GLOBAL TRANSFORMATION 3\s+2 element is traversed,
+the element's \fItransformation matrix\fP \s-2(T)\s+2 replaces the
+current global modelling transformation \s-2(G)\s+2:
+.IP
+G\(aa \(<- T
+.LP
+The current local modelling transformation \s-2(L)\s+2,
+is then composited with the new current global modelling transformation \s-2(G)\s+2
+to calculate the new composite modelling transformation \s-2(C)\s+2.
+.IP
+C \(<- G\(aa \(mu L
+.LP
+The current composite modelling transformation maps the
+modelling coordinates, used to define individual output primitives, to
+world coordinates.
+Mapping the primitives to the world coordinate space establishes the
+relation between different objects of the image by redefining the parts in
+terms of a unified coordinate space. This allows the application to define
+different parts of the image in different local modelling coordinates
+convenient to the objects being defined, and then to apply
+transformations that will map the local coordinate systems of each part to
+a single world coordinate \s-2(WC)\s+2 space.
+.LP
+Finally, the viewing mechanism maps \s-2WC\s+2 to device coordinates
+on the workstation's physical display surface.
+.\"? This "transformation pipeline" is described in more detail in the
+.\"? \fI\s-2PEX-SI\s0 Programming Guide\fP.
+.SH ERRORS
+.IP 005
+Ignoring function, function requires state (PHOP, *, STOP, *)
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET LOCAL TRANSFORMATION 3 (3P)"
+.SM "BUILD TRANSFORMATION MATRIX 3 (3P)"
+.SM "TRANSFORM POINT 3 (3P)"
+.SM "SET VIEW REPRESENTATION 3 (3P)"
+.SM "SET GLOBAL TRANSFORMATION (3P)"
+.fi

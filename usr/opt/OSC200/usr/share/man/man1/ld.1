@@ -1,0 +1,799 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ld.1,v $ $Revision: 3.2.6.8 $ (DEC) $Date: 1994/01/15 19:02:44 $
+.\" 
+.\"-------------------------------------------------------------
+.\" | Copyright (c) 1986, 1989, MIPS Computer Systems, Inc.	|
+.\" | All Rights Reserved.					|
+.\" -------------------------------------------------------------
+.\" $Header: /usr/doc/osf1doc/refpages/rcs/src/BASE/DEC/man1/ld.1,v 3.2.6.8 1994/01/15 19:02:44 Jeff_Mandell Exp $
+.TH ld 1
+.SH NAME
+.PP
+\*Lld\*O, \*Luld\*O \- link editor and ucode link editor
+.SH SYNOPSIS
+.PP
+.sS
+\*Lld\*O
+[ \*Voption\*O ... ] \*Vfile\*O ...
+.nL
+\*Luld\*O
+[ \*Voption\*O ... ] \*Vfile\*O ...
+.sE
+.SH DESCRIPTION
+.PP
+.iX "ld command"
+.iX "uld command"
+The \*Lld\*O command invokes the
+DEC OSF/1
+link editor
+which links extended
+\*Vcoff\*O
+object files.  The archive format understood by
+\*Lld\*O
+is the one created by the archiver \*Lar\*O(1).
+.PP
+The
+\*Lld\*O
+command combines several
+object files into one, performs relocation, resolves external
+symbols, builds tables and relocation information for run-time linkage in
+case of doing a shared link, and supports symbol table information for
+symbolic debugging.
+In the simplest case, the names of several object
+\*Vfiles\*O
+are given.
+The \*Lld\*O command
+combines them, producing an object module that can be executed or
+used as input for a subsequent
+\*Lld\*O run.
+(In the latter case, the
+\*L\-r\*O option must be given to preserve the relocation entries.)
+The output of
+\*Lld\*O
+is left in \*La.out\*O.
+By default, this file is a dynamic executable if no errors occurred during
+the load.
+.PP
+The argument object files are concatenated in the order
+specified.  The entry point of the output is the
+beginning of the text segment (unless the \*L\-e\*O option is specified).
+.PP
+The
+\*Luld\*O
+command combines several ucode object files and libraries into one ucode
+object file. It ``hides'' external symbols for better optimizations by
+subsequent compiler passes.  The symbol tables of
+\*Vcoff\*O
+object files loaded with ucode object files are used to determine what
+external symbols not to ``hide'' along with files specified by the user
+that contain lists of symbol names.
+.PP
+If any argument is a library, it is searched exactly once
+at the point it is encountered in the argument list.
+There are two kinds of libraries, archives and dynamic shared objects.
+Archives are used if the output is to be static. In that case,
+only those object files defining an unresolved external
+reference are loaded.
+Shared objects are normally used if the output is to be dynamic. In that case,
+only the name is used for external resolution, no object is included as part
+of the output object file.
+.PP
+The library (archive) symbol table (see \*Lar\*O(1))
+is a hash table and is searched to resolved external references that can be
+satisfied by library members.  The ordering of library members is
+important. See
+\*Llorder\*O(1).
+.PP
+The following options are recognized by both
+\*Lld\*O and \*Luld\*O .
+Those options used by one and not the other are ignored.
+Any option can be preceded by a
+\*Lk\*O (for example \*L\-ko\*O \*Voutfile\*O) and except for
+\*L\-kl\*Vx\*O have the same meaning with or without the preceding
+\*Lk\*O. This is done so that these options can be passed to both link editors
+through compiler drivers.
+.PP
+Position-sensitive options affect link behavior for objects
+and libraries that follow the option in the command. These
+options include
+\*L\-L\*O, \*L\-all\*O, \*L\-exclude\*O, \*L\-exported_symbol\*O,
+\*L\-hidden\*O, \*L\-hidden_symbol\*O, \*L\-kl\*O, \*L\-l\*O, \*L\-none\*O,
+\*L\-non_hidden\*O, and
+\*L\-no_archive\*O.  They are described in detail below.
+.PP
+The symbols \*L_etext\*O, \*L_edata\*O,
+\*L_end\*O, \*L_ftext\*O, \*L_fdata\*O,
+\*L_fbss\*O, \*L_gp\*O,
+\*L\.fini\*O, \*L\.data\*O, \*L\.text\*O, \*L\.init\*O, \*L\.rdata\*O,
+\*L\.sdata\*O, \*L\.sbss\*O, \*L\.bs\*O,
+\*L\.lit4\*O, \*L\.lit8\*O, \*L\.comment\*O, \*L_\|_istart\*O,
+\*L_\|_fstart\*O, \*Ldata_init_table\*O, \*L_DYNAMIC\*O,
+\*L_DYNAMIC_LINK\*O, \*L_BASE_ADDRESS\*O, \*L_GOT_OFFSET\*O,
+\*L_procedure_tabl\*O,
+\*L_procedure_table_size\*O,
+\*L_procedure_string_table\*O,
+\*L_cobol_main\*O, and \*L_unwind\*O are reserved.
+If the \*L\-std1\*O flag is not set (see the \*Lcc\*O(1|) reference
+page), the symbols \*Letext\*O, \*Ledata\*O, \*Lend\*O, and \*Lunwind\*O
+are also reserved.
+These loader defined symbols if referred to, are set their
+values as described in \*Lend\*O(3).
+.\"It is erroneous to define these symbols.
+Undefined results may occur if user code defines these symbols.
+.PP
+Symbol names that start with
+\*L_\|_init_\*O and \*L_\|_fini_\*O
+have special meaning
+to the loader. All routines that start with \*L_\|_init_\*O are treated, by
+default, as initialization routines. These are routines that are called
+without an argument when the file that contains them is loaded, or when
+the program that contains them is started. All routines that start with
+\*L_\|_fini_\*O are treated by default as termination routines, which
+are routines
+that are called without an argument when the file that contains them is
+unloaded, or when the program that contains them exits.
+.PP
+Any executable program that references the builtin symbol \*L_fpdata_size\*O
+(either directly or through a shared object) and all shared objects, whether
+or not they reference the builtin symbol, cause \*Lld\*O
+to generate and include code and data to support exception handling.
+For shared objects, this is always done because the person creating the
+shared object might not know whether the program referencing the shared
+object uses exception handling. This support is needed so that the
+exception handling system can unwind stack frames and find handlers for
+exceptions. See \*Lexception_intro\*O(3).
+.PP
+Exception support consists of the following:
+.ML
+.LI
+Generating data structures that the exception system can use to perform
+unwinds
+.LI
+Generating \*L\.init\*O and \*L\.fini\*O section calls to register the
+exception data structures within the exception system
+.LI
+Linking \*Llibexc_init.a\*O, which contains a set of bridge routines
+that call the exception system registration routines. The
+\*Llibexc_init.a\*O file is an object file with a \*L\.a\*O suffix so
+that the \*L\-L\*O option can be used to find it.
+.LE
+.PP
+The \*Llibc\*O library has a set of dummy routines that replace the
+exception routines when the exception system is not present.
+By default, this replacement works because \*Llibexc\*O is generally
+specified \*Llibc\*O on the link line. The \*Lcc\*O(1) command ensures
+that \*Llibc\*O is the last library on the command line unless otherwise
+specified. Users requiring the exception system must not explicitly
+specify \*Llibc\*O before \*Llibexc\*O on the command line.
+.SH FLAGS
+.PP
+When searching for libraries, \*Lld\*O looks for them, by default, in the following
+directories:
+.AL
+.LI
+\*L/usr/shlib\*O
+.LI
+\*L/usr/ccs/lib\*O
+.LI
+\*L/usr/lib/cmplrs/cc\*O
+.LI
+\*L/usr/lib\*O
+.LI
+\*L/usr/local/lib\*O
+.LE
+.PP
+You can alter the \*Lld\*O command's library directory search order for all
+libraries subsequently referenced on the command line by using the following
+position-dependent qualifiers. Note that any of these options is
+effective only if it precedes the
+\*L\-l\*O
+option on the command line for the libraries it is meant to affect.
+.VL 4m
+.LI "\*L\-L\*Vdir\*O"
+Change the library directory search order for
+shared object and archive libraries (for instance, \*Llib \*Vx\.\*O{\*Lso\*O,
+\*L a\*O}), and \*Lucode\*O object libraries (for instance, \*Llib\*Vx\*L\.b\*O),
+so that \*Lld\*O looks for them in
+\*Vdir\*O
+before the default library directories.
+.LI "\*L\-L"
+Change the library directory search order for
+shared object and archive libraries (\*Llib\*Vx\.\*O{\*Lso\*O,\*L a\*O}),
+and \*Lucode\*O object libraries
+(\*Llib\*Vx\*L\.b\*O),
+so that \*Lld\*O
+\*Lnever\*O
+looks for them in the default library directories.  Use this option when the default
+library directories should not be searched and only the directories specified by
+\*L\-L\*Vdir\*O
+are to be searched.
+.LI "\*L\-K\*Vdir\*O"
+Eliminate the search of the default library directories
+and instead cause \*Lld\*O to search the single directory
+\*Vdir\*O.
+Instead of using this option, which is intended exclusively for the compiler driver,
+you should use the
+\*L\-L\*O
+and
+\*L\-L\*Vdir\*O
+options in combination to obtain a similar effect.
+.LE
+.PP
+When linking a shared object, \*Lld\*O searches all library directories in order
+for the shared object library (\*Llib\*Vx\*L.so\*O).
+If it cannot find the shared object library, it again searches all library
+directories in order for the archive
+library (\*Llib\*Vx\*L.a\*O).
+.PP
+You use the following switch to alter the manner in which \*Lld\*O searches
+library directories for shared object and archive libraries:
+.VL 4m
+.LI "\*L\-oldstyle_liblookup\*O"
+Cause \*Lld\*O to search in order each library directory once, first for the shared
+object library (\*Llib\*Vx\*L.so\*O) and then for the archive library
+ (\*Llib\*Vx\*L.a\*O).
+.LE
+.PP
+It omits the search for the archive library if the
+\*L\-no_archive\*O option precedes the library name on the \*Lld\*O command line.
+When linking a \*Lucode\*O object library, \*Lld\*O searches the library
+directories in order for \*Llib\*Vx\*L\.b\*O.
+.PP
+Use the following position-dependent qualifiers to determine which libraries
+\*Lld\*O searches for in the library directories when resolving symbol names.
+Note that, because \*Lld\*O searches for a shared object or archive library (or
+\*Lucode\*O object library) when it encounters its name on the command line, the
+order of these options is significant.
+.VL 4m
+.LI "\*L\-l\*Vx\*O"
+Search a library
+\*Llib\*Vx\.\*O{\*Lso\*O,\*L a\*O},
+where
+\*Vx\*O
+is a string.
+.LI "\*L\-ql\*Vx\*O"
+This option is identical to the \*L\-l\*Vx\*O option in usage and
+behavior with this difference: if the library specified by
+\*L-l\*Vx\*O is not found, the linker does not produce error or warning
+messages. However, the linker reports unresolved symbol errors and
+other link time errors normally.
+.LI "\*L\-kl\*Vx\*O"
+Search a library
+\*Llib\*Vx\*L\.b\*O,
+where
+\*Vx\*O
+is a string.  These libraries are intended to be \*Lucode\*O object libraries.
+In all other ways, this option is like the
+\*L\-l\*Vx\*O option.
+.LE
+.PP
+The \*Lld\*O command also accepts the following options:
+.VL 4m
+.LI "\*L\-o \*Voutfile\*O"
+Produce an output object file by the name
+\*Voutfile.\*O
+The name of the default object file is
+\*La.out\*O.
+.LI "\*L\-p \*Vfile\*O"
+Preserve (do not ``hide'') the symbol names listed in
+\*Vfile\*O
+when loading ucode object files.  The symbol names in the file are
+separated by blanks, tabs, or newlines.
+.LI "\*L\-s\*O"
+Strip the symbolic information from the output object file.
+.LI "\*L\-x\*O"
+Do not preserve local
+(non-\*L\.globl\*O) symbols in the output symbol table; enter
+external and static symbols only.
+This option saves some space in the output file.
+.LI "\*L\-r\*O"
+Retain relocation entries in the output file.
+Relocation entries must be saved if the output file is to become an input
+file in a subsequent
+\*Lld\*O
+run.
+This option also prevents final definitions from being given to common symbols,
+and suppresses the `undefined symbol' diagnostics.
+.LI "\*L\-d\*O"
+Force definition of common storage and define loader defined symbols even if
+\*L\-r\*O
+is present.
+.LI "\*L\-u \*Vsymname\*O"
+Enter
+\*Vsymname\*O
+as an undefined in the symbol table.  This is useful
+for loading entirely from a library, since initially the symbol
+table is empty and an unresolved reference is needed
+to force the loading of the first routine.
+.LI "\*L\-F\*O or \*L\-z\*O"
+Arrange for the process to be loaded on
+demand from the resulting executable file (413 format)
+rather than preloaded, a ZMAGIC file.
+This is the default.
+.\" 12/13/91 the next 3 options need to be corrected before ship
+.\" ***** have Mike R check these next 3 options before checking in the file
+.LI "\*L\-n\*O"
+Arrange (by giving the output file a 0410 "magic number") that
+when the output file is executed,
+the text portion will be read-only and shared
+among all users executing the file, an NMAGIC file.
+The default text segment address is 0x20000000 and
+the default data segment address is 0x40000000.
+.LI "\*L\-nN\*O"
+Arrange (by giving the output file a 0410 "magic number") that
+when the output file is executed,
+the text portion will be read-only and shared
+among all users executing the file, an NMAGIC file.
+This involves moving the data areas up to the first
+possible
+\*Vpagesize\*O
+byte boundary following the end of the text.
+.LI "\*L\-N\*O"
+Place the data section immediately after the text and
+do not make the text portion read only or sharable, an OMAGIC file.
+(Use "magic number" 0407.)
+.LI "\*L\-T \*Vnum\*O"
+Set the text segment origin.  The argument
+\*Vnum\*O
+is a hexadecimal number.  See the notes section for restrictions.
+.LI "\*L\-D \*Vnum\*O"
+Set the data segment origin.  The argument
+\*Vnum\*O
+is a hexadecimal number.  See the notes section for restrictions.
+.LI "\*L\-B \*Vnum\*O"
+Set the \*Lbss\*O segment origin.  The argument
+\*Vnum\*O
+is a hexadecimal number.
+This option can be used only if the final object is an OMAGIC file.
+.LI "\*L\-e \*Vepsym\*O"
+Set the default entry point address for the output file to be that of the
+symbol
+\*Lepsym\*O.
+.LI "\*L\-m\*O"
+Produce a map or listing of the input/output sections on the standard
+output (UNIX system V-like map).
+.LI "\*L\-M\*O"
+Produce a primitive load map, listing the names of the files that will be
+loaded (UNIX 4.3bsd-like map).
+.LI "\*L\-S\*O"
+Set silent mode and suppress non-fatal errors.
+.LI "\*L\-v\*O"
+Set verbose mode.  Print the name of each file as it is processed.
+.LI "\*L\-y\*Vsym\*O"
+Indicate each file in which
+\*Vsym\*O
+appears,
+\*Lsym\*O's
+type and whether the file defines or references
+\*Lsym\*O.
+Many such options may be given to trace many symbols.
+.LI "\*L\-V\*O"
+Print a message giving information about the version of
+\*Lld\*O
+being used.
+.LI "\*L\-VS \*Vnum\*O"
+Use
+\*Vnum\*O
+as the decimal version stamp to identify the a.out file that is produced.  The
+version stamp is stored in the optional and symbolic headers.
+.LI "\*L\-f \*Vfill\*O"
+Set the fill pattern for ``holes'' within an output section.  The argument
+\*Vfill\*O
+is a four-byte hexadecimal constant.
+.\" the following three options are commented out for alpha as they are
+.\" ignored. they might be restored for a 32-bit environment
+.\" .LI "\*L\-G \*Vnum\*O"
+.\" The argument
+.\" \*Vnum\*O
+.\" is taken to be a decimal number that is the largest size in bytes of a
+.\" \*V\.comm\*O
+.\" item or literal that is to be allocated in the small bss section for reference
+.\" off the global pointer.  The default is 8 bytes.
+.\" .LI "\*L\-bestGnum\*O"
+.\" Calculate the best
+.\" \*L\-G \*Vnum\*O
+.\" to use when compiling and linking the files which produced the objects being
+.\" linked.
+.\" Using too large a number with the
+.\" \*L\-G \*Vnum\*O
+.\" option may cause the gp
+.\" (global-pointer) data area to overflow; using too small a number may
+.\" reduce your program's execution speed.
+.\" .LI "\*L\-count, \-nocount, \-countall\*O"
+.\" These options control which objects are counted as recompilable for the best
+.\" \*L\-G \*Vnum\*O
+.\" calculation.
+.\" By default, the
+.\" \*L\-bestGnum\*O
+.\" option assumes you can recompile everything with a different
+.\" \*L\-G \*Vnum\*O option. If you cannot recompile certain object files
+.\" or libraries (because, for example, you have no sources for them), use these
+.\" options to tell the link editor to take this into account in calculating
+.\" the best
+.\" \*L\-G \*Vnum\*O value.
+.\" The \*L\-nocount\*O option
+.\" says that object files appearing after it on the command line cannot be
+.\" recompiled;
+.\" \*L\-count\*O says that object files appearing after it on the
+.\" command line can be
+.\" recompiled; you can alternate the use of
+.\" \*L\-nocount\*O
+.\" and
+.\" \*L\-count\*O.
+.\" The \*L\-countall\*O option overrides any
+.\" \*L\-nocount\*O
+.\" options appearing after it on the command line.
+.LI "\*L\-b\*O"
+Do not merge the symbolic information entries for the same file into one entry
+for that file.  This is only needed when the symbolic information
+from the same file appears differently in any of the objects to be linked.  This
+can occur when object files are compiled, by means of conditional compilation,
+with an apparently different version of an include file.
+.\" .TP
+.\"\*L\-jmpopt " and" " \-nojmpopt"
+.\"Fill or do not fill the delay slots of jump instructions with the target of the
+.\"jump and adjust the jump offset to jump past that instruction.  
+.\"This always is disabled for debugging (when the
+.\"\*L"\-g1, \-g2" " or" " \-g"
+.\"flag is present).  When this option
+.\"is enabled it requires that all of the loaded program's text be in memory and
+.\"could cause the loader to run out of memory.  The default is
+.\"\*L\-nojmpopt.
+.\".LI "\*L\-g\*O or\*L\-g[0123]\*O"
+.\"These options are accepted and except for
+.\"\*L\-g1, \-g2 or \-g\*O
+.\"Disabling the
+.\"\*L\-jmpopt
+.\"have no other effect.
+.LI "\*L\-A \*Vfile\*O"
+This option specifies incremental loading, i.e.
+linking is to be done in a manner so that the resulting object
+may be read into an already executing program.
+The next argument,
+\*Vfile\*O,
+is the name of a file whose symbol table will be
+taken as a basis on which to define additional symbols.
+Only newly linked material will be entered into the text and
+data portions of
+\*La.out\*O,
+but the new symbol table will reflect
+every symbol defined before and after the incremental load.
+This argument must appear before any other object file in the argument list.
+The
+\*L\-T\*O
+option may be used as well, and will be taken to mean that the
+newly linked segment will commence at the corresponding address
+(which must be a correct multiple for the resulting object type).
+The default resulting object type is an OMAGIC file and the default
+starting address of the text is the old value of end rounded to
+SCNROUND as defined in the include file
+\*V<scnhdr.h>.\*O
+Using the defaults, when this file is read into an already executing program
+the initial value of the break must also be rounded.
+.\"All other objects except the argument to the
+.\"\*L\-A
+.\"option must be compiled
+.\"\*L\-G " 0"
+.\"and this sets
+.\"\*L\-G " 0"
+.\"for linking.
+.\" .PP
+.\" The following options are used by the command \*Lmkshlib\*O(1) and
+.\" are not intended for general use.
+.\" .TP
+.\" \*L\-c
+.\" Create a target shared library object file.  This is a LIBMAGIC file
+.\" (443 format).  The objects linked must be compiled with
+.\" \*L\-G " 0"
+.\" and this sets
+.\" \*L\-G " 0"
+.\" for linking.
+.\" This file is demand paged and the headers are part of the text but on there
+.\" own page so real text starts on the next page where the text is loaded.
+.\" .TP
+.\" .BI \-i " file"
+.\" The .text section of
+.\" .I file
+.\" is moved into the .init section of the resulting object file.
+.\".PP
+.\" The \*Lld\*O and \*Luld\*O commands
+.\" accept object files targeted for either byte ordering with their headers and
+.\" symbolic tables in any byte ordering;  however
+.\" \*Lld\*O and \*Luld\*O
+.\" are faster if the headers and symbolic tables have the byte ordering of the
+.\" machine that they are running on.  The default byte ordering of the headers
+.\" and symbolic tables is the target byte ordering of the output object file.
+.\" For non-relocatable object files the default byte ordering of the headers
+.\" and symbolic tables cannot be changed.
+.\" .TP
+.\" \*L\-EB
+.\" Produce the output object file with big-endian byte ordered headers and symbolic
+.\" information tables.
+.\" .TP
+.\" \*L\-EL
+.\" Produce the output object file with little-endian byte ordered headers and
+.\" symbolic information tables.
+.LI "\*L\-non_shared\*O"
+Produce a static executable. The output object created will not use any shared
+objects during execution. The
+\*L\-init\*O
+and/or the \*L\-fini\*O
+switches cannot be used in combination with the
+\*L\-non_shared\*O
+switch. This is the default.
+.TP
+.\" added for silver ift as per devel request
+\*L\-noprefix_recognition
+This option disables the automatic recognition of symbols prefixed with
+\*L_\|_init\*O as initialization routines, and of symbols prefixed with
+\*L_\|_fini_\*O as termination routines. This option is only for applications
+that already have defined symbols with the prefixes \*L_\|_init_\*O or
+\*L_\|_fini_\*O.
+.LI "\*L\-shared\*O"
+Produce a shared object. This includes creating all of the tables for run-time
+linking and resolving references to other specified shared objects.
+The object created may be used by the linker to make dynamic executables.
+.LI "\*L\-call_shared"
+Produce a dynamic executable. The object created may use shared objects at
+run-time.
+.\" removed options -coff and -elf as per mjr's request 9/9
+.LI "\*L\-hidden_symbol \*Vsymbol\*O"
+Used for shared linkage. The linker turns the symbol following this flag into
+a local. This must appear before the symbol is used or defined.
+.LI "\*L\-hidden\*O"
+Turns all external symbols from objects following this flag into locals. This
+option is meaningful for shared linkage only.
+.LI "\*L\-exported_symbol \*O \*Vpattern\*O"
+Turns off the hidden option for a single symbol, specified by
+\*Vpattern\*O. Pattern matching uses shell wildcard characters (?, *, [,
+]). For more information, see \*Lsh\*O(1).
+.\" commented out for silver maint as per R. Lowell's instructions
+.\" .LI "\*L\-no_preempt\*O"
+.\" Turns all relocations for the objects following this flag into local relocations,
+.\" effectively disallowing preempting externals in those objects for this executable
+.\" or shared object.
+.\" .LI "\*L\-no_preempt_symbol \*Vsymbol\*O"
+.\" Turns all relocations for the symbol following this flag into local relocations,
+.\" effectively disallowing preemption of the specified external symbol for this
+.\" executable or shared object.
+.LI "\*L\-expect_unresolved\*O \*Vpattern\*O"
+Any unresolved symbols matching \*Vpattern\*O are not displayed and are
+not treated as errors or warnings. You can enter this option multiple times.
+The patterns use shell wildcard characters (?, *, [, ]) which must be
+properly quoted so they will not be expanded by the shell. For more
+information, see \*Lsh\*O(1).
+.LI "\*L\-warning_unresolved\*O"
+Unresolved symbols, except those matching \*L\-expect_unresolved\*O,
+produce a warning message. This is the default behavior for building
+shared libraries.
+.LI "\*L\-error_unresolved\*O"
+Unresolved symbols, except those matching \*L\-expect_unresolved\*O,
+produce an error and the link fails. This is the default behavior for
+linking executable programs.
+.LI "\*L\-all\*O"
+Link in all of the objects from the archives following this flag. This option
+is used in conjunction with
+\*L\-shared\*O
+option to create a shared object.
+.LI "\*L\-none\*O"
+Turns off the
+\*L\-all\*O
+option.
+.LI "\*L\-exclude \*Vobject\*O"
+Used in conjunction with
+\*L\-all\*O
+and
+\*L\-shared\*O.
+The object specified will be excluded in making the shared object.
+.LI "\*L\-no_archive\*O"
+Requires that
+\*L\-l\*O
+references must resolve to shared objects. Normally, if the shared object
+as specified by the
+\*L\-l\*O
+is not found, the linker attempts to find the corresponding archive
+to resolve undefined symbols. This option disallows using those archives.
+Note that this option is positional and can be used more than once. It
+affects only those options that follow it.
+.LI "\*L\-check_registry \*Vlocation_file\*O"
+Check the location of this shared object's segments and make sure they stay out
+of the way of others in the location_file. Multiple instances of this option
+are allowed. This option is used with
+\*L\-shared\*O.
+.LI "\*L\-update_registry \*Vlocation_file\*O"
+Register the location of this shared object's segments and make sure they stay
+out of the way of others in the \*Vlocation_file\*O.
+\*VLocation_file\*O is updated if
+it is writable. This option is used with
+\*L\-shared\*O.
+.LI "\*L\-no_library_replacement"
+Turns on a flag in the dynamic section so that rld does not allow exectime
+or runtime changing of the path (except for super user) to find the shared
+objects. Typically, used for security purposes on system utilities.
+.LI "\*L\-rpath\*O \*Vpath\*O"
+Creates an \*Lrpath\*O record containing the specified \*Vpath\*O string.
+The \*Vpath\*O string is a colon-separated list of directories
+that is meaningful only when creating an executable with shared
+linkage. The runtime loader uses the rpath record to search for
+shared libraries at runtime.
+.LI "\*L\-soname \*Vshared_object_name\*O"
+Sets DT_SONAME for a shared object. Use in conjunction with
+\*L\-shared\*O
+option. The name may be a single component name (e.g. \*Llibc.a\*O),
+a full (starting with a slash), or relative pathname (containing a slash).
+The default DT_SONAME used for shared objects is the filename component
+of the output file name.  Specify the output file name using the
+\*L-o\*O  option as described above.
+.\" Single component name use rpath, LD_LIBRARY_PATH and the
+.\" default paths to resolve their locations.
+.LI "\*L\-init \*Vsymbol\*O"
+.\" Add a call to function name in the .init section - commented out 5/15/92
+Make the procedure represented by the symbol an initialization routine,
+which is a routine that is called without an argument when the file that
+contains the routine is loaded, or when the program that contains
+the routine is started.
+.LI "\*L\-fini \*Vsymbol\*O"
+.\" Add a call to function name in the .fini section - commented out 5/15/92
+Make the procedure represented by the symbol a termination routine,
+which is a routine that is called without an argument when the
+file that contains the routine is unloaded, or when the program
+that contains the routine exits.
+.\" .TP
+.\" .BI \-ROM " address"
+.\" This option is for embedded systems applications. Ld will generate a table
+.\" of entries of the form: from address, to address and number of bytes (totaling
+.\" 3 words per entry). A predefined symbol data_init_table will be set by ld
+.\" to point to the beginning of this table. The last entry of this table
+.\" is a negative value and should be interpreted as the start address of bss
+.\" segment, size of bss segment and initial value of gp. To use this option
+.\" properly, user code must exist to copy data from ROM to RAM upon program start.
+.\" .\" [where did this come from?]zed) is defined in place of the default
+.\" \*LSYSTYPE_SYSV .
+.\" commented out for alpha
+.\" .LI "\*L\-static\*O"
+.\" This option is not recommended for user programs, but is required for
+.\" linking the kernel.
+.\" This option tells \*Lld\*O that the program expects only one value for
+.\" \*L$gp\*O. Then \*Lld\*O attempts to fit the address literal section
+.\" (\*L\.lita\*O) within 64 Kbytes. This condition applies only when shared
+.\" libraries are not used.
+.LI "\*L\-transitive_link\*O"
+Causes \*Lld\*O to link in any shared object that occurs in the dependency list
+in addition to those shared objects on the link command line. If \*Lld\*O
+cannot find the shared object in the dependency list, it will cause a fatal
+error.
+.LI "\*L\-O0\*O"
+Turns off all code optimizations performed by the \*Lld\*O. This is the default.
+.LI "\*L\-O1\*O"
+Turns on the code optimizations that can be performed quickly with
+little additional time and memory overhead during the link.
+Note that \*Lcc\*O(1) passes \*L\-O1\*O as the default when linking.
+.LI "\*L\-O2\*O, \*L\-O3\*O"
+Turns on all code optimizations that can be performed by the linker.
+.LI "\*L\-exact_version\*O"
+Sets a flag in the dynamic object produced by the linker,  asking
+the run-time loader to ensure that the shared libraries this dynamic
+object uses at run-time match the shared libraries referenced at link
+time. By default, a shared library's version is included in the match
+test. This option requires a stricter test which includes shared library
+checksums and timestamps.
+.sp
+This option is used when building a dynamic executable file (with
+\*L\-call_shared\*O) or a shared library (with \*L\-shared\*O).
+.LI "\*L\-set_version \*Vversion-string\*O"
+Establishes the version identifier (or identifiers) associated with a shared library.
+The string \*Vversion-string\*O is either a single version identifier or
+a colon-separated list of version identifiers.  No restrictions are placed
+on the names of version identifiers; however, it is highly recommended that
+Unix directory naming conventions be followed.
+.sp
+If a shared library is built with this option, any executable built against it will
+record a dependency on the specified version or, if a list of version identifiers
+is specified, the rightmost version specified in the list.  If a shared library is
+built with a list of version identifiers, the run-time loader will allow any
+executable to run that has a shared library dependency on any of the listed
+versions.
+.sp
+This option is only useful when building a shared library (with \*L\-shared\*O).
+.LI "\*L\-depth_ring_search\*O"
+This option is used in conjunction with \*L\-call_shared\*O. The linker
+sets a flag in dynamic objects requesting a depth_first, ring_search
+method for resolving symbol references between shared objects. See
+\*Lloader\*O(5) for a complete description of this alternate symbol
+resolution policy.
+.LI "\*L\-taso\*O"
+This option tells the linker that the executable should be loaded
+in the lower 31-bit addressable virtual address range. The \*L\-T\*O
+and \*L\-D\*O options to the \*Lld\*O(1) command can also be used
+to ensure that the text and data segments addresses, respectively,
+are loaded into low memory. The \*L\-taso\*O option, however, in
+addition to setting default addresses for text and data segments,
+also causes shared libraries linked outside the 31-bit address space
+to be appropriately relocated by the loader. If you specify
+\*L\-taso\*O and also specify text and data segment addresses with
+\*L\-T\*O and \*L\-D\*O, those addresses override the \*L\-taso\*O
+default addresses. The \*L\-taso\*O option is useful for porting
+32-bit programs to the
+DEC OSF/1
+operating system.
+.LE
+.SH NOTES
+.PP
+Any of the three types of objects can be run on
+DEC OSF/1
+systems.
+The segments must not overlap and all addresses must
+be less than 0x40000000000.
+The stack starts below the text segment and grows
+through lower addresses so space should be left for it.
+For ZMAGIC files the default text segment address is 0x120000000
+and the default data segment address is 0x140000000.
+.PP
+For NMAGIC files the default text segment is 0x20000000 and the
+default data segment address is 0x40000000.
+For OMAGIC files the default text segment address is 0x10000000 with the data
+segment following the text segment.
+The default for all types of files is that the bss segment follows the data
+segment.
+.PP
+An additional constraint is that all addresses within
+an executable's data segment
+must not be any farther than 0x7fff8000 from all addresses within the
+text segment.
+.PP
+The bss segment has no distance requirement for NMAGIC and ZMAGIC files.
+For OMAGIC files to be run under the operating system, the \*L\-B\*O
+flag should not be used because the bss segment must follow the data
+segment, which is the default.
+.\" commented out until re-verified
+.\" .PP
+.\" For OMAGIC
+.\" files to be run under the operating system the -B flag should not
+.\" be used because the bss segment must follow the data segment which
+.\" is the default.
+.SH FILES
+.PP
+.VL 13m
+.LI "\*L/usr/shlib/lib*.so\*O"
+shared libraries
+.LI "\*L/usr/ccs/lib/*\*O"
+libraries, include files, and other files
+.LI "\*L/usr/lib/cmplrs/cc/*\*O"
+compiler executable files
+.LI "\*L/usr/lib\*O"
+directory
+.LI "\*L/usr/local/lib\*O"
+directory
+.LI "\*La\.out\*O"
+output file
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Las\*O(1), \*Lar\*O(1), \*Lcc\*O(1),
+\*Lend\*O(3), \*Lloader\*O(5)
+.\" \*Lcobol\*O(1), \*Lf77\*O(1),
+.\" \*Lpc\*O(1),  \*Lpl1\*O(1).
+.br
+.\" \*EProgrammer's Guide\*O
+\*VProgrammer's Guide\*O
+.br
+\*VAssembly Language Programmer's Guide\*O
+.\" \*EAssembly Language Programmer's Guide\*O
+.EQ
+delim off
+.EN

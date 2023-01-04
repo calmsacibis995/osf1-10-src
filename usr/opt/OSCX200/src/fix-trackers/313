@@ -1,0 +1,170 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205122249.AA10911@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2541) close XBUG #5238, #5239 : PEX : PEXGetSearchContext is broken; PEX : PEXCopySearchContext doesn't copy model clip flag.  PEXGetSearchContext broken for inverted and normal list.
+Date: Tue, 12 May 92 18:49:16 EDT
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+This patch fixes a whole bunch of bugs in PEXGetSearchContext and a
+single bug in PEXCopySearchContext.
+
+
+        Subject: PEX : PEXGetSearchContext is broken.
+        ### bug number:   5238
+        ### area:         pex
+        ### severity:     medium high
+        ### comments:     
+
+        Subject: PEX : PEXCopySearchContext doesn't copy model clip flag.  PEXGetSearchContext broken for inverted and normal list.
+        ### bug number:   5239
+        ### area:         pex
+        ### severity:     medium high
+        ### comments:     
+
+
+*** /tmp/da20651	Tue May 12 18:40:54 1992
+--- extensions/server/PEX/dipex/objects/pexSc.c	Tue May 12 18:34:06 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexSc.c,v 5.3 91/10/01 02:33:43 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexSc.c,v 5.4 92/05/12 18:37:30 mor Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 307,312 ****
+--- 307,314 ----
+  
+      if (strmPtr->itemMask & PEXSCCeiling) dst->ceiling = src->ceiling;
+  
++     if (strmPtr->itemMask & PEXSCModelClipFlag)
++ 	dst->modelClipFlag = src->modelClipFlag;
+  
+      if (strmPtr->itemMask & PEXSCStartPath) {
+  	puDeleteList (dst->startPath);
+***************
+*** 394,400 ****
+      ErrorCode err = Success;
+      ddSCStr *psc;
+      extern ddBuffer *pPEXBuffer;
+!     unsigned char *ptr = pPEXBuffer->pHead;
+      pexGetSearchContextReply *reply
+  			    = (pexGetSearchContextReply *)(pPEXBuffer->pHead);
+      int size = 0;
+--- 396,402 ----
+      ErrorCode err = Success;
+      ddSCStr *psc;
+      extern ddBuffer *pPEXBuffer;
+!     unsigned char *ptr = 0;
+      pexGetSearchContextReply *reply
+  			    = (pexGetSearchContextReply *)(pPEXBuffer->pHead);
+      int size = 0;
+***************
+*** 404,409 ****
+--- 406,412 ----
+      CHK_PEX_BUF(size, sizeof(pexGetSearchContextReply), reply,
+  		pexGetSearchContextReply, ptr);
+      SETUP_INQ(pexGetSearchContextReply);
++     ptr = pPEXBuffer->pBuf;
+  
+      if (strmPtr->itemMask & PEXSCPosition) {
+  	CHK_PEX_BUF(size, sizeof(pexCoord3D), reply, pexGetSearchContextReply,
+***************
+*** 427,439 ****
+      }
+  
+      if (strmPtr->itemMask & PEXSCStartPath) {
+  	CHK_PEX_BUF(size,
+  		    psc->startPath->numObj*sizeof(pexElementRef) +sizeof(CARD32),
+  		    reply, pexGetSearchContextReply,ptr);
+  	PACK_CARD32(psc->startPath->numObj,ptr);
+! 	bcopy(((char *)(psc->startPath->pList)), ((char *)(ptr)),
+! 	      (int)((psc->startPath->numObj) * sizeof(pexElementRef))); 
+! 	ptr += psc->startPath->numObj * sizeof(pexElementRef);
+      };
+  
+      if (strmPtr->itemMask & PEXSCNormalList) {
+--- 430,448 ----
+      }
+  
+      if (strmPtr->itemMask & PEXSCStartPath) {
++ 	pexStructure sid = 0;
++ 	unsigned long i;
++ 	ddElementRef *per = (ddElementRef *)(psc->startPath->pList);
++ 
+  	CHK_PEX_BUF(size,
+  		    psc->startPath->numObj*sizeof(pexElementRef) +sizeof(CARD32),
+  		    reply, pexGetSearchContextReply,ptr);
+  	PACK_CARD32(psc->startPath->numObj,ptr);
+! 	for (i=0; i<psc->startPath->numObj; i++, per++) {
+! 	    sid = GetId(per->structure);
+! 	    PACK_CARD32(sid, ptr);
+! 	    PACK_CARD32(per->offset, ptr);
+! 	}
+      };
+  
+      if (strmPtr->itemMask & PEXSCNormalList) {
+***************
+*** 440,446 ****
+  	int i;
+  	ddNSPair *src;
+  	pexNameSet *dst;
+! 	CHK_PEX_BUF(size, psc->normal.numPairs * sizeof(pexNameSet) + 4,
+  		    reply, pexGetSearchContextReply, ptr);
+  	PACK_CARD32(psc->normal.numPairs, ptr);
+  	for (i=0, src = psc->normal.pPairs, dst = (pexNameSet *)ptr;
+--- 449,455 ----
+  	int i;
+  	ddNSPair *src;
+  	pexNameSet *dst;
+! 	CHK_PEX_BUF(size, psc->normal.numPairs * 2 * sizeof(pexNameSet) + 4,
+  		    reply, pexGetSearchContextReply, ptr);
+  	PACK_CARD32(psc->normal.numPairs, ptr);
+  	for (i=0, src = psc->normal.pPairs, dst = (pexNameSet *)ptr;
+***************
+*** 454,460 ****
+  	int i;
+  	ddNSPair *src;
+  	pexNameSet *dst;
+! 	CHK_PEX_BUF(size, psc->inverted.numPairs * sizeof(pexNameSet) + 4,
+  		    reply, pexGetSearchContextReply, ptr);
+  	PACK_CARD32(psc->inverted.numPairs, ptr);
+  	for (i=0, src = psc->inverted.pPairs, dst = (pexNameSet *)ptr;
+--- 463,469 ----
+  	int i;
+  	ddNSPair *src;
+  	pexNameSet *dst;
+! 	CHK_PEX_BUF(size, psc->inverted.numPairs * 2 * sizeof(pexNameSet) + 4,
+  		    reply, pexGetSearchContextReply, ptr);
+  	PACK_CARD32(psc->inverted.numPairs, ptr);
+  	for (i=0, src = psc->inverted.pPairs, dst = (pexNameSet *)ptr;
+***************
+*** 466,472 ****
+  
+      reply->length = size - sizeof(pexGetSearchContextReply);
+      reply->length = LWORDS(reply->length);
+!     WritePEXReplyToClient(  cntxtPtr, strmPtr, size, reply);
+  
+      return( err );
+  
+--- 475,483 ----
+  
+      reply->length = size - sizeof(pexGetSearchContextReply);
+      reply->length = LWORDS(reply->length);
+!     WritePEXReplyToClient(  cntxtPtr, strmPtr,
+!         sizeof (pexGetSearchContextReply) + sizeof(CARD32) * reply->length,
+! 	reply);
+  
+      return( err );
+  

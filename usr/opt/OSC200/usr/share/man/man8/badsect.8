@@ -1,0 +1,126 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: badsect.8,v $ $Revision: 1.1.4.3 $ (DEC) $Date: 1993/12/16 18:29:56 $
+.\"
+.TH badsect 8
+.SH NAME
+.PP
+\*Lbadsect\*O - Create files to contain bad sectors
+.SH SYNOPSIS
+.PP
+\*L/usr/sbin/badsect\*O
+\*Vbbdir\*O
+\*Vsector ...\*O
+.SH DESCRIPTION
+.PP
+.iX "badsect program"
+.iX "bad sector" "creating file for"
+The
+\*Lbadsect\*O
+command
+makes a file to contain a bad sector.  Normally, bad sectors are made
+inaccessible by the standard formatter, which provides a forwarding
+table for bad sectors to the driver.
+.\" For further information, see
+.\" \*Lbad144\*O(8).
+If a driver supports the bad blocking standard, it is much preferable
+to use that method to isolate bad blocks because the bad block
+forwarding makes the disk appear perfect, and such disks can then be
+copied with
+\*Ldd\*O(1).
+The technique used by
+\*Lbadsect\*O
+is also less general than bad block forwarding, as
+\*Lbadsect\*O
+cannot make amends for bad blocks in the i-list of file systems or in
+swap areas.
+.PP
+On some disks, adding a sector which is suddenly bad to the bad sector
+table currently requires the running of the standard formatter.  Thus,
+to deal with a newly bad block or on disks where the drivers do not
+support the bad-blocking standard,
+\*Lbadsect\*O
+can be used to good effect.
+.PP
+Use the
+\*Lbadsect\*O
+command
+on a quiet file system in the following way:
+.AL
+.LI
+Mount the file system and change to its root directory.
+.LI
+Make a directory
+\*LBAD\*O
+there.
+.LI
+Run
+\*Lbadsect\*O,
+giving as argument the
+\*LBAD\*O
+directory followed by all the bad sectors you wish to add.  (The sector
+numbers must be relative to the beginning of the file system, as
+reported in console error messages.)
+.LI
+Change back to the root directory, unmount the file system, and run
+\*Lfsck\*O(8)
+on the file system.  The bad sectors should show up in two files or in
+the bad sector files and the free list.  Have
+\*Lfsck\*O
+remove files containing the offending bad sectors, but do not have it
+remove the
+\*LBAD/\*O\*Vnnnnn\*O
+files.  This operation will leave the bad sectors in only the
+\*LBAD\*O
+files.
+.LE
+.PP
+The
+\*Lbadsect\*O
+command works by giving the specified sector numbers in a
+\*Lmknod\*O(2)
+system call, creating an illegal file whose first block address is the
+block containing bad sector and whose name is the bad sector number.
+When
+\*Lfsck\*O
+discovers the file, it will ask
+.if t ``HOLD BAD BLOCK?''  An
+.if n "HOLD BAD BLOCK?"  An
+affirmative response will cause
+\*Lfsck\*O
+to convert the inode to a regular file containing the bad block.
+.SH RESTRICTIONS
+.PP
+If more than one of the sectors comprised by a file system fragment are
+bad, you should specify only one to
+\*Lbadsect\*O,
+as the blocks in the bad sector files cover all the sectors in a file
+system fragment.
+.SH ERRORS
+.PP
+The
+\*Lbadsect\*O
+command refuses to attach a block that resides in a critical area or is
+out of range of the file system.  A warning is issued if the block is
+already in use.
+.SH RELATED INFORMATION
+.PP
+Commands:
+\*Lfsck\*O(8)
+.EQ
+delim off
+.EN

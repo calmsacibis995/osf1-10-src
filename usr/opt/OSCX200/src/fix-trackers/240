@@ -1,0 +1,131 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204142224.AA28863@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2466) close XBUG #4680, #5042: util: mdepend.cpp doesn't support -a, #pragma
+Date: Tue, 14 Apr 92 18:24:39 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: util: makedepend shell script doesn't support -a option
+### bug number:   4680
+### area:         util
+### severity:     low
+### comments:     
+
+Subject: util: makedepend shell script doesn't ignore #pragmas
+### bug number:   5042
+### area:         util
+### severity:     low
+### comments:     
+
+*** /tmp/d28844	Tue Apr 14 18:21:58 1992
+--- util/scripts/mdepend.cpp	Tue Apr 14 18:22:39 1992
+***************
+*** 1,6 ****
+  XCOMM!/bin/sh
+  XCOMM
+! XCOMM $XConsortium: mdepend.cpp,v 1.7 91/08/22 11:42:53 rws Exp $
+  XCOMM
+  XCOMM	Do the equivalent of the 'makedepend' program, but do it right.
+  XCOMM
+--- 1,6 ----
+  XCOMM!/bin/sh
+  XCOMM
+! XCOMM $XConsortium: mdepend.cpp,v 1.9 92/04/14 18:21:13 rws Exp $
+  XCOMM
+  XCOMM	Do the equivalent of the 'makedepend' program, but do it right.
+  XCOMM
+***************
+*** 55,60 ****
+--- 55,61 ----
+  width=78
+  endmarker=""
+  verbose=n
++ append=n
+  
+  while [ $# != 0 ]
+  do
+***************
+*** 101,106 ****
+--- 102,111 ----
+  			    verbose="y"
+  			    ;;
+  
++ 			-a)
++ 			    append="y"
++ 			    ;;
++ 
+  			-cc)
+  			    CC="$2"
+  			    shift
+***************
+*** 156,162 ****
+    | sed -e 's|/[^/.][^/]*/\.\.||g' -e 's|/\.[^.][^/]*/\.\.||g' \
+      -e 's|"||g' -e 's| \./| |' \
+    | awk '{
+! 	if ($1 != $4  &&  $2 != "#ident")
+  	    {
+  	    ofile = substr ($1, 1, length ($1) - 2) "'"$objsuffix"'"
+  	    print ofile, $4
+--- 161,167 ----
+    | sed -e 's|/[^/.][^/]*/\.\.||g' -e 's|/\.[^.][^/]*/\.\.||g' \
+      -e 's|"||g' -e 's| \./| |' \
+    | awk '{
+! 	if ($1 != $4  &&  $2 != "#ident" && $2 != "#pragma")
+  	    {
+  	    ofile = substr ($1, 1, length ($1) - 2) "'"$objsuffix"'"
+  	    print ofile, $4
+***************
+*** 200,220 ****
+  esac
+  
+  XCOMM
+! XCOMM Append the magic string and a blank line so that /^$magic_string/+1,\$d
+! XCOMM can be used to delete everything from after the magic string to the end
+! XCOMM of the file.  Then, append a blank line again and then the dependencies.
+  XCOMM
+! cat >> $makefile << END_OF_APPEND
+  
+  $magic_string
+  
+  END_OF_APPEND
+! ed $silent $makefile << END_OF_ED_SCRIPT
+  /^$magic_string/+1,\$d
+  w
+  q
+  END_OF_ED_SCRIPT
+! echo '' >>$makefile
+  cat $DEPENDLINES >>$makefile
+  
+  case "$makefile" in
+--- 205,230 ----
+  esac
+  
+  XCOMM
+! XCOMM If not -a, append the magic string and a blank line so that
+! XCOMM /^$magic_string/+1,\$d can be used to delete everything from after
+! XCOMM the magic string to the end of the file.  Then, append a blank
+! XCOMM line again and then the dependencies.
+  XCOMM
+! if [ "$append" = "n" ]
+! then
+!     cat >> $makefile << END_OF_APPEND
+  
+  $magic_string
+  
+  END_OF_APPEND
+!     ed $silent $makefile << END_OF_ED_SCRIPT
+  /^$magic_string/+1,\$d
+  w
+  q
+  END_OF_ED_SCRIPT
+!     echo '' >>$makefile
+! fi
+! 
+  cat $DEPENDLINES >>$makefile
+  
+  case "$makefile" in

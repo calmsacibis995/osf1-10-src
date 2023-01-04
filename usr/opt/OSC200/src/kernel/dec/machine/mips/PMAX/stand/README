@@ -1,0 +1,383 @@
+
+#	@(#)README	2.1	(ULTRIX/OSF)	12/3/90
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+mach_o_boot description:   
+-----------------------------
+Pete Benoit  7/26/90
+
+The "mach_o_boot" program (interlude) is a small standalone program used
+for loading standalone images (ie kernels) built in the mach-o (rose) 
+object module format.
+
+The "mach_o_boot" program is built in coff format and requires no modifications
+to the bootstrap (primary or secondary) code on the target machine. The 
+"mach_o_boot" program (or interlude) simply add's another step (or level) in 
+the bootstrap process.
+
+These are the current steps for loading a coff kernel:
+	(CAVEAT these steps are mostly transparent to the user)
+        (       and might be done in only 2 steps)
+COFF : 1.load Primary 2.Load Secondary (coff) 3.Load vmunix (coff)
+
+A forth step is added if one decides to use the "mach_o_boot" loader program.
+MACHO: 1.load Primary 2.Load Secondary (coff) 3.Load mach_o_boot (coff)
+       4.load vmunix (macho)
+
+
+status:
+-----------------------------
+
+PMAX:
+	1. secondary bootstrap program mach_boot: DONE 
+                                                  updated to load
+                                                  either macho or coff
+
+        2. mach_o_boot                          : DONE 
+                                                  can be loaded 
+                                                  and then used to load macho
+                                                  kernel
+
+
+	The secondary bootstrap code on the PMAX was easily changed
+        to understand how to load both macho or coff images. The
+        addition was simply a check for the object format and an
+        addition of a subroutine "load_macho". The user has a
+	choice of either using the "mach_o_boot" program or replacing
+        the current secondary bootstrap program "mach_boot" with a
+        new version from latest (osc.18?). The newest version will
+        first check for a macho image. If it is not a macho
+        image then it checks for coff. This makes the booting change
+        for the macho format kernel transparent to the user on the PMAX.
+        This has been checked into latest as of 7/26/90.
+        (path /src/kernel/mips/PMAX/stand)
+
+MMAX:
+
+	1. mach_o_boot                         	: DONE
+                                                  Currently loads
+                                                  and then hangs. 
+                                                  Standalone environment
+                                                  needs to be debugged.
+
+	A "mach_o_boot" program has been created for the mmax. The 
+        mach_o_boot code is the same for the mmax and the pmax. The code
+        used for the standalone environment was taken from the sysboot
+        code from encore. Currently the program will load but does
+        not work correctly. In addition a copy of encore's sysboot 
+        program was built. This also loads but then hangs.
+        This needs to be debugged. The source tree,
+        and makefiles are located in the following sandbox:
+        /project/osc/sandboxes/benoit/mmaxstuff/src/kernel/mmax/stand/sysboot.
+	There are numerous ".h" files that are required by the mmax standalone
+        environment code. These ".h" files exist under the /stand directory
+        in that same sandbox. (See Makefile in the sysboot subdirectory)
+        The only source changes made were to a few of the ".s" files. Some
+        macros had the # character denoting a comment which confused the 
+        C preprocessor. The change was to replace comments with # to /* */
+
+To do:
+	1. debug mmax version of mach_o_boot
+	2. change the kdb init code on the PMAX to understand the new
+           symbol table format. (currently the init code gets confused
+           and crash's the machine if you try to load a macho kernel.
+           It was tested by turning off the loading of the symbol table)
+
+Enhancements:
+	1. Break mach_o_boot into two files. One with all the loading
+           code and one with the main loop. This will make it easier
+           to encorporate the macho loading code with secondary bootstrap
+           modules for other target machines.
+	2. Change the few machine specific #define statements in the
+           top of the program to a "machdep.h" file. Currently these
+           exist for the pmax to redirect io from printf to prom_printf etc.
+        3. Add a mach independent transfer procedure. Most machines transfer
+           control to the bootee differently this would remove any
+           machine specific code from the "mach_o_boot" program.
+
+
+How to boot a macho image:
+------------------------------
+
+Booting macho on the PMAX:
+----------------------------
+   NOTE: The following symbols are used in the steps section
+             # - means comment
+             % - means shell prompt or user input required
+             @ - means system output
+
+    There are two option's available for booting a macho image on
+    the pmax.
+	1.) Without mach_o_boot:
+	    .The secondary boot program for the pmax has been modified
+             such that it will determine whether the image is macho or
+             coff and then call the appropriate loading routines.
+		STEPS: (you must be superuser in order to do this)
+		     1. %cd /
+		     2. %mv mach_boot old_mach_boot
+			#
+			# The makefile et al are in the latest (osc.18)
+			# directory. Someone should probably build it
+                        # path=src/kernel/mips/PMAX/stand and drop
+                        # mach_boot in some release area
+                        #
+		     3. %cp {latest release area}/mach_boot mach_boot
+                        #
+                        # {macho vmunix} is whatever name you want to
+                        # call your kernel
+                        #
+		     4. %cp {macho vmunix} {macho vmunix}
+	             5. %shutdown -h now
+                        #
+                        # boot params are usually like (0,0,0) or (0,1,0)
+			# use whatever you currently use the boot
+                        # syntax does not change unit, device etc.
+                        #
+		     6. %>>>boot -f rz(boot params){macho vmunix}
+                        @OSF boot - 1.0
+                        @Mach boot - 1.0
+		 	@Loading {macho vmunix}.....
+                        @region size: xxx
+                        @region size: xxx
+                        @region size: xxx
+                        @symbol table size: xxx
+                        @Starting at xxxx
+		        #
+                        # You should be up and running....
+                        #
+
+	2.) With mach_o_boot:
+	    . The mach_o_boot program will work with the old or new
+              secondary bootstrap program "mach_boot". Needless to
+              say it makes no sense to use it if you copy the new
+              secondary bootstrap program.
+	        STEPS:  #(must be superuser in order to do this)
+                     1. %cd /
+                        #
+                        # mach_o_boot can be named anything that you want
+                        #
+                     2. %cp {latest release area}/mach_o_boot mach_o_boot
+                     3. %cp {macho vmunix} {macho vmunix}
+		     4. %shutdown -h now
+                        #
+                        # At the boot prompt enter the name of the mach_o_boot
+                        # program
+                        #
+                     5. %>>>boot -f rz(boot params)mach_o_boot
+                        @OSF boot - 1.0
+                        @Mach boot - 1.0
+                        @Loading mach_o_boot.....
+                        @text size: xxx
+                        @data size: xxx
+                        @bss  size: xxx
+                        @Starting at xxxx
+                        @
+                        @Mach-o Interlude boot - 1.0
+                        @
+                        #
+                        # At the prompt enter the name of the macho kernel
+                        # or image you wish to load
+                        #
+                     6. %Enter image name to load> rz(boot params){macho vmunix}
+                        @region size: xxxx
+                        @region size: xxxx
+                        @region size: xxxx
+                        @Starting at: xxxx
+                        #
+                        # You should be up and running
+
+
+
+Booting macho on the MMAX:
+
+	                #
+                        # First copy mach_o_boot to the
+                        # target system root directory
+                        #
+                     1. %cd /
+                        #
+                        # name mach_o_boot anything that you want
+                        #
+                     2. %cp {release area}/mach_o_boot {mach_o_boot}
+                        #
+                        # See Dave Kirschen's directions for testing on
+                        # the Multimax for boot instructions
+                        #
+                     3. %shutdown now
+                     4. %^p
+                     5  %>>>boot osfroot
+                        #
+                        # Numerous messages
+                        #
+                     6. %Sysboot-> boot
+                     7. % Enter the boot image pathname-> osfroot/{mach_o_boot}
+                        % Enter boot flags-><CR>
+                        @Mach-o Interlude boot -1.0
+                        #
+                        # At the prompt enter the name of the macho kernel
+                        # or image you wish to load
+                        #
+                     8. %Enter image name to load> osfroot/{my macho vmunix}
+                        @region size: xxxx
+                        @region size: xxxx
+                        @region size: xxxx
+                        @Starting at: xxxx
+                        #
+                        #You should be up and running
+
+mach_o_boot Design:
+------------------------------
+
+The "mach_o_boot" program consists of several subroutines broken into
+two major pieces of functionality:
+  
+   initialization: The main loop of the program is responsible for 
+	initialization and the user interaction. The user interaction
+        consists of a prompt requesting the image name to load.
+	If an error occurs during runtime an error message is printed
+        out and the user is prompted for another file to load.
+        (unless some type of unknown exception happens in which
+         case you lose the game and have to start from ground zero)
+
+	main:
+		display message
+                loop
+		  get_filename_from_use(file)
+                  open(file)
+		  load_image(file)
+                end
+
+   loadimage: The load portion of the program which has several 
+	subroutine's knows how to read a file in macho format. You
+        enter the code at load_image which takes a file descriptor as input. It
+        first reads the header then calls "decode_mach_o_hdr" to
+        translate the header into the machine dependent bit ordering
+        (little or big endian). The next step is to obtain the load
+        command map. Once the load command map is read in it begins processing
+        the load commands. The program is only concerned with the following
+        load commands, LDC_REGION, LDC_ENTRY and LDC_SYMBOLS. Each valid
+        region that is found (vm_size > 0) is either loaded into
+        memory (if it exists in the file like text or data) or has
+        its memory zeroed out (as with bss, which does not exist in the file
+        but has vm_size > 0). After all the load commands are processed
+        the symbol table is optionally loaded right after the last
+        region (usually bss). The symbol table is only loaded if the
+        "mach_o_boot" program was built with the "-DLOAD_SYMBOLS" macro.
+	(currently TRUE for the PMAX and FALSE for the multimax).
+	The last step is to transfer control to the image that was
+        loaded starting at the address found in the LDC_ENTRY load command.
+	Your macho image should be off and running!
+
+	NOTE: At bootstrap time nothing is running on the machine,
+              therefor memory management checks etc etc are not
+              of any concern to the mach_o_boot program.
+
+
+        loadimage (routines):
+
+	   process_ldc_symbols - saves the size and location in the
+                                 file for the symbol table
+           process_ldc_region  - Loads regions into memory
+
+	   process_ldc_entry   - saves the program entry point
+
+           process_load_command- Case's on the load command type
+                                  and call's the appropriate action
+                                  routine.
+	   load_image          - Reads and checks the header, reads
+                                 the load command map. For each command
+                                 it calls process_load_command. After
+                                 all the commands have been processed
+                                 it optionally loads the symbol table.
+                                 The last step is to transfer control
+                                 to the image that was loaded.
+                                 NOTE: The way control is transfered
+                                 is usually in some machine specific way
+
+
+requirements:
+   The "mach_o_boot" program requires standalone support for the emulation
+   of the following system  calls:
+	printf - used for user interaction, message's etc
+	gets   - used for getting user input
+	open   - open system call for opening files
+	read   - read system call for reading files
+	lseek  - lseek system call for seeking files
+	bzero  - for clearing memory (useful for clearing bss for example)
+
+machine dependencies:
+   The "mach_o_boot" program has very few machine dependencies. The
+   only portions that are usually machine specific are the standalone
+   io (described in requirements) and the transfer of control to the bootee.
+   (the stand alone io should be done as a separate library that supports
+    the required system calls ie. open,print...)
+
+
+build macros:
+	-Dmmax - if you are building mach_o_boot for the mmax
+        -Dpmax - if you are building mach_o_boot for the pmax
+        -DLOAD_SYMBOLS - if you want mach_o_boot to load the symbol
+                         table after the last region
+
+In addition there are 2 macro's within the program to use for debugging.
+	#DEBUG   - Set to 1 if you want debug info to be printed out
+        #STAND_ALONE - Set to 0 if you want to test mach_o_boot in usermode.
+                       Basically this just reads and process's the file
+                       without doing any loading of memory. Useful!
+
+Testing:
+
+These are the steps to test a macho kernel.
+
+1.) #run the following tool on your vmunix to convert it to macho format
+    #see kevin wallace  for details
+    %~kwallace/bin/{machine type}/coff2macho -o{macho.vmunix} /vmunix
+    %cp macho.vmunix /macho.vmunix
+    #
+    %shutdown now
+    #
+    # try and boot the macho kernel with either the mach_o_boot program
+    # or a modified bootstrap loader
+    #
+
+   
+Where:
+
+The PMAX code is located under latest:
+	/src/kernel/mips/PMAX/stand
+
+Interesting files:
+	Makefile      - pmax build for mach_o_boot
+	mach_o_boot.c - macho interlude program
+	loadimage.c   - loads coff or macho if its a secondary bootstrap
+
+The MMAX code is not checked in and resides in a sandbox:
+	/sandboxes/benoit/mmaxstuff/src/kernel/mmax/stand
+
+Interesting directories under stand:
+	sysboot - contains the makefile and main routines for mach_o_boot
+                  and sysboot
+        /sysboot/Makefile - main makefile
+        /sysboot/boot_util.c - mmax boot utility routine for mach_o_boot
+        mmaxio  - mmax standalone io scc, crq etc
+
+
+

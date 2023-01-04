@@ -1,0 +1,169 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: named.boot.4,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/12/21 15:43:19 $
+.\" 
+...\" 
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" 
+.TH named.boot 4
+.iX "named.boot file"
+.iX "file" "named.boot"
+.SH NAME
+.PP 
+\*Lnamed.boot\*O \- \*Lnamed\*O configuration file
+.SH SYNOPSIS 
+.sS 
+\*L/etc/named.boot
+.sE 
+.SH "DESCRIPTION"
+.PP 
+This file is the default configuration (or boot) file for the
+\*Lnamed\*O server.
+.PP 
+The\*L named\*O daemon reads the start-up
+file when the \*Lnamed\*O daemon starts and when receiving signal SIGHUP.
+.PP 
+The records in the \*Lnamed.boot\*O file tell the \*Lnamed\*O daemon
+what type of server it is, which domains (or zones of authority) it
+has authority over, and where to get the data for initially setting
+up its database.
+.PP 
+The name server first needs to know the root name server, which
+is the authority server for the network. The root name server is established
+in the \*Lnamed.boot\*O file by specifying the root server filename
+(\*Lnamed.ca\*O) as the cache for this name server.
+.PP 
+The general format of each line in this file is as follows:
+.oS
+\*V
+Type Domain Source
+.oE
+.VL
+.LI "\*VType\*O"
+Determines the type of information required for
+the database.  The \*VType\*O field can have one of the following
+values:
+.VL
+.LI "\*Ldomain\*O"
+Indicates that the following \*VDomain\*O entry
+is the name of the default domain.  When the \*Lnamed\*O daemon
+receives a query with a domain or hostname that does not end with
+a \*L\&.\*O (dot), the \*Lnamed\*O daemon appends the default domain
+name to the queried name.
+.LI "\*Lprimary\*O"
+Indicates that the local \*Lnamed\*O server
+is the primary name server for the domain specified in the \*VDomain\*O
+field and that the \*Lnamed\*O daemon is to get the data describing
+the domain from the file specified in the\*V Source\*O field.
+.LI "\*Lsecondary\*O"
+Indicates that the local \*Lnamed\*O server
+is a secondary name server for the domain specified in the \*VDomain\*O
+field and that the \*Lnamed\*O daemon is to get the data describing
+the domain from one or more remote primary name servers using the
+Internet address or
+addresses specified in the\*V Source\*O field.
+The
+\*Lnamed\*O daemon tries each address in the order listed
+until it successfully receives the data from one of the name servers.
+.LI "\*Lcache\*O"
+Indicates that the local \*Lnamed\*O server
+is a caching name server for the domain specified in the \*VDomain\*O
+field and that the \*Lnamed\*O daemon is to get the data describing
+the domain from the file specified in the\*V Source\*O field.
+.LE
+.LI "\*VDomain\*O"
+Specifies the domain.
+.LI "\*VSource\*O"
+Specifies a file containing information that describes
+the domain.
+.LE 
+.PP 
+Note that the \*Lnamed\*O daemon does not provide
+other hosts with the information contained in a cache file. Cache
+files are usually used for listing the name servers for domains higher
+than the local domain.
+.PP 
+Comments in the boot file begin with a \*L;\*O (semicolon) and end at
+the end of the line.
+.PP 
+These data files can have any name. However, for convenience in maintaining
+the \*Lnamed\*O database, they are generally given names in the following
+form: \*L/etc/named.\*Vextension\*O.
+The general format of \*Lnamed\*O data files is described in 
+\*L/etc/named\&.*\*O.
+.SH "EXAMPLES"
+.PP 
+The following examples show the various ways to use the \*Lnamed\*O
+start-up file.
+.AL
+.LI
+The \*L/etc/named.boot\*O file for \*Lvenus\*O, a primary name server,
+contains these entries:
+.oS
+; Boot file for primary name server
+;
+; type        domin                  source file or host
+domain        abc.aus.osf.com
+cache         .                        /etc/named.ca
+primary       abc.aus.osf.com           /etc/named.abcdata
+primary       xyz.aus.osf.com           /etc/named.xyzdata
+primary       201.9.192.in-addr.arpa    /etc/named.abcrev
+primary       100.114.128.in-addr.arpa  /etc/named.xyzrev
+primary       0.0.127.in-addr.arpa      /etc/named.local
+.oE
+.PP
+In this example, the primary name server is \*Lvenus\*O and
+the Internet address is \*L192.9.201.1\*O.
+.LI
+The \*L/etc/named.boot\*O file for \*Lkronos\*O,
+a secondary name server, contains these entries:
+.oS
+; Boot file for secondary name server
+;
+; type        domain                  source file or host
+domain        abc.aus.osf.com
+cache         .                       /etc/named.ca
+secondary     abc.aus.osf.com          192.9.201.1 192.9.201.2
+secondary     xyz.aus.osf.com          192.9.201.1 192.9.201.2
+secondary     201.9.192.in-addr.arpa   192.9.201.1 192.9.201.2
+secondary     100.114.128.in-addr.arpa 192.9.201.1 192.9.201.2
+primary       0.0.127.in-addr.arpa     /etc/named.local
+.oE
+.PP
+In this example the secondary name server is \*Lkronos\*O and
+the Internet address is 192.9.201.2.
+.LI
+The \*L/etc/named.boot\*O file for \*Lhera\*O,
+a cache-only name server, contains these entries:
+.oS
+; Boot file for cache only server
+;
+; type        domain                  source file or host
+domain        abc.aus.osf.com
+cache         .                      /etc/named.ca
+primary       0.0.127.in-addr.arpa    /etc/named.local
+.oE
+.LE 
+.SH "RELATED INFORMATION"
+.PP 
+Commands: \*Lnamed\*O(8)
+.PP 
+Files: \*Lnamed.*\*O(4)
+.EQ
+delim off
+.EN

@@ -1,0 +1,368 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112272017.AA08578@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2310) close XBUG #4828: Xlib: (Xsi) local IM can fail to move to convert off state
+Date: Fri, 27 Dec 91 15:17:12 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4828
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1008487	Fri Dec 27 15:13:24 1991
+--- lib/X/Xsi/XLocalIM.c	Fri Dec 27 15:14:14 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.7 91/12/09 15:54:50 converse Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.8 91/12/27 15:12:20 rws Exp $
+   */
+  
+  /*
+***************
+*** 201,207 ****
+  typedef struct {
+      char *name;
+      Bool (*func)();
+!     Bool (*init_func)();
+  } FuncTbl;
+  
+  static int convert_on();
+--- 201,207 ----
+  typedef struct {
+      char *name;
+      Bool (*func)();
+!     int (*init_func)();
+  } FuncTbl;
+  
+  static int convert_on();
+***************
+*** 416,421 ****
+--- 416,436 ----
+      return (0);
+  }
+  
++ static int
++ is_state_command(xcvt, f, t)
++ XipLocalCvt *xcvt;
++ char *f, *t;
++ {
++     if (!*f || !*t) return(0);
++     if (!strcmp(f, "InitialState"))
++ 	if (!strcmp(t, "OnState"))
++ 	    xcvt->off = False;
++ 	else if (!strcmp(t, "OffState"))
++ 	    xcvt->off = True;
++ 	else return(0);
++     return(1);
++ }
++ 
+  static FuncTbl *
+  get_command(name)
+  char *name;
+***************
+*** 451,457 ****
+      return(True);
+  }
+  
+! static Bool
+  convert_on_init(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+--- 466,472 ----
+      return(True);
+  }
+  
+! static int
+  convert_on_init(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+***************
+*** 460,466 ****
+      register XipLocalKeySymTbl *to, *from, *p;
+  
+      p = (XipLocalKeySymTbl *) Xmalloc(sizeof(XipLocalKeySymTbl) * (len + 1));
+!     if (!to) return(False);
+      for (to = p, from = tbl->fromkey; len > 0; to++, from++, len--) {
+  	to->keysym = from->keysym;
+  	to->state = from->state;
+--- 475,481 ----
+      register XipLocalKeySymTbl *to, *from, *p;
+  
+      p = (XipLocalKeySymTbl *) Xmalloc(sizeof(XipLocalKeySymTbl) * (len + 1));
+!     if (!p) return(-1);
+      for (to = p, from = tbl->fromkey; len > 0; to++, from++, len--) {
+  	to->keysym = from->keysym;
+  	to->state = from->state;
+***************
+*** 470,479 ****
+      xcvt->off_tbl.to.func = tbl->to.func;
+      xcvt->off_tbl.com = True;
+      xcvt->off_tbl.fromkey = p;
+!     return(True);
+  }
+  
+! static Bool
+  no_filter(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+--- 485,494 ----
+      xcvt->off_tbl.to.func = tbl->to.func;
+      xcvt->off_tbl.com = True;
+      xcvt->off_tbl.fromkey = p;
+!     return(0);
+  }
+  
+! static int
+  no_filter(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+***************
+*** 483,492 ****
+  
+      nested_keysym = (XipLocalNestedKeySym *)
+        Xmalloc(sizeof(XipLocalNestedKeySym));
+      nested_keysym->keysym = tbl->fromkey->keysym;
+      nested_keysym->next = xcvt->no_filter;
+      xcvt->no_filter = nested_keysym;
+!     return(True);
+  }
+  
+  static Bool
+--- 498,508 ----
+  
+      nested_keysym = (XipLocalNestedKeySym *)
+        Xmalloc(sizeof(XipLocalNestedKeySym));
++     if (!nested_keysym) return(-1);
+      nested_keysym->keysym = tbl->fromkey->keysym;
+      nested_keysym->next = xcvt->no_filter;
+      xcvt->no_filter = nested_keysym;
+!     return(1);
+  }
+  
+  static Bool
+***************
+*** 554,559 ****
+--- 570,576 ----
+      KeySym bs;
+      FuncTbl *func_tbl;
+      int line = 0;
++     int ret;
+  
+      strcpy(tmp_buf, xlc->xlc_db->lc_name);
+      for (p = tmp_buf; *p && *p != '@'; p++);
+***************
+*** 582,587 ****
+--- 599,605 ----
+      cnt = 0;
+      cvt->nmax = 0;
+      cvt->no_filter = NULL;
++     cvt->off = False;
+      while(fgets(buf, BUFSIZ, fp)) {
+  	line++;
+  	if(is_comment(*buf) || 
+***************
+*** 591,597 ****
+  	    goto _err_ret;
+  	}
+  	if(!(cvt->tbl[cnt].fromkey = get_keysym(frombuf, &len))){
+! 	    goto _err_ret;
+  	}
+  	if (len > cvt->nmax) cvt->nmax = len;
+  	if (is_command(*tobuf)) {
+--- 609,617 ----
+  	    goto _err_ret;
+  	}
+  	if(!(cvt->tbl[cnt].fromkey = get_keysym(frombuf, &len))){
+! 	    if (!is_state_command(cvt, frombuf, tobuf))
+! 		goto _err_ret;
+! 	    continue;
+  	}
+  	if (len > cvt->nmax) cvt->nmax = len;
+  	if (is_command(*tobuf)) {
+***************
+*** 601,608 ****
+  	    cvt->tbl[cnt].to.func = func_tbl->func;
+  	    cvt->tbl[cnt].com = True;
+  	    if (func_tbl->init_func) {
+! 		if ((*func_tbl->init_func)(cvt, &cvt->tbl[cnt], len) == False)
+  		    goto _err_ret;
+  	    }
+  	} else {
+  	    if (is_keysym(*tobuf)) {
+--- 621,631 ----
+  	    cvt->tbl[cnt].to.func = func_tbl->func;
+  	    cvt->tbl[cnt].com = True;
+  	    if (func_tbl->init_func) {
+! 		if ((ret = (*func_tbl->init_func)(cvt, &cvt->tbl[cnt], len))
+! 		     == -1)
+  		    goto _err_ret;
++ 		else if (ret == 0)
++ 		    continue;
+  	    }
+  	} else {
+  	    if (is_keysym(*tobuf)) {
+***************
+*** 629,635 ****
+  					     * (cvt->nmax + 1));
+      cvt->buf_cnt = 0;
+      cvt->bs = ((bs = XStringToKeysym("BackSpace"))? bs: 0x8);
+-     cvt->off = True;
+      fclose(fp);
+      return(cvt);
+  _err_ret:
+--- 652,657 ----
+***************
+*** 661,667 ****
+      new->buf = (XipLocalKeySymTbl *) Xmalloc(sizeof(XipLocalKeySymTbl)
+  					     * (new->nmax + 1));
+      new->buf_cnt = 0;
+!     new->off = True;
+      return(new);
+  }
+  
+--- 683,689 ----
+      new->buf = (XipLocalKeySymTbl *) Xmalloc(sizeof(XipLocalKeySymTbl)
+  					     * (new->nmax + 1));
+      new->buf_cnt = 0;
+!     new->off = cvt->off;
+      return(new);
+  }
+  
+*** /tmp/,RCSt1008492	Fri Dec 27 15:13:39 1991
+--- lib/nls/Xsi/local_im_tbl/lt_LN.bit7	Fri Dec 27 15:12:27 1991
+***************
+*** 1,4 ****
+! # $XConsortium: lt_LN.bit7,v 1.3 91/12/11 11:01:15 rws Exp $
+  #
+  #	Conversion file for Local Input Method
+  #
+--- 1,4 ----
+! # $XConsortium: lt_LN.bit7,v 1.4 91/12/27 15:10:49 rws Exp $
+  #
+  #	Conversion file for Local Input Method
+  #
+***************
+*** 7,17 ****
+--- 7,20 ----
+  #	<from>[<from>...]	[<to>[<to>...]]	[{to_string}[{to_string}...]
+  #  or
+  #	<from>[<from>...]	Command
++ #  or
++ #	InitialState		OnState/OffState
+  #
+  #  from : Input keysym
+  #  to_keysym : Output keysym
+  #  to_string : Output string
+  #  Command : Special commad (NoFilter/ConvertOn/ConvertOff)
++ #  InitialState : Initial state (default is OnState)
+  
+  <Shift_L>			NoFilter
+  <Shift_R>			NoFilter
+*** /tmp/,RCSt1008492	Fri Dec 27 15:13:42 1991
+--- lib/nls/Xsi/local_im_tbl/lt_LN.bit8	Fri Dec 27 15:12:31 1991
+***************
+*** 1,4 ****
+! # $XConsortium: lt_LN.bit8,v 1.3 91/12/11 11:01:22 rws Exp $
+  #
+  #	Conversion file for Local Input Method
+  #
+--- 1,4 ----
+! # $XConsortium: lt_LN.bit8,v 1.4 91/12/27 15:11:10 rws Exp $
+  #
+  #	Conversion file for Local Input Method
+  #
+***************
+*** 7,17 ****
+--- 7,20 ----
+  #	<from>[<from>...]	[<to>[<to>...]]	[{to_string}[{to_string}...]
+  #  or
+  #	<from>[<from>...]	Command
++ #  or
++ #	InitialState		OnState/OffState
+  #
+  #  from : Input keysym
+  #  to_keysym : Output keysym
+  #  to_string : Output string
+  #  Command : Special commad (NoFilter/ConvertOn/ConvertOff)
++ #  InitialState : Initial state (default is OnState)
+  
+  <Shift_L>			NoFilter
+  <Shift_R>			NoFilter
+*** /tmp/,RCSt1008508	Fri Dec 27 15:13:55 1991
+--- doc/I18N/Xsi/Xim/LocalIM.man	Fri Dec 27 15:13:20 1991
+***************
+*** 1,4 ****
+! .\" $XConsortium: LocalIM.man,v 1.3 91/12/11 15:57:44 rws Exp $
+  .\" Copyright 1991 by OMRON Corp.  All Rights Reserved.
+  .TH LocalIM 3X11 "Release 5" "X Version 11" "XSI FUNCTIONS"
+  .SH NAME
+--- 1,4 ----
+! .\" $XConsortium: LocalIM.man,v 1.4 91/12/27 15:11:47 rws Exp $
+  .\" Copyright 1991 by OMRON Corp.  All Rights Reserved.
+  .TH LocalIM 3X11 "Release 5" "X Version 11" "XSI FUNCTIONS"
+  .SH NAME
+***************
+*** 18,23 ****
+--- 18,27 ----
+  or
+  .br
+  <from>[<from>...]  Command
++ .br
++ or
++ .br
++ InitialState  OnState/OffState
+  .sp
+  .RE
+  .IP \fBfrom\fP 1i
+***************
+*** 37,47 ****
+  .IP ConvertOn 1i
+  If the input keysym(s) (from) is(are) pressed, the input method
+  move in a conversion \fBon\fP state.
+! .IP ConvertOn 1i
+  If the input keysym(s) (from) is(are) pressed, the input method
+  move in a conversion \fBoff\fP state.
+  .sp
+  .RE
+  .PP
+  It is possible to omit \fIto\fP or \fIstr\fP. But either must be set.
+  .PP
+--- 41,55 ----
+  .IP ConvertOn 1i
+  If the input keysym(s) (from) is(are) pressed, the input method
+  move in a conversion \fBon\fP state.
+! .IP ConvertOff 1i
+  If the input keysym(s) (from) is(are) pressed, the input method
+  move in a conversion \fBoff\fP state.
+  .sp
+  .RE
++ .IP InitialState 1i
++ Specifies the initial state. The second argument is OnState or
++ OffState. The default state is OnState.
++ .sp
+  .PP
+  It is possible to omit \fIto\fP or \fIstr\fP. But either must be set.
+  .PP
+***************
+*** 72,77 ****
+--- 80,87 ----
+  .SH EXAMPLE
+  .sp
+  .RS
++ InitialState            OffState
++ .br
+  <Meta_L>                NoFilter
+  .br
+  <Execute>               ConvertOn

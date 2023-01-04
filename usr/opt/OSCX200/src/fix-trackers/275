@@ -1,0 +1,91 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204221952.AA01746@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2501) close XBUG #5089: Xlib: (Ximp) Hangs when other Client Message in event queue
+Date: Wed, 22 Apr 92 15:52:45 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5089
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d01721	Wed Apr 22 15:51:05 1992
+--- lib/X/Ximp/XimpICG.c	Wed Apr 22 15:48:11 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpICG.c,v 1.7 92/04/14 13:29:10 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+--- 1,4 ----
+! /* $XConsortium: XimpICG.c,v 1.8 92/04/22 15:46:03 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+***************
+*** 639,644 ****
+--- 639,658 ----
+  }
+  #endif /* XIMP_SIGNAL */
+  
++ static Bool Check_Message(display, event, arg)
++     Display *display;
++     XEvent  *event;
++     XPointer arg;
++ {
++     if ( event->type == ClientMessage && 
++ 	 event->xclient.message_type == 
++ 	 ((Ximp_XIM)arg)->ximp_impart->improtocol_id )
++ 	return True;
++     else
++ 	return False;
++ }
++ 
++ 
+  static XPointer
+  _Ximp_GetRequestIM(ic, mask, get_atom_id, atom_id)
+  	Ximp_XIC	 ic;
+***************
+*** 664,682 ****
+  #endif /* XIMP_SIGNAL */
+  
+  	while(_time_flag != 1) {
+! 		if( (XCheckTypedEvent(ic->core.im->core.display, ClientMessage, &event)) == False) {
+  #ifdef XIMP_SIGNAL
+- 			sleep(1);
+- #endif /* XIMP_SIGNAL */
+- 			continue;
+- 		}
+- 		if(event.xclient.message_type == ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id) {
+- #ifdef XIMP_SIGNAL
+  			alarm(0);
+  #endif /* XIMP_SIGNAL */
+  			break;
+  		} else {
+! 			XPutBackEvent(ic->core.im->core.display, &event);
+  			continue;
+  		}
+  	}
+--- 678,693 ----
+  #endif /* XIMP_SIGNAL */
+  
+  	while(_time_flag != 1) {
+! 		if (XCheckIfEvent(ic->core.im->core.display, &event, 
+! 			Check_Message, (XPointer)ic->core.im) ) {
+  #ifdef XIMP_SIGNAL
+  			alarm(0);
+  #endif /* XIMP_SIGNAL */
+  			break;
+  		} else {
+! #ifdef XIMP_SIGNAL
+! 			sleep(1);
+! #endif /* XIMP_SIGNAL */
+  			continue;
+  		}
+  	}

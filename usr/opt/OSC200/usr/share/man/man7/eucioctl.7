@@ -1,0 +1,259 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: eucioctl.7,v $ $Revision: 1.1.3.4 $ (DEC) $Date: 1993/10/27 14:47:05 $
+.\"
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 1.2
+...\"	[91/10/02  14:53:55  steto]
+...\"
+.TH eucioctl 7
+.SH NAME
+\*Leucioctl\*O - Interface to EUC-handling modules and drivers
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/ioctl.h>
+.nL
+#include <sys/eucioctl.h>
+.nL
+#include <sys/stropts.h>
+.sp 0.4v
+ioctl(
+.nL
+	int \*Vfd\*L,
+.nL
+	const I_STR,
+.nL
+	struct strioctl *\*Vargp\*L);\*O
+.sE
+.SH PARAMETERS
+.VL
+.LI "\*Vfd\*O"
+Specifies a valid file descriptor.
+.LI "\*Vargp\*O"
+Points to a \*Lstrioctl\*O structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "eucioctl"
+The \*Leucioctl\*O interface is used with STREAMS modules and drivers
+for tty and pty devices that handle Extended UNIX Code (EUC) code sets.
+This interface consists of \*Lioctl\*O commands, which control
+character classification and conversion related to EUC character processing.
+.PP
+Users issue the EUC \*Lioctl\*O commands to modules and drivers by
+calling the STREAMS \*LI_STR ioctl(\|)\*O function.
+(Refer to the \*Lstreamio\*O reference page for details on the use
+of the STREAMS \*LI_STR ioctl(\|)\*O function.)
+.PP
+The \*LI_STR ioctl(\|)\*O function takes an argument \*Vargp\*O
+that is a pointer to a \*Lstrioctl\*O structure.
+The members of this structure, as defined in the \*L/sys/stropts.h\*O
+header file, are as follows:
+.PP
+.oS
+\*Lstruct strioctl {
+        int ic_cmd;
+        int ic_timout;
+        int ic_len;
+        char *ic_dp;
+};\*O
+.oE
+.PP
+The EUC \*Lioctl\*O commands are specified by placing
+one of the following values into the \*Lic_cmd\*O field
+of the \*Lstrioctl\*O structure.  The use of the pointer field,
+\*Lic_dp\*O, depends on the command.
+.PP
+The following commands are used to specify or retrieve the
+character width information associated with the different
+classes of EUC code sets handled in the local environment:
+.VL
+.LI "\*LEUC_WSET\*O"
+Sets the values for the byte widths and display widths of the
+classes of EUC code set in the \*Lldterm\*O line discipline module's
+local definition.  The line discipline will use these values for
+its subsequent operations.
+.LI "\*LEUC_WGET\*O"
+Gets the current settings of the byte widths and display widths
+of the classes of EUC code sets in the \*Lldterm\*O module's local definition.
+.LE
+.PP
+For the \*LEUC_SET\*O and \*LEUC_GET\*O commands, the \*Lic_dp\*O
+pointer is a pointer
+to an \*Leucioc\*O data structure, as defined in the
+\*Leucioctl.h\*O header file:
+.oS
+\*Lstruct eucioc {
+        unsigned char eucw[4];    /* byte width of character sets */
+        unsigned char scrw[4];    /* display width of character sets */
+};\*O
+.oE
+.PP
+The \*Lic_len\*O field contains the size of the \*Leucioc\*O structure.
+.PP
+When using the \*LEUC_WSET\*O command, the user process stores character
+width values
+in the \*Leucioc\*O structure, then calls the \*LI_STR ioctl(\|)\*O function
+to set the values
+for the specified file descriptor, which must be a tty or pty device.
+.PP
+When issued by the user process, the \*LEUC_WGET\*O command gets the
+values currently
+in use for the specified file descriptor and stores them in the \*Leucioc\*O
+structure.
+.PP
+The remaining EUC \*Lioctl\*O commands control character
+code conversion as performed by the STREAMS modules and drivers
+comprising a tty or pty device stream:
+.VL
+.LI "\*LEUC_IXLON\*O"
+If the module or driver previously saved its state and turned off input
+conversion, this command reenables input conversion.
+.LI "\*LEUC_IXLOFF\*O"
+If the module or driver is performing input conversion, then the conversion
+is disabled and the mode is saved.
+When the \*LEUC_IXLOFF\*O command is used with \*LICANON\*O off,
+it creates a behavior roughly equivalent to raw mode.
+.LI "\*LEUC_OXLON\*O"
+Turns output conversion back on if previously disabled by \*LEUC_OXLOFF\*O.
+.LI "\*LEUC_OXLOFF\*O"
+Disables output conversion and saves the current mode status.
+.LI "\*LEUC_MSAVE\*O"
+This command is only recognized by modules and drivers that are not
+operating in ASCII mode.
+Saves the current mode status and disables input and output conversion.
+.LI "\*LEUC_MREST\*O"
+Restores the mode previously saved by \*LEUC_MSAVE\*O, restoring the saved
+mode and clearing the saved state flag.
+.LE
+.PP
+None of the preceding commands use the \*Lic_dp\*O pointer.
+.PP
+The \*Lldterm\*O line discipline module provided by OSF/1 uses EUC encoding
+as its internal character representation.
+This means that the module will only recognize data encoded in EUC.
+If an application or the terminal hardware sends character codes
+in other than the EUC format, these codes must be translated into EUC
+before reaching the \*Lldterm\*O module.
+Once the module finishes processing the codes, the codes
+must be translated back into the format that the application
+or terminal hardware handles.
+.PP
+If an application or the terminal hardware uses a code other than
+EUC and does not perform code translation, a code conversion module
+must be used to convert incoming data from its external
+representation into EUC and to convert outgoing data from EUC
+into the appropriate external representation.
+This kind of module is known as an \*Eupper\*O converter when it is
+positioned between the stream head and \*Lldterm\*O module in the device
+stream, and a \*Elower\*O converter
+when it is positioned between the \*Lldterm\*O module and device driver
+in the device stream.
+.\" OSF/1 provides a pair of upper and lower converters for
+.\" the conversion of codes between the Japanese Industrial Standard
+.\" (JIS) and Advanced Japanese EUC Code (AJEC) character sets.
+.\" It also provides a pair of upper and lower
+.\" converters for the conversion of codes between the Shifted Japanese
+.\" Industrial Standard (SJIS) and Advanced Japanese EUC Code (AJEC) character
+.\" sets.
+.\" (See the reference pages for the \*Luc_jis, lc_jis\*O and
+.\" \*Luc_sjis, lc_sjis\*O modules.)
+.\" .br
+.\" .ne  15
+.SH EXAMPLES
+.PP
+In the following coding example, the application gets the current settings
+of the EUC character widths, then changes the settings for code set
+class 2 to 2 and 4 bytes for the encoding and display widths, respectively:
+.oS
+#include <sys/ioctl.h>
+#include <sys/stropts.h>
+#include <sys/eucioctl.h>
+
+main()
+{
+	struct eucioc 	euc, *eucp = &euc;
+	struct strioctl i_str;
+
+	bzero((caddr_t) eucp, sizeof(struct eucioc));
+	i_str.ic_cmd = EUC_WGET;
+	i_str.ic_timout = 0;
+	i_str.ic_len = sizeof(struct eucioc);
+	i_str.ic_dp = (char *)eucp;
+	if (ioctl(0, I_STR, &i_str) < 0) {
+		perror("ioctl");
+		exit(1);
+	}
+
+        i_str.ic_cmd = EUC_WSET;
+	eucp->eucw[2] = 2;
+	eucp->scrw[2] = 4;
+        if (ioctl(0, I_STR, &i_str) < 0) {
+                perror("ioctl");
+		exit(1);
+	}
+}
+.oE
+.SH RETURN VALUES
+.PP
+If an error occurs, a value of -1 is returned, and \*Lerrno\*O
+is set to indicate the error.
+.SH ERRORS
+.PP
+If any of the following conditions occurs, the EUC \*Lioctl\*O
+commands set \*Lerrno\*O to the corresponding value:
+.VL
+.LI "[EBADF]"
+The \*Vfd\*O parameter is not a valid file descriptor.
+.LI "[ENOTTY]"
+The \*Vfd\*O parameter is not a terminal device.
+.LI "[EINVAL]"
+The command or \*Vargp\*O parameter is not valid, or the terminal
+is not a STREAMS-based device.
+.LI "[EFAULT]"
+The \*Vargp\*O parameter or \*Lic_dp\*O field points to memory that is not
+part of the process's address space.
+.LI "[EPROTO]"
+The \*Lstruct eucioc\*O argument is invalid.
+.LI "[ETIME]"
+Processing of the command timed out.
+.LE
+.SH FILES
+.PP
+.VL
+.LI "\*L/sys/eucioctl.h\*O"
+Contains definitions for EUC-related \*Lioctl\*O calls.
+.LI "\*L/sys/ioctl.h\*O"
+Contains the \*Lioctl(\|)\*O call prototype.
+.LI "\*L/sys/stropts.h\*O"
+Contains the definitions for STREAMS \*Lioctl\*O functions.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands:
+\*Leucset(1)\*O.
+.nL
+Interfaces:
+\*Lldterm(7)\*),
+\*Lstreamio(7)\*O.
+.\" \*Luc_jis(7)\*O/\*Llc_jis(7)\*O,
+.\" \*Luc_sjis(7)\*O/\*Llc_sjis(7)\*O.
+.EQ
+delim off
+.EN

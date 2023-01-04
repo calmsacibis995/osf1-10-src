@@ -1,0 +1,116 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205051738.AA18551@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2531) Close XBUG #5055: server: ddx/cfb/cfbbstore.c uses wrong bits on 16 and 32 bit screens
+Date: Tue, 05 May 92 13:38:55 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   5055
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da8515	Tue May  5 13:37:59 1992
+--- server/ddx/cfb/cfbbstore.c	Tue May  5 13:37:40 1992
+***************
+*** 16,22 ****
+   */
+  #ifndef lint
+  static char rcsid[] =
+! "$XConsortium: cfbbstore.c,v 5.5 90/03/10 15:48:40 keith Exp $ SPRITE (Berkeley)";
+  #endif
+  
+  #include    "cfb.h"
+--- 16,22 ----
+   */
+  #ifndef lint
+  static char rcsid[] =
+! "$XConsortium: cfbbstore.c,v 5.6 92/05/05 13:37:36 keith Exp $ SPRITE (Berkeley)";
+  #endif
+  
+  #include    "cfb.h"
+***************
+*** 58,63 ****
+--- 58,65 ----
+      DDXPointPtr		pPtsInit;
+      register BoxPtr	pBox;
+      register int	i;
++     ScreenPtr		pScreen = pPixmap->drawable.pScreen;
++     PixmapPtr		pScrPix;
+      
+      i = REGION_NUM_RECTS(prgnSave);
+      pPtsInit = (DDXPointPtr)ALLOCATE_LOCAL(i * sizeof(DDXPointRec));
+***************
+*** 73,84 ****
+  	pBox++;
+      }
+  
+  
+!     cfbDoBitbltCopy((DrawablePtr)pPixmap->drawable.pScreen->devPrivate,
+! 		(DrawablePtr)pPixmap,
+! 		GXcopy,
+! 		prgnSave,
+! 		pPtsInit, ~0L);
+  
+      DEALLOCATE_LOCAL (pPtsInit);
+  }
+--- 75,88 ----
+  	pBox++;
+      }
+  
++ #ifdef CFB_NEED_SCREEN_PRIVATE
++     pScrPix = (PixmapPtr) pScreen->devPrivates[cfbScreenPrivateIndex].ptr;
++ #else
++     pScrPix = (PixmapPtr) pScreen->devPrivate;
++ #endif
+  
+!     cfbDoBitbltCopy((DrawablePtr) pScrPix, (DrawablePtr)pPixmap,
+! 		    GXcopy, prgnSave, pPtsInit, ~0L);
+  
+      DEALLOCATE_LOCAL (pPtsInit);
+  }
+***************
+*** 114,119 ****
+--- 118,125 ----
+      DDXPointPtr		pPtsInit;
+      register BoxPtr	pBox;
+      register int	i;
++     ScreenPtr		pScreen = pPixmap->drawable.pScreen;
++     PixmapPtr		pScrPix;
+      
+      i = REGION_NUM_RECTS(prgnRestore);
+      pPtsInit = (DDXPointPtr)ALLOCATE_LOCAL(i*sizeof(DDXPointRec));
+***************
+*** 129,139 ****
+  	pBox++;
+      }
+  
+  
+!     cfbDoBitbltCopy((DrawablePtr)pPixmap,
+! 		(DrawablePtr)pPixmap->drawable.pScreen->devPrivate,
+! 		GXcopy,
+! 		prgnRestore,
+! 		pPtsInit, ~0L);
+      DEALLOCATE_LOCAL (pPtsInit);
+  }
+--- 135,148 ----
+  	pBox++;
+      }
+  
++ #ifdef CFB_NEED_SCREEN_PRIVATE
++     pScrPix = (PixmapPtr) pScreen->devPrivates[cfbScreenPrivateIndex].ptr;
++ #else
++     pScrPix = (PixmapPtr) pScreen->devPrivate;
++ #endif
+  
+!     cfbDoBitbltCopy((DrawablePtr)pPixmap, (DrawablePtr) pScrPix,
+! 		    GXcopy, prgnRestore, pPtsInit, ~0L);
+! 
+      DEALLOCATE_LOCAL (pPtsInit);
+  }

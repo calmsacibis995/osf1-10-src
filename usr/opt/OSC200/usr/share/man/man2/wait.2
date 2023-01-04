@@ -1,0 +1,370 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: wait.2,v $ $Revision: 3.2.5.4 $ (DEC) $Date: 1994/01/11 23:08:22 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH wait 2
+.SH NAME
+.PP
+\*Lwait\*O, \*Lwaitpid\*O, \*Lwait3\*O, \*Lwait4\*O \- Waits for a child process to stop or terminate
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.sp .4v
+\*L#include <sys/wait.h>
+.sp .4v
+\*Lpid_t wait (
+.nL
+	\*Lint \(**\*Vstatus_location \*L);
+.sp .4v
+\*Lpid_t waitpid (
+.nL
+	\*Lpid_t \*Vprocess_id\*L,
+.nL
+	\*Lint \(**\*Vstatus_location\*L,
+.nL
+	\*Lint \*Voptions \*L);
+.sp .4v
+\*L#include <sys/resource.h>
+.sp .4v
+\*Lpid_t wait3 (
+.nL
+	union wait *\*Vstatus_location\*L,
+.nL
+	int \*Voptions\*L,
+.nL
+	struct rusage *\*Vresource_usage \*L);
+.sp .4v
+\*Lpid_t wait4 (
+.nL
+	\*Lpid_t \*Vprocess_id\*L
+.nL
+	union wait *\*Vstatus_location\*L,
+.nL
+	int \*Voptions\*L,
+.nL
+	struct rusage *\*Vresource_usage \*L);
+.sE
+.SH PARAMETERS
+.PP
+.\"from TP "  
+.VL
+.LI "\*Vstatus_location"
+\*OPoints to a location that contains the termination status of the
+child process as defined in the \*L<sys/wait.h>\*O header file.
+.\"from TP "  
+.LI "\*Vprocess_id"
+\*OSpecifies the child process or set of child processes.
+.\"from TP "  
+.LI "\*Voptions"
+\*OModifies the behavior of the function. The flags for the
+\*Voptions\*O parameter are defined in the DESCRIPTION section.
+.\"from TP "  
+.LI "\*Vresource_usage"
+\*OSpecifies the location of a structure that will contain the
+resource utilization information for child processes that have
+terminated.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "wait function"
+.iX "waitpid function"
+.iX "wait3 function"
+.iX "wait4 function"
+.iX "child process" "waiting for it to stop or terminate"
+.iX "process" "suspending"
+.iX "process" "waiting for caught signals"
+The \*Lwait\*O function suspends the calling process until
+it receives a signal that is to be caught, or until any one of the
+calling process' child processes stops or terminates.  The \*Lwait\*O
+function returns immediately if a child process (not waited for) has
+stopped, terminated, or continued prior to the call.
+.PP
+The effect of the \*Lwait\*O function can be modified by setting the
+SIGCHLD signal.  (See the \*Lsigaction\*O(2) for more
+information).
+.PP
+The \*Lwaitpid\*O function behaves the same as the \*Lwait\*O function only if
+the \*Vprocess_id\*O parameter has a value of -1 and the \*Voptions\*O parameter
+specifies a value of zero (0).  Should these parameters contain other values, the
+\*Vwaitpid\*O function is changed as specified by those values.
+.PP
+The
+\*Lwait\*O,
+\*Lwaitpid\*O,
+\*Lwait3\*O,
+and
+\*Lwait4\*O
+functions, which suspend the calling process until the request is
+completed, are redefined so that only the calling thread is
+suspended.
+.PP
+The
+\*Vprocess_id\*O
+parameter allows the calling process to gather status from a
+specific set of child processes, according to the following rules:
+.\"from TP 4"  
+.ML
+.LI
+\*OIf the \*Vprocess_id\*O parameter is equal to -1,
+status is requested for any child process.  In this respect, the \*Lwaitpid\*O
+function is equivalent to the \*Lwait\*O function.
+.\"from TP 4"  
+.LI
+\*OIf the \*Vprocess_id\*O parameter is greater than zero (0), it specifies
+the process ID of a single child process for which status is requested.
+.\"from TP 4"  
+.LI
+\*OIf the \*Vprocess_id\*O parameter is equal to zero (0), status is requested
+for any child process whose process group ID is equal to that of the
+calling process.
+.\"from TP 4"  
+.LI
+\*OIf the \*Vprocess_id\*O parameter is less than -1, status is
+requested for any child process whose process group ID is equal to
+the absolute value of the \*Vprocess_id\*O parameter.
+.LE
+.PP
+The
+\*Lwaitpid\*O
+and \*Lwait4\*O
+functions will only return the status of a child process from this
+set.
+.PP
+The \*Voptions\*O parameter to the \*Lwaitpid\*O, \*Lwait3\*O, and
+\*Lwait4\*O functions modifies the behavior of the function.  The flags
+for the \*Voptions\*O parameter can be combined by specifying their
+bitwise-inclusive OR.  The flags are as follows:
+.VL
+.LI "\*LWCONTINUED\*O"
+Specifies that the status of any continued child process that was specified
+by the \*Vprocess_id\*O parameter whose status has not been reported since it
+continued will be reported to the calling process.
+.LI "\*LWNOWAIT\*O"
+Specifies that the process whose status is returned in \*Vstatus_location\*O
+will be kept in a waitable state will be kept.  The process may be waited
+for again with the same results.
+.LI "\*LWNOHANG\*O"
+Prevents the calling process from being suspended even if there are child
+process for which to wait.  In this case, zero (0) is returned indicating
+that there are child processes which have been stopped or terminated.
+.LI "\*LWUNTRACED\*O"
+Specifies that the call return additional information when the child processes
+of the current process are stopped because they received a SIGTTIN, SIGTTOU,
+SIGSTOP, or SIGTSTOP signal.
+.LE
+.PP
+If the \*Lwait\*O, \*Lwaitpid\*O, \*Lwait3\*O, or \*Lwait4\*O
+function returns because the status of a child process is available, the process
+ID of the child process is returned.  In this instance, information is stored in
+the location pointed to by the \*Vstatus_location\*O parameter if the value
+of the \*Vstatus_location\*O is not null.  The value stored in the location
+pointed to by the \*Vstatus_location\*O parameter is zero (0) if, and only
+if the status is returned from a terminated child process that did one of
+the following:
+.ML
+.LI
+Returned zero (0) from the \*Lmain(\|)\*O routine.
+.LI
+Passed zero (0) as the \*Vstatus\*O parameter to the \*L_exit\*O or \*Lexit\*O
+function.
+.LE
+.PP
+Regardless of its value, this information can be defined using the
+macros defined in the \*L<sys/wait.h>\*O header file that evaluate
+to integral expressions.  In the following macro descriptions, the \*Vstatus_value\*O
+parameter is equal to the integer value pointed to by the \*Vstatus_location\*O
+parameter:
+.\"from TP 1i"  
+.VL 1i
+.LI "\*LWIFEXITED(\*Vstatus_value\*O)"
+Evaluates to a nonzero value if status was returned for a child
+process that terminated normally.
+.\"from TP 1i"  
+.LI "\*LWEXITSTATUS(\*Vstatus_value\*O)"
+If the value of
+\*LWIFEXITED(\*Vstatus_value\*O)
+is nonzero, this macro
+evaluates to the low-order 8 bits of the
+\*Vstatus\*O
+parameter that the child process passed to the
+\*L_exit\*O
+or
+\*Lexit\*O function,
+or the value the child process returned from the
+\*Lmain(\|)\*O routine.
+.\"from TP 1i"  
+.LI "\*LWIFSIGNALED(\*Vstatus_value\*O)"
+Evaluates to nonzero value if status was returned for a child
+process that terminated due to the receipt of a signal that was
+not caught.
+.\"from TP 1i"  
+.LI "\*LWTERMSIG(\*Vstatus_value\*O)"
+If the value of
+\*LWIFSIGNALED(\*Vstatus_value\*O)
+is nonzero, this macro
+evaluates to the number of the signal that caused the termination
+of the child process.
+.\"from TP 1i"  
+.LI "\*LWIFSTOPPED(\*Vstatus_value\*O)"
+Evaluates to a nonzero value if status was returned for a child
+process that is currently stopped.
+.\"from TP 1i"  
+.LI "\*LWSTOPSIG(\*Vstatus_value\*O)"
+If the value of
+\*LWIFSTOPPED(\*Vstatus_value\*O)
+is nonzero, this macro
+evaluates to the number of the signal that caused the child
+process to stop.
+.LI "\*LWIFCONTINUED(\*Vstatus_value\*O)"
+Evaluates to a non-zero value if status was returned for a child process
+that has continued.
+.LE
+.PP
+If the information stored at the location pointed to by the
+\*Vstatus_location\*O parameter was stored there by a call to the
+\*Lwaitpid\*O, \*Lwait3\*O, or the \*Lwait4\*O function that specified the
+\*LWUNTRACED\*O flag, one of the following macros evaluates to a nonzero value:
+.ML
+.LI
+\*LWIFEXITED(\(**\*Vstatus_value\*O)
+.LI
+\*LWIFSIGNALED(\(**\*Vstatus_value\*O)
+.LI
+\*LWIFSTOPPED(\(**\*Vstatus_value\*O)
+.LI
+\*LWIFCONTINUED(\(**\*Vstatus_value\*O)
+.LE
+.PP
+If the information stored in the buffer pointed to by the \*Vstatus_location\*O parameter
+resulted from a call to the \*Lwait\*O function or a call to the \*Lwaitpid\*O, \*Lwait3\*O,
+or \*Lwait4\*O function without the \*LWUNTRACED\*O flag specified, one of the following macros
+evaluates to a nonzero value:
+.ML
+.LI
+\*LWIFEXITED(\(**\*Vstatus_value\*O)
+.LI
+\*LWIFSIGNALED(\(**\*Vstatus_value\*O)
+.LE
+.PP
+The \*Lwait3\*O function provides compatibility with BSD systems.  A program that calls
+\*Lwait3\*O must be compiled with the \*L_BSD\*O switch defined.  In this case, the parameter to
+the macros described previously should be the \*Lw_status\*O member of the union pointed to by
+the \*Vstatus_location\*O parameter.  The \*Lwait3\*O and \*Lwait4\*O functions also include a
+\*Vresource_usage\*O parameter.  This parameter points to a location that contains
+resource usage information for the child process as defined in the \*L<sys/resource.h>\*O
+header file.
+.PP
+The \*Lwait4\*O function is similar to \*Lwait3\*O.  However, the \*Lwait4\*O function
+waits for a specific child as indicated by \*Vprocess_id\*O parameter.
+.PP
+If a parent process terminates without waiting for all of its
+child processes to terminate, the remaining child processes will
+be assigned a parent process ID equal to the process ID of
+the \*Linit\*O process.
+.SH NOTES
+.PP
+A program that calls the \*Lwait\*O function that is compiled with the \*L_BSD\*O switch and
+linked with the \*Llibbsd\*O compatibility library defines the \*Vstatus_location\*O
+parameter as the type \*Lunion\*O \*Lwait *\*O instead of \*Lint *\*O.
+This is the same as described previously for the \*Lwait3\*O function.
+.VL 1.5i
+.LI "AES Support Level:"
+Full use (\*Lwait\*O, \*Lwaitpid\*O)
+.LE
+.SH ERRORS
+.PP
+If the \*Lwait\*O, \*Lwaitpid\*O, \*Lwait3\*O, or \*Lwait4\*O function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[ECHILD]"
+The calling process has no existing unwaited-for
+child processes.
+.\"from TP 1i"  
+.LI "[EINTR]"
+The
+function was terminated by receipt of
+a signal.
+.\"from TP 1i"  
+.LI "[EFAULT]"
+The \*Vstatus_location\*O or \*Vresource_usage\*O
+parameter points to a location outside of the address space of the
+process.
+.LE
+.PP
+The \*Lwaitpid\*O function fails if one or both of
+the following are true:
+.\"from TP 1i"  
+.VL 1i
+.LI "[ECHILD]"
+The process or process group ID specified by
+the \*Vprocess_id\*O parameter does not exist or is not a child
+process of the calling process.
+.LE
+.PP
+The \*Lwaitpid\*O, \*Lwait3\*O, or \*Lwait4\*O functions fail if the
+following is true:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EINVAL]"
+The value of the \*Voptions\*O parameter is
+not valid.
+.LE
+.SH RETURN VALUES
+.PP
+If the \*Lwait\*O,
+\*Lwaitpid\*O,
+\*Lwait3\*O,
+or
+\*Lwait4\*O
+function returns because the status of a child process is
+available,
+the process ID of the child is returned to the calling
+process.
+If they return because a signal was caught by the calling process,
+-1 is returned and \*Lerrno\*O is set to
+[EINTR].
+.PP
+If the \*LWNOHANG\*O option was specified,
+and there are no stopped or exited child processes,
+the \*Lwaitpid\*O, \*Lwait3\*O, and \*Lwait4\*O
+functions return a value of zero (0).
+Otherwise, -1 is returned and
+\*Lerrno\*O
+is set to indicate the error.
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lexec\*O(2),
+\*Lexit\*O(2),
+\*Lfork\*O(2),
+\*Lptrace\*O(2),
+\*Lgetrusage\*O(2),
+\*Lsigaction\*O(2).
+.PP
+Routines: \*Lpause\*O(3).
+.EQ
+delim off
+.EN

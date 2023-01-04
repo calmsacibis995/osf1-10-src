@@ -1,0 +1,208 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: doconfig.8,v $ $Revision: 3.2.6.2 $ (DEC) $Date: 1993/12/28 17:45:26 $
+.\" 
+.\" doconfig reference page coded in RSML - Mark Angel 12/19/91
+.TH doconfig 8
+.SH NAME
+.PP
+\*Ldoconfig\*O \- a program to aid system configuration
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/doconfig\*O [ \*L-c\*V config_file\*O] [ \*L-d\*O ] [ \*L-e \*Ved_script\*O ]
+.sE
+.SH FLAGS
+.PP
+The \*Ldoconfig\*O program supports the following flags:
+.VL
+.LI "\-c"
+The name of the existing configuration file (\*Vconfig_file\*O)
+must be supplied without specifying the pathname.  The name of the
+configuration file is usually the system name.
+.sp
+A new kernel is built using the existing
+\*Vconfig_file\*O file and \*Vconfig_file\*L.list\*O file.
+If there is no \*Vconfig_file\*L.list\*O file and a
+\*L.product.list\*O file exists, \*Ldoconfig\*O will copy the
+\*L.product.list\*O file to the \*Vconfig_file\*L.list\*O file.
+These files must exist in the
+\*L/sys/conf\*O directory.
+.LI "\-d"
+Specifies that only device special files are created.
+.LI "\-e"
+When specified, the configuration file is edited by the \*Led\*O
+script before building the new kernel.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "doconfig program"
+.iX "config program" "doconfig program"
+.iX "doconfig program" "sizer program"
+.iX "configuration file (syslog)" "building"
+The \*Ldoconfig\*O shell script creates a new or modifies an existing
+system configuration file for a new system kernel.  The script prompts
+you for the configuration file name.
+.PP
+Whether the configuration file is built or not, the script then
+allows you to edit, configure, and build until both the configuration
+and the kernel build run without errors.  Additional runs of \*Ldoconfig\*O
+can be made to tune the configuration further.
+.PP
+When new hardware is added to a system, the configuration file
+should be updated to reflect the new system configuration.  When updating
+an existing configuration file or creating a new configuration file with
+\*Ldoconfig\*O, the system must be operating the generic kernel or new
+hardware might not be found.  To successfully complete the \*Ldoconfig\*O
+process, follow these steps:
+.AL
+.LI
+Log on as root or become superuser. You must be superuser to execute the
+\*Ldoconfig\*O script.
+.LI
+Save a copy of the running kernel. If there are disk space constraints,
+you can save the kernel in a file system other than root. For example
+to copy the kernel to the \*L/usr\*O
+directory, issue the following command:
+.iS
+\*L# cp /vmunix /usr/vmunix.save\*O
+.iE
+.LI
+Install the generic kernel as the running kernel and reboot
+the system by using the \*Lcp\*O and \*Lshutdown\*O commands as follows:
+.iS
+\*L# cp /genvmunix /vmunix\*O
+.br
+\*L# /usr/sbin/shutdown -r +5 "Shutting down to build new kernel"\*O
+.iE
+.LI
+Log on as root and shutdown the system to single-user mode as follows:
+.iS
+\*L# /usr/sbin/shutdown +1\*O
+.iE
+.LI
+Mount the \*L/usr\*O file system:
+.iS
+\*L# mount /usr\*O
+.iE
+.LI
+Run the \*Ldoconfig\*O script as follows:
+.iS
+\*L# /usr/sbin/doconfig\*O
+.iE
+.RS +6
+The \*Ldoconfig\*O program then prompts you for information about your
+system configuration.
+.RE
+.LI
+Type yes when the \*Ldoconfig\*O program asks if you want to edit the
+configuration file only if you need to make additional changes. The
+\*Ldoconfig\*O program then invokes the editor specified by the
+EDITOR environment variable.
+.LI
+The \*Ldoconfig\*O program builds the new kernel.
+When the \*Ldoconfig\*O program finishes, it prints a message showing
+the path and location of the new \*Lvmunix\*O kernel.
+.LI
+Move the new \*Lvmunix\*O (from the message noted above) to \*L/vmunix\*O
+as follows:
+.iS
+\*L# mv /sys/DECOSF/vmunix /vmunix\*O
+.iE
+.LI
+Reboot the system as follows:
+.iS
+\*L# /usr/sbin/shutdown -r now\*O
+.iE
+.RS +6
+If the new \*Lvmunix\*O fails to boot, you can recover by using
+the following procedure:
+.AL
+.LI
+Boot the generic kernel (\*L/genvmunix\*O) to single-user mode using
+the appropriate boot command for your system. If you are unsure of the
+command syntax,
+\*ESystem Administration\*O
+provides information on booting your system.
+.LI
+Check all local file systems using the \*Lfsck\*O command with the
+\*L-p\*O option as follows:
+.iS
+\*L# fsck -p\*O
+.iE
+.LI
+Write-enable the \*Lroot\*O file system using the \*Lmount\*O
+command with the \*L-u\*O option as follows:
+.iS
+\*L# mount -u /\*O
+.iE
+.LI
+If you want to revert to the \*Lvmunix\*O kernel saved in
+step 2, mount the \*L/usr\*O file system, copy the saved kernel to the
+\*Lroot\*O file system, and reboot as follows:
+.iS
+\*L# mount /usr\*O
+.br
+\*L# cp /usr/vmunix.save /vmunix\*O
+.br
+\*L# shutdown -r now\*O
+.iE
+.RS +5
+If you want to continue trying to build a bootable kernel, bring the
+system up to multiuser mode by issuing a CTRL/D as follows:
+.RE
+.iS
+\*L# CTRL/D\*O
+.iE
+.RS +5
+Proceed to step 4.
+.RE
+.LE
+.RE
+.LE
+.SH FILES
+.PP
+\*L/sys/conf/\*Vconfig_file\*O
+.PP
+Specifies the system configuration file,
+where \*Vconfig_file\*O is usually the name of the system.
+.PP
+\*L/sys/conf/\*Vconfig_file\*L.list\*O
+.PP
+Specifies the optional
+configuration file that is used by kernel layered products to extend
+the system configuration file.  This file can be modified to
+remove kernel layered product entries by deleting or commenting out (#)
+specific entries.
+.PP
+\*L/sys/conf/.product.list\*O
+.PP
+Specifies the optional configuration file
+that is used by kernel layered products to
+register their configuration file requirements.  This file is used
+as the basis for the \*Vconfig_file\*L.list\*O file and should
+not be modified.
+.SH RELATED INFORMATION
+.PP
+Commands: \*Led\*O(1), \*Lconfig\*O(8)
+.br
+\*EInstallation Guide\*O
+.br
+\*ESystem Administration\*O
+.EQ
+delim off
+.EN

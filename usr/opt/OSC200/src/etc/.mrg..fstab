@@ -1,0 +1,83 @@
+#!/sbin/sh
+#
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: .mrg..fstab,v $ $Revision: 1.1.2.5 $ (DEC) $Date: 1993/08/12 21:20:07 $
+# 
+
+
+MERGE_ROUTINE=DRI_Merge
+
+
+#	-DRI_Merge
+#		merge routine provided by the DRIs.
+#
+#	given: 	global variable $_FILE
+#	return: 0 if success
+#		non-zero if failure
+#
+#	Note:	1) use MRG_Echo() to output additional messages.
+#		2) see also /usr/share/lib/shell/libmrg for other available 
+#		   global variables.
+
+DRI_Merge()
+{
+	RET=0
+
+	#
+	# Check if merge was performed previously
+	#
+	grep "^/proc" $_FILE | grep -q procfs ||
+	{
+		# Per QAR 11129, /proc is not automatically mounted
+		#
+		# Checks if "/proc" and "procfs" exist on a line in /etc/fstab,
+		# and if so, assumes that the user has already set this up.
+		# Otherwise, the line "/proc	/proc	procfs	rw 0 0" is
+		# appended to the end of /etc/fstab.
+		# This causes /proc to be auto mounted at system boot time.
+		#
+
+		MRG_Echo "adding '/proc' entry"
+
+		echo "/proc		/proc	procfs	rw 0 0" >> $_FILE
+
+		[ "$?" = 0 ] ||
+		{
+			MRG_Echo "\tfailed to add '/proc' entry"
+			RET=1
+		}
+	}
+
+	return $RET
+}
+
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 
+

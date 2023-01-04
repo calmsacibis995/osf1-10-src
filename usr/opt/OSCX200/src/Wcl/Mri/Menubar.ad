@@ -1,0 +1,289 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! SCCS_data:    @(#) Menubar.ad 1.3 92/06/10 06:17:01
+!
+!  Ordering
+!  --------
+!
+!  The order of the lines in the resource file are completely stylistic: a
+!  matter of taste.  The ordering is lost when the resources are loaded
+!  into the Xrm database, and the Widget Creation library works only from
+!  the database, not directy from the resource files.
+!
+!  Therefore, no order of execution is implied by the order of lines
+!  in resource files.   In most cases, this is very convenient: one can
+!  simply think of the lines in resource files as specifications of
+!  attributes of the widgets.  There is no general need for ordering of
+!  such specifications.
+!
+!  However, when attributes are references to other widgets, then it is
+!  of course necessary for the widgets to exist before they may be
+!  referenced.  Menu bars in Motif provide two situations where widgets
+!  are referenced: the subMenuId attribute of cascade buttons, and the
+!  helpMenuWidget which is the cascade button which remains to the right
+!  of a menu bar.
+!
+!  Pulldown Menus and subMenuId
+!  ----------------------------
+!
+!  In Motif, Cascade buttons are used to anchor pulldown menus.  If a
+!  widget is named as the subMenuId of a Cascade button, then pressing
+!  the mouse button over the Cascade causes the pulldown menu to appear.
+!
+!  The wcPopups resource of a widget (the menubar here) is always evaluated
+!  before the wcChildren resource.  Therefore, it is often convenient to
+!  name the pulldown menus in the wcPopups list, and the cascade buttons
+!  in the wcChildren list.  The menus will be created before the cascades,
+!  and so the menu widgets can simply be named as the values of the
+!  subMenuId resources of the cascade buttons.
+!
+!  The pulldown menus can also be created after the cascade buttons.  Often,
+!  the best way to do this is to create the pulldowns as popup children of
+!  the cascade buttons.  Remember that only composite widgets can have
+!  normal children (wcChildren resource) but all widgets can have popup
+!  children (wcPopups resource).  One can then use the wcAfterPopups
+!  creation time callback to bind the pulldown menu to the subMenuId resource
+!  of the cascade button.
+!
+!  Multiple Level Cascading Menus
+!  ------------------------------
+!
+!  The saveAsMenu pulldown connected to the saveAs button demonstrates 
+!  this.  See the discussion below.
+!
+!  helpMenuWidget Resource of MenuBars
+!  -----------------------------------
+!
+!  In this case, the help widget is a child of the menuBar, and so is 
+!  always created after the menuBar.  Therefore, using the wcAfterChildren
+!  creation time callback is a convenient way to set the helpMenuWidget
+!  resource of menuBars.
+!
+#ifdef MOTIF_100
+!  Special Note for Motif 1.0
+!  --------------------------
+!
+!  The constructors for pulldown menus in Motif 1.0 had the annoying
+!  implementation of creating the menu shell with the same name as the
+!  first menu of any given widget.  Very painful.  There is no simple
+!  solution besides junking your Motif 1.0 libraries and getting Motif 1.1
+!  You can, however, enable tracing (*wcTrace: True) and then you will
+!  the the full name of all the menu widgets.  You can then correctly
+!  set the subMenuId values.
+#endif
+!
+!----------------------------------------------------------------------
+
+!*wcTrace:		True
+
+Mri.wcChildren:		main
+Mri.width:		150
+Mri.wcCallback:		WcSetValue(this.title: Menubar)
+#ifdef MOTIF_100
+Mri.height:		30
+#endif
+
+*main.wcCreate:		XmCreateMainWindow
+*main.wcChildren:	menuBar msg
+
+*msg.wcCreate:	XmLabel
+*msg.labelString:	\
+This demo shows how you can use the Motif Menubar\n\
+widget, along with accelerators for menu items.\n\
+\n\
+To raise menu from the keyboard, press the "menu"\n\
+button (this can have various key caps) and either\n\
+"f" or "h" to post the file or help menu respectively.\n\
+\n\
+Once any menu is posted, you can select any visible\n\
+selection by simply pressing the appropriate key.\n\
+This even works to bring up other menus, including\n\
+cascading menus.
+
+
+!----------------------------------------------------------------------
+! Menu bar with two buttons, each of which will have a pulldown menu
+!
+*menuBar.wcCreate:		XmCreateMenuBar
+*menuBar.wcPopups:		fileMenu helpMenu
+*menuBar.wcChildren:		file help
+*menuBar.wcAfterChildren:	WcSetValue( this.menuHelpWidget: this.help )
+
+!----------------------------------------------------------------------
+! file and help buttons on the menuBar: created after the pulldown menus,
+! so the menus can be named directly in the subMenuId resources.  We use
+! relative naming as an application migh have several helpMenus.
+!
+! Note: mnemonics require "Meta" if a menu is not yet displayed, but
+! only the mnemonic once the menu is displayed.
+!
+*file.wcCreate:		XmCascadeButton
+*file.subMenuId:	^*fileMenu
+*file.mnemonic:		f
+
+*help.wcCreate:		XmCascadeButton
+*help.subMenuId:	^*helpMenu
+*help.mnemonic:		h
+
+!----------------------------------------------------------------------
+! Pulldown menu from the help button on the menu bar.
+! A dialog provides the help message, and is used for all help.
+!
+*helpMenu.wcCreate:	XmCreatePulldownMenu
+*helpMenu.wcPopups:	helpDialog
+*helpMenu.wcChildren:	mbHelp, cpHelp, daHelp, tHelp
+
+*mbHelp.wcCreate:		XmPushButton
+*mbHelp.labelString:		on Menu Bar
+*mbHelp.mnemonic:		M
+*mbHelp.activateCallback:	WcSetValue( \
+	~*helpDialog.messageString: The menu bar... )\
+				WcManage( ~*helpDialog )
+
+*cpHelp.wcCreate:	XmPushButton
+*cpHelp.labelString:	on Control Panel
+*cpHelp.mnemonic:	C
+*cpHelp.activateCallback:	WcSetValue( \
+	~*helpDialog.messageString: The control panel... )\
+				WcManage( ~*helpDialog )
+
+*daHelp.wcCreate:	XmPushButton
+*daHelp.labelString:	on Drawing Area
+*daHelp.mnemonic:	D
+*daHelp.activateCallback:	WcSetValue( \
+	~*helpDialog.messageString: The drawing area... )\
+				WcManage( ~*helpDialog )
+
+*tHelp.wcCreate:	XmPushButton
+*tHelp.labelString:	on Text Area
+*tHelp.mnemonic:	T
+*tHelp.activateCallback:	WcSetValue( \
+	~*helpDialog.messageString: The text area... )\
+				WcManage( ~*helpDialog )
+
+! Used for all help, OK and Cancel unmanage.
+!
+*helpDialog.wcCreate:		XmCreateMessageDialog
+*helpDialog.helpCallback:	WcSetValue(	\
+	~helpDialog.messageString: Sorry, no additional help is available. )
+
+!----------------------------------------------------------------------
+! Pulldown menu from the file button on the menu bar
+!
+*fileMenu.wcCreate:	XmCreatePulldownMenu
+*fileMenu.wcPopups:	saveAsMenu
+*fileMenu.wcChildren:	load, sep1, save, saveAs, sep2, quit
+
+*load.wcCreate:		XmPushButton
+*load.labelString:	Load ...
+*load.mnemonic:		L
+
+*sep1.wcCreate:		XmSeparator
+#ifdef MOTIF_100
+*sep1.separatorType:	Shadow_Etched_In
+#else
+*sep1.separatorType:	XmShadow_Etched_In
+#endif
+
+*save.wcCreate:		XmPushButton
+*save.labelString:	Save
+*save.mnemonic:		S
+
+! The saveAsMenu has already been created. 
+! It is specified at the bottom of this file.
+!
+*saveAs.wcCreate:	XmCascadeButton
+*saveAs.labelString:	Save As
+*saveAs.mnemonic:	A
+*saveAs.subMenuId:	*saveAsMenu
+
+*sep2.wcCreate:		XmSeparator
+#ifdef MOTIF_100
+*sep2.separatorType:	DOUBLE_DASHED_LINE
+#else
+*sep2.separatorType:	XmDOUBLE_DASHED_LINE
+#endif
+
+!----------------------------------------------------------------------
+!  Accelerators and Motif
+!  ----------------------
+! The quit button uses the accelerator resource to allow a control-C anywhere
+! in the application to act as if Quit was selected from the fileMenu.  The
+! acceleratorText resource shows the user that the button has an accelerator.
+!
+! Note that accelerators do NOT work on cascade buttons!
+!
+! Note that you CANNOT use XtInstallAccelerators or XtInstallAllAccelerators
+! even as recently as Motif 1.1.3!
+!
+*quit.wcCreate:		XmPushButton
+*quit.labelString:	Quit
+*quit.mnemonic:		Q
+*quit.activateCallback:	WcExit
+*quit.accelerator:	Ctrl<Key>C
+*quit.acceleratorText:	Ctrl-C
+
+!----------------------------------------------------------------------
+!  Multiple Level Cascading Menus
+!  ------------------------------
+!
+!  All of the nested menus in this example have two buttons:
+!  go (labeled Go) and more (labeled More to come).  Since menu
+!  panes are XmRowColumns, we can say that all XmRowColumn children
+!  of the saveAsMenu's pop-up shell have children named go and more.
+
+*popup_saveAsMenu*XmRowColumn.wcChildren:	go more
+
+*go.wcCreate:			XmPushButton
+*go.labelString:		Go
+*go.mnemonic:			G
+
+*more.wcCreate:			XmCascadeButton
+*more.labelString:		More to come
+*more.mnemonic:			M
+
+*saveAsMenu.wcCreate:		XmCreatePulldownMenu
+*saveAsMenu.wcPopups:		level3
+*saveAsMenu.more.subMenuId:	*level3
+
+*level3.wcConstructor:		XmCreatePulldownMenu
+*level3.wcPopups:		level4
+*level3.more.subMenuId:		*level4
+
+*level4.wcConstructor:		XmCreatePulldownMenu
+*level4.wcPopups:		level5
+*level4.more.subMenuId:		*level5
+
+*level5.wcConstructor:		XmCreatePulldownMenu
+*level5.wcPopups:		level6
+*level5.more.subMenuId:		*level6
+
+*level6.wcConstructor:		XmCreatePulldownMenu
+*level6.wcPopups:		level7
+*level6.more.subMenuId:		*level7
+
+*level7.wcConstructor:		XmCreatePulldownMenu
+*level7.go.labelString:		You could go on forever like this...
+*level7.more.labelString:	But please don't!

@@ -1,0 +1,339 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204291849.AA01330@kanga.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2521) close XBUG #5069: twm: HandleKeyPress() problem handling KeySyms with > 1 keycodes
+Date: Wed, 29 Apr 92 14:49:11 EDT
+From: Dave Sternlicht <dave@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: twm: HandleKeyPress() problem handling KeySyms with > 1 keycodes
+        ### bug number:   5069
+        ### area:         twm
+        ### severity:     low
+        ### comments:     
+
+*** /tmp/da01303	Wed Apr 29 14:46:52 1992
+--- clients/twm/events.c	Wed Apr 29 14:47:15 1992
+***************
+*** 28,34 ****
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: events.c,v 1.182 91/07/17 13:59:14 dave Exp $
+   *
+   * twm event handling
+   *
+--- 28,34 ----
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: events.c,v 1.184 92/04/29 14:45:16 dave Exp $
+   *
+   * twm event handling
+   *
+***************
+*** 130,137 ****
+      int i;
+  
+  
+!     ResizeWindow = NULL;
+!     DragWindow = NULL;
+      enter_flag = FALSE;
+      enter_win = raise_win = NULL;
+  
+--- 130,137 ----
+      int i;
+  
+  
+!     ResizeWindow = (Window) 0;
+!     DragWindow = (Window) 0;
+      enter_flag = FALSE;
+      enter_win = raise_win = NULL;
+  
+***************
+*** 556,561 ****
+--- 556,562 ----
+  void
+  HandleKeyPress()
+  {
++     KeySym ks;
+      FuncKey *key;
+      int len;
+      unsigned int modifier;
+***************
+*** 582,590 ****
+      }
+  
+      modifier = (Event.xkey.state & mods_used);
+      for (key = Scr->FuncKeyRoot.next; key != NULL; key = key->next)
+      {
+! 	if (key->keycode == Event.xkey.keycode &&
+  	    key->mods == modifier &&
+  	    (key->cont == Context || key->cont == C_NAME))
+  	{
+--- 583,592 ----
+      }
+  
+      modifier = (Event.xkey.state & mods_used);
++     ks = XLookupKeysym((XKeyEvent *) &Event, /* KeySyms index */ 0);
+      for (key = Scr->FuncKeyRoot.next; key != NULL; key = key->next)
+      {
+!  	if (key->keysym == ks &&
+  	    key->mods == modifier &&
+  	    (key->cont == Context || key->cont == C_NAME))
+  	{
+***************
+*** 949,955 ****
+  	    SortIconManager(Tmp_win->list->iconmgr);
+      }
+  
+!     if (Tmp_win->icon_w == NULL)
+  	return;
+  
+      if (Tmp_win->icon_not_ours)
+--- 951,957 ----
+  	    SortIconManager(Tmp_win->list->iconmgr);
+      }
+  
+!     if (Tmp_win->icon_w == (Window) 0)
+  	return;
+  
+      if (Tmp_win->icon_not_ours)
+***************
+*** 1487,1493 ****
+  void
+  HandleMotionNotify()
+  {
+!     if (ResizeWindow != NULL)
+      {
+  	XQueryPointer( dpy, Event.xany.window,
+  	    &(Event.xmotion.root), &JunkChild,
+--- 1489,1495 ----
+  void
+  HandleMotionNotify()
+  {
+!     if (ResizeWindow != (Window) 0)
+      {
+  	XQueryPointer( dpy, Event.xany.window,
+  	    &(Event.xmotion.root), &JunkChild,
+***************
+*** 1602,1617 ****
+  			 ? Tmp_win : NULL);
+  	}
+  
+! 	DragWindow = NULL;
+  	ConstMove = FALSE;
+      }
+  
+!     if (ResizeWindow != NULL)
+      {
+  	EndResize();
+      }
+  
+!     if (ActiveMenu != NULL && RootFunction == NULL)
+      {
+  	if (ActiveItem != NULL)
+  	{
+--- 1604,1619 ----
+  			 ? Tmp_win : NULL);
+  	}
+  
+! 	DragWindow = (Window) 0;
+  	ConstMove = FALSE;
+      }
+  
+!     if (ResizeWindow != (Window) 0)
+      {
+  	EndResize();
+      }
+  
+!     if (ActiveMenu != NULL && RootFunction == 0)
+      {
+  	if (ActiveItem != NULL)
+  	{
+***************
+*** 1640,1646 ****
+  	    /* if we are not executing a defered command, then take down the
+  	     * menu
+  	     */
+! 	    if (RootFunction == NULL)
+  	    {
+  		PopDownMenu();
+  	    }
+--- 1642,1648 ----
+  	    /* if we are not executing a defered command, then take down the
+  	     * menu
+  	     */
+! 	    if (RootFunction == 0)
+  	    {
+  		PopDownMenu();
+  	    }
+***************
+*** 1659,1670 ****
+  	case Button5: mask &= ~Button5Mask; break;
+      }
+  
+!     if (RootFunction != NULL ||
+  	ResizeWindow != None ||
+  	DragWindow != None)
+  	ButtonPressed = -1;
+  
+!     if (RootFunction == NULL &&
+  	(Event.xbutton.state & mask) == 0 &&
+  	DragWindow == None &&
+  	ResizeWindow == None)
+--- 1661,1672 ----
+  	case Button5: mask &= ~Button5Mask; break;
+      }
+  
+!     if (RootFunction != 0 ||
+  	ResizeWindow != None ||
+  	DragWindow != None)
+  	ButtonPressed = -1;
+  
+!     if (RootFunction == 0 &&
+  	(Event.xbutton.state & mask) == 0 &&
+  	DragWindow == None &&
+  	ResizeWindow == None)
+***************
+*** 1807,1813 ****
+  	Context = C_ROOT;
+      if (Tmp_win)
+      {
+! 	if (Tmp_win->list && RootFunction != NULL &&
+  	    (Event.xany.window == Tmp_win->list->w ||
+  		Event.xany.window == Tmp_win->list->icon))
+  	{
+--- 1809,1815 ----
+  	Context = C_ROOT;
+      if (Tmp_win)
+      {
+! 	if (Tmp_win->list && RootFunction != 0 &&
+  	    (Event.xany.window == Tmp_win->list->w ||
+  		Event.xany.window == Tmp_win->list->icon))
+  	{
+***************
+*** 1867,1873 ****
+      /* this section of code checks to see if we were in the middle of
+       * a command executed from a menu
+       */
+!     if (RootFunction != NULL)
+      {
+  	if (Event.xany.window == Scr->Root)
+  	{
+--- 1869,1875 ----
+      /* this section of code checks to see if we were in the middle of
+       * a command executed from a menu
+       */
+!     if (RootFunction != 0)
+      {
+  	if (Event.xany.window == Scr->Root)
+  	{
+***************
+*** 1884,1890 ****
+  		(XFindContext(dpy, Event.xany.window, TwmContext,
+  			      (caddr_t *)&Tmp_win) == XCNOENT))
+  	    {
+! 		RootFunction = NULL;
+  		XBell(dpy, 0);
+  		return;
+  	    }
+--- 1886,1892 ----
+  		(XFindContext(dpy, Event.xany.window, TwmContext,
+  			      (caddr_t *)&Tmp_win) == XCNOENT))
+  	    {
+! 		RootFunction = 0;
+  		XBell(dpy, 0);
+  		return;
+  	    }
+***************
+*** 1904,1910 ****
+  	  ExecuteFunction(RootFunction, Action, Event.xany.window,
+  			  Tmp_win, &Event, Context, FALSE);
+  
+! 	RootFunction = NULL;
+  	return;
+      }
+  
+--- 1906,1912 ----
+  	  ExecuteFunction(RootFunction, Action, Event.xany.window,
+  			  Tmp_win, &Event, Context, FALSE);
+  
+! 	RootFunction = 0;
+  	return;
+      }
+  
+***************
+*** 1919,1931 ****
+      if (Context == C_NO_CONTEXT)
+  	return;
+  
+!     RootFunction = NULL;
+      if (Scr->Mouse[Event.xbutton.button][Context][modifier].func == F_MENU)
+      {
+  	do_menu (Scr->Mouse[Event.xbutton.button][Context][modifier].menu,
+  		 (Window) None);
+      }
+!     else if (Scr->Mouse[Event.xbutton.button][Context][modifier].func != NULL)
+      {
+  	Action = Scr->Mouse[Event.xbutton.button][Context][modifier].item ?
+  	    Scr->Mouse[Event.xbutton.button][Context][modifier].item->action : NULL;
+--- 1921,1933 ----
+      if (Context == C_NO_CONTEXT)
+  	return;
+  
+!     RootFunction = 0;
+      if (Scr->Mouse[Event.xbutton.button][Context][modifier].func == F_MENU)
+      {
+  	do_menu (Scr->Mouse[Event.xbutton.button][Context][modifier].menu,
+  		 (Window) None);
+      }
+!     else if (Scr->Mouse[Event.xbutton.button][Context][modifier].func != 0)
+      {
+  	Action = Scr->Mouse[Event.xbutton.button][Context][modifier].item ?
+  	    Scr->Mouse[Event.xbutton.button][Context][modifier].item->action : NULL;
+***************
+*** 1932,1938 ****
+  	ExecuteFunction(Scr->Mouse[Event.xbutton.button][Context][modifier].func,
+  	    Action, Event.xany.window, Tmp_win, &Event, Context, FALSE);
+      }
+!     else if (Scr->DefaultFunction.func != NULL)
+      {
+  	if (Scr->DefaultFunction.func == F_MENU)
+  	{
+--- 1934,1940 ----
+  	ExecuteFunction(Scr->Mouse[Event.xbutton.button][Context][modifier].func,
+  	    Action, Event.xany.window, Tmp_win, &Event, Context, FALSE);
+      }
+!     else if (Scr->DefaultFunction.func != 0)
+      {
+  	if (Scr->DefaultFunction.func == F_MENU)
+  	{
+***************
+*** 2140,2146 ****
+      if (XFindContext (dpy, ewp->window, MenuContext, (caddr_t *)&mr) != XCSUCCESS) return;
+  
+      mr->entered = TRUE;
+!     if (ActiveMenu && mr == ActiveMenu->prev && RootFunction == NULL) {
+  	if (Scr->Shadow) XUnmapWindow (dpy, ActiveMenu->shadow);
+  	XUnmapWindow (dpy, ActiveMenu->w);
+  	ActiveMenu->mapped = UNMAPPED;
+--- 2142,2148 ----
+      if (XFindContext (dpy, ewp->window, MenuContext, (caddr_t *)&mr) != XCSUCCESS) return;
+  
+      mr->entered = TRUE;
+!     if (ActiveMenu && mr == ActiveMenu->prev && RootFunction == 0) {
+  	if (Scr->Shadow) XUnmapWindow (dpy, ActiveMenu->shadow);
+  	XUnmapWindow (dpy, ActiveMenu->w);
+  	ActiveMenu->mapped = UNMAPPED;
+
+
+
+
+				dave sternlicht
+				mit X consortium
+				dave@expo.lcs.mit.edu

@@ -1,0 +1,99 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9201302049.AA03672@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2337) close XBUG #4887, #4894: PEX: pinq_paths_ances returns more than one non-unique path.  pinq_paths_descs() and pinq_paths_ances() does not work correctly when path order = PORDER_BOTTOM_FIRST 
+Date: Thu, 30 Jan 92 15:49:06 EST
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX: pinq_paths_ances returns more than one non-unique path
+        ### bug number:   4887
+        ### area:         pex
+        ### severity:     medium-low
+        ### comments:     
+
+        Subject: PEX: pinq_paths_descs() and pinq_paths_ances() does not work correctly when path order = PORDER_BOTTOM_FIRST
+        ### bug number:   4894
+        ### area:         pex
+        ### severity:     low
+        ### comments:     
+
+
+*** /tmp/,RCSt1a10367	Thu Jan 30 15:37:29 1992
+--- extensions/server/PEX/ddpex/mi/level4/miStruct.c	Thu Jan 30 15:32:19 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: miStruct.c,v 5.3 91/12/26 18:03:59 hersh Exp $ */
+  
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: miStruct.c,v 5.4 92/01/30 15:33:14 mor Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 907,922 ****
+  	*pb++ = depth;
+  	pref = (ddElementRef *) pPath->pList;
+  	if (which == MI_DESCENDANTS) {
+! 		pref += (pathPart == PEXTopPart) ? 0 :
+! 			pPath->numObj - depth;
+! 
+! 		mibcopy(pref, pb, listsize);
+  	} else {
+! 		pref += ((pathPart == PEXTopPart) ? pPath->numObj - 1 :
+! 			 depth - 1);
+! 		pbref = (ddElementRef *) pb;
+! 		while (depth--)
+! 			*pbref++ = *pref--;
+  	}
+  	(*pNumLists)++;
+  	pBuffer->pBuf += listsize + 4;
+--- 907,929 ----
+  	*pb++ = depth;
+  	pref = (ddElementRef *) pPath->pList;
+  	if (which == MI_DESCENDANTS) {
+! 		if (pathPart == PEXTopPart)
+! 			mibcopy(pref, pb, listsize);
+! 		else {
+! 			pbref = (ddElementRef *) pb;
+! 			pref += pPath->numObj - 1;
+! 			while (depth--)
+! 				*pbref++ = *pref--;
+! 		}
+  	} else {
+! 		if (pathPart == PEXBottomPart)
+! 			mibcopy(pref, pb, listsize);
+! 		else {
+! 			pbref = (ddElementRef *) pb;
+! 			pref += pPath->numObj - 1;
+! 			while (depth--)
+! 				*pbref++ = *pref--;
+! 		}
+  	}
+  	(*pNumLists)++;
+  	pBuffer->pBuf += listsize + 4;
+***************
+*** 956,962 ****
+      if (!num || ((pathPart==PEXBottomPart) && depth && (pPath->numObj==depth))) {
+  	if (	(pathPart == PEXTopPart) && depth && (pPath->numObj > depth)
+  	     && !path_unique(	pathPart, depth, pNumLists, pBuffer, pPath, 
+! 				MI_DESCENDANTS))
+  
+  	    /*
+  	     * if path is top first and has to be truncated to depth, don't 
+--- 963,969 ----
+      if (!num || ((pathPart==PEXBottomPart) && depth && (pPath->numObj==depth))) {
+  	if (	(pathPart == PEXTopPart) && depth && (pPath->numObj > depth)
+  	     && !path_unique(	pathPart, depth, pNumLists, pBuffer, pPath, 
+! 				MI_ANCESTORS))
+  
+  	    /*
+  	     * if path is top first and has to be truncated to depth, don't 

@@ -1,0 +1,373 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: semop.2,v $ $Revision: 3.5.5.2 $ (DEC) $Date: 1993/10/04 18:05:20 $
+.\" 
+...\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+...\" ALL RIGHTS RESERVED 
+...\" OSF/1 Release 1.0.4
+...\"build rmifdef
+...\"
+...\"
+.TH semop 2
+.iX "semop function"
+.SH NAME
+.PP
+\*Lsemop\*O \-  Performs semaphore operations
+.iX "semaphore set" "performing operations on"
+.iX "semaphores" "performing operations on"
+.SH SYNOPSIS 
+.sS
+\*L#include\*O <\*Lsys/types.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/ipc.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/sem.h\*O>\*L
+.nL
+\*Lint semop\*O(\*L
+.nL
+	\*Lint\*O \*Vsemid\*O,\*L
+.nL
+	\*Lstruct sembuf\*O \*V*sops\*O,\*L
+.nL
+	\*Lu_int\*O \*Vnsops\*O);\*L
+.sE 
+.SH PARAMETERS
+.PP
+...\"from TP 1i"  
+.VL 1i
+.LI "\*Vsemid\*O"
+Specifies the ID of the semaphore set.
+...\"from TP "  
+.LI "\*Vsops\*O" 
+Points to the user-defined array of
+\*Lsembuf\*O
+structures that contain the semaphore operations.
+...\"from TP "  
+.LI "\*Vnsops\*O" 
+The number of
+\*Lsembuf\*O
+structures in the array.
+.LE 
+.SH DESCRIPTION
+.PP
+The
+\*Lsemop()\*O
+function performs operations on the semaphores in the specified
+semaphore set.  The semaphore operations are defined in the
+\*Vsops\*O
+array.  The
+\*Vsops\*O
+array contains
+\*Vnsops\*O
+elements, each of which is represented by a
+\*Lsembuf\*O
+structure.
+.PP
+The
+\*Lsembuf\*O
+structure (from \*Lsys/sem.h\*O) is shown here:
+.RS 
+\*Lstruct sembuf {
+.nL
+        u_short		\*Vsem_num\*L;
+.nL
+        short		\*Vsem_op\*L;
+.nL
+        short		\*Vsem_flg\*L;
+};\*O
+.RE 
+.PP
+The fields in the
+\*Lsembuf\*O
+structure are defined as follows:
+...\"from TP 1i"  
+.VL 1i
+.LI "\*Vsem_num\*O"
+Specifies an individual semaphore
+within the semaphore set.
+...\"from TP "  
+.LI "\*Vsem_op\*O" 
+Specifies the operation
+to perform on the semaphore.
+...\"from TP "  
+.LI "\*Vsem_flg\*O" 
+Specifies various flags for the operations.  The possible values are:
+.wH .RS  Can not be used in nested lists
+...\"from TP .5i"  
+.VL
+.LI "SEM_UNDO" 
+Instructs the kernel to adjust the process's adjust-on-exit value for
+a modified semaphore.  When the process exits, the kernel uses this
+value to restore the semaphore to the value it had before any
+modifications by the process.  This flag is used to prevent semaphore
+locking by a process that no longer exists.
+...\"from TP "  
+.LI "IPC_NOWAIT" 
+Instructs the kernel to return an error condition if a requested
+operation would cause the process to sleep.  If the kernel returns an
+error condition, none of the requested semaphore operations are performed.
+.wH .RE
+.LE 
+.LE
+.P 
+The
+\*Vsem_op\*O
+operation is specified as a negative integer, a positive integer, or
+0 (zero).  The effects of these three values are described below.
+.P 
+If
+\*Vsem_op\*O
+is a
+negative integer
+and the calling process has modify permission,
+the \*Lsemop(\|)\*O function
+does one of the following:
+...\"from TP 4"  
+.ML
+.LI
+If the semaphore's current value (in
+\*Vsemval\*O)
+is equal to or greater than the absolute value of
+\*Vsem_op\*O,
+the absolute value of
+\*Vsem_op\*O
+is subtracted from
+\*Vsemval\*O.
+If SEM_UNDO is set, the absolute value of
+\*Vsem_op\*O
+is added to the calling process' adjust-on-exit value for the
+semaphore.
+...\"from TP "  
+.LI
+If
+\*Vsemval\*O
+is less than the absolute value of
+\*Vsem_op\*O
+and IPC_NOWAIT is set,
+\*Lsemop(\|)\*O
+returns immediately with an [EAGAIN] error.
+...\"from TP "  
+.LI
+If
+\*Vsemval\*O
+is less than the absolute value of
+\*Vsem_op\*O
+and IPC_NOWAIT is not set,
+\*Lsemop(\|)\*O
+increments the semaphore's
+\*Vsemncnt\*O
+value and suspends the calling process.
+.LE 
+.PP
+If the process is suspended, it sleeps until one of the following
+occurs:
+...\"from TP .3i"  
+.ML
+.LI
+The \*Vsemval\*O value
+becomes equal to or greater than the absolute value of
+\*Vsem_op\*O.
+In this case, the semaphore's
+\*Vsemncnt\*O
+value is decremented; the absolute value of
+\*Vsem_op\*O
+is subtracted from
+\*Vsemval\*O;
+and, if SEM_UNDO is set, the absolute value of
+\*Vsem_op\*O
+is added to the calling process's adjust-on-exit value for the semaphore.
+...\"from TP "  
+.LI
+The semaphore set (specified by
+\*Vsemid\*O)
+is removed from the system.  In this case, \*Lerrno\*O is set equal to
+[EIDRM] and a value of -1 is returned to the calling process.
+...\"from TP "  
+.LI
+The calling process catches a signal.  In this
+case, the semaphore's
+\*Vsemncnt\*O
+value is decremented, and the calling process resumes execution
+as directed by the
+\*Lsignal(\|)\*O
+function.
+.LE 
+.PP
+If
+\*Vsem_op\*O
+is a
+positive integer
+and the calling process has modify permission,
+\*Lsemop(\|)\*O
+adds the
+\*Vsem_op\*O
+value to the semaphore's current
+\*Vsemval\*O
+value.  If SEM_UNDO is set, the
+\*Vsem_op\*O
+value is subtracted from the
+calling process's adjust-on-exit value for the semaphore.
+.PP
+If
+\*Vsem_op\*O
+is
+0 (zero)
+and the calling process has read permission,
+\*Lsemop(\|)\*O
+does one of the following:
+...\"from TP 4"  
+.ML
+.LI
+If
+\*Vsemval\*O
+is 0,
+\*Lsemop(\|)\*O
+returns immediately.
+...\"from TP "  
+.LI
+If
+\*Vsemval\*O
+is not equal to 0 and IPC_NOWAIT is set,
+\*Lsemop(\|)\*O
+returns immediately.
+...\"from TP "  
+.LI
+If
+\*Vsemval\*O
+is not equal to 0 and IPC_NOWAIT is not set,
+\*Lsemop(\|)\*O
+increments the semaphore's
+\*Vsemzcnt\*O
+value and suspends the calling process.
+.LE 
+.PP
+If the process is suspended, it sleeps until one of the following
+occurs:
+...\"from TP .3i"  
+.ML
+.LI
+The \*Vsemval\*O value
+becomes 0 (zero).  In this case, the semaphore's
+\*Vsemncnt\*O
+value is decremented.
+...\"from TP "  
+.LI
+The semaphore set (specified by
+\*Vsemid\*O)
+is removed from the system.  In this case, \*Lerrno\*O is set equal to
+[EIDRM] and a value of -1 is returned to the calling process.
+...\"from TP "  
+.LI
+The calling process catches a signal.  In this
+case, the semaphore's
+\*Vsemncnt\*O
+value is decremented, and the calling process resumes execution
+as directed by the
+\*Lsignal(\|)\*O
+function.
+.LE 
+.PP
+.SH NOTES
+.PP
+Semaphore operations are performed atomically;  that is, either
+all of the requested operations are performed, or none are.  If the
+kernel goes to sleep while doing the operations, it restores all of
+the semaphores in the set to their previous values, at the start of
+the
+\*Lsemop(\|)\*O
+function.
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lsemop()\*O function returns
+a value of 0 (zero) and the \*Vsempid\*O value for each semaphore that
+is operated upon is set to the process ID of the calling process.
+.PP 
+If the \*Lsemop()\*O function fails, a value of -1 is returned
+and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the \*Lsemop()\*O function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+...\"from TP 1i"  
+.VL 1i
+.LI "[EINVAL]"
+The
+\*Vsemid\*O
+parameter
+is not a valid semaphore ID, or the number of semaphores for which
+SEM_UNDO is requested exceeds the system-defined limit.
+...\"from TP "  
+.LI "[EFBIG]" 
+The
+\*Vsem_num\*O
+parameter
+is less than 0 (zero) or greater than or equal to the
+number of semaphores in
+\*Vsemid\*O.
+...\"from TP 1i"  
+.LI "[E2BIG]" 
+The
+\*Vnsops\*O
+parameter
+is greater than the system-defined maximum.
+...\"from TP "  
+.LI "[EACCES]" 
+The calling process does not have the required permission.
+.LI "[EAGAIN]"
+Both \*Vsem_flg\*O and IPC_NOWAIT are true, but the requested
+operation has caused the calling process to be suspended.
+...\"from TP 1i"  
+.LI "[ENOSPC]" 
+The system-defined limit on the number of processes using SEM_UNDO
+was exceeded.
+...\"from TP 1i"  
+.LI "[ERANGE]" 
+An operation caused a
+\*Vsemval\*O
+to overflow the system-defined limit, or
+an operation caused an adjust-on-exit value to exceed the
+system-defined limit.
+...\"from TP "  
+.LI "[EINTR]" 
+The
+\*Lsemop(\|)\*O
+function was interrupted by a signal.
+...\"from TP "  
+.LI "[EIDRM]" 
+The semaphore ID specified by the
+\*Vsemid\*O
+parameter
+has been removed from the system.
+.LI "[ENOSYS]"
+The requested operation is not supported by this implementation.
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Functions:
+\*Lexec\*O(2),
+\*Lexit\*O(2),
+\*Lfork\*O(2),
+\*Lsemctl\*O(2),
+\*Lsemget\*O(2)
+.PP 
+Data Structures:
+\*Lsemid_ds\*O(4)
+.iX "semop function"
+.EQ
+delim off
+.EN

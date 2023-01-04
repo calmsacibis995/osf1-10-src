@@ -1,0 +1,262 @@
+       Summary of changes for multibuf (multibuf_dix and generic drawlib)
+       ------------------------------------------------------------------
+			   Last Updated: Feb 19, 1993
+			   By: Leela Obilichetti
+
+Files:
+(For multibuf di:)
+./src/extensions/multibuf/Imakefile
+./src/extensions/multibuf/server/Imakefile
+./src/extensions/multibuf/server/multibuf_dix.c
+
+(For multibuf dd - which on the HX an TX is generic drawlib:)
+./src/extensions/server/draw/generic/Imakefile
+./src/extensions/server/draw/generic/drawableGENERIC.c
+./src/extensions/server/draw/generic/drawableGENERIC.h
+./src/extensions/server/draw/generic/drawinit.c
+./src/extensions/server/draw/generic/drawint.h
+
+Other files I change:
+./src/extensions/server/draw/share/mi_drawable.c
+./src/extensions/server/draw/include/draw.h
+
+................................................................................
+
+
+MULTIBUF:
+--------
+
+This new multibuf fully provides the functionality that was supported in
+the MIT multibuf.  There are things that are specified (in the spec) but
+were not supported in the sample implementation, thus I have not provided
+them in this implementation.  Thus, the user should see no difference.  
+
+This new implemenation allows the server to take advantage of buffering
+capabilities provided in the special graphics devices and fully supports
+multihead multibuffering by using drawlib vector tables.  It does this by
+splitting up multibuf into a di/dd division.  The di is fully contained in
+the file multibuf_dix.c and the dd is drawlib (see notes below).  NOTE,
+that drawlib HAS to be loaded on each device that multibuf is needed.  In
+general, drawlib (setup by the 3D group) is loaded from within the InitProc
+for each device. 
+
+I have commented the code that I have changed in multibuf so the code
+should easy to understand. 
+
+Performance wise,  I ran my tests on both the old server and the new server
+on a multi-head HX and they seem to run at the same speed. 
+
+I have tested this on a multihead HX system, but I have not tested on the
+PXg or the PVg.
+
+some Multibuf routines with detail: 
+----------------------------------
+MultibufferPositionWindow:
+	This routine is called to resize the buffers if the window gets
+	resized.  It calls readyBuffers to resize the buffers.  This is a
+	globally wrapped routine, so it gets call for all windows that
+	change in size or move.  For windows that are not multibuffers, it
+	simply returns.  For multibuffering windows, it expects to resize
+	all associated buffers.  It does this in the sample implementation
+	by allocating new pixmaps and replacing the old ones associated for
+	the buffers.  It tried to preserve the old contents by doing a copy
+	area.  Though, the last is not a requirement. 
+
+CreateImageBuffers:
+	This routine is called to create the image buffers for a window.
+	It calls initDrawBuffers to initialize all the required buffers.
+	Multibuf expects the buffer drawable ptrs to be returned in
+	backLeftdraw[*].  Multibuf expects that the index of the buffer
+	into the backLeftDraw will not change.  It stores the index into
+	the multibuffer datastructure and uses it to refernce the buffer.
+
+	After the initDrawBuffers, the multibuf code initializes the
+	multibuffering data structures.  If for some reason, this
+	initialization fails, then the (nbuffers - already initted buffer)
+	buffers need to be freed, at that time, we call freeBackBuffers to
+	free them.
+
+	Note that for drawlib to be able to share buffers with 3D stuff, we
+	cannot delete buffers individually as 3D stuff might still have a
+	handle on them. 
+
+DestroyImageBuffers:
+	Multibuf uses freeDrawBuffers to free the buffers.  Though, from
+	within drawlib, the buffers are completely delete when the window
+	is deleted through a wrapped DestroyWindow call.
+
+	Note, the MIT implementation of this deletes each buffer
+	individually.  As explained above (CreateImageBuffers) we cannot
+	destroy individual buffers from drawlib, so we delete all of them
+	at once. 
+
+PerformDisplayRequest:
+	Multibuf uses displayBuffer display an individual buffer.  There
+	are several types of updateActions (what happens to the buffer that
+	was displayed after this new buffer is displayed).  (see the
+	multibuf spec for a full explanation of each one; there is a brief
+	explanation below in the drawlib section) This update action is
+	dealt within the drawlib.
+
+AliasMultibuffer:
+
+	This routine is used from within multibuf to update the ids with
+	the new associated buffers.  It reverts the old buffer id to be
+	associated with the the original pixmap and converts the new buffer
+	id to be associated with the window.  This is used to allow clients
+	to lookup ids to find out if the buffer is displayed or not.  Also,
+	it is used by the client which gets a ClobberNotify event (which is
+	not implemented) to find out which buffer and window got the event.
+	(note, the ClobberNotify sends two ids, one for the buffer and one
+	for the associated window). 
+
+	After the alias, calls setCurrentBackBuf to setup the current
+	buffer.
+
+Drawlib routines that Multibuffer uses and why:
+----------------------------------------------
+setCurrentBackBuf: the current buffer that is displayed on the window is
+	stored in drawlib, and thus ths routine is used to set the current
+	displayed buffer.
+
+getCurrentBackBuf: get the current displayed back buffer from drawlib.
+
+setUpdateHint: the updateHint is stored and is only useful in the dd
+	portion of multibuf, so it uses this routine to store it into
+	drawlib.
+
+getUpdateHint: get the update hint from drawlib.
+
+readyBuffers: called from MultibufferPostionWindow.  This routine is
+	expected to ready the buffers by checking the window size, if the
+	window size has changed, then it resizes the buffers to match the
+	new window size.  In the case of the Multibuf, the sample
+	implementation tries to perserve the image that was stored on the
+	buffer.  Though, this is not specified, so the buffer state can be
+	undefined after a resize.
+
+initDrawBuffers: this routine is used to initialize all the back left
+	buffers needed for multibuffer.  Multibuf does one call to this
+	routine to allocate and initialize all buffers at once.
+
+freeBackBuffers: deletes any back buffers that are not needed if some fails
+	during the multibuffer initialization after the initDrawBuffers. 
+
+freeDrawBuffers: frees all the drawbuffers at once from multibuf - during a
+	destroy.  
+
+displayBuffer: displays a requested buffer onto the window.
+
+
+GENERIC DRAWLIB: 
+---------------
+
+The drawlib interface was defined by the 3d folks at the mill.  The generic
+drawlib uses pixmaps for it's buffers.
+
+In the next section, I have briefly described each routine and what their
+purpose is.
+
+The readyBuffers routine tries to save some of the buffer data when the
+buffers are recreated when the size of the window changes.  For
+multibuffering, the sample implementation saved the contents of the old
+buffer.  The generic drawlib does the same.  Though, this is not in the
+spec and thus does not need to be a multibuf requirement for readyBuffers.
+
+The displayBuffer code in this implementation doesn't set the current
+buffer because multibuf needs to do some stuff (AliasMultiBuffer) before
+setting the current buffer.  And, since a setCurrentBuffer call is
+provided, everything should go through that in order to set the current
+buffer, and not expect drawlib to do it.
+
+This drawlib only supports backLeftBuffers.  Multibuf doesn't need anything
+else. 
+
+Drawlib routines (drawableGENERIC.c):
+------------------------------------
+
+D_GENERICCreateBuffer:
+	Creates an idividual buffer which is simply a pixmap and
+	initializes the drawlib buffer data. 
+
+D_GENERICFreeBuffer:
+	Destroys the buffer by calling Destroy Pixmap.  Uses the pixmap
+	stored in the drawstate (in the memory location before the buffer
+	description - I used the drawlib model for this).
+
+D_GENERICReadyBuffers:
+	This routine resizes the pixmaps and copies the data from the old
+	pixmap to the newly created one.  It setup the pExposed data
+	structure so that multbuf can send back an even to the client if
+	needed. 
+
+D_GENERICDisplayBuffer:
+	According to the update action, copies the old data or clears the
+	buffer with the background.  Then, copies the new buffer data to
+	the window drawable.  Here is a brief explanation of each of the
+	update actions (from spec):
+
+	Undefined      The contents of  the  buffer  that  was  last
+	               displayed  will  become  undefined  after the
+	               update.  This is the  most  efficient  action
+	               since  it  allows the implementation to trash
+        	       the contents of the buffer if it needs to.
+
+	Background     The contents of  the  buffer  that  was  last
+	               displayed  will  be  set to the background of
+	               the window after the update.  The  background
+	               action  allows  devices  to  use a fast clear
+	               capability during an update.
+	
+	Untouched      The contents of  the  buffer  that  was  last
+	               displayed will be untouched after the update.
+	               Used primarily when  cycling  through  images
+	               that have already been drawn.
+	
+	Copied         The contents of  the  buffer  that  was  last
+	               displayed  will become the same as those that
+	               are being displayed after the  update.   This
+	               is  useful  when  incrementally  adding to an
+	               image.
+
+	NOTE: DisplayBuffer doesn't set the current buffer in the data
+	structures, as the other drawlib's do - this might cause some
+	problem with the 3D extensions (see above for explanation). 
+
+Drawlib routines (drawinit.c):
+-----------------------------
+_DGENERICInitScreenPriv:
+	Initializes the vector table of drawlib routines. 
+
+D_GENERICDrawInit:
+	Called from the ddx to initialize the screen. 
+
+D_GENERICDrawClose:
+	Isn't called at all. 
+
+
+
+HAS TO BE DONE FOR OTHER DRAWLIB:
+--------------------------------
+
+Display buffer code needs to change so that the current buffer does not get
+set from with the display buffer code, otherwise multibuf will not work.
+See above for explanation. 
+
+
+................................................................................
+
+Drawlib - shared stuff I changed:
+--------------------------------
+
+mi_drawable.c, draw.h: 
+
+I fixed the reset crash by checking for the servergeneration in the
+drawlibInit proc and calling _DDrawReset from within there.  This
+solves the problem that the reset proc doesn't get called at reset,
+and thus the globalResource doesn't get called and thus the
+ScreenIndex doesn't get reallocated and causes a crash during server
+run time.  It also removes some drawlib dependency from within the
+ddx.  (I'm not sure this is completely correct in the server model,
+but it works and is less stuff in the ddx).  I removed the refcnt
+because it is no longer needed.

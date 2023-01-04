@@ -1,0 +1,156 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202112220.AA09622@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2357) close XBUG #4403: Xt: shell RootGeometryManager missing resize in GeometryDone case
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Tue, 11 Feb 92 17:20:25 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: shell RootGeometryManager missing resize in GeometryDone case
+        ### bug number:   4403
+        ### area:         Xt
+        ### severity:     medium high
+        ### comments:     introduced in R5 Beta
+        ### status:       fixed, Shell.c 1.121 and Geometry.c 1.55
+
+        Subject: Xt: RootGeometryManager not a real Done
+        ### bug number:   4719
+        ### area:         Xt
+        ### severity:     medium high
+        ### comments:     see also bug #4403
+        ### status:       fixed, Shell.c 1.121 and Geometry.c 1.55
+
+
+
+*** /tmp/,RCSt1a09519	Tue Feb 11 17:16:09 1992
+--- lib/Xt/Shell.c	Tue Feb 11 17:13:17 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Shell.c,v 1.120 91/12/06 16:16:40 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Shell.c,v 1.121 92/02/11 17:11:58 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 1766,1777 ****
+  	_SetWMSizeHints((WMShellWidget)w);
+      }
+  
+!     if (w->shell.override_redirect) return XtGeometryDone;
+  
+      /* If no non-stacking bits are set, there's no way to tell whether
+         or not this worked, so assume it did */
+  
+!     if (!(mask & ~(CWStackMode | CWSibling))) return XtGeometryDone;
+  
+      if (wm && ((WMShellWidget)w)->wm.wait_for_wm == FALSE) {
+  	    /* the window manager is sick
+--- 1766,1777 ----
+  	_SetWMSizeHints((WMShellWidget)w);
+      }
+  
+!     if (w->shell.override_redirect) return XtGeometryYes;
+  
+      /* If no non-stacking bits are set, there's no way to tell whether
+         or not this worked, so assume it did */
+  
+!     if (!(mask & ~(CWStackMode | CWSibling))) return XtGeometryYes;
+  
+      if (wm && ((WMShellWidget)w)->wm.wait_for_wm == FALSE) {
+  	    /* the window manager is sick
+***************
+*** 1818,1824 ****
+  		    w->shell.client_specified |= _XtShellPositionValid;
+  		}
+  		else w->shell.client_specified &= ~_XtShellPositionValid;
+! 		return XtGeometryDone;
+  	    }
+  	} else if (!wm ||
+  		   (event.type == ClientMessage &&
+--- 1818,1824 ----
+  		    w->shell.client_specified |= _XtShellPositionValid;
+  		}
+  		else w->shell.client_specified &= ~_XtShellPositionValid;
+! 		return XtGeometryYes;
+  	    }
+  	} else if (!wm ||
+  		   (event.type == ClientMessage &&
+***************
+*** 1830,1836 ****
+  	    w->core.x = event.xclient.data.s[0];
+  	    w->core.y = event.xclient.data.s[1];
+  	    w->shell.client_specified |= _XtShellPositionValid;
+! 	    return XtGeometryDone;
+  	} else XtAppWarningMsg(XtWidgetToApplicationContext((Widget)w),
+  			       "internalError", "shell", XtCXtToolkitError,
+  			       "Shell's window manager interaction is broken",
+--- 1830,1836 ----
+  	    w->core.x = event.xclient.data.s[0];
+  	    w->core.y = event.xclient.data.s[1];
+  	    w->shell.client_specified |= _XtShellPositionValid;
+! 	    return XtGeometryYes;
+  	} else XtAppWarningMsg(XtWidgetToApplicationContext((Widget)w),
+  			       "internalError", "shell", XtCXtToolkitError,
+  			       "Shell's window manager interaction is broken",
+*** /tmp/,RCSt1a09543	Tue Feb 11 17:16:14 1992
+--- lib/Xt/Geometry.c	Tue Feb 11 17:14:44 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Geometry.c,v 1.54 91/09/23 11:09:45 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Geometry.c,v 1.55 92/02/11 17:13:18 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 68,74 ****
+      XtGeometryResult returnCode;
+      Widget parent = widget->core.parent;
+      XtGeometryMask	changeMask;
+!     Boolean managed, parentRealized;
+      XWindowChanges changes;
+  
+      *clear_rect_obj = FALSE;
+--- 68,74 ----
+      XtGeometryResult returnCode;
+      Widget parent = widget->core.parent;
+      XtGeometryMask	changeMask;
+!     Boolean managed, parentRealized, rgm = False;
+      XWindowChanges changes;
+  
+      *clear_rect_obj = FALSE;
+***************
+*** 84,89 ****
+--- 84,90 ----
+  	    if (  ext->version == XtShellExtensionVersion
+  		  && ext->record_size == sizeof(ShellClassExtensionRec)) {
+  		manager = ext->root_geometry_manager;
++ 		rgm = True;
+  	    } else {
+  		String params[1];
+  		Cardinal num_params = 1;
+***************
+*** 215,220 ****
+--- 216,224 ----
+      }
+  
+      if (XtIsWidget(widget)) {	/* reconfigure the window (if needed) */
++ 
++ 	if (rgm) return returnCode;
++ 
+  	if (changes.x != widget->core.x) {
+   	    changeMask |= CWX;
+   	    changes.x = widget->core.x;

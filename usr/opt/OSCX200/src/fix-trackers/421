@@ -1,0 +1,950 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9208121931.AA09642@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2649) 5.1 Renderer Picking, PickOne ddpex code
+Date: Wed, 12 Aug 92 15:31:33 EDT
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Folks should note that stuff was added to the miRenderer.c file
+that does a check to prevent calling via NULL function pointers
+(and thus crashing the server) if out of range OCs or proprietary OCs
+are sent via immediate mode. This was not reported as a bug, it was
+discovered and added as part of 5.1 additions. Vendors may however
+want to add code similar to this to their 5.0 products as well.
+Look for the HIGHBIT macros to find the code that performs these
+checks.
+
+
+
+
+*** /tmp/da9361	Wed Aug 12 15:22:27 1992
+--- extensions/server/PEX/ddpex/mi/include/miStruct.h	Wed Aug 12 15:23:49 1992
+***************
+*** 1,5 ****
+! /* $XConsortium: miStruct.h,v 5.1 91/02/16 09:54:44 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+--- 1,6 ----
+! /* $XConsortium: miStruct.h,v 5.2 92/08/12 15:21:50 hersh Exp $ */
+  
++ 
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+***************
+*** 97,102 ****
+--- 98,110 ----
+  	ES_FOLLOW_SEARCH = 3	/* follow initial search path before search */
+  } miExecStrState;
+  
++ /* added to allow SI to do pick last */
++ typedef struct _miPPLevel {
++   ddPickPath pp;
++   struct _miPPLevel *up;
++ } miPPLevel;
++ 
++ 
+  /*
+   * level 3 traversal doesn't do picking or search, so it ALWAYS sets
+   * exec_str_flag to YES and the element pointers to NULL
+***************
+*** 107,112 ****
+--- 115,121 ----
+  	ddPickPath	*p_curr_pick_el;
+  	ddElementRef	*p_curr_sc_el;
+  	ddSHORT		max_depth;	/* max depth reached in pick or search */
++         miPPLevel       *p_pick_path;
+  }  miTraverserState;
+  
+  #endif	/* MISTRUCT_H */
+*** /tmp/da9411	Wed Aug 12 15:23:41 1992
+--- extensions/server/PEX/ddpex/mi/level3/miRender.c	Wed Aug 12 15:24:41 1992
+***************
+*** 1,5 ****
+! /* $XConsortium: miRender.c,v 5.7 92/04/30 14:50:28 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+--- 1,6 ----
+! /* $XConsortium: miRender.c,v 5.8 92/08/12 15:22:53 hersh Exp $ */
+  
++ 
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+***************
+*** 34,39 ****
+--- 35,41 ----
+  #include "windowstr.h"
+  #include "regionstr.h"
+  #include "miscstruct.h"
++ #include "dixstruct.h"
+  #include "miRender.h"
+  #include "miStruct.h"
+  #include "miStrMacro.h"
+***************
+*** 308,376 ****
+  {
+  	register ddElementInfo	*poc;
+  	miGenericElementPtr	pexoc;
+! 	ddpex2rtn	err;
+  
+  #ifdef DDTEST
+      ErrorF( " RenderOCs\n");
+  #endif
+  
+      ValidateRenderer(pRend);
+  
+!     for ( poc=pOCs; numOCs>0; numOCs-- )
+!     {
+! 	switch( poc->elementType ) {
+!          /* drawing primitives */
+!           case PEXOCMarker:
+!           case PEXOCMarker2D:
+!           case PEXOCText:
+!           case PEXOCText2D:
+!           case PEXOCAnnotationText:
+!           case PEXOCAnnotationText2D:
+!           case PEXOCPolyline:
+!           case PEXOCPolyline2D:
+!           case PEXOCPolylineSet:
+!           case PEXOCNurbCurve:
+!           case PEXOCFillArea:
+!           case PEXOCFillArea2D:
+!           case PEXOCExtFillArea:
+!           case PEXOCFillAreaSet:
+!           case PEXOCFillAreaSet2D:
+!           case PEXOCExtFillAreaSet:
+!           case PEXOCTriangleStrip:
+!           case PEXOCQuadrilateralMesh:
+!           case PEXOCSOFAS:
+!           case PEXOCNurbSurface:
+!           case PEXOCCellArray:
+!           case PEXOCCellArray2D:
+!           case PEXOCExtCellArray:
+!           case PEXOCGdp:
+!           case PEXOCGdp2D:
+  
+! 		/* drop out if not doing primitives
+!                  * otherwise fall through */
+!                 if (!MI_DDC_DO_PRIMS(pRend)) 
+!                    break; 
+  
+!           default:
+! 	    pexoc = 0;
+! 	    err = ParseOCTable[ (int)poc->elementType ]( (ddPointer)poc, &pexoc );
+! 	    if (err != Success)
+! 	    	return( PEXERR(PEXOutputCommandError) );
+! 	    
+! 	    /* add one to the current_path's element offset if a begin structure
+! 	     * has been done
+! 	     */
+! 	    if (pRend->curPath->numObj)
+! 	        ((ddElementRef *)pRend->curPath->pList)[pRend->curPath->numObj - 1].offset++;
+! 	    pRend->executeOCs[ (int)poc->elementType ]( pRend, &pexoc->element );
+  
+! 	    DestroyOCTable[ (int)poc->elementType ](  pexoc );
+  	}
+  
+! 	poc += poc->length;	/* length is in four byte units & sizeof(poc) is 4 */
+      }
+  
+!     return (Success);
+  }
+  
+  ddpex3rtn
+--- 310,453 ----
+  {
+  	register ddElementInfo	*poc;
+  	miGenericElementPtr	pexoc;
+! 	ddpex2rtn		err = Success;
+! 	XID			fakestr;
+! 	diStructHandle 		sh = 0, ph;
+! 	pexStructure 		*ps;
+! 	pexOutputCommandError 	*pErr;
+! 	ddULONG            	offset1, offset2, numberOCs;
+! 	miTraverserState      	trav_state;
+! 	diPMHandle            	pPM = (diPMHandle) NULL;
+! 	unsigned long 		PEXStructType;
+  
++ 
+  #ifdef DDTEST
+      ErrorF( " RenderOCs\n");
+  #endif
+  
++     /* if renderer idle ignore.... */
++     if (pRend->state == PEXIdle)
++       return Success;
++ 
+      ValidateRenderer(pRend);
+  
+!     if (pRend->state == PEXPicking) {
+!     /* state == PEXPicking, call through traverser */
+  
+! 	sh = pRend->pickstr.fakeStr;
+  
+! 	/* now do the work of storing stuff into the structure */
+! 	numberOCs = numOCs;
+! 	for ( poc=pOCs; numberOCs>0; numberOCs-- )
+! 	{
+  
+! 	    err = StoreElements( sh, 1, poc, &pErr);
+! 	    if (err != Success) return(err);
+! 
+! 	    poc += poc->length;	
+  	}
+  
+! 	/* now call the traverser to traverse this structure */
+!         /* set exec_str_flag */
+! 	trav_state.exec_str_flag = ES_YES;
+! 	trav_state.p_curr_pick_el = (ddPickPath *) NULL;
+! 	trav_state.p_curr_sc_el = (ddElementRef *) NULL;
+! 	trav_state.max_depth = 0;
+! 	trav_state.pickId = 0;
+! 	pPM = pRend->pickstr.pseudoPM;
+! 
+! 	offset1 = 1;
+! 	offset2 = numOCs;
+! 
+! 	err = traverser(pRend, sh, offset1, offset2, pPM, NULL, &trav_state);
+! 
+! 	/* clean up structure for next time */
+! 	{
+! 	  miStructPtr pheader = (miStructPtr) sh->deviceData;
+! 	  extern cssTableType DestroyCSSElementTable[];
+! 
+! 	  MISTR_DEL_ELS(sh, pheader, 1, numOCs);
+! 	  MISTR_CURR_EL_PTR(pheader) = MISTR_ZERO_EL(pheader);
+! 	  MISTR_CURR_EL_OFFSET(pheader) = 0;
+! 
+! 	}
+      }
++     else { 
++     /* state == PEXRendering, call directly to level 2 for efficiency */
++ 	for ( poc=pOCs; numOCs>0; numOCs-- )
++ 	{
++ 	    switch( poc->elementType ) {
++ 	     /* drawing primitives */
++ 	      case PEXOCMarker:
++ 	      case PEXOCMarker2D:
++ 	      case PEXOCText:
++ 	      case PEXOCText2D:
++ 	      case PEXOCAnnotationText:
++ 	      case PEXOCAnnotationText2D:
++ 	      case PEXOCPolyline:
++ 	      case PEXOCPolyline2D:
++ 	      case PEXOCPolylineSet:
++ 	      case PEXOCNurbCurve:
++ 	      case PEXOCFillArea:
++ 	      case PEXOCFillArea2D:
++ 	      case PEXOCExtFillArea:
++ 	      case PEXOCFillAreaSet:
++ 	      case PEXOCFillAreaSet2D:
++ 	      case PEXOCExtFillAreaSet:
++ 	      case PEXOCTriangleStrip:
++ 	      case PEXOCQuadrilateralMesh:
++ 	      case PEXOCSOFAS:
++ 	      case PEXOCNurbSurface:
++ 	      case PEXOCCellArray:
++ 	      case PEXOCCellArray2D:
++ 	      case PEXOCExtCellArray:
++ 	      case PEXOCGdp:
++ 	      case PEXOCGdp2D:
+  
+! 		    /* drop out if not doing primitives
+! 		     * otherwise fall through */
+! 		    if (!MI_DDC_DO_PRIMS(pRend)) 
+! 		       break; 
+! 
+! 	      default:
+! 		/* if a Proprietary OC bump the counter and continue */
+! 		if (MI_HIGHBIT_ON((int)poc->elementType)) {
+! 		    ((ddElementRef *)pRend->curPath->pList)
+! 			[pRend->curPath->numObj - 1].offset++;
+! 		    break;
+! 		}
+! 		else {
+! 		    /* not Proprietary see if valid PEX OC */
+! 		    if (MI_IS_PEX_OC((int)poc->elementType)){
+! 
+! 			pexoc = 0;
+! 			err = ParseOCTable[ (int)poc->elementType ]
+! 					  ( (ddPointer)poc, &pexoc );
+! 		    }
+! 		    else
+! 			err = !Success;
+! 		  }
+! 		 
+! 		if (err != Success)
+! 		    return( PEXERR(PEXOutputCommandError) );
+! 	
+! 		/* If we make it here it is a valid OC no more checking to do */
+! 
+! 		/* add one to the current_path's element offset if a 
+! 		 * begin structure has been done
+! 		 */
+! 		if (pRend->curPath->numObj)
+! 		    ((ddElementRef *)pRend->curPath->pList)[pRend->curPath->numObj - 1].offset++;
+! 		pRend->executeOCs[ (int)poc->elementType ]( pRend, &pexoc->element );
+! 
+! 		DestroyOCTable[ (int)poc->elementType ](  pexoc );
+! 	    }
+! 
+! 	    poc += poc->length;	/* length is in four byte units & sizeof(poc) is 4 */
+! 	}
+!     }
+! 
+!     return (err);
+  }
+  
+  ddpex3rtn
+***************
+*** 444,453 ****
+      miStructPtr         pstruct;
+      miGenericElementPtr pel;
+      ddULONG             offset1, offset2, i;
+      int                 eltype;
+  
+-     ValidateRenderer(pRend);
+  
+      pstruct = (miStructPtr) pStr->deviceData;
+  
+      /* convert the offset based on whence value */
+--- 521,536 ----
+      miStructPtr         pstruct;
+      miGenericElementPtr pel;
+      ddULONG             offset1, offset2, i;
++     miTraverserState      trav_state;
++     diPMHandle            pPM = (diPMHandle) NULL;
++     miDDContext           *pddc = (miDDContext *) pRend->pDDContext;
+      int                 eltype;
+  
+  
++     /* if renderer idle ignore.... */
++     if (pRend->state == PEXIdle)
++       return Success;
++ 
+      pstruct = (miStructPtr) pStr->deviceData;
+  
+      /* convert the offset based on whence value */
+***************
+*** 471,526 ****
+  	else
+  	      offset1 = 1;
+  
+!     for (i = offset1; i <= offset2; i++){
+  
+! 	/* set the element pointer */
+! 	if ( i == offset1) {
+! 	    MISTR_FIND_EL(pstruct, offset1, pel);
+! 	}
+! 	else
+! 	    pel = MISTR_NEXT_EL(pel);
+  
+! 	    eltype = MISTR_EL_TYPE (pel);
+  
+!             switch (eltype) {
+! 	       /* drawing primitives */
+! 		case PEXOCMarker:
+! 		case PEXOCMarker2D:
+! 		case PEXOCText:
+! 		case PEXOCText2D:
+! 		case PEXOCAnnotationText:
+! 		case PEXOCAnnotationText2D:
+! 		case PEXOCPolyline:
+! 		case PEXOCPolyline2D:
+! 		case PEXOCPolylineSet:
+! 		case PEXOCNurbCurve:
+! 		case PEXOCFillArea:
+! 		case PEXOCFillArea2D:
+! 		case PEXOCExtFillArea:
+! 		case PEXOCFillAreaSet:
+! 		case PEXOCFillAreaSet2D:
+! 		case PEXOCExtFillAreaSet:
+! 		case PEXOCTriangleStrip:
+! 		case PEXOCQuadrilateralMesh:
+! 		case PEXOCSOFAS:
+! 		case PEXOCNurbSurface:
+! 		case PEXOCCellArray:
+! 		case PEXOCCellArray2D:
+! 		case PEXOCExtCellArray:
+! 		case PEXOCGdp:
+! 
+! 		/* drop out if not doing primitives
+! 		 * otherwise fall through */
+! 		 if (!MI_DDC_DO_PRIMS(pRend))
+! 		    break;
+! 	    default:
+! 		pRend->executeOCs[ eltype]( pRend,
+! 					(ddPointer)&(MISTR_EL_DATA (pel)));
+! 	}
+      }
+  
+  
+!   return(err);
+  }
+  
+  /*++
+--- 554,640 ----
+  	else
+  	      offset1 = 1;
+  
+!     ValidateRenderer(pRend);
+  
+!     if (pRend->state == PEXPicking) {
+! 	/* set exec_str_flag */
+! 	trav_state.exec_str_flag = ES_YES;
+! 	trav_state.p_curr_pick_el = (ddPickPath *) NULL;
+! 	trav_state.p_curr_sc_el = (ddElementRef *) NULL;
+! 	trav_state.max_depth = 0;
+! 	trav_state.pickId = 0;
+  
+! 	pPM = pRend->pickstr.pseudoPM;
+  
+! 	err = traverser(pRend, pStr, offset1, offset2, pPM, NULL, &trav_state);
+      }
++     else {
++     /* state == PEXRendering call directly into level 2 for efficiency */
++ 	for (i = offset1; i <= offset2; i++){
+  
++ 		/* set the element pointer */
++ 		if ( i == offset1) {
++ 		    MISTR_FIND_EL(pstruct, offset1, pel);
++ 		}
++ 		else
++ 		    pel = MISTR_NEXT_EL(pel);
+  
+! 		eltype = MISTR_EL_TYPE (pel);
+! 
+! 		switch (eltype) {
+! 		   /* drawing primitives */
+! 		    case PEXOCMarker:
+! 		    case PEXOCMarker2D:
+! 		    case PEXOCText:
+! 		    case PEXOCText2D:
+! 		    case PEXOCAnnotationText:
+! 		    case PEXOCAnnotationText2D:
+! 		    case PEXOCPolyline:
+! 		    case PEXOCPolyline2D:
+! 		    case PEXOCPolylineSet:
+! 		    case PEXOCNurbCurve:
+! 		    case PEXOCFillArea:
+! 		    case PEXOCFillArea2D:
+! 		    case PEXOCExtFillArea:
+! 		    case PEXOCFillAreaSet:
+! 		    case PEXOCFillAreaSet2D:
+! 		    case PEXOCExtFillAreaSet:
+! 		    case PEXOCTriangleStrip:
+! 		    case PEXOCQuadrilateralMesh:
+! 		    case PEXOCSOFAS:
+! 		    case PEXOCNurbSurface:
+! 		    case PEXOCCellArray:
+! 		    case PEXOCCellArray2D:
+! 		    case PEXOCExtCellArray:
+! 		    case PEXOCGdp:
+! 
+! 		    /* drop out if not doing primitives
+! 		     * otherwise fall through */
+! 		     if (!MI_DDC_DO_PRIMS(pRend))
+! 			break;
+! 		default:
+! 		    /* if a Proprietary OC call the correct routine */
+! 		    if (MI_HIGHBIT_ON(eltype)) {
+! 			pRend->executeOCs[MI_OC_PROP]( pRend,
+! 					    (ddPointer)&(MISTR_EL_DATA (pel)));
+! 		    }
+! 		    else {
+! 			/* not Proprietary see if valid PEX OC */
+! 			if (MI_IS_PEX_OC(eltype))
+! 			    pRend->executeOCs[ eltype]( pRend,
+! 					    (ddPointer)&(MISTR_EL_DATA (pel)));
+! 			else
+! 			    err = !Success;
+! 		    }
+! 
+! 		    if (err != Success)
+! 			return( PEXERR(PEXOutputCommandError) );
+! 		 
+! 	    }
+! 	}
+!     }	
+! 
+!     return(err);
+  }
+  
+  /*++
+***************
+*** 547,552 ****
+--- 661,670 ----
+      miStructPtr		structPtr;
+      miGenericElementPtr	elemPtr;
+  
++     /* if renderer idle ignore.... */
++     if (pRend->state == PEXIdle)
++       return Success;
++ 
+      /* The path has already been validated */
+      
+      elemRef = (ddElementRef *) pAccSt->Path->pList;
+***************
+*** 629,636 ****
+  	    case PEXOCParaSurfCharacteristics:
+  	    case PEXOCAddToNameSet:
+  	    case PEXOCRemoveFromNameSet:
+! 		pRend->executeOCs[(int) MISTR_EL_TYPE (elemPtr)]
+! 		    (pRend, (ddPointer) &(MISTR_EL_DATA (elemPtr)));
+  		break;
+  	    default:
+  		break;
+--- 747,769 ----
+  	    case PEXOCParaSurfCharacteristics:
+  	    case PEXOCAddToNameSet:
+  	    case PEXOCRemoveFromNameSet:
+! 		/* if a Proprietary OC call the correct routine */
+! 		if (MI_HIGHBIT_ON(MISTR_EL_TYPE (elemPtr))) {
+! 		    pRend->executeOCs[MI_OC_PROP]( pRend,
+! 				    (ddPointer)&(MISTR_EL_DATA (elemPtr)));
+! 		}
+! 		else {
+! 		    /* not Proprietary see if valid PEX OC */
+! 		    if (MI_IS_PEX_OC(MISTR_EL_TYPE (elemPtr)))
+! 			pRend->executeOCs[(int) MISTR_EL_TYPE (elemPtr)]( pRend,
+! 				     (ddPointer)&(MISTR_EL_DATA (elemPtr)));
+! 		    else
+! 			err = !Success;
+! 		}
+! 
+! 		if (err != Success)
+! 		    return( PEXERR(PEXOutputCommandError) );
+! 		 
+  		break;
+  	    default:
+  		break;
+***************
+*** 1295,1300 ****
+--- 1428,1434 ----
+      miDDContext		*pddc = (miDDContext *) pRend->pDDContext;
+  
+  	*pStatus = pddc->Static.pick.status;
++ 	pddc->Static.pick.status = PEXNoPick;
+  	return;
+  }
+  #endif
+*** /tmp/da9445	Wed Aug 12 15:23:46 1992
+--- extensions/server/PEX/ddpex/mi/level3/miRndrPick.c	Wed Aug 12 15:25:00 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: miRndrPick.c,v 1.1 92/03/04 14:11:52 hersh Exp $ */
+  
+  /************************************************************
+  Copyright 1992 by The Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: miRndrPick.c,v 1.3 92/08/12 15:23:15 hersh Exp $ */
+  
+  /************************************************************
+  Copyright 1992 by The Massachusetts Institute of Technology
+***************
+*** 38,43 ****
+--- 38,44 ----
+  #include "miscstruct.h"
+  #include "miRender.h"
+  #include "miStruct.h"
++ #include "miStrMacro.h"
+  #include "miWks.h"
+  #include "ddpex4.h"
+  
+***************
+*** 78,88 ****
+      ppm = (miPickMeasureStr *) xalloc(sizeof(miPickMeasureStr));
+      if (!ppm) return (BadAlloc);
+  
+      /* initialize pointers to NULL values */
+-     ppm->path = 0;
+      ppm->pWks = 0;
+      ppm->incl_handle = 0;
+      ppm->excl_handle = 0;
+  
+      (pRend->pickstr.pseudoPM)->deviceData = (ddPointer) ppm;
+      return(Success);
+--- 79,99 ----
+      ppm = (miPickMeasureStr *) xalloc(sizeof(miPickMeasureStr));
+      if (!ppm) return (BadAlloc);
+  
++     ppm->path = puCreateList(DD_PICK_PATH);
++     if (!ppm->path) {
++ 	xfree(ppm);
++ 	return (BadAlloc);
++     }
++ 
+      /* initialize pointers to NULL values */
+      ppm->pWks = 0;
++     /* initialize type to an out of range value */
++     ppm->type = -1;
++     ppm->status = PEXNoPick;
++     ppm->pathOrder = PEXTopFirst;
+      ppm->incl_handle = 0;
+      ppm->excl_handle = 0;
++     ppm->devPriv = (ddPointer) NULL;
+  
+      (pRend->pickstr.pseudoPM)->deviceData = (ddPointer) ppm;
+      return(Success);
+***************
+*** 109,129 ****
+      
+      ppm = (miPickMeasureStr *) (pRend->pickstr.pseudoPM)->deviceData;
+  
+      return(Success);
+  }
+  
+  ddpex3rtn
+! EndPickOne( pRend, pBuffer)
+  /* in */
+  ddRendererPtr       pRend;    /* renderer handle */
+  /* out */
+  ddBufferPtr     pBuffer;    /* list of pick element ref */
+  {
+      ddpex3rtn		err = Success;
+  
+!    /* JSH - to be filled in later with stuff that counts and
+!       returns the path from the pick measure 
+!   */
+    return(err);
+  }
+  
+--- 120,232 ----
+      
+      ppm = (miPickMeasureStr *) (pRend->pickstr.pseudoPM)->deviceData;
+  
++     if (!ppm->path) {
++ 	ppm->path = puCreateList(DD_PICK_PATH);
++ 	if (!ppm->path) {
++ 	    xfree(ppm);
++ 	    return (BadAlloc);
++ 	}
++     } else {
++ 	if (puCopyList(pRend->pickStartPath, ppm->path)) {
++ 	    puDeleteList(ppm->path);
++ 	    xfree(ppm);
++ 	    return (BadAlloc);
++ 	}
++     }
++     ppm->incl_handle = pRend->ns[DD_PICK_INCL_NS];
++     ppm->excl_handle = pRend->ns[DD_PICK_EXCL_NS];
++ 
++     if (ppm->incl_handle)
++ 	UpdateNSRefs(   ppm->incl_handle, (diResourceHandle) NULL,
++ 			PICK_RESOURCE, ADD);
++ 
++     if (ppm->excl_handle)
++ 	UpdateNSRefs(   ppm->excl_handle, (diResourceHandle) NULL,
++ 			PICK_RESOURCE, ADD);
++ 
++     /* now store the pick record */
++     ppm->type = pRec->pickType;
++     switch (ppm->type) {
++ 	case PEXPickDeviceDC_HitBox:
++ 	    bcopy((char *)&(pRec->hit_box.DC_HitBox), 
++ 	       	  (char *)&(ppm->input_rec.dc_hit_box), 
++ 		   sizeof(pexPD_DC_HitBox));
++             break;
++ 
++ 	case PEXPickDeviceNPC_HitVolume:
++ 	    bcopy((char *)&(pRec->hit_box.NPC_HitVolume), 
++ 	       	  (char *)&(ppm->input_rec.npc_hit_volume), 
++ 		   sizeof(pexPD_NPC_HitVolume));
++             break;
++     }
++ 
++ 
++     ppm->status = PEXNoPick;
++ 
+      return(Success);
+  }
+  
+  ddpex3rtn
+! EndPickOne( pRend, pBuffer, numPickElRefs, pickStatus, betterPick)
+  /* in */
+  ddRendererPtr       pRend;    /* renderer handle */
+  /* out */
+  ddBufferPtr     pBuffer;    /* list of pick element ref */
++ ddULONG         *numPickElRefs;
++ ddUSHORT        *pickStatus;
++ ddUSHORT        *betterPick;
+  {
+      ddpex3rtn		err = Success;
++     miPickMeasureStr    *ppm;
++     int                 numbytes, i;
++     ddPickPath          *per;
++     pexPickElementRef   *dest;
+  
+!     err = EndPicking(pRend, pRend->pickstr.pseudoPM);
+! 
+!     ppm = (miPickMeasureStr *) (pRend->pickstr.pseudoPM)->deviceData;
+!     *numPickElRefs = 0;
+!     *pickStatus = ppm->status;
+!     *betterPick = 0;
+! 
+!     if (ppm->status == PEXOk && ppm->path) {  /* we have a pick */
+! 
+! 	/* send back the number of objects */
+! 	*numPickElRefs = ppm->path->numObj;
+! 
+! 	/* Now, tack on the list of Element Refs to the back of the reply 
+! 	   Note that we do NOT include the length of the list. 
+! 	   The length is found in the reply itself. 
+! 	*/
+! 	numbytes = sizeof(ddPickPath) * ppm->path->numObj;
+! 
+! 	PU_CHECK_BUFFER_SIZE(pBuffer, numbytes); 
+! 	/* Copy the Pick Path to the buffer */
+! 	for (per = (ddPickPath*) ppm->path->pList,
+! 	     dest = (pexPickElementRef*) pBuffer->pBuf, i=0;
+! 	     i < ppm->path->numObj; per++, dest++, i++) {
+! 
+! 	     /* if returned structure handle is the fakeStr
+! 	        then the pick was on a path below an immediate OC
+! 	        so return the struct id the user sent over in the BeginPick
+! 	        request, otherwise return the resource ID as normal
+! 	     */
+! 	    if ((diStructHandle)(per->structure) == pRend->pickstr.fakeStr)
+! 	      dest->sid = pRend->pickstr.sid;
+! 	    else
+! 	      dest->sid = ((ddStructResource*)(per->structure))->id;
+! 	    dest->offset = per->offset;
+! 	    dest->pickid = per->pickid;
+! 	}
+! 
+! 	pBuffer->dataSize = numbytes; /* tells dipex how long the reply is  */
+!     }
+! 
+!     if (ppm->path) {
+! 	puDeleteList(ppm->path); 
+! 	ppm->path = NULL; 
+!     }
+! 
+    return(err);
+  }
+  
+***************
+*** 134,144 ****
+--- 237,257 ----
+  ddRendererPtr       pRend;    /* renderer handle */
+  {
+      ddpex3rtn		err = Success;
++     ddElementRange      range;
++     miStructPtr         pstruct;
+  
+      /* JSH this one uses the structure handle in prend->pickstr
+         and makes a fake ddElementRange so that it can call
+         RenderElements to render all elements in the structure
+     */
++ 
++    pstruct = (miStructPtr) (pRend->pickstr.strHandle)->deviceData;
++    range.position1.whence = PEXBeginning;
++    range.position1.offset = 1;
++    range.position2.whence = PEXBeginning;
++    range.position2.offset = MISTR_NUM_EL(pstruct);
++ 
++    err = RenderElements(pRend, pRend->pickstr.strHandle, &range);
+  
+    return(err);
+  }
+*** /tmp/da9499	Wed Aug 12 15:24:44 1992
+--- extensions/server/PEX/ddpex/mi/level4/miTraverse.c	Wed Aug 12 15:25:58 1992
+***************
+*** 1,6 ****
+! /* $XConsortium: miTraverse.c,v 5.1 91/02/16 09:56:05 rws Exp $ */
+  
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+--- 1,7 ----
+! /* $XConsortium: miTraverse.c,v 5.2 92/08/12 15:24:14 hersh Exp $ */
+  
+  
++ 
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+***************
+*** 178,184 ****
+--- 179,188 ----
+      ddPickPath		*pl;
+      ddElementRef	*sl;
+      int			zap;
++     miPPLevel		myPickLevel, *pp;
++     int			i;
+  
++ 
+      if (pPM)
+  	ppm = (miPickMeasureStr *) pPM->deviceData;
+      else
+***************
+*** 235,240 ****
+--- 239,254 ----
+  		if (go) {
+  
+  		    BeginStructure(pRend, p_next_str->id);
++ 
++ 		    /* build the pick path as we descend the hierarchy */
++ 		    if (pPM) {
++ 			myPickLevel.up = p_trav_state->p_pick_path;
++ 			myPickLevel.pp.structure = pStruct;
++ 			myPickLevel.pp.offset = currOffset;
++ 			myPickLevel.pp.pickid = pickId;
++ 			p_trav_state->p_pick_path = &myPickLevel;
++ 		    }
++ 
+  		    err = traverser(	pRend, p_next_str, (ddULONG) 1,
+  					MISTR_NUM_EL((miStructPtr) p_next_str->deviceData),
+  					pPM, pSC, p_trav_state);
+***************
+*** 243,270 ****
+  		}
+  
+  		/*
+! 		 * Now, if doing picking and a pick has happened, continue 
+! 		 * popping out of the traversal and setting the pick path.  These
+! 		 * assume that the obj list is large enough, and it should since
+! 		 * it was checked when the traversal ended and started popping
+! 		 * out of the recusion
+! 		 */
+! 		if (pPM && (p_trav_state->exec_str_flag == ES_POP)) {
+  
+- 		    pl = (ddPickPath *) ppm->path->pList;
+  
+- 		    if (ppm->pathOrder == PEXTopPart)
+- 			zap = depth -1;
+- 		    else	/* order is BottomPart */
+- 			zap = p_trav_state->max_depth - depth;
+- 
+- 		    pl[zap].structure = pStruct;
+- 		    pl[zap].offset = currOffset;
+- 		    pl[zap].pickid = pickId;
+- 
+- 		    return (Success);
+- 		}
+- 
+  		/* do the same for searching, replacing the start
+  		 * path with the found path 
+  		 */
+--- 257,270 ----
+  		}
+  
+  		/*
+! 		 * We built the candidate pick path when it was found. We
+! 		 * do nothing on the way out - except restore pointer.
+! 	       */
+! 	       if (pPM) {
+! 		   p_trav_state->p_pick_path = myPickLevel.up; 
+! 	       }
+  
+  
+  		/* do the same for searching, replacing the start
+  		 * path with the found path 
+  		 */
+***************
+*** 372,378 ****
+  		    }
+  		    if (pPM) {
+  			InquirePickStatus(pRend, &pickStatus, p_trav_state);
+- 			ppm->status = pickStatus;
+  			if (pickStatus == PEXOk) {
+  
+  			    pl = (ddPickPath *) ppm->path->pList;
+--- 372,377 ----
+***************
+*** 409,416 ****
+  			    pl[zap].offset = currOffset;
+  			    pl[zap].pickid = pickId;
+  
+! 			    p_trav_state->exec_str_flag = ES_POP;
+! 			    return (Success);
+  			}
+  		    }
+  		}
+--- 408,430 ----
+  			    pl[zap].offset = currOffset;
+  			    pl[zap].pickid = pickId;
+  
+! 			    /*
+! 			     * we want to continue on, so we do not want to
+! 			     * pop off to use the recursion.
+! 			     * follow the linked list down
+! 			     */
+! 			    pp = p_trav_state->p_pick_path;
+! 			    for (i = depth-1; i > 0; i-- ) {		
+! 			       if (ppm->pathOrder == PEXTopPart)
+! 				   zap = i - 1;
+! 			       else	
+! 				   zap = p_trav_state->max_depth - i;
+! 			      
+! 			       pl[zap] = pp->pp; /* structure assignment */
+! 			       pp = pp->up;
+! 			    }
+! 			    ppm->status = pickStatus;
+! 
+  			}
+  		    }
+  		}
+*** /tmp/da9532	Wed Aug 12 15:24:47 1992
+--- extensions/server/PEX/ddpex/mi/level4/miPick.c	Wed Aug 12 15:25:48 1992
+***************
+*** 1,6 ****
+! /* $XConsortium: miPick.c,v 5.5 92/04/15 15:51:19 hersh Exp $ */
+  
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+--- 1,7 ----
+! /* $XConsortium: miPick.c,v 5.6 92/08/12 15:24:05 hersh Exp $ */
+  
+  
++ 
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+***************
+*** 475,489 ****
+  	    	pstr = pos->pstruct;
+  	    	num_els = MISTR_NUM_EL((miStructPtr) pstr->deviceData);
+  		}
+- 	if ((err != Success) || (trav_state.exec_str_flag == ES_POP))
+- 	    /* pop after a successful pick */
+- 	    break;
+      } while (pos);
+  
+      EndPicking(pwks->pRend);
+  
+!     if (err == Success ) {
+!     /* now, update the structure ref counts */
+          path_update_struct_refs(ppm->path, (diResourceHandle) NULL,
+  				PICK_RESOURCE, ADD);
+      } else {
+--- 476,487 ----
+  	    	pstr = pos->pstruct;
+  	    	num_els = MISTR_NUM_EL((miStructPtr) pstr->deviceData);
+  		}
+      } while (pos);
+  
+      EndPicking(pwks->pRend);
+  
+!     if (ppm->status == PEXOk) {
+!       /* now, update the structure ref counts */
+          path_update_struct_refs(ppm->path, (diResourceHandle) NULL,
+  				PICK_RESOURCE, ADD);
+      } else {
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

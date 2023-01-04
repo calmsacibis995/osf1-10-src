@@ -1,0 +1,734 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! FILE:	ddif_wgt.uil
+!
+! COPYRIGHT (C) 1989, 1992
+! DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASSACHUSETTS 01754
+!
+! THIS SOFTWARE IS FURNISHED  UNDER A LICENSE FOR USE ONLY ON A SINGLE
+! COMPUTER  SYSTEM AND  MAY BE  COPIED ONLY WITH  THE INCLUSION OF THE
+! ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE, OR ANY OTHER COPIES THEREOF,
+! MAY NOT BE PROVIDED OR  OTHERWISE MADE AVAILABLE TO ANY OTHER PERSON
+! EXCEPT FOR USE ON SUCH SYSTEM AND TO ONE WHO AGREES TO THESE LICENSE
+! TERMS.  TITLE TO AND  OWNERSHIP OF THE  SOFTWARE  SHALL AT ALL TIMES
+! REMAIN IN DEC.
+!
+! THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE
+! AND SHOULD  NOT BE CONSTRUED  AS A COMMITMENT  BY DIGITAL  EQUIPMENT
+! CORPORATION.
+!
+! DEC ASSUMES  NO  RESPONSIBILITY  FOR  THE USE OR  RELIABILITY OF ITS
+! SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DEC.
+!
+!++
+! FACILITY:
+!	DVR: CDA (DDIF) VIEWER WIDGET
+!
+! ABSTRACT:
+!	This is the uil file used to create the cda (ddif) viewer widget;
+!	It does not contain any translatable text; It includes the following
+!	files:
+!		dvrwgtcn.uil	non text constants (may need translating)
+!		dvrwgttx.uil	text constants (needs translating)
+!		dvrwgttr.uil	translation tables (does not need translating)
+!
+! ENVIRONMENT:
+!	UIL
+!
+! AUTHOR:	Dennis McEvoy		CREATION DATE:	    29-MAR-1989
+!
+! MODIFICATION HISTORY:
+!
+!	NAME		DATE		REASON
+!	----		----		------
+!	dam		5/2/89		split include file into three separates
+!	dam		5/17/89	 	use font units for goto dialog box (in
+!					   case of different dpi screens)
+!					do not have pixmap pushbuttons conform
+!					   to contents in case they have to grow
+!					   on different dpi screens.
+!	dam		10/19/89	add ps viewing smarts
+!	sjm		 6/15/90	convert to Motif
+!	sjm		 8/02/90	Put gadgets back (They're fixed in BL5)
+!	sjm		10/05/90	Merge in CBR changes by Charlie Chan
+!	dam		 2/05/91	add additional help callbacks
+!	dam		 2/17/91	fix translations for bulletin boards
+!					to properly handle help
+!	dam		 3/11/91	make dialog box cancel buttons active
+!					on F11
+!	dam		 3/11/91	turn on traversal
+!	dam		 3/28/91	switch to Xm scrollwindow for ps viewing
+!	sjm		 4/ 8/91	switched from widgets to gadgets where possible
+!	dam		 5/23/91	switch bulletin boards to forms to
+!					allow translation
+!	dam		 8/06/91	rename includes
+!	ecr		 3/30/92	merge in audio code
+!
+module dvr_wgt
+	version = 'v2.0'
+	names   = case_sensitive
+
+	objects =
+	  {
+	    XmLabel 	   = gadget;
+	    XmPushButton   = gadget;
+	    XmSeparator    = gadget;
+	    XmToggleButton = gadget;
+	    XmCascadeButton= gadget;
+	  }
+
+
+include file 'XmAppl.uil';
+include file 'dvrwgtcn.uil';
+include file 'dvrwgttx.uil';
+include file 'dvrwgttr.uil';
+include file 'DXmXlatText.uil';
+include file 'DXmXlatArg.uil';
+
+
+
+!*******************************************************************************
+!									       *
+!			     Procedure Declarations			       *
+!									       *
+!*******************************************************************************
+
+procedure
+
+!
+! This is the Viewer widget creation routine
+!
+	dvr_call_help_proc ();
+	dvr_cancel_view_proc();
+	dvr_create_proc(integer);
+	dvr_goto_entered_proc();
+	dvr_message_cb_proc();
+	dvr_page_cb_proc(integer);
+	dvr_scroll_action_proc();
+	DvrViewerCreateDRM();
+	PSViewWidgetCreate();
+!START AUDIO STUFF
+	dvr_audio_button_cb();
+        dvr_audio_toggle_cb();
+!END AUDIO STUFF
+
+
+
+
+object
+
+!*******************************************************************************
+!  Object:		viewer_widget                                          *
+!  Type:		user_defined					       *
+!  Purpose:		main viewer widget               		       *
+!  Usage:		fectched from DvrViewerCreate()			       *
+!*******************************************************************************
+
+    viewer_widget : user_defined procedure DvrViewerCreateDRM {
+	arguments {
+	    XmNtraversalOn = true;
+	};
+	controls {
+	    XmBulletinBoard 	work_area;
+	    XmScrollBar		h_scroll;
+	    XmScrollBar  	v_scroll;
+	    XmBulletinBoard	button_box;
+       	};
+	callbacks {
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		work_area				               *
+!  Type:		XmBulletinBoard					       *
+!  Purpose:		work area window for viewer	       	               *
+!  Usage:		child of viewer_widget 				       *
+!*******************************************************************************
+
+    work_area : XmBulletinBoard {
+	arguments {
+	    XmNtranslations 	= work_trans_tbl;
+	    XmNunitType 	= XmPIXELS;
+	    XmNresizePolicy	= XmRESIZE_NONE;
+	    XmNtraversalOn 	= true;
+	};
+	callbacks {
+	   MrmNcreateCallback = procedure dvr_create_proc (k_work_area);
+	   XmNhelpCallback    = procedure dvr_call_help_proc ();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		h_scroll				               *
+!  Type:		XmScrollBar					       *
+!  Purpose:		horizontal scroll bar for viewer		       *
+!			note: if the widget is requested to be created without *
+!			      a scroll bar, the scroll bar is created anyway   *
+!			      and then destroyed in dvr_create_proc()	       *
+!  Usage:		child of viewer_widget 				       *
+!*******************************************************************************
+
+    h_scroll : XmScrollBar {
+	arguments {
+	    XmNorientation 	= XmHORIZONTAL;
+!	    XmNincrement 	= dvr$scroll_inc;		! Removed since Motif doesn't like zero's and due
+!	    XmNpageIncrement 	= dvr$scroll_pg_inc;		! to the fact that we set these values in DVR$ACTIONS.
+	    XmNvalue 		= dvr$scroll_value;
+	    XmNsliderSize 	= dvr$scroll_shown;
+	    XmNmaximum 		= dvr$scroll_max_value;
+	    XmNtraversalOn 	= true;
+	};
+	callbacks {
+	    XmNincrementCallback 	= procedure dvr_scroll_action_proc();
+	    XmNdecrementCallback 	= procedure dvr_scroll_action_proc();
+	    XmNpageIncrementCallback 	= procedure dvr_scroll_action_proc();
+	    XmNpageDecrementCallback 	= procedure dvr_scroll_action_proc();
+	    XmNtoTopCallback   	  	= procedure dvr_scroll_action_proc();
+	    XmNtoBottomCallback 	= procedure dvr_scroll_action_proc();
+	    XmNvalueChangedCallback 	= procedure dvr_scroll_action_proc();
+	    MrmNcreateCallback 	  	= procedure dvr_create_proc (k_h_scroll);
+	    XmNhelpCallback	    	= procedure dvr_call_help_proc ();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		v_scroll				               *
+!  Type:		XmScrollBar					       *
+!  Purpose:		vertical scroll bar for viewer			       *
+!			note: if the widget is requested to be created without *
+!			      a scroll bar, the scroll bar is created anyway   *
+!			      and then destroyed in dvr_create_proc()	       *
+!  Usage:		child of viewer_widget 				       *
+!*******************************************************************************
+
+    v_scroll : XmScrollBar {
+	arguments {
+!	    XmNincrement 	= dvr$scroll_inc;		! Removed since Motif doesn't like zero's and due
+!	    XmNpageIncrement 	= dvr$scroll_pg_inc;		! to the fact that we set these values in DVR$ACTIONS.
+	    XmNvalue 		= dvr$scroll_value;
+	    XmNsliderSize 	= dvr$scroll_shown;
+	    XmNmaximum 		= dvr$scroll_max_value;
+	    XmNtraversalOn 	= true;
+	};
+	callbacks {
+	    XmNincrementCallback 	  = procedure dvr_scroll_action_proc();
+	    XmNdecrementCallback 	  = procedure dvr_scroll_action_proc();
+	    XmNpageIncrementCallback 	  = procedure dvr_scroll_action_proc();
+	    XmNpageDecrementCallback 	  = procedure dvr_scroll_action_proc();
+	    XmNtoTopCallback   	  	  = procedure dvr_scroll_action_proc();
+	    XmNtoBottomCallback 	  = procedure dvr_scroll_action_proc();
+	    XmNvalueChangedCallback 	  = procedure dvr_scroll_action_proc();
+	    MrmNcreateCallback 	  	  = procedure dvr_create_proc (k_v_scroll);
+	    XmNhelpCallback   		  = procedure dvr_call_help_proc ();
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		ps_win					               *
+!  Type:		user_defined postscript previewer widget	       *
+!  Purpose:		display postscript in viewer			       *
+!  Usage:		child of ps_scroll_w 				       *
+!*******************************************************************************
+
+    ps_win:  user_defined procedure PSViewWidgetCreate {
+	arguments {
+	    argument("pixmapCacheSize") = 2;
+	    XmNtraversalOn 		= true;
+	};
+        callbacks {
+	     MrmNcreateCallback = procedure dvr_create_proc (k_ps_window);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		ps_scroll_w				               *
+!  Type:		XmScrolledWindow
+!  Purpose:		hold ps widget, provide scrolling		       *
+!  Usage:		child of viewer_widget 				       *
+!			gets fetched as a child of the viewer if user selects  *
+!			PS format, normal display window gets unmanaged	       *
+!*******************************************************************************
+
+    ps_scroll_w: XmScrolledWindow {
+    	arguments {
+	    XmNworkWindow		  = user_defined ps_win;
+	    XmNtraversalOn 		  = true;
+	    XmNscrollingPolicy		  = XmAUTOMATIC;
+	    XmNscrollBarDisplayPolicy     = XmSTATIC;
+	    XmNscrolledWindowMarginHeight = 0;
+	    XmNscrolledWindowMarginWidth  = 0;
+	    XmNspacing			  = 0;
+    	};
+    	controls {
+            user_defined ps_win;
+	};
+    };
+
+
+
+!*******************************************************************************
+!  Object:		button_box				               *
+!  Type:		XmBulletinBoard					       *
+!  Purpose:		button box for viewer				       *
+!  Usage:		child of viewer_widget 				       *
+!*******************************************************************************
+
+    button_box : XmBulletinBoard {
+	arguments {
+	    XmNtranslations 	 = bbox_trans_tbl;
+	    XmNunitType 	 = XmPIXELS;
+	    XmNresizePolicy	 = XmRESIZE_ANY;	! was XmRESIZE_NONE
+	    XmNtraversalOn 	 = true;
+	};
+	controls {
+	    XmPushButton goto_page_but;
+	    XmPushButton top_doc_but;
+	    XmPushButton prev_page_but;
+	    XmPushButton next_page_but;
+	    XmPushButton bot_doc_but;
+	    XmLabel	 page_of_label;
+!BEGIN AUDIO STUFF
+           !XmToggleButton audio_toggle;    !Toggle gadget doesn't work!
+	    ! XmPushButton audio_toggle;    ! audoe not supported in Sterling
+!END AUDIO STUFF
+       	};
+	callbacks {
+	    MrmNcreateCallback = procedure dvr_create_proc (k_button_box);
+	    XmNhelpCallback    = procedure dvr_call_help_proc ();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		top_doc_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to go to top of document		       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    top_doc_but : XmPushButton widget {			! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= top_icon;
+	    XmNlabelInsensitivePixmap   = top_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize		= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    MrmNcreateCallback   = procedure dvr_create_proc  (k_top_button);
+	    XmNactivateCallback  = procedure dvr_page_cb_proc (k_top_doc);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		prev_page_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to go to previous page of document	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    prev_page_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= prev_icon;
+	    XmNlabelInsensitivePixmap   = prev_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize     	= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc  (k_prev_button);
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_prev_pg);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		goto_page_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to go to any page of document	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    goto_page_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelString = dvr$goto_pg_label;
+	    XmNsensitive   = false;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc  (k_goto_button);
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_goto_pg);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		next_page_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to go to next page of document	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    next_page_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= next_icon;
+	    XmNlabelInsensitivePixmap   = next_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize		= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc  (k_next_button);
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_next_pg);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		bot_doc_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to go to bottom of document		       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    bot_doc_but : XmPushButton widget {			! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= bot_icon;
+	    XmNlabelInsensitivePixmap   = bot_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize		= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc  (k_bot_button);
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_bot_doc);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		page_of_label				               *
+!  Type:		XmLabel						       *
+!  Purpose:		XmLabel the viewer with the current page #	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    page_of_label : XmLabel widget{			! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelString   = dvr$page_of_label;
+	    XmNalignment     = XmALIGNMENT_BEGINNING;	/* The default changed to center at BL5  */
+	    XmNrecomputeSize = true;			/* claims to be the default but it isn't */
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure dvr_create_proc (k_page_label);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		ps_cancel_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		created unmanaged so we can get it's pixmap	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    ps_cancel_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelString 	= dvr$ps_cancel_label;
+	    XmNsensitive 	= false;
+	    XmNtraversalOn 	= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure dvr_cancel_view_proc ();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		ps_scale_lbl				               *
+!  Type:		XmLabel						       *
+!  Purpose:		label the current scale factor for the viewer	       *
+!  Usage:		fetched as a child of button_box when viewing ps       *
+!*******************************************************************************
+
+    ps_scale_lbl : XmLabel widget {			! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelString = dvr$ps_scale_label;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		goto_dialog_ok_but			               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to ok goto page #			       *
+!  Usage:		child of goto_dialog				       *
+!*******************************************************************************
+
+    goto_dialog_ok_but : XmPushButton {
+	arguments {
+	    XmNlabelString 	= dvr$goto_ok_label;
+	    XmNtraversalOn 	= true;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset 	= dvr$goto_ok_x;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc(k_goto_ok);
+	    XmNactivateCallback = procedure dvr_goto_entered_proc();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		goto_dialog				               *
+!  Type:		XmBulletinBoardDialog				       *
+!  Purpose:		allow user to enter page # to go to		       *
+!  Usage:		fetched upon user clicking goto_pg button	       *
+!*******************************************************************************
+
+    goto_dialog : XmFormDialog {
+	arguments {
+	    XmNdefaultPosition 	= true;
+	    XmNdialogStyle 	= XmDIALOG_MODELESS;
+	    XmNdialogTitle   	= dvr$goto_dialog_title;	! was titleString
+	    XmNmarginWidth   	= dvr$goto_dialog_mwidth;
+	    XmNmarginHeight  	= dvr$goto_dialog_mheight;
+!	    take_focus 	   	= true;
+	    XmNdefaultButton 	= XmPushButton goto_dialog_ok_but;
+	    XmNcancelButton 	= XmPushButton goto_dialog_cancel_but;
+	    XmNtraversalOn 	= true;
+	};
+	controls {
+	    XmPushButton goto_dialog_ok_but;
+	    XmPushButton goto_dialog_cancel_but;
+	    XmLabel	 goto_dialog_text_label;
+	    XmText 	 goto_dialog_text_box;
+	};
+	callbacks {
+	};
+    };
+
+!*******************************************************************************
+!  Object:		goto_dialog_cancel_but			               *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to cancel page #			       *
+!  Usage:		child of goto_dialog				       *
+!*******************************************************************************
+
+    goto_dialog_cancel_but : XmPushButton {
+	arguments {
+	    XmNlabelString 	= dvr$goto_cancel_label;
+	    XmNtraversalOn 	= true;
+	    XmNbottomAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmPushButton goto_dialog_ok_but;
+	    XmNleftOffset	= dvr$goto_dialog_mwidth;
+	};
+	callbacks {
+	    MrmNcreateCallback  = procedure dvr_create_proc(k_goto_cancel);
+	    XmNactivateCallback = procedure dvr_goto_entered_proc();
+	};
+    };
+
+!*******************************************************************************
+!  Object:		goto_dialog_text_label			               *
+!  Type:		XmLabel						       *
+!  Purpose:		label page number entry box			       *
+!  Usage:		child of goto_dialog				       *
+!*******************************************************************************
+
+    goto_dialog_text_label : XmLabel {
+	arguments {
+	    XmNlabelString 	= dvr$goto_txt_label_label;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNtopOffset	= dvr$goto_txt_label_y;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	};
+    };
+
+!*******************************************************************************
+!  Object:		goto_dialog_text_box			               *
+!  Type:		XmText						       *
+!  Purpose:		page number entry box				       *
+!  Usage:		child of goto_dialog				       *
+!*******************************************************************************
+
+    goto_dialog_text_box : XmText {
+	arguments {
+	    XmNcolumns 		= dvr$goto_txt_box_cols;
+	    XmNrows 		= dvr$goto_txt_box_rows;
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel goto_dialog_text_label;
+	    XmNleftOffset	= dvr$goto_dialog_mwidth;
+	    XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget	= XmPushButton goto_dialog_ok_but;
+	    XmNbottomOffset	= dvr$goto_dialog_mheight;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure dvr_create_proc(k_goto_text);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		dvr_message				               *
+!  Type:		XmInformationDialog				       *
+!  Purpose:		display invalid page number message		       *
+!  Usage:		fetched upon a bogus number entered in goto-page box   *
+!*******************************************************************************
+
+    dvr_message : XmInformationDialog {
+	arguments {
+	    arguments 		message_box_args;
+
+	    XmNwidth		= dvr$message_width;
+	    XmNheight		= dvr$message_height;
+	    XmNdialogStyle 	= XmDIALOG_APPLICATION_MODAL;
+	    XmNmessageString 	= dvr$message_label;
+	    XmNdefaultPosition 	= true;
+	    XmNdialogTitle 	= dvr$message_title;		! was titleString
+	    XmNtraversalOn      = true;
+	    };
+	callbacks {
+	    XmNokCallback      = procedure dvr_message_cb_proc();
+	    XmNhelpCallback    = procedure dvr_call_help_proc ();
+    	};
+    };
+
+
+
+! cbr stuff
+!*******************************************************************************
+!  Object:		prev_ref_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		created unmanaged so we can get it's pixmap	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    prev_ref_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= prev_ref_icon;
+	    XmNlabelInsensitivePixmap	= prev_ref_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize     	= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_prev_ref);
+	};
+    };
+
+
+! cbr stuff
+!*******************************************************************************
+!  Object:		next_ref_but				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		created unmanaged so we can get it's pixmap	       *
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+
+    next_ref_but : XmPushButton widget {		! Changing this to Gadget causes problems 4/8/91
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= next_ref_icon;
+	    XmNlabelInsensitivePixmap	= next_ref_grey_icon;
+	    XmNsensitive		= false;
+	    XmNrecomputeSize		= false;
+	    XmNtraversalOn 		= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure dvr_page_cb_proc (k_next_ref);
+	};
+    };
+
+!BEGIN AUDIO CHANGES
+
+!*******************************************************************************
+!  Object:		audio_button				               *
+!  Type:		XmPushButton					       *
+!  Purpose:		Plays a audio segment.                     	       *
+!  Usage:		child of work_area 				       *
+!*******************************************************************************
+object
+    audio_button: XmPushButton widget 
+        {
+        arguments
+            {
+            XmNwidth = 38;
+            XmNheight = 38;
+            XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = audio_button_icon;
+	    XmNsensitive		= true;
+            XmNmultiClick = XmMULTICLICK_DISCARD;
+	    };
+        };
+
+!*******************************************************************************
+!  Object:		audio_toggle				               *
+!  Type:		XmToggleButton					       *
+!  Purpose:		Makes the audio buttons visible/invisible
+!  Usage:		child of button_box 				       *
+!*******************************************************************************
+object
+    !audio_toggle: XmToggleButton
+    !    {
+    !    arguments
+    !        {
+    !        XmNindicatorOn = false;
+    !        XmNlabelType = XmPIXMAP;
+    !	    XmNlabelPixmap = audio_x_icon;
+    !	    XmNselectPixmap = audio_button_icon;
+    !	    XmNrecomputeSize		= false;
+    !        XmNset = false;
+    !        };
+    !    callbacks
+    !        {
+    !        XmNvalueChangedCallback = procedure dvr_audio_toggle_cb();
+    !	    MrmNcreateCallback = procedure dvr_create_proc(k_audio_toggle);
+    !        };
+    !    };
+    audio_toggle: XmPushButton widget {
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap 		= audio_greyx_icon;
+	    XmNsensitive		= true;
+	    XmNrecomputeSize     	= false;
+	    XmNtraversalOn 		= true;	
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure dvr_audio_toggle_cb();
+            MrmNcreateCallback = procedure dvr_create_proc(k_audio_toggle);
+	};
+    };
+
+!END AUDIO STUFF
+end module;

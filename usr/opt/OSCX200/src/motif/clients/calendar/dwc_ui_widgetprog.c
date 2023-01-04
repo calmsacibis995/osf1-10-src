@@ -1,0 +1,2 @@
+/* Obsolete file */
+static foo () {}

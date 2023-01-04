@@ -1,0 +1,2640 @@
+Path: news!news.crl.dec.com!rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9210202152.AA26384@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2706) close XBUG #4681, #5273, #5464, #5465, #5583, #5590, #5591: server bugs & enhancements
+Date: Tue, 20 Oct 92 17:52:07 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+WARNING: This file includes server changes in support of the BIG-REQUESTS
+extension (but not the extension itself).  It is possible that some of
+the macro rewrites will break some of your extensions, but I hope not.
+
+Even if your extensions compile, they won't necessarily be fully in
+support of big requests without code examination.  Specifically,
+references to "stuff->length" to get the request length need to be
+changed to "client->req_len".  If you don't change this, your code
+will still work correctly in the absence of big-requests, so there
+is no urgency to make such source changes at the time you apply this
+patch.
+
+
+Subject: server: manual page -once should be -terminate
+### bug number:   4681
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: should report to console when a connection is rejected
+### bug number:   5273
+### area:         server
+### severity:     enhancement
+### comments:     
+
+Subject: server: utils.c:GiveUp() needs an argument
+### bug number:   5464
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: CloseDownConnection is declared a Bool in os.h
+### bug number:   5465
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: utils.c: Add Xstrdup and declare AutoResetServer correctly
+### bug number:   5583
+### area:         server
+### severity:     low
+### comments:     Xstrdup not taken
+
+Subject: server: need way to turn off test extensions
+### bug number:   5590
+### area:         server
+### severity:     enhancement
+### comments:     
+
+Subject: server: internal support for BIG-REQUESTS extension
+### bug number:   5591
+### area:         server
+### severity:     enhancement
+### comments:     
+
+*** /tmp/d20058	Tue Oct 20 09:36:36 1992
+--- server/Xserver.man	Tue Oct 20 09:33:12 1992
+***************
+*** 1,4 ****
+! .\" $XConsortium: Xserver.man,v 1.44 92/02/25 10:24:47 rws Exp $
+  .TH XSERVER 1 "Release 5"  "X Version 11"
+  .SH NAME
+  Xserver \- X Window System server
+--- 1,4 ----
+! .\" $XConsortium: Xserver.man,v 1.47 92/10/20 09:33:04 rws Exp $
+  .TH XSERVER 1 "Release 5"  "X Version 11"
+  .SH NAME
+  Xserver \- X Window System server
+***************
+*** 57,62 ****
+--- 57,68 ----
+  Use with extreme caution.
+  This option exists primarily for running test suites remotely.
+  .TP 8
++ .B \-audit \fIlevel\fP
++ Sets the audit trail level.  The default level is 1, meaning only connection
++ rejections are reported.  Level 2 additionally reports all successful
++ connections and disconnects.  Level 0 turns off the audit trail.
++ Audit lines are sent as standard error output.
++ .TP 8
+  .B \-auth \fIauthorization-file\fP
+  Specifies a file which contains a collection of authorization records used
+  to authenticate access.  See also the \fIxdm\fP and \fIXsecurity\fP manual
+***************
+*** 84,89 ****
+--- 90,98 ----
+  .B \-co \fIfilename\fP
+  sets name of RGB color database.
+  .TP 8
++ .B \-core
++ causes the server to generate a core dump on fatal errors.
++ .TP 8
+  .B \-dpi \fIresolution\fP
+  sets the resolution of the screen, in dots per inch.
+  To be used when the server cannot determine the screen size from the hardware.
+***************
+*** 136,141 ****
+--- 145,154 ----
+  .B \-p \fIminutes\fP
+  sets screen-saver pattern cycle time in minutes.
+  .TP 8
++ .B \-pn
++ permits the server to continue running if it fails to establish all of
++ its well-known sockets, but establishes at least one.
++ .TP 8
+  .B \-r
+  turns off auto-repeat.
+  .TP 8
+***************
+*** 152,160 ****
+--- 165,179 ----
+  sets pointer acceleration threshold in pixels (i.e. after how many pixels
+  pointer acceleration should take effect).
+  .TP 8
++ .B \-terminate
++ causes the server to terminate at server reset, instead of continuing to run.
++ .TP 8
+  .B \-to \fIseconds\fP
+  sets default connection timeout in seconds.
+  .TP 8
++ .B \-tst
++ disables all testing extensions (e.g., XTEST, XTrap, XTestExtension1).
++ .TP 8
+  .B tty\fIxx\fP
+  ignored, for servers started the ancient way (from init).
+  .TP 8
+***************
+*** 193,202 ****
+  .B \-port \fIport-num\fP
+  Use an alternate port number for XDMCP packets.  Must be specified before
+  any \-query, \-broadcast or \-indirect options.
+- .TP 8
+- .B \-once
+- Normally, the server keeps starting sessions, one after the other.  This
+- option makes the server exit after the first session is over.
+  .TP 8
+  .B \-class \fIdisplay-class\fP
+  XDMCP has an additional display qualifier used in resource lookup for
+--- 212,217 ----
+*** /tmp/da1768	Mon Oct 19 21:42:43 1992
+--- server/include/dixstruct.h	Fri Aug 21 19:26:12 1992
+***************
+*** 22,28 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dixstruct.h,v 1.16 92/03/13 15:39:45 rws Exp $ */
+  
+  #ifndef DIXSTRUCT_H
+  #define DIXSTRUCT_H
+--- 22,28 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dixstruct.h,v 1.17 92/08/21 19:26:00 rws Exp $ */
+  
+  #ifndef DIXSTRUCT_H
+  #define DIXSTRUCT_H
+***************
+*** 68,73 ****
+--- 68,75 ----
+      int         numSaved;
+      pointer     screenPrivate[MAXSCREENS];
+      int         (**requestVector) ();
++     unsigned long req_len;		/* length of current request */
++     Bool	big_requests;		/* supports large requests */
+  
+  #ifdef DEBUG
+      unsigned char requestLog[MAX_REQUEST_LOG];
+*** /tmp/d20079	Tue Oct 20 09:36:54 1992
+--- server/include/os.h	Tue Oct 20 09:28:17 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: os.h,v 1.46 92/02/13 15:57:26 keith Exp $ */
+  
+  #ifndef OS_H
+  #define OS_H
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: os.h,v 1.48 92/10/20 09:27:53 rws Exp $ */
+  
+  #ifndef OS_H
+  #define OS_H
+***************
+*** 42,47 ****
+--- 42,50 ----
+  #ifndef MAX_REQUEST_SIZE
+  #define MAX_REQUEST_SIZE 65535
+  #endif
++ #ifndef MAX_BIG_REQUEST_SIZE
++ #define MAX_BIG_REQUEST_SIZE 1048575
++ #endif
+  
+  typedef pointer	FID;
+  typedef struct _FontPathRec *FontPathPtr;
+***************
+*** 114,120 ****
+  #endif
+  
+  int		ReadRequestFromClient();
+! Bool		CloseDownConnection();
+  FontPathPtr	ExpandFontNamePattern();
+  FID		FiOpenForRead();
+  void		CreateWellKnownSockets();
+--- 117,123 ----
+  #endif
+  
+  int		ReadRequestFromClient();
+! void		CloseDownConnection();
+  FontPathPtr	ExpandFontNamePattern();
+  FID		FiOpenForRead();
+  void		CreateWellKnownSockets();
+*** /tmp/da2190	Mon Oct 19 21:42:56 1992
+--- server/include/dix.h	Fri Aug 21 19:24:32 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dix.h,v 1.61 91/11/20 14:50:30 keith Exp $ */
+  
+  #ifndef DIX_H
+  #define DIX_H
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dix.h,v 1.62 92/08/21 19:24:23 rws Exp $ */
+  
+  #ifndef DIX_H
+  #define DIX_H
+***************
+*** 39,54 ****
+  
+  
+  #define REQUEST_SIZE_MATCH(req)\
+!     if ((sizeof(req) >> 2) != stuff->length)\
+           return(BadLength)
+  
+  #define REQUEST_AT_LEAST_SIZE(req) \
+!     if ((sizeof(req) >> 2) > stuff->length )\
+           return(BadLength)
+  
+  #define REQUEST_FIXED_SIZE(req, n)\
+!     if (((sizeof(req) >> 2) > stuff->length) || \
+!         (((sizeof(req) + (n) + 3) >> 2) != stuff->length)) \
+           return(BadLength)
+  
+  #define LEGAL_NEW_RESOURCE(id,client)\
+--- 39,54 ----
+  
+  
+  #define REQUEST_SIZE_MATCH(req)\
+!     if ((sizeof(req) >> 2) != client->req_len)\
+           return(BadLength)
+  
+  #define REQUEST_AT_LEAST_SIZE(req) \
+!     if ((sizeof(req) >> 2) > client->req_len )\
+           return(BadLength)
+  
+  #define REQUEST_FIXED_SIZE(req, n)\
+!     if (((sizeof(req) >> 2) > client->req_len) || \
+!         (((sizeof(req) + (n) + 3) >> 2) != client->req_len)) \
+           return(BadLength)
+  
+  #define LEGAL_NEW_RESOURCE(id,client)\
+*** /tmp/da2392	Mon Oct 19 21:43:03 1992
+--- server/include/misc.h	Fri Aug 21 19:30:37 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: misc.h,v 1.58 91/04/10 08:53:39 rws Exp $ */
+  #ifndef MISC_H
+  #define MISC_H 1
+  /*
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: misc.h,v 1.59 92/08/21 19:30:27 rws Exp $ */
+  #ifndef MISC_H
+  #define MISC_H 1
+  /*
+***************
+*** 109,121 ****
+  /* some macros to help swap requests, replies, and events */
+  
+  #define LengthRestB(stuff) \
+!     (((unsigned long)stuff->length << 2) - sizeof(*stuff))
+  
+  #define LengthRestS(stuff) \
+!     (((unsigned long)stuff->length << 1) - (sizeof(*stuff) >> 1))
+  
+  #define LengthRestL(stuff) \
+!     ((unsigned long)stuff->length - (sizeof(*stuff) >> 2))
+  
+  #define SwapRestS(stuff) \
+      SwapShorts((short *)(stuff + 1), LengthRestS(stuff))
+--- 109,121 ----
+  /* some macros to help swap requests, replies, and events */
+  
+  #define LengthRestB(stuff) \
+!     ((client->req_len << 2) - sizeof(*stuff))
+  
+  #define LengthRestS(stuff) \
+!     ((client->req_len << 1) - (sizeof(*stuff) >> 1))
+  
+  #define LengthRestL(stuff) \
+!     (client->req_len - (sizeof(*stuff) >> 2))
+  
+  #define SwapRestS(stuff) \
+      SwapShorts((short *)(stuff + 1), LengthRestS(stuff))
+*** /tmp/da2820	Mon Oct 19 21:43:21 1992
+--- server/dix/main.c	Fri Aug 21 19:29:57 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: main.c,v 5.18 92/04/20 17:34:41 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xproto.h"
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: main.c,v 5.20 92/08/21 19:29:46 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xproto.h"
+***************
+*** 178,195 ****
+  	    serverClient = (ClientPtr)xalloc(sizeof(ClientRec));
+  	    if (!serverClient)
+  		FatalError("couldn't create server client");
+!             serverClient->sequence = 0;
+!             serverClient->closeDownMode = RetainPermanent;
+!             serverClient->clientGone = FALSE;
+!             serverClient->lastDrawable = (DrawablePtr)NULL;
+! 	    serverClient->lastDrawableID = INVALID;
+!             serverClient->lastGC = (GCPtr)NULL;
+! 	    serverClient->lastGCID = INVALID;
+! 	    serverClient->numSaved = 0;
+! 	    serverClient->saveSet = (pointer *)NULL;
+! 	    serverClient->index = 0;
+! 	    serverClient->clientAsMask = (Mask)0;
+! 	    serverClient->noClientException = Success;
+  	}
+  	else
+  	    ResetWellKnownSockets ();
+--- 178,184 ----
+  	    serverClient = (ClientPtr)xalloc(sizeof(ClientRec));
+  	    if (!serverClient)
+  		FatalError("couldn't create server client");
+! 	    InitClient(serverClient, 0, (pointer)NULL);
+  	}
+  	else
+  	    ResetWellKnownSockets ();
+***************
+*** 240,246 ****
+  	    FatalError("failed to initialize core devices");
+  
+  	InitFonts ();
+! 	if (SetDefaultFontPath(defaultFontPath, &i) != Success)
+  	    ErrorF("failed to set default font path '%s'", defaultFontPath);
+  	if (!SetDefaultFont(defaultTextFont))
+  	    FatalError("could not open default font '%s'", defaultTextFont);
+--- 229,235 ----
+  	    FatalError("failed to initialize core devices");
+  
+  	InitFonts ();
+! 	if (SetDefaultFontPath(defaultFontPath) != Success)
+  	    ErrorF("failed to set default font path '%s'", defaultFontPath);
+  	if (!SetDefaultFont(defaultTextFont))
+  	    FatalError("could not open default font '%s'", defaultTextFont);
+*** /tmp/da3337	Mon Oct 19 21:43:40 1992
+--- server/dix/devices.c	Fri Aug 21 19:22:04 1992
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.23 91/12/10 11:24:05 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.24 92/08/21 19:21:52 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 777,784 ****
+      
+      REQUEST_AT_LEAST_SIZE(xSetModifierMappingReq);
+  
+!     if (stuff->length != ((stuff->numKeyPerModifier<<1) +
+! 			  (sizeof (xSetModifierMappingReq)>>2)))
+  	return BadLength;
+  
+      inputMapLen = 8*stuff->numKeyPerModifier;
+--- 777,784 ----
+      
+      REQUEST_AT_LEAST_SIZE(xSetModifierMappingReq);
+  
+!     if (client->req_len != ((stuff->numKeyPerModifier<<1) +
+! 			    (sizeof (xSetModifierMappingReq)>>2)))
+  	return BadLength;
+  
+      inputMapLen = 8*stuff->numKeyPerModifier;
+***************
+*** 899,905 ****
+      register KeySymsPtr curKeySyms = &inputInfo.keyboard->key->curKeySyms;
+      REQUEST_AT_LEAST_SIZE(xChangeKeyboardMappingReq);
+  
+!     len = stuff->length - (sizeof(xChangeKeyboardMappingReq) >> 2);  
+      if (len != (stuff->keyCodes * stuff->keySymsPerKeyCode))
+              return BadLength;
+      if ((stuff->firstKeyCode < curKeySyms->minKeyCode) ||
+--- 899,905 ----
+      register KeySymsPtr curKeySyms = &inputInfo.keyboard->key->curKeySyms;
+      REQUEST_AT_LEAST_SIZE(xChangeKeyboardMappingReq);
+  
+!     len = client->req_len - (sizeof(xChangeKeyboardMappingReq) >> 2);  
+      if (len != (stuff->keyCodes * stuff->keySymsPerKeyCode))
+              return BadLength;
+      if ((stuff->firstKeyCode < curKeySyms->minKeyCode) ||
+***************
+*** 936,942 ****
+      DeviceIntPtr mouse = inputInfo.pointer;
+  
+      REQUEST_AT_LEAST_SIZE(xSetPointerMappingReq);
+!     if (stuff->length != (sizeof(xSetPointerMappingReq) + stuff->nElts + 3)>>2)
+  	return BadLength;
+      rep.type = X_Reply;
+      rep.length = 0;
+--- 936,942 ----
+      DeviceIntPtr mouse = inputInfo.pointer;
+  
+      REQUEST_AT_LEAST_SIZE(xSetPointerMappingReq);
+!     if (client->req_len != (sizeof(xSetPointerMappingReq)+stuff->nElts+3) >> 2)
+  	return BadLength;
+      rep.type = X_Reply;
+      rep.length = 0;
+***************
+*** 1062,1068 ****
+  
+      REQUEST_AT_LEAST_SIZE(xChangeKeyboardControlReq);
+      vmask = stuff->mask;
+!     if (stuff->length !=(sizeof(xChangeKeyboardControlReq)>>2) + Ones(vmask))
+  	return BadLength;
+      vlist = (XID *)&stuff[1];		/* first word of values */
+      ctrl = keybd->kbdfeed->ctrl;
+--- 1062,1068 ----
+  
+      REQUEST_AT_LEAST_SIZE(xChangeKeyboardControlReq);
+      vmask = stuff->mask;
+!     if (client->req_len != (sizeof(xChangeKeyboardControlReq)>>2)+Ones(vmask))
+  	return BadLength;
+      vlist = (XID *)&stuff[1];		/* first word of values */
+      ctrl = keybd->kbdfeed->ctrl;
+*** /tmp/da3370	Mon Oct 19 21:43:43 1992
+--- server/dix/Imakefile	Thu May 28 12:21:07 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.37 91/07/16 22:54:10 gildea Exp $
+  #include <Server.tmpl>
+  
+  SRCS = atom.c colormap.c cursor.c devices.c dispatch.c dixutils.c events.c \
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.38 92/05/28 12:19:17 rws Exp $
+  #include <Server.tmpl>
+  
+  SRCS = atom.c colormap.c cursor.c devices.c dispatch.c dixutils.c events.c \
+***************
+*** 48,58 ****
+  LintLibraryTarget(dix,$(SRCS))
+  NormalLintTarget($(SRCS))
+  
+! SpecialObjectRule(globals.o, $(ICONFIGFILES), $(SITE_DEFINES))
+! 
+! #if HasSaberC
+! saber_src:
+! 	XCOMM load $(CFLAGS) $(SITE_DEFINES) $(SRCS)
+! #endif
+  
+  DependTarget()
+--- 48,53 ----
+  LintLibraryTarget(dix,$(SRCS))
+  NormalLintTarget($(SRCS))
+  
+! SpecialCObjectRule(globals,$(ICONFIGFILES),$(SITE_DEFINES))
+  
+  DependTarget()
+*** /tmp/da3403	Mon Oct 19 21:43:45 1992
+--- server/dix/dispatch.c	Fri Aug 21 19:23:43 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: dispatch.c,v 5.39 91/12/23 12:09:58 keith Exp $ */
+  /************************************************************
+  Copyright 1987, 1989 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: dispatch.c,v 5.41 92/08/21 19:22:51 rws Exp $ */
+  /************************************************************
+  Copyright 1987, 1989 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 252,258 ****
+  		client->requestLog[client->requestLogIndex] = MAJOROP;
+  		client->requestLogIndex++;
+  #endif
+! 		if (result > (MAX_REQUEST_SIZE << 2))
+  		    result = BadLength;
+  		else
+  		    result = (* client->requestVector[MAJOROP])(client);
+--- 252,258 ----
+  		client->requestLog[client->requestLogIndex] = MAJOROP;
+  		client->requestLogIndex++;
+  #endif
+! 		if (result > (MAX_BIG_REQUEST_SIZE << 2))
+  		    result = BadLength;
+  		else
+  		    result = (* client->requestVector[MAJOROP])(client);
+***************
+*** 302,308 ****
+      LEGAL_NEW_RESOURCE(stuff->wid, client);
+      if (!(pParent = (WindowPtr)LookupWindow(stuff->parent, client)))
+          return BadWindow;
+!     len = stuff->length -  (sizeof(xCreateWindowReq) >> 2);
+      if (Ones(stuff->mask) != len)
+          return BadLength;
+      if (!stuff->width || !stuff->height)
+--- 302,308 ----
+      LEGAL_NEW_RESOURCE(stuff->wid, client);
+      if (!(pParent = (WindowPtr)LookupWindow(stuff->parent, client)))
+          return BadWindow;
+!     len = client->req_len - (sizeof(xCreateWindowReq) >> 2);
+      if (Ones(stuff->mask) != len)
+          return BadLength;
+      if (!stuff->width || !stuff->height)
+***************
+*** 344,350 ****
+      pWin = (WindowPtr)LookupWindow(stuff->window, client);
+      if (!pWin)
+          return(BadWindow);
+!     len = stuff->length - (sizeof(xChangeWindowAttributesReq) >> 2);
+      if (len != Ones(stuff->valueMask))
+          return BadLength;
+      result =  ChangeWindowAttributes(pWin, 
+--- 344,350 ----
+      pWin = (WindowPtr)LookupWindow(stuff->window, client);
+      if (!pWin)
+          return(BadWindow);
+!     len = client->req_len - (sizeof(xChangeWindowAttributesReq) >> 2);
+      if (len != Ones(stuff->valueMask))
+          return BadLength;
+      result =  ChangeWindowAttributes(pWin, 
+***************
+*** 542,548 ****
+      pWin = (WindowPtr)LookupWindow( stuff->window, client);
+      if (!pWin)
+          return(BadWindow);
+!     len = stuff->length - (sizeof(xConfigureWindowReq) >> 2);
+      if (Ones((Mask)stuff->mask) != len)
+          return BadLength;
+      result =  ConfigureWindow(pWin, (Mask)stuff->mask, (XID *) &stuff[1], 
+--- 542,548 ----
+      pWin = (WindowPtr)LookupWindow( stuff->window, client);
+      if (!pWin)
+          return(BadWindow);
+!     len = client->req_len - (sizeof(xConfigureWindowReq) >> 2);
+      if (Ones((Mask)stuff->mask) != len)
+          return BadLength;
+      result =  ConfigureWindow(pWin, (Mask)stuff->mask, (XID *) &stuff[1], 
+***************
+*** 592,608 ****
+  
+      rep.width = pDraw->width;
+      rep.height = pDraw->height;
+!     if (pDraw->type == DRAWABLE_PIXMAP)
+      {
+- 	rep.x = rep.y = rep.borderWidth = 0;
+-     }
+-     else
+-     {
+          register WindowPtr pWin = (WindowPtr)pDraw;
+  	rep.x = pWin->origin.x - wBorderWidth (pWin);
+  	rep.y = pWin->origin.y - wBorderWidth (pWin);
+  	rep.borderWidth = pWin->borderWidth;
+      }
+      WriteReplyToClient(client, sizeof(xGetGeometryReply), &rep);
+      return(client->noClientException);
+  }
+--- 592,618 ----
+  
+      rep.width = pDraw->width;
+      rep.height = pDraw->height;
+! 
+!     /* XXX - Because the pixmap-implementation of the multibuffer extension 
+!      *       may have the buffer-id's drawable resource value be a pointer
+!      *       to the buffer's window instead of the buffer itself
+!      *       (this happens if the buffer is the displayed buffer),
+!      *       we also have to check that the id matches before we can
+!      *       truly say that it is a DRAWABLE_WINDOW.
+!      */
+! 
+!     if ((pDraw->type == UNDRAWABLE_WINDOW) ||
+!         ((pDraw->type == DRAWABLE_WINDOW) && (stuff->id == pDraw->id)))
+      {
+          register WindowPtr pWin = (WindowPtr)pDraw;
+  	rep.x = pWin->origin.x - wBorderWidth (pWin);
+  	rep.y = pWin->origin.y - wBorderWidth (pWin);
+  	rep.borderWidth = pWin->borderWidth;
+      }
++     else /* DRAWABLE_PIXMAP or DRAWABLE_BUFFER */
++     {
++ 	rep.x = rep.y = rep.borderWidth = 0;
++     }
+      WriteReplyToClient(client, sizeof(xGetGeometryReply), &rep);
+      return(client->noClientException);
+  }
+***************
+*** 1139,1145 ****
+  	}
+  	pFont = pGC->font;
+      }
+!     length = stuff->length - (sizeof(xQueryTextExtentsReq) >> 2);
+      length = length << 1;
+      if (stuff->oddLength)
+      {
+--- 1149,1155 ----
+  	}
+  	pFont = pGC->font;
+      }
+!     length = client->req_len - (sizeof(xQueryTextExtentsReq) >> 2);
+      length = length << 1;
+      if (stuff->oddLength)
+      {
+***************
+*** 1274,1280 ****
+      client->errorValue = stuff->gc;
+      LEGAL_NEW_RESOURCE(stuff->gc, client);
+      VERIFY_DRAWABLE (pDraw, stuff->drawable, client);
+!     len = stuff->length -  (sizeof(xCreateGCReq) >> 2);
+      if (len != Ones(stuff->mask))
+          return BadLength;
+      pGC = (GC *)CreateGC(pDraw, stuff->mask, 
+--- 1284,1290 ----
+      client->errorValue = stuff->gc;
+      LEGAL_NEW_RESOURCE(stuff->gc, client);
+      VERIFY_DRAWABLE (pDraw, stuff->drawable, client);
+!     len = client->req_len -  (sizeof(xCreateGCReq) >> 2);
+      if (len != Ones(stuff->mask))
+          return BadLength;
+      pGC = (GC *)CreateGC(pDraw, stuff->mask, 
+***************
+*** 1297,1303 ****
+  		
+      REQUEST_AT_LEAST_SIZE(xChangeGCReq);
+      VERIFY_GC(pGC, stuff->gc, client);
+!     len = stuff->length -  (sizeof(xChangeGCReq) >> 2);
+      if (len != Ones(stuff->mask))
+          return BadLength;
+      result = DoChangeGC(pGC, stuff->mask, (XID *) &stuff[1], 0);
+--- 1307,1313 ----
+  		
+      REQUEST_AT_LEAST_SIZE(xChangeGCReq);
+      VERIFY_GC(pGC, stuff->gc, client);
+!     len = client->req_len -  (sizeof(xChangeGCReq) >> 2);
+      if (len != Ones(stuff->mask))
+          return BadLength;
+      result = DoChangeGC(pGC, stuff->mask, (XID *) &stuff[1], 0);
+***************
+*** 1380,1386 ****
+      }
+      VERIFY_GC(pGC,stuff->gc, client);
+  		 
+!     nr = (stuff->length << 2) - sizeof(xSetClipRectanglesReq);
+      if (nr & 4)
+  	return(BadLength);
+      nr >>= 3;
+--- 1390,1396 ----
+      }
+      VERIFY_GC(pGC,stuff->gc, client);
+  		 
+!     nr = (client->req_len << 2) - sizeof(xSetClipRectanglesReq);
+      if (nr & 4)
+  	return(BadLength);
+      nr >>= 3;
+***************
+*** 1532,1538 ****
+          return BadValue;
+      }
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client); 
+!     npoint = ((stuff->length << 2) - sizeof(xPolyPointReq)) >> 2;
+      if (npoint)
+          (*pGC->ops->PolyPoint)(pDraw, pGC, stuff->coordMode, npoint,
+  			  (xPoint *) &stuff[1]);
+--- 1542,1548 ----
+          return BadValue;
+      }
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client); 
+!     npoint = ((client->req_len << 2) - sizeof(xPolyPointReq)) >> 2;
+      if (npoint)
+          (*pGC->ops->PolyPoint)(pDraw, pGC, stuff->coordMode, npoint,
+  			  (xPoint *) &stuff[1]);
+***************
+*** 1556,1562 ****
+          return BadValue;
+      }
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     npoint = ((stuff->length << 2) - sizeof(xPolyLineReq)) >> 2;
+      if (npoint)
+  	(*pGC->ops->Polylines)(pDraw, pGC, stuff->coordMode, npoint, 
+  			      (xPoint *) &stuff[1]);
+--- 1566,1572 ----
+          return BadValue;
+      }
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     npoint = ((client->req_len << 2) - sizeof(xPolyLineReq)) >> 2;
+      if (npoint)
+  	(*pGC->ops->Polylines)(pDraw, pGC, stuff->coordMode, npoint, 
+  			      (xPoint *) &stuff[1]);
+***************
+*** 1574,1580 ****
+  
+      REQUEST_AT_LEAST_SIZE(xPolySegmentReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     nsegs = (stuff->length << 2) - sizeof(xPolySegmentReq);
+      if (nsegs & 4)
+  	return(BadLength);
+      nsegs >>= 3;
+--- 1584,1590 ----
+  
+      REQUEST_AT_LEAST_SIZE(xPolySegmentReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     nsegs = (client->req_len << 2) - sizeof(xPolySegmentReq);
+      if (nsegs & 4)
+  	return(BadLength);
+      nsegs >>= 3;
+***************
+*** 1594,1600 ****
+  
+      REQUEST_AT_LEAST_SIZE(xPolyRectangleReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     nrects = (stuff->length << 2) - sizeof(xPolyRectangleReq);
+      if (nrects & 4)
+  	return(BadLength);
+      nrects >>= 3;
+--- 1604,1610 ----
+  
+      REQUEST_AT_LEAST_SIZE(xPolyRectangleReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     nrects = (client->req_len << 2) - sizeof(xPolyRectangleReq);
+      if (nrects & 4)
+  	return(BadLength);
+      nrects >>= 3;
+***************
+*** 1615,1621 ****
+  
+      REQUEST_AT_LEAST_SIZE(xPolyArcReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     narcs = (stuff->length << 2) - sizeof(xPolyArcReq);
+      if (narcs % sizeof(xArc))
+  	return(BadLength);
+      narcs /= sizeof(xArc);
+--- 1625,1631 ----
+  
+      REQUEST_AT_LEAST_SIZE(xPolyArcReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     narcs = (client->req_len << 2) - sizeof(xPolyArcReq);
+      if (narcs % sizeof(xArc))
+  	return(BadLength);
+      narcs /= sizeof(xArc);
+***************
+*** 1648,1654 ****
+      }
+  
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     things = ((stuff->length << 2) - sizeof(xFillPolyReq)) >> 2;
+      if (things)
+          (*pGC->ops->FillPolygon) (pDraw, pGC, stuff->shape,
+  			 stuff->coordMode, things,
+--- 1658,1664 ----
+      }
+  
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     things = ((client->req_len << 2) - sizeof(xFillPolyReq)) >> 2;
+      if (things)
+          (*pGC->ops->FillPolygon) (pDraw, pGC, stuff->shape,
+  			 stuff->coordMode, things,
+***************
+*** 1667,1673 ****
+  
+      REQUEST_AT_LEAST_SIZE(xPolyFillRectangleReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     things = (stuff->length << 2) - sizeof(xPolyFillRectangleReq);
+      if (things & 4)
+  	return(BadLength);
+      things >>= 3;
+--- 1677,1683 ----
+  
+      REQUEST_AT_LEAST_SIZE(xPolyFillRectangleReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     things = (client->req_len << 2) - sizeof(xPolyFillRectangleReq);
+      if (things & 4)
+  	return(BadLength);
+      things >>= 3;
+***************
+*** 1678,1684 ****
+  }
+  
+  int
+! ProcPolyFillArc               (client)
+      register ClientPtr client;
+  {
+      int		narcs;
+--- 1688,1694 ----
+  }
+  
+  int
+! ProcPolyFillArc(client)
+      register ClientPtr client;
+  {
+      int		narcs;
+***************
+*** 1688,1694 ****
+  
+      REQUEST_AT_LEAST_SIZE(xPolyFillArcReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     narcs = (stuff->length << 2) - sizeof(xPolyFillArcReq);
+      if (narcs % sizeof(xArc))
+  	return(BadLength);
+      narcs /= sizeof(xArc);
+--- 1698,1704 ----
+  
+      REQUEST_AT_LEAST_SIZE(xPolyFillArcReq);
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+!     narcs = (client->req_len << 2) - sizeof(xPolyFillArcReq);
+      if (narcs % sizeof(xArc))
+  	return(BadLength);
+      narcs /= sizeof(xArc);
+***************
+*** 1735,1741 ****
+          return BadValue;
+      }
+      length *= stuff->height;
+!     if ((((length + 3) >> 2) + (sizeof(xPutImageReq) >> 2)) != stuff->length)
+  	return BadLength;
+      (*pGC->ops->PutImage) (pDraw, pGC, stuff->depth, stuff->dstX, stuff->dstY,
+  		  stuff->width, stuff->height, 
+--- 1745,1751 ----
+          return BadValue;
+      }
+      length *= stuff->height;
+!     if ((((length + 3) >> 2) + (sizeof(xPutImageReq) >> 2)) != client->req_len)
+  	return BadLength;
+      (*pGC->ops->PutImage) (pDraw, pGC, stuff->depth, stuff->dstX, stuff->dstY,
+  		  stuff->width, stuff->height, 
+***************
+*** 1922,1928 ****
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+  
+      pElt = (unsigned char *)&stuff[1];
+!     endReq = ((unsigned char *) stuff) + (stuff->length <<2);
+      xorg = stuff->x;
+      if (stuff->reqType == X_PolyText8)
+      {
+--- 1932,1938 ----
+      VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+  
+      pElt = (unsigned char *)&stuff[1];
+!     endReq = ((unsigned char *) stuff) + (client->req_len <<2);
+      xorg = stuff->x;
+      if (stuff->reqType == X_PolyText8)
+      {
+***************
+*** 2415,2421 ****
+  
+  	if(pcmp->flags & AllAllocated)
+  	    return(BadAccess);
+! 	count = ((stuff->length << 2)- sizeof(xFreeColorsReq)) >> 2;
+  	retval =  FreeColors(pcmp, client->index, count,
+  	    (unsigned long *)&stuff[1], stuff->planeMask);
+          if (client->noClientException != Success)
+--- 2425,2431 ----
+  
+  	if(pcmp->flags & AllAllocated)
+  	    return(BadAccess);
+! 	count = ((client->req_len << 2)- sizeof(xFreeColorsReq)) >> 2;
+  	retval =  FreeColors(pcmp, client->index, count,
+  	    (unsigned long *)&stuff[1], stuff->planeMask);
+          if (client->noClientException != Success)
+***************
+*** 2448,2454 ****
+  	int	count;
+          int     retval;
+  
+!         count = (stuff->length << 2) - sizeof(xStoreColorsReq);
+  	if (count % sizeof(xColorItem))
+  	    return(BadLength);
+  	count /= sizeof(xColorItem);
+--- 2458,2464 ----
+  	int	count;
+          int     retval;
+  
+!         count = (client->req_len << 2) - sizeof(xStoreColorsReq);
+  	if (count % sizeof(xColorItem))
+  	    return(BadLength);
+  	count /= sizeof(xColorItem);
+***************
+*** 2517,2523 ****
+  	xrgb 			*prgbs;
+  	xQueryColorsReply	qcr;
+  
+! 	count = ((stuff->length << 2) - sizeof(xQueryColorsReq)) >> 2;
+  	prgbs = (xrgb *)ALLOCATE_LOCAL(count * sizeof(xrgb));
+  	if(!prgbs && count)
+              return(BadAlloc);
+--- 2527,2533 ----
+  	xrgb 			*prgbs;
+  	xQueryColorsReply	qcr;
+  
+! 	count = ((client->req_len << 2) - sizeof(xQueryColorsReq)) >> 2;
+  	prgbs = (xrgb *)ALLOCATE_LOCAL(count * sizeof(xrgb));
+  	if(!prgbs && count)
+              return(BadAlloc);
+***************
+*** 2960,2966 ****
+      
+      REQUEST_AT_LEAST_SIZE(xSetFontPathReq);
+      
+!     nbytes = (stuff->length << 2) - sizeof(xSetFontPathReq);
+      total = nbytes;
+      ptr = (unsigned char *)&stuff[1];
+      nfonts = stuff->nFonts;
+--- 2970,2976 ----
+      
+      REQUEST_AT_LEAST_SIZE(xSetFontPathReq);
+      
+!     nbytes = (client->req_len << 2) - sizeof(xSetFontPathReq);
+      total = nbytes;
+      ptr = (unsigned char *)&stuff[1];
+      nfonts = stuff->nFonts;
+***************
+*** 3170,3175 ****
+--- 3180,3220 ----
+      }
+  }
+  
++ void InitClient(client, i, ospriv)
++     ClientPtr client;
++     int i;
++     pointer ospriv;
++ {
++     client->index = i;
++     client->sequence = 0; 
++     client->clientAsMask = ((Mask)i) << CLIENTOFFSET;
++     client->clientGone = FALSE;
++     if (i)
++     {
++ 	client->closeDownMode = DestroyAll;
++ 	client->lastDrawable = (DrawablePtr)WindowTable[0];
++ 	client->lastDrawableID = WindowTable[0]->drawable.id;
++     }
++     else
++     {
++ 	client->closeDownMode = RetainPermanent;
++ 	client->lastDrawable = (DrawablePtr)NULL;
++ 	client->lastDrawableID = INVALID;
++     }
++     client->lastGC = (GCPtr) NULL;
++     client->lastGCID = INVALID;
++     client->numSaved = 0;
++     client->saveSet = (pointer *)NULL;
++     client->noClientException = Success;
++ #ifdef DEBUG
++     client->requestLogIndex = 0;
++ #endif
++     client->requestVector = InitialVector;
++     client->osPrivate = ospriv;
++     client->swapped = FALSE;
++     client->big_requests = FALSE;
++ }
++ 
+  /************************
+   * int NextAvailableClient(ospriv)
+   *
+***************
+*** 3191,3214 ****
+      clients[i] = client = (ClientPtr)xalloc(sizeof(ClientRec));
+      if (!client)
+  	return (ClientPtr)NULL;
+!     client->index = i;
+!     client->sequence = 0; 
+!     client->clientAsMask = ((Mask)i) << CLIENTOFFSET;
+!     client->closeDownMode = DestroyAll;
+!     client->clientGone = FALSE;
+!     client->lastDrawable = (DrawablePtr)WindowTable[0];
+!     client->lastDrawableID = WindowTable[0]->drawable.id;
+!     client->lastGC = (GCPtr) NULL;
+!     client->lastGCID = INVALID;
+!     client->numSaved = 0;
+!     client->saveSet = (pointer *)NULL;
+!     client->noClientException = Success;
+! #ifdef DEBUG
+!     client->requestLogIndex = 0;
+! #endif
+!     client->requestVector = InitialVector;
+!     client->osPrivate = ospriv;
+!     client->swapped = FALSE;
+      if (!InitClientResources(client))
+      {
+  	xfree(client);
+--- 3236,3242 ----
+      clients[i] = client = (ClientPtr)xalloc(sizeof(ClientRec));
+      if (!client)
+  	return (ClientPtr)NULL;
+!     InitClient(client, i, ospriv);
+      if (!InitClientResources(client))
+      {
+  	xfree(client);
+*** /tmp/da3604	Mon Oct 19 21:43:58 1992
+--- server/os/io.c	Thu Sep 10 10:32:43 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: io.c,v 1.68 91/03/29 09:34:07 rws Exp $ */
+  /*****************************************************************
+   * i/o functions
+   *
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: io.c,v 1.71 92/09/10 10:32:25 rws Exp $ */
+  /*****************************************************************
+   * i/o functions
+   *
+***************
+*** 75,82 ****
+  
+  extern int errno;
+  
+! #define request_length(req, cli) ((cli->swapped ? \
+! 	lswaps((req)->length) : (req)->length) << 2)
+  #define MAX_TIMES_PER         10
+  
+  /*****************************************************************
+--- 75,96 ----
+  
+  extern int errno;
+  
+! #define get_req_len(req,cli) ((cli)->swapped ? \
+! 			      lswaps((req)->length) : (req)->length)
+! 
+! #ifdef BIGREQS
+! typedef struct {
+! 	CARD8 reqType;
+! 	CARD8 data;
+! 	CARD16 zero B16;
+!         CARD32 length B32;
+! } xBigReq;
+! 
+! #define get_big_req_len(req,cli) ((cli)->swapped ? \
+! 				  lswapl(((xBigReq *)(req))->length) : \
+! 				  ((xBigReq *)(req))->length)
+! #endif
+! 
+  #define MAX_TIMES_PER         10
+  
+  /*****************************************************************
+***************
+*** 121,126 ****
+--- 135,144 ----
+      register int gotnow, needed;
+      int result;
+      register xReq *request;
++     Bool need_header;
++ #ifdef BIGREQS
++     Bool move_header;
++ #endif
+  
+      if (AvailableInput)
+      {
+***************
+*** 156,170 ****
+      }
+      oci->bufptr += oci->lenLastReq;
+  
+!     request = (xReq *)oci->bufptr;
+      gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
+!     if ((gotnow < sizeof(xReq)) ||
+! 	(gotnow < (needed = request_length(request, client))))
+      {
+  	oci->lenLastReq = 0;
+! 	if ((gotnow < sizeof(xReq)) || (needed == 0))
+! 	   needed = sizeof(xReq);
+! 	else if (needed > MAXBUFSIZE)
+  	{
+  	    YieldControlDeath();
+  	    return -1;
+--- 174,213 ----
+      }
+      oci->bufptr += oci->lenLastReq;
+  
+!     need_header = FALSE;
+! #ifdef BIGREQS
+!     move_header = FALSE;
+! #endif
+      gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
+!     if (gotnow < sizeof(xReq))
+      {
++ 	needed = sizeof(xReq);
++ 	need_header = TRUE;
++     }
++     else
++     {
++ 	request = (xReq *)oci->bufptr;
++ 	needed = get_req_len(request, client);
++ #ifdef BIGREQS
++ 	if (!needed && client->big_requests)
++ 	{
++ 	    move_header = TRUE;
++ 	    if (gotnow < sizeof(xBigReq))
++ 	    {
++ 		needed = sizeof(xBigReq) >> 2;
++ 		need_header = TRUE;
++ 	    }
++ 	    else
++ 		needed = get_big_req_len(request, client);
++ 	}
++ #endif
++ 	client->req_len = needed;
++ 	needed <<= 2;
++     }
++     if (gotnow < needed)
++     {
+  	oci->lenLastReq = 0;
+! 	if (needed > MAXBUFSIZE)
+  	{
+  	    YieldControlDeath();
+  	    return -1;
+***************
+*** 218,233 ****
+  		oci->bufptr = ibuf + oci->bufcnt - gotnow;
+  	    }
+  	}
+! 	request = (xReq *)oci->bufptr;
+! 	if ((gotnow < sizeof(xReq)) ||
+! 	    (gotnow < (needed = request_length(request, client))))
+  	{
+  	    YieldControlNoInput();
+  	    return 0;
+  	}
+      }
+      if (needed == 0)
+! 	needed = sizeof(xReq);
+      oci->lenLastReq = needed;
+  
+      /*
+--- 261,298 ----
+  		oci->bufptr = ibuf + oci->bufcnt - gotnow;
+  	    }
+  	}
+! 	if (need_header && gotnow >= needed)
+  	{
++ 	    request = (xReq *)oci->bufptr;
++ 	    needed = get_req_len(request, client);
++ #ifdef BIGREQS
++ 	    if (!needed && client->big_requests)
++ 	    {
++ 		move_header = TRUE;
++ 		if (gotnow < sizeof(xBigReq))
++ 		    needed = sizeof(xBigReq) >> 2;
++ 		else
++ 		    needed = get_big_req_len(request, client);
++ 	    }
++ #endif
++ 	    client->req_len = needed;
++ 	    needed <<= 2;
++ 	}
++ 	if (gotnow < needed)
++ 	{
+  	    YieldControlNoInput();
+  	    return 0;
+  	}
+      }
+      if (needed == 0)
+!     {
+! #ifdef BIGREQS
+! 	if (client->big_requests)
+! 	    needed = sizeof(xBigReq);
+! 	else
+! #endif
+! 	    needed = sizeof(xReq);
+!     }
+      oci->lenLastReq = needed;
+  
+      /*
+***************
+*** 237,259 ****
+       *  can get into the queue.   
+       */
+  
+!     if (gotnow >= needed + sizeof(xReq)) 
+      {
+  	request = (xReq *)(oci->bufptr + needed);
+!         if (gotnow >= needed + request_length(request, client))
+  	    BITSET(ClientsWithInput, fd);
+!         else
+  	    YieldControlNoInput();
+      }
+      else
+      {
+! 	if (gotnow == needed)
+  	    AvailableInput = oc;
+  	YieldControlNoInput();
+      }
+      if (++timesThisConnection >= MAX_TIMES_PER)
+  	YieldControl();
+! 
+      client->requestBuffer = (pointer)oci->bufptr;
+      return needed;
+  }
+--- 302,341 ----
+       *  can get into the queue.   
+       */
+  
+!     gotnow -= needed;
+!     if (gotnow >= sizeof(xReq)) 
+      {
+  	request = (xReq *)(oci->bufptr + needed);
+! 	if (gotnow >= (result = (get_req_len(request, client) << 2))
+! #ifdef BIGREQS
+! 	    && (result ||
+! 		(client->big_requests &&
+! 		 (gotnow >= sizeof(xBigReq) &&
+! 		  gotnow >= (get_big_req_len(request, client) << 2))))
+! #endif
+! 	    )
+  	    BITSET(ClientsWithInput, fd);
+! 	else
+  	    YieldControlNoInput();
+      }
+      else
+      {
+! 	if (!gotnow)
+  	    AvailableInput = oc;
+  	YieldControlNoInput();
+      }
+      if (++timesThisConnection >= MAX_TIMES_PER)
+  	YieldControl();
+! #ifdef BIGREQS
+!     if (move_header)
+!     {
+! 	request = (xReq *)oci->bufptr;
+! 	oci->bufptr += (sizeof(xBigReq) - sizeof(xReq));
+! 	*(xReq *)oci->bufptr = *request;
+! 	oci->lenLastReq -= (sizeof(xBigReq) - sizeof(xReq));
+! 	client->req_len -= (sizeof(xBigReq) - sizeof(xReq)) >> 2;
+!     }
+! #endif
+      client->requestBuffer = (pointer)oci->bufptr;
+      return needed;
+  }
+***************
+*** 330,336 ****
+      request = (xReq *)oci->bufptr;
+      gotnow += count;
+      if ((gotnow >= sizeof(xReq)) &&
+! 	(gotnow >= request_length(request, client)))
+  	BITSET(ClientsWithInput, fd);
+      else
+  	YieldControlNoInput();
+--- 412,418 ----
+      request = (xReq *)oci->bufptr;
+      gotnow += count;
+      if ((gotnow >= sizeof(xReq)) &&
+! 	(gotnow >= (get_req_len(request, client) << 2)))
+  	BITSET(ClientsWithInput, fd);
+      else
+  	YieldControlNoInput();
+***************
+*** 350,370 ****
+      register ConnectionInputPtr oci = oc->input;
+      int fd = oc->fd;
+      register xReq *request;
+!     int gotnow;
+  
+      if (AvailableInput == oc)
+  	AvailableInput = (OsCommPtr)NULL;
+      oci->lenLastReq = 0;
+-     request = (xReq *)oci->bufptr;
+      gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
+!     if ((gotnow >= sizeof(xReq)) &&
+! 	(gotnow >= request_length(request, client)))
+      {
+! 	BITSET(ClientsWithInput, fd);
+! 	YieldControl();
+      }
+      else
+! 	YieldControlNoInput();
+  }
+  
+      /* lookup table for adding padding bytes to data that is read from
+--- 432,472 ----
+      register ConnectionInputPtr oci = oc->input;
+      int fd = oc->fd;
+      register xReq *request;
+!     int gotnow, needed;
+  
+      if (AvailableInput == oc)
+  	AvailableInput = (OsCommPtr)NULL;
+      oci->lenLastReq = 0;
+      gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
+!     if (gotnow < sizeof(xReq))
+      {
+! 	YieldControlNoInput();
+      }
+      else
+!     {
+! 	request = (xReq *)oci->bufptr;
+! 	needed = get_req_len(request, client);
+! #ifdef BIGREQS
+! 	if (!needed && client->big_requests)
+! 	{
+! 	    oci->bufptr -= sizeof(xBigReq) - sizeof(xReq);
+! 	    *(xReq *)oci->bufptr = *request;
+! 	    ((xBigReq *)oci->bufptr)->length = client->req_len;
+! 	    if (client->swapped)
+! 	    {
+! 		char n;
+! 		swapl(&((xBigReq *)oci->bufptr)->length, n);
+! 	    }
+! 	}
+! #endif
+! 	if (gotnow >= (needed << 2))
+! 	{
+! 	    BITSET(ClientsWithInput, fd);
+! 	    YieldControl();
+! 	}
+! 	else
+! 	    YieldControlNoInput();
+!     }
+  }
+  
+      /* lookup table for adding padding bytes to data that is read from
+*** /tmp/da3637	Mon Oct 19 21:44:00 1992
+--- server/os/utils.c	Mon Oct 19 17:19:29 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: utils.c,v 1.110 92/03/13 16:07:53 rws Exp $ */
+  #include "Xos.h"
+  #include <stdio.h>
+  #include "misc.h"
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: utils.c,v 1.119 92/10/19 17:19:22 rws Exp $ */
+  #include "Xos.h"
+  #include <stdio.h>
+  #include "misc.h"
+***************
+*** 32,37 ****
+--- 32,38 ----
+  #ifndef SYSV
+  #include <sys/resource.h>
+  #endif
++ #include <time.h>
+  
+  #ifdef SIGNALRETURNSINT
+  #define SIGVAL int
+***************
+*** 67,76 ****
+  extern Bool defeatAccessControl;
+  
+  Bool CoreDump;
+  
+  void ddxUseMsg();
+  
+! #ifndef SVR4
+  extern char *sbrk();
+  #endif
+  
+--- 68,79 ----
+  extern Bool defeatAccessControl;
+  
+  Bool CoreDump;
++ Bool noTestExtensions;
++ int auditTrailLevel = 1;
+  
+  void ddxUseMsg();
+  
+! #if !defined(SVR4) && !defined(hpux)
+  extern char *sbrk();
+  #endif
+  
+***************
+*** 90,99 ****
+  #ifdef MEMBUG
+  #define MEM_FAIL_SCALE 100000
+  long Memory_fail = 0;
+! static pointer minfree = NULL;
+! static void CheckNode();
+  #endif
+  
+  Bool Must_have_memory = FALSE;
+  
+  char *dev_tty_from_init = NULL;		/* since we need to parse it anyway */
+--- 93,105 ----
+  #ifdef MEMBUG
+  #define MEM_FAIL_SCALE 100000
+  long Memory_fail = 0;
+! 
+  #endif
+  
++ #ifdef sgi
++ int userdefinedfontpath = 0;
++ #endif /* sgi */
++ 
+  Bool Must_have_memory = FALSE;
+  
+  char *dev_tty_from_init = NULL;		/* since we need to parse it anyway */
+***************
+*** 100,107 ****
+  
+  /* Force connections to close on SIGHUP from init */
+  
+  SIGVAL
+! AutoResetServer ()
+  {
+      dispatchException |= DE_RESET;
+      isItTimeToYield = TRUE;
+--- 106,115 ----
+  
+  /* Force connections to close on SIGHUP from init */
+  
++ /*ARGSUSED*/
+  SIGVAL
+! AutoResetServer (sig)
+!     int sig;
+  {
+      dispatchException |= DE_RESET;
+      isItTimeToYield = TRUE;
+***************
+*** 116,123 ****
+  
+  /* Force connections to close and then exit on SIGTERM, SIGINT */
+  
+  SIGVAL
+! GiveUp()
+  {
+      dispatchException |= DE_TERMINATE;
+      isItTimeToYield = TRUE;
+--- 124,133 ----
+  
+  /* Force connections to close and then exit on SIGTERM, SIGINT */
+  
++ /*ARGSUSED*/
+  SIGVAL
+! GiveUp(sig)
+!     int sig;
+  {
+      dispatchException |= DE_TERMINATE;
+      isItTimeToYield = TRUE;
+***************
+*** 188,193 ****
+--- 198,204 ----
+  #ifdef MEMBUG
+      ErrorF("-alloc int             chance alloc should fail\n");
+  #endif
++     ErrorF("-audit int             set audit trail level\n");	
+      ErrorF("-auth string           select authorization file\n");	
+      ErrorF("bc                     enable bug compatibility\n");
+      ErrorF("-bs                    disable any backing store support\n");
+***************
+*** 195,200 ****
+--- 206,212 ----
+      ErrorF("c #                    key-click volume (0-100)\n");
+      ErrorF("-cc int                default color visual class\n");
+      ErrorF("-co string             color database file\n");
++     ErrorF("-core                  generate core dump on fatal error\n");
+      ErrorF("-dpi int               screen resolution in dots per inch\n");
+      ErrorF("-f #                   bell base (0-100)\n");
+      ErrorF("-fc string             cursor font\n");
+***************
+*** 216,227 ****
+--- 228,242 ----
+      ErrorF("nologo                 disable logo in screen saver\n");
+  #endif
+      ErrorF("-p #                   screen-saver pattern duration (minutes)\n");
++     ErrorF("-pn                    accept failure to listen on all ports\n");
+      ErrorF("-r                     turns off auto-repeat\n");
+      ErrorF("r                      turns on auto-repeat \n");
+      ErrorF("-s #                   screen-saver timeout (minutes)\n");
+      ErrorF("-su                    disable any save under support\n");
+      ErrorF("-t #                   mouse threshold (pixels)\n");
++     ErrorF("-terminate             terminate at server reset\n");
+      ErrorF("-to #                  connection time out\n");
++     ErrorF("-tst                   disable testing extensions\n");
+      ErrorF("ttyxx                  server started from init on /dev/ttyxx\n");
+      ErrorF("v                      video blanking for screen-saver\n");
+      ErrorF("-v                     screen-saver without video blanking\n");
+***************
+*** 247,261 ****
+  {
+      int i, skip;
+  
+- #ifdef MEMBUG
+- #ifndef AIXV3
+-     if (!minfree)
+- 	minfree = (pointer)sbrk(0);
+- #else
+-     /* segment 2 is user data space */
+-     minfree = (pointer) 0x20000000;
+- #endif
+- #endif
+      defaultKeyboardControl.autoRepeat = TRUE;
+  
+  #ifdef AIXV3
+--- 262,267 ----
+***************
+*** 294,299 ****
+--- 300,312 ----
+  		UseMsg();
+  	}
+  #endif
++ 	else if ( strcmp( argv[i], "-audit") == 0)
++ 	{
++ 	    if(++i < argc)
++ 	        auditTrailLevel = atoi(argv[i]);
++ 	    else
++ 		UseMsg();
++ 	}
+  	else if ( strcmp( argv[i], "-auth") == 0)
+  	{
+  	    if(++i < argc)
+***************
+*** 363,369 ****
+--- 376,387 ----
+  	else if ( strcmp( argv[i], "-fp") == 0)
+  	{
+  	    if(++i < argc)
++ 	    {
++ #ifdef sgi
++ 		userdefinedfontpath = 1;
++ #endif /* sgi */
+  	        defaultFontPath = argv[i];
++ 	    }
+  	    else
+  		UseMsg();
+  	}
+***************
+*** 447,452 ****
+--- 465,476 ----
+  	    else
+  		UseMsg();
+  	}
++ 	else if ( strcmp( argv[i], "-terminate") == 0)
++ 	{
++ 	    extern Bool terminateAtReset;
++ 	    
++ 	    terminateAtReset = TRUE;
++ 	}
+  	else if ( strcmp( argv[i], "-to") == 0)
+  	{
+  	    if(++i < argc)
+***************
+*** 454,481 ****
+  	    else
+  		UseMsg();
+  	}
+! 	else if ( strcmp( argv[i], "-terminate") == 0)
+  	{
+! 	    extern Bool terminateAtReset;
+! 	    
+! 	    terminateAtReset = TRUE;
+  	}
+  	else if ( strcmp( argv[i], "v") == 0)
+  	    defaultScreenSaverBlanking = PreferBlanking;
+  	else if ( strcmp( argv[i], "-v") == 0)
+  	    defaultScreenSaverBlanking = DontPreferBlanking;
+- #ifdef MEMBUG
+- 	else if ( strcmp ( argv[i], "validateMemory") == 0)
+- 	{
+- 	    extern unsigned long MemoryValidate;
+- 	    MemoryValidate = 1;
+- 	}
+- 	else if ( strcmp ( argv[i], "neverFreeMemory") == 0)
+- 	{
+- 	    extern unsigned long MemoryNeverFree;
+- 	    MemoryNeverFree = 1;
+- 	}
+- #endif
+  	else if ( strcmp( argv[i], "-wm") == 0)
+  	    defaultBackingStore = WhenMapped;
+  	else if ( strcmp( argv[i], "-x") == 0)
+--- 478,491 ----
+  	    else
+  		UseMsg();
+  	}
+! 	else if ( strcmp( argv[i], "-tst") == 0)
+  	{
+! 	    noTestExtensions = TRUE;
+  	}
+  	else if ( strcmp( argv[i], "v") == 0)
+  	    defaultScreenSaverBlanking = PreferBlanking;
+  	else if ( strcmp( argv[i], "-v") == 0)
+  	    defaultScreenSaverBlanking = DontPreferBlanking;
+  	else if ( strcmp( argv[i], "-wm") == 0)
+  	    defaultBackingStore = WhenMapped;
+  	else if ( strcmp( argv[i], "-x") == 0)
+***************
+*** 523,642 ****
+      }
+  }
+  
+- #ifndef SPECIAL_MALLOC
+- 
+- #ifdef MEMBUG
+- #define FIRSTMAGIC 0x11aaaa11
+- #define SECONDMAGIC 0x22aaaa22
+- #define FREEDMAGIC  0x33aaaa33
+- #define BLANKMAGIC  0x44aaaa44
+- #define ALLOCMAGIC  0x55aaaa55
+- 
+- typedef struct _MallocHeader	*MallocHeaderPtr;
+- 
+- typedef struct _MallocHeader {
+- 	unsigned long	amount;
+- 	unsigned long	time;
+- 	MallocHeaderPtr	prev;
+- 	MallocHeaderPtr	next;
+- 	unsigned long	magic;
+- } MallocHeaderRec;
+- 
+- typedef struct _MallocTrailer {
+- 	unsigned long	magic;
+- } MallocTrailerRec, *MallocTrailerPtr;
+- 
+- unsigned long	MemoryAllocTime;
+- unsigned long	MemoryAllocBreakpoint = ~0;
+- unsigned long	MemoryFreeBreakpoint = ~0;
+- unsigned long	MemoryActive = 0;
+- unsigned long	MemoryValidate;
+- unsigned long	MemoryNeverFree;
+- 
+- MallocHeaderPtr	MemoryInUse;
+- MallocHeaderPtr	MemoryFreed;
+- 
+- #define request(amount)	((amount) + sizeof (MallocHeaderRec) + sizeof (MallocTrailerRec))
+- #define Header(ptr)	((MallocHeaderPtr) (((char *) ptr) - sizeof (MallocHeaderRec)))
+- #define Trailer(ptr)	((MallocTrailerPtr) (((char *) ptr) + Header(ptr)->amount))
+- 
+- static unsigned long *
+- SetupBlock(ptr, amount)
+-     unsigned long   *ptr;
+- {
+-     MallocHeaderPtr	head = (MallocHeaderPtr) ptr;
+-     MallocTrailerPtr	tail = (MallocTrailerPtr) (((char *) ptr) + amount + sizeof (MallocHeaderRec));
+- 
+-     MemoryActive += amount;
+-     head->magic = FIRSTMAGIC;
+-     head->amount = amount;
+-     if (MemoryAllocTime == MemoryAllocBreakpoint)
+- 	head->amount = amount;
+-     head->time = MemoryAllocTime++;
+-     head->next = MemoryInUse;
+-     head->prev = 0;
+-     if (MemoryInUse)
+- 	MemoryInUse->prev = head;
+-     MemoryInUse = head;
+- 
+-     tail->magic = SECONDMAGIC;
+-     
+-     return (unsigned long *)(((char *) ptr) + sizeof (MallocHeaderRec));
+- }
+- 
+- ValidateAllActiveMemory ()
+- {
+-     MallocHeaderPtr	head;
+-     MallocTrailerPtr	tail;
+- 
+-     for (head = MemoryInUse; head; head = head->next)
+-     {
+- 	tail = (MallocTrailerPtr) (((char *) (head + 1)) + head->amount);
+-     	if (head->magic == FREEDMAGIC)
+- 	    FatalError("Free data on active list");
+-     	if(head->magic != FIRSTMAGIC || tail->magic != SECONDMAGIC)
+- 	    FatalError("Garbage object on active list");
+-     }
+-     for (head = MemoryFreed; head; head = head->next)
+-     {
+- 	tail = (MallocTrailerPtr) (((char *) (head + 1)) + head->amount);
+- 	if (head->magic != FREEDMAGIC || tail->magic != FREEDMAGIC)
+- 	    FatalError("Non free data on free list");
+- 	if (!CheckMemoryContents (head, BLANKMAGIC))
+- 	    FatalError("Freed data reused");
+-     }
+- }
+- 
+- FillMemoryContents (head, value)
+-     MallocHeaderPtr head;
+-     long	    value;
+- {
+-     int		    count;
+-     long	    *store;
+- 
+-     count = head->amount / sizeof (long);
+-     store = (long *) (head + 1);
+-     while (count--)
+- 	*store++ = value;
+- }
+- 
+- CheckMemoryContents (head, value)
+-     MallocHeaderPtr head;
+-     long	    value;
+- {
+-     int		    count;
+-     long	    *check;
+- 
+-     count = head->amount / sizeof (long);
+-     check = (long *) (head + 1);
+-     while (count--)
+- 	if (*check++ != value)
+- 	    return FALSE;
+-     return TRUE;
+- }
+- 
+- #endif
+- 
+  /* XALLOC -- X's internal memory allocator.  Why does it return unsigned
+   * int * instead of the more common char *?  Well, if you read K&R you'll
+   * see they say that alloc must return a pointer "suitable for conversion"
+--- 533,538 ----
+***************
+*** 661,682 ****
+      /* aligned extra on long word boundary */
+      amount = (amount + 3) & ~3;
+  #ifdef MEMBUG
+-     if (MemoryValidate)
+- 	ValidateAllActiveMemory ();
+      if (!Must_have_memory && Memory_fail &&
+  	((random() % MEM_FAIL_SCALE) < Memory_fail))
+  	return (unsigned long *)NULL;
+!     if (ptr = (pointer)malloc(request(amount)))
+!     {
+! 	unsigned long	*ret;
+! 	ret = SetupBlock (ptr, amount);
+! 	FillMemoryContents ((MallocHeaderPtr) ptr, ALLOCMAGIC);
+! 	return ret;
+!     }
+! #else
+      if (ptr = (pointer)malloc(amount))
+  	return (unsigned long *)ptr;
+- #endif
+      if (Must_have_memory)
+  	FatalError("Out of memory");
+      return (unsigned long *)NULL;
+--- 557,568 ----
+      /* aligned extra on long word boundary */
+      amount = (amount + 3) & ~3;
+  #ifdef MEMBUG
+      if (!Must_have_memory && Memory_fail &&
+  	((random() % MEM_FAIL_SCALE) < Memory_fail))
+  	return (unsigned long *)NULL;
+! #endif
+      if (ptr = (pointer)malloc(amount))
+  	return (unsigned long *)ptr;
+      if (Must_have_memory)
+  	FatalError("Out of memory");
+      return (unsigned long *)NULL;
+***************
+*** 711,740 ****
+      char *realloc();
+  
+  #ifdef MEMBUG
+!     if (ptr)
+!     {
+!     	if (MemoryValidate)
+! 	    ValidateAllActiveMemory ();
+!     	if ((long)amount <= 0)
+!     	{
+! 	    if (!amount)
+! 	    	Xfree(ptr);
+! 	    return (unsigned long *)NULL;
+!     	}
+!     	if (!Must_have_memory && Memory_fail &&
+! 	    ((random() % MEM_FAIL_SCALE) < Memory_fail))
+! 	    return (unsigned long *)NULL;
+!     	amount = (amount + 3) & ~3;
+! 	CheckNode(ptr);
+! 	ptr = (pointer)realloc((char *) Header (ptr), request(amount));
+! 	if (ptr)
+! 	    return SetupBlock (ptr, amount);
+!     }
+!     else
+!     {
+! 	return Xalloc (amount);
+!     }
+! #else
+      if ((long)amount <= 0)
+      {
+  	if (ptr && !amount)
+--- 597,606 ----
+      char *realloc();
+  
+  #ifdef MEMBUG
+!     if (!Must_have_memory && Memory_fail &&
+! 	((random() % MEM_FAIL_SCALE) < Memory_fail))
+! 	return (unsigned long *)NULL;
+! #endif
+      if ((long)amount <= 0)
+      {
+  	if (ptr && !amount)
+***************
+*** 748,754 ****
+  	ptr = (pointer)malloc(amount);
+      if (ptr)
+          return (unsigned long *)ptr;
+- #endif
+      if (Must_have_memory)
+  	FatalError("Out of memory");
+      return (unsigned long *)NULL;
+--- 614,619 ----
+***************
+*** 763,850 ****
+  Xfree(ptr)
+      register pointer ptr;
+  {
+- #ifdef MEMBUG
+-     if (MemoryValidate)
+- 	ValidateAllActiveMemory ();
+      if (ptr)
+-     {
+- 	MallocHeaderPtr	    head;
+- 	MallocTrailerPtr    trail;
+- 
+- 	CheckNode(ptr);
+- 	head = Header(ptr);
+- 	trail = Trailer(ptr);
+- 	if (head->time == MemoryFreeBreakpoint)
+- 	    head->magic = FIRSTMAGIC;
+- 	head->magic = FREEDMAGIC;
+- 	trail->magic = FREEDMAGIC;
+- 	FillMemoryContents (head, BLANKMAGIC);
+- 	if (MemoryNeverFree)
+- 	{
+- 	    head->prev = 0;
+- 	    head->next = MemoryFreed;
+- 	    MemoryFreed = head;
+- 	}
+- 	else
+- 	    free ((char *) head);
+-     }
+- #else
+-     if (ptr)
+  	free((char *)ptr); 
+- #endif
+  }
+  
+! #ifdef MEMBUG
+! static void
+! CheckNode(ptr)
+!     pointer ptr;
+  {
+!     MallocHeaderPtr	head;
+!     MallocHeaderPtr	f, prev;
+  
+!     if (ptr < minfree)
+! 	FatalError("Trying to free static storage");
+!     head = Header(ptr);
+!     if (((pointer) head) < minfree)
+! 	FatalError("Trying to free static storage");
+!     if (head->magic == FREEDMAGIC)
+! 	FatalError("Freeing something already freed");
+!     if(head->magic != FIRSTMAGIC || Trailer(ptr)->magic != SECONDMAGIC)
+! 	FatalError("Freeing a garbage object");
+!     if(head->prev)
+! 	head->prev->next = head->next;
+      else
+! 	MemoryInUse = head->next;
+!     if (head->next)
+! 	head->next->prev = head->prev;
+!     MemoryActive -= head->amount;
+  }
+  
+! DumpMemoryInUse (time)
+!     unsigned long   time;
+  {
+!     MallocHeaderPtr	head;
+  
+!     for (head = MemoryInUse; head; head = head->next)
+! 	if (head->time >= time)
+! 	    fprintf (stderr, "0x%08x %5d %6d\n", head,
+! 					head->amount,
+! 					head->time);
+  }
+- 
+- static unsigned long	MarkedTime;
+- 
+- MarkMemoryTime ()
+- {
+-     MarkedTime = MemoryAllocTime;
+- }
+- 
+- DumpMemorySince ()
+- {
+-     DumpMemoryInUse (MarkedTime);
+- }
+- #endif
+- #endif /* SPECIAL_MALLOC */
+  
+  /*VARARGS1*/
+  void
+--- 628,677 ----
+  Xfree(ptr)
+      register pointer ptr;
+  {
+      if (ptr)
+  	free((char *)ptr); 
+  }
+  
+! OsInitAllocator ()
+  {
+! #ifdef MEMBUG
+!     static int	been_here;
+  
+!     /* Check the memory system after each generation */
+!     if (been_here)
+! 	CheckMemory ();
+      else
+! 	been_here = 1;
+! #endif
+  }
+  
+! /*VARARGS1*/
+! void
+! AuditF(f, s0, s1, s2, s3, s4, s5, s6, s7, s8, s9) /* limit of ten args */
+!     char *f;
+!     char *s0, *s1, *s2, *s3, *s4, *s5, *s6, *s7, *s8, *s9;
+  {
+! #ifdef X_NOT_STDC_ENV
+!     long tm;
+! #else
+!     time_t tm;
+! #endif
+!     char *autime, *s;
+  
+!     if (*f != ' ')
+!     {
+! 	time(&tm);
+! 	autime = ctime(&tm);
+! 	if (s = index(autime, '\n'))
+! 	    *s = '\0';
+! 	if (s = rindex(argvGlobal[0], '/'))
+! 	    s++;
+! 	else
+! 	    s = argvGlobal[0];
+! 	ErrorF("AUDIT: %s: %d %s: ", autime, getpid(), s);
+!     }
+!     ErrorF(f, s0, s1, s2, s3, s4, s5, s6, s7, s8, s9);
+  }
+  
+  /*VARARGS1*/
+  void
+*** /tmp/da3767	Mon Oct 19 21:44:05 1992
+--- server/os/osdep.h	Fri Aug 21 19:31:31 1992
+***************
+*** 21,33 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: osdep.h,v 1.27 91/07/23 19:04:22 rws Exp $ */
+  
+  #define BOTIMEOUT 200 /* in milliseconds */
+  #define BUFSIZE 4096
+  #define BUFWATERMARK 8192
+! #define MAXBUFSIZE (1 << 18)
+  
+  #ifndef X_NOT_POSIX
+  #ifdef _POSIX_SOURCE
+  #include <limits.h>
+--- 21,34 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: osdep.h,v 1.29 92/08/21 19:31:18 rws Exp $ */
+  
+  #define BOTIMEOUT 200 /* in milliseconds */
+  #define BUFSIZE 4096
+  #define BUFWATERMARK 8192
+! #define MAXBUFSIZE (1 << 22)
+  
++ #ifndef sgi	    /* SGI defines OPEN_MAX in a useless way */
+  #ifndef X_NOT_POSIX
+  #ifdef _POSIX_SOURCE
+  #include <limits.h>
+***************
+*** 37,42 ****
+--- 38,45 ----
+  #undef _POSIX_SOURCE
+  #endif
+  #endif
++ #endif
++ 
+  #ifndef OPEN_MAX
+  #ifdef SVR4
+  #define OPEN_MAX 128
+***************
+*** 43,49 ****
+  #else
+  #include <sys/param.h>
+  #ifndef OPEN_MAX
+! #ifdef NOFILE
+  #define OPEN_MAX NOFILE
+  #else
+  #define OPEN_MAX NOFILES_MAX
+--- 46,52 ----
+  #else
+  #include <sys/param.h>
+  #ifndef OPEN_MAX
+! #if defined(NOFILE) && !defined(NOFILES_MAX)
+  #define OPEN_MAX NOFILE
+  #else
+  #define OPEN_MAX NOFILES_MAX
+*** /tmp/d20100	Tue Oct 20 09:37:13 1992
+--- server/os/connection.c	Tue Oct 20 09:29:14 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.147 92/08/10 17:46:55 eswu Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.149 92/10/20 09:29:05 rws Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+***************
+*** 138,143 ****
+--- 138,144 ----
+  int GrabInProgress = 0;
+  
+  int ConnectionTranslation[MAXSOCKS];
++ extern int auditTrailLevel;
+  extern ClientPtr NextAvailableClient();
+  
+  extern SIGVAL AutoResetServer();
+***************
+*** 504,509 ****
+--- 505,556 ----
+  #endif
+  }
+  
++ static void
++ AuthAudit (client, letin, saddr, len, proto_n, auth_proto)
++     int client;
++     Bool letin;
++     struct sockaddr *saddr;
++     int len;
++     unsigned short proto_n;
++     char *auth_proto;
++ {
++     char addr[128];
++ 
++     if (!len)
++         strcpy(addr, "local host");
++     else
++ 	switch (saddr->sa_family)
++ 	{
++ 	case AF_UNSPEC:
++ #ifdef UNIXCONN
++ 	case AF_UNIX:
++ #endif
++ 	    strcpy(addr, "local host");
++ 	    break;
++ #ifdef TCPCONN
++ 	case AF_INET:
++ 	    sprintf(addr, "IP %s port %d",
++ 		    inet_ntoa(((struct sockaddr_in *) saddr)->sin_addr),
++ 		    ((struct sockaddr_in *) saddr)->sin_port);
++ 	    break;
++ #endif
++ #ifdef DNETCONN
++ 	case AF_DECnet:
++ 	    sprintf(addr, "DN %s",
++ 		    dnet_ntoa(&((struct sockaddr_dn *) saddr)->sdn_add));
++ 	    break;
++ #endif
++ 	default:
++ 	    strcpy(addr, "unknown address");
++ 	}
++     if (letin)
++ 	AuditF("client %d connected from %s\n", client, addr);
++     else
++ 	AuditF("client %d rejected from %s\n", client, addr);
++     if (proto_n)
++ 	AuditF("  Auth name: %.*s\n", proto_n, auth_proto);
++ }
++ 
+  /*****************************************************************
+   * ClientAuthorized
+   *
+***************
+*** 549,564 ****
+  				  string_n, auth_string);
+  
+      priv = (OsCommPtr)client->osPrivate;
+!     if (auth_id == (XID) ~0L && 
+!    	getpeername (priv->fd, &from.sa, &fromlen) != -1 &&
+!         !InvalidHost (&from.sa, fromlen))
+      {
+! 	auth_id = (XID) 0;
+      }
+  
+-     if (auth_id == (XID) ~0L)
+- 	return "Client is not authorized to connect to Server";
+- 
+      priv->auth_id = auth_id;
+      priv->conn_time = 0;
+  
+--- 596,626 ----
+  				  string_n, auth_string);
+  
+      priv = (OsCommPtr)client->osPrivate;
+!     if (auth_id == (XID) ~0L)
+      {
+! 	if (getpeername (priv->fd, &from.sa, &fromlen) != -1)
+! 	{
+! 	    if (InvalidHost (&from.sa, fromlen))
+! 		AuthAudit(client->index, FALSE, &from.sa, fromlen,
+! 			  proto_n, auth_proto);
+! 	    else
+! 	    {
+! 		auth_id = (XID) 0;
+! 		if (auditTrailLevel > 1)
+! 		    AuthAudit(client->index, TRUE, &from.sa, fromlen,
+! 			      proto_n, auth_proto);
+! 	    }
+! 	}
+! 	if (auth_id == (XID) ~0L)
+! 	    return "Client is not authorized to connect to Server";
+      }
++     else if (auditTrailLevel > 1)
++     {
++ 	if (getpeername (priv->fd, &from.sa, &fromlen) != -1)
++ 	    AuthAudit(client->index, TRUE, &from.sa, fromlen,
++ 		      proto_n, auth_proto);
++     }
+  
+      priv->auth_id = auth_id;
+      priv->conn_time = 0;
+  
+***************
+*** 831,836 ****
+--- 893,899 ----
+   *    Delete client from AllClients and free resources 
+   *****************/
+  
++ void
+  CloseDownConnection(client)
+      ClientPtr client;
+  {
+***************
+*** 844,849 ****
+--- 907,914 ----
+  #endif
+      CloseDownFileDescriptor(oc);
+      client->osPrivate = (pointer)NULL;
++     if (auditTrailLevel > 1)
++ 	AuditF("client %d disconnected\n", client->index);
+  }
+  
+  
+*** /tmp/da3901	Mon Oct 19 21:44:09 1992
+--- server/os/osinit.c	Tue Mar 31 17:50:54 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: osinit.c,v 1.40 91/11/29 15:21:07 rws Exp $ */
+  #include "X.h"
+  #include "os.h"
+  #include "osdep.h"
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: osinit.c,v 1.41 92/03/31 17:50:38 keith Exp $ */
+  #include "X.h"
+  #include "os.h"
+  #include "osdep.h"
+***************
+*** 153,158 ****
+--- 153,159 ----
+  #endif
+  	been_here = TRUE;
+      }
++     OsInitAllocator();
+  
+      OsInitColors();
+  }
+*** /tmp/da3934	Mon Oct 19 21:44:11 1992
+--- server/os/Imakefile	Wed Sep 16 11:58:01 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.56 92/08/10 17:46:46 eswu Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.59 92/09/16 11:57:50 rws Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+***************
+*** 78,84 ****
+      ADM_DEFINES = -DADMPATH=\"$(ADMDIR)/X\%smsgs\"
+          DEFINES = ConnectionFlags $(OS_DEFINES) $(XDMAUTHDEFS) $(RPCDEFS) $(SIGNAL_DEFINES)
+         INCLUDES = -I.  -I../include -I$(INCLUDESRC) -I$(TOP)/lib/Xau
+-     EXT_DEFINES = ExtensionDefines
+   DEPEND_DEFINES = $(DBM_DEFINES)
+         LINTLIBS = ../dix/llib-ldix.ln
+  
+--- 78,83 ----
+***************
+*** 96,108 ****
+  LintLibraryTarget(os,$(SRCS))
+  NormalLintTarget($(SRCS))
+  
+- XCOMM these depend on ConnectionFlags
+- access.o: $(ICONFIGFILES)
+- connection.o: $(ICONFIGFILES)
+- 
+- XCOMM these depend on HASXDMAUTH
+- auth.o xdmcp.o: $(ICONFIGFILES)
+- 
+  #ifdef HPArchitecture
+  XCOMM
+  XCOMM The following kludge is necessary because dbm already has a global 
+--- 95,100 ----
+***************
+*** 139,152 ****
+  	ar x $(PWLIB) alloca.o
+  #endif /* NEED_ALLOCA_FROM_LIBPW */
+  
+  SpecialCObjectRule(xdmcp,$(ICONFIGFILES),$(SOCK_DEFINES))
+  SpecialCObjectRule(connection,$(ICONFIGFILES),$(SOCK_DEFINES))
+  SpecialCObjectRule(osinit,$(ICONFIGFILES),$(ADM_DEFINES))
+! SpecialCObjectRule(WaitFor,$(ICONFIGFILES),$(EXT_DEFINES))
+  SpecialCObjectRule(fonttype,$(ICONFIGFILES),$(FONT_DEFINES))
+  SpecialCObjectRule(utils,$(ICONFIGFILES),$(TIME_DEFINES))
+  #if defined(SparcArchitecture) && HasGcc && !HasGcc2
+! oscolor.o: $(ICONFIGFILES)
+  	$(RM) $@
+  	cc -c $(DBM_DEFINES) $(CDEBUGFLAGS) $(ALLDEFINES) $*.c
+  #else
+--- 131,147 ----
+  	ar x $(PWLIB) alloca.o
+  #endif /* NEED_ALLOCA_FROM_LIBPW */
+  
++ SpecialCObjectRule(access,$(ICONFIGFILES),$(_NOOP_))
++ SpecialCObjectRule(auth,$(ICONFIGFILES),$(_NOOP_))
+  SpecialCObjectRule(xdmcp,$(ICONFIGFILES),$(SOCK_DEFINES))
+  SpecialCObjectRule(connection,$(ICONFIGFILES),$(SOCK_DEFINES))
+  SpecialCObjectRule(osinit,$(ICONFIGFILES),$(ADM_DEFINES))
+! SpecialCObjectRule(WaitFor,$(ICONFIGFILES),$(_NOOP_))
+! SpecialCObjectRule(io,$(ICONFIGFILES),$(_NOOP_))
+  SpecialCObjectRule(fonttype,$(ICONFIGFILES),$(FONT_DEFINES))
+  SpecialCObjectRule(utils,$(ICONFIGFILES),$(TIME_DEFINES))
+  #if defined(SparcArchitecture) && HasGcc && !HasGcc2
+! oscolor.o: oscolor.c $(ICONFIGFILES)
+  	$(RM) $@
+  	cc -c $(DBM_DEFINES) $(CDEBUGFLAGS) $(ALLDEFINES) $*.c
+  #else
+*** /tmp/da4095	Mon Oct 19 21:44:17 1992
+--- server/os/rpcauth.c	Fri Jan 31 16:51:46 1992
+***************
+*** 1,7 ****
+  /*
+   * SUN-DES-1 authentication mechanism
+   *
+!  * $XConsortium: rpcauth.c,v 1.3 91/02/28 09:36:18 rws Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * SUN-DES-1 authentication mechanism
+   *
+!  * $XConsortium: rpcauth.c,v 1.4 92/01/31 16:51:14 gildea Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 19,33 ****
+   */
+  
+  #ifdef SECURE_RPC
+  #include <rpc/rpc.h>
+  #ifdef ultrix
+  #include <time.h>
+  #include <rpc/auth_des.h>
+  #endif
+- #include "Xauth.h"
+- #include "misc.h"
+- #include "X.h"
+- #include "os.h"
+  
+  static char * 
+  authdes_ezdecode(inmsg, len)
+--- 19,36 ----
+   */
+  
+  #ifdef SECURE_RPC
++ 
++ #include "X.h"
++ #include "Xauth.h"
++ #include "misc.h"
++ #include "os.h"
++ 
+  #include <rpc/rpc.h>
++ 
+  #ifdef ultrix
+  #include <time.h>
+  #include <rpc/auth_des.h>
+  #endif
+  
+  static char * 
+  authdes_ezdecode(inmsg, len)
+***************
+*** 47,54 ****
+      temp_inmsg = (char *) xalloc(len);
+      bcopy(inmsg, temp_inmsg, len);
+  
+!     memset(&msg, 0, sizeof(msg));
+!     memset(&r, 0, sizeof(r));
+      memset(cred_area, 0, sizeof(cred_area));
+      memset(verf_area, 0, sizeof(verf_area));
+  
+--- 50,57 ----
+      temp_inmsg = (char *) xalloc(len);
+      bcopy(inmsg, temp_inmsg, len);
+  
+!     memset((char *)&msg, 0, sizeof(msg));
+!     memset((char *)&r, 0, sizeof(r));
+      memset(cred_area, 0, sizeof(cred_area));
+      memset(verf_area, 0, sizeof(verf_area));
+  
+***************
+*** 159,163 ****
+  {
+      return 0;
+  }
+! #endif SECURE_RPC
+! 
+--- 162,165 ----
+  {
+      return 0;
+  }
+! #endif /* SECURE_RPC */
+*** /tmp/da4585	Mon Oct 19 21:44:53 1992
+--- server/ddx/mi/miinitext.c	Tue Sep 15 16:17:59 1992
+***************
+*** 21,28 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: miinitext.c,v 1.17 92/01/25 16:35:50 rws Exp $ */
+  
+  #ifdef BEZIER
+  extern void BezierExtensionInit();
+  #endif
+--- 21,32 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: miinitext.c,v 1.21 92/09/15 16:17:52 rws Exp $ */
+  
++ #include "misc.h"
++ 
++ extern Bool noTestExtensions;
++ 
+  #ifdef BEZIER
+  extern void BezierExtensionInit();
+  #endif
+***************
+*** 47,52 ****
+--- 51,59 ----
+  #ifdef XTEST
+  extern void XTestExtensionInit();
+  #endif
++ #ifdef BIGREQS
++ extern void BigReqExtensionInit();
++ #endif
+  #ifdef MITMISC
+  extern void MITMiscExtensionInit();
+  #endif
+***************
+*** 56,61 ****
+--- 63,74 ----
+  #ifdef XTRAP
+  extern void DEC_XTRAPInit();
+  #endif
++ #ifdef SCREENSAVER
++ extern void ScreenSaverExtensionInit ();
++ #endif
++ #ifdef XV
++ extern void XvExtensionInit();
++ #endif
+  
+  /*ARGSUSED*/
+  void
+***************
+*** 67,73 ****
+      BezierExtensionInit();
+  #endif
+  #ifdef XTESTEXT1
+!     XTestExtension1Init();
+  #endif
+  #ifdef SHAPE
+      ShapeExtensionInit();
+--- 80,86 ----
+      BezierExtensionInit();
+  #endif
+  #ifdef XTESTEXT1
+!     if (!noTestExtensions) XTestExtension1Init();
+  #endif
+  #ifdef SHAPE
+      ShapeExtensionInit();
+***************
+*** 85,92 ****
+      XInputExtensionInit();
+  #endif
+  #ifdef XTEST
+!     XTestExtensionInit();
+  #endif
+  #ifdef MITMISC
+      MITMiscExtensionInit();
+  #endif
+--- 98,108 ----
+      XInputExtensionInit();
+  #endif
+  #ifdef XTEST
+!     if (!noTestExtensions) XTestExtensionInit();
+  #endif
++ #ifdef BIGREQS
++     BigReqExtensionInit();
++ #endif
+  #ifdef MITMISC
+      MITMiscExtensionInit();
+  #endif
+***************
+*** 94,99 ****
+      XIdleExtensionInit();
+  #endif
+  #ifdef XTRAP
+!     DEC_XTRAPInit();
+  #endif
+  }
+--- 110,121 ----
+      XIdleExtensionInit();
+  #endif
+  #ifdef XTRAP
+!     if (!noTestExtensions) DEC_XTRAPInit();
+! #endif
+! #ifdef SCREENSAVER
+!     ScreenSaverExtensionInit ();
+! #endif
+! #ifdef XV
+!     XvExtensionInit();
+  #endif
+  }
+*** /tmp/da5898	Mon Oct 19 21:46:46 1992
+--- server/ddx/mi/Imakefile	Thu May 28 13:09:34 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 5.16 91/07/23 15:19:39 keith Exp $
+  #include <Server.tmpl>
+  
+  SRCS =  mivaltree.c mipolyseg.c mipolyrect.c \
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 5.18 92/05/28 13:07:45 rws Exp $
+  #include <Server.tmpl>
+  
+  SRCS =  mivaltree.c mipolyseg.c mipolyrect.c \
+***************
+*** 31,41 ****
+  
+  all:: cbrt.o
+  
+! SpecialObjectRule(miinitext.o, $(ICONFIGFILES), NullParameter)
+! 
+! #if HasSaberC
+! saber_src:
+! 	XCOMM load $(CFLAGS) $(SRCS)
+! #endif
+  
+  DependTarget()
+--- 31,36 ----
+  
+  all:: cbrt.o
+  
+! SpecialCObjectRule(miinitext,$(ICONFIGFILES),$(_NOOP_))
+  
+  DependTarget()
+*** /tmp/da6073	Mon Oct 19 21:47:14 1992
+--- extensions/server/shm.c	Sun May 10 17:26:52 1992
+***************
+*** 17,23 ****
+  
+  /* THIS IS NOT AN X CONSORTIUM STANDARD */
+  
+! /* $XConsortium: shm.c,v 1.11 91/07/12 09:54:58 rws Exp $ */
+  
+  #include <sys/types.h>
+  #include <sys/ipc.h>
+--- 17,23 ----
+  
+  /* THIS IS NOT AN X CONSORTIUM STANDARD */
+  
+! /* $XConsortium: shm.c,v 1.15 92/05/10 17:26:46 rws Exp $ */
+  
+  #include <sys/types.h>
+  #include <sys/ipc.h>
+***************
+*** 49,59 ****
+      unsigned long size;
+  } ShmDescRec, *ShmDescPtr;
+  
+! #if NeedFunctionPrototypes && !defined(ultrix)
+  void *shmat(int, void*, int);
+  #else
+  char *shmat();
+  #endif
+  static void miShmPutImage(), fbShmPutImage();
+  static PixmapPtr fbShmCreatePixmap();
+  ExtensionEntry *AddExtension();
+--- 49,68 ----
+      unsigned long size;
+  } ShmDescRec, *ShmDescPtr;
+  
+! #if NeedFunctionPrototypes
+! 
+! #if defined(SVR4)
+  void *shmat(int, void*, int);
+  #else
++ #if !defined(sgi) && !defined(hpux)
++ char *shmat(int, char*, int);
++ #endif
++ #endif
++ 
++ #else
+  char *shmat();
+  #endif
++ 
+  static void miShmPutImage(), fbShmPutImage();
+  static PixmapPtr fbShmCreatePixmap();
+  ExtensionEntry *AddExtension();
+***************
+*** 469,479 ****
+  	client->errorValue = stuff->format;
+          return(BadValue);
+      }
+!     if (!(pDraw = LOOKUP_DRAWABLE(stuff->drawable, client)))
+!     {
+! 	client->errorValue = stuff->drawable;
+! 	return (BadDrawable);
+!     }
+      VERIFY_SHMPTR(stuff->shmseg, stuff->offset, TRUE, shmdesc, client);
+      if (pDraw->type == DRAWABLE_WINDOW)
+      {
+--- 478,484 ----
+  	client->errorValue = stuff->format;
+          return(BadValue);
+      }
+!     VERIFY_DRAWABLE(pDraw, stuff->drawable, client);
+      VERIFY_SHMPTR(stuff->shmseg, stuff->offset, TRUE, shmdesc, client);
+      if (pDraw->type == DRAWABLE_WINDOW)
+      {
+***************
+*** 605,615 ****
+      if (!sharedPixmaps)
+  	return BadImplementation;
+      LEGAL_NEW_RESOURCE(stuff->pid, client);
+!     if (!(pDraw = LOOKUP_DRAWABLE(stuff->drawable, client)))
+!     {        /* can be inputonly */
+!         if (!(pDraw = (DrawablePtr)LookupWindow(stuff->drawable, client))) 
+!             return (BadDrawable);
+!     }
+      VERIFY_SHMPTR(stuff->shmseg, stuff->offset, TRUE, shmdesc, client);
+      if (!stuff->width || !stuff->height)
+      {
+--- 610,616 ----
+      if (!sharedPixmaps)
+  	return BadImplementation;
+      LEGAL_NEW_RESOURCE(stuff->pid, client);
+!     VERIFY_GEOMETRABLE(pDraw, stuff->drawable, client);
+      VERIFY_SHMPTR(stuff->shmseg, stuff->offset, TRUE, shmdesc, client);
+      if (!stuff->width || !stuff->height)
+      {

@@ -1,0 +1,77 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+# don't allow a SIGINT to kill this script, just the executing child
+trap "echo" 2
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+# Just exit if /usr not mounted.
+if [ ! -d /usr/sbin ]
+then
+	exit
+fi
+
+#
+# Determine action from runlevel information
+#
+set `who -r`
+if [ $9 = "S" ]; then
+        stty sane tab3 2>/dev/null
+        BOOT=yes
+elif [ $7 = "3" ]; then
+        echo "Changing to system level 3."
+        if [ -d /sbin/rc3.d ]; then
+                for f in /sbin/rc3.d/K*
+                do
+                        if [ -s $f ]; then
+                                /sbin/sh $f stop
+                        fi
+                done
+        fi
+fi
+
+if [ -d /sbin/rc3.d ]; then
+        for f in /sbin/rc3.d/S*
+        do
+                if [ -s $f ]; then
+                        /sbin/sh $f start
+                fi
+        done
+fi
+
+if [ $9 = "S" ]; then
+        echo "The system is ready."
+elif [ $7 = "3" ]; then
+        echo "change to state 3 completed."
+fi

@@ -1,0 +1,196 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: idp.7,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/21 11:21:40 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.\" Copyright (c) 1985 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)idp.4	1.3 (Berkeley) 6/23/90
+.\" 
+.TH idp 7
+.SH NAME
+\*Lidp\*O \- Xerox Internet Datagram Protocol
+.SH SYNOPSIS 
+.sS
+\*L#include <sys/socket.h>\*O
+.nL
+\*L#include <netns/ns.h>\*O
+.nL
+\*L#include <netns/idp.h>\*O
+.PP 
+\*Ls = socket(AF_NS, SOCK_DGRAM, 0);\*O
+.sE 
+.SH DESCRIPTION
+.iX "idp" "Xerox Internet Protocol"
+.iX "Xerox Internet Protocol"
+.iX "protocols" "IDP"
+The Xerox Internet Datagram Protocol
+(IDP) is a simple, unreliable datagram protocol which is used
+to support the SOCK_DGRAM abstraction for the Internet
+protocol family.  IDP sockets are connectionless, and are
+normally used with the
+\*Lsendto(\|)\*O
+and
+\*Lrecvfrom(\|)\*O
+functions.  The
+\*Lconnect(\|)\*O
+function may also be used to fix the destination for future
+packets, in which case the
+\*Lrecv(\|)\*O
+or
+\*Lread(\|)\*O
+and
+\*Lsend(\|)\*O
+or
+\*Lwrite(\|)\*O
+functions may be used.
+.PP 
+Xerox protocols are built vertically on top of IDP.
+Thus, IDP address formats are identical to those used by
+the Sequenced Packet Protocol (SPP).
+Note that the IDP port
+space is the same as the SPP port space; that is, an IDP port
+may be connected to an SPP port, with certain
+options enabled as described below.
+In addition, broadcast packets may be sent
+(assuming the underlying network supports
+this) by using a reserved broadcast address; this address
+is network interface dependent.
+.PP 
+The following socket options are available:
+.\"from TP 1i"  
+.VL 1i
+.LI "SO_HEADERS_ON_INPUT"
+When set, the first 30 bytes of any data returned from a \*Lread(\|)\*O
+or \*Lrecv(\|)\*O function will be the initial 30 bytes of the IDP packet,
+as described by
+.wH .RS  Can not be used in nested lists
+.rS
+\*Lstruct idp {
+.nL
+	u_short		idp_sum;
+.nL
+	u_short		idp_len;
+.nL
+	u_char		idp_tc;
+.nL
+	u_char		idp_pt;
+.nL
+	struct ns_addr	idp_dna;
+.nL
+	struct ns_addr	idp_sna;
+.nL
+};\*O
+.wH .RE
+.rE
+This allows the user to determine the packet type, and whether
+the packet was a multicast packet or directed specifically at
+the local host.
+When requested, gives the current state of the option as either
+NSP_RAWIN or 0 (zero).
+.\"from TP 1i"  
+.LI "SO_HEADERS_ON_OUTPUT" 
+When set, the first 30 bytes of any data sent
+will be the initial 30 bytes of the IDP packet.
+This allows the user to determine the packet type, and whether
+the packet should be a multicast packet or directed specifically at
+the local host.
+You can also misrepresent the sender of the packet.
+When requested, gives the current state of the option as either
+NSP_RAWOUT or 0 (zero).
+.\"from TP 1i"  
+.LI "SO_DEFAULT_HEADERS" 
+The user provides the kernel an IDP header, from which
+it gleans the packet type.
+When requested, the kernel will provide an IDP header, showing
+the default packet type, and local and foreign addresses, if
+connected.
+.\"from TP 1i"  
+.LI "SO_ALL_PACKETS" 
+When set, this option defeats automatic processing of error packets,
+and sequence protocol packets.
+.\"from TP 1i"  
+.LI "SO_SEQNO" 
+When requested, this option returns a sequence number which is not likely
+to be repeated until the machine crashes or a very long time has passed.
+It is useful in constructing packet exchange protocol packets.
+.LE 
+.SH ERRORS
+If a socket operation fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EISCONN]"
+The socket is already connected.  This error occurs
+when trying to establish connection on a socket
+or when trying to send a datagram with the destination
+address specified.
+.\"from TP 1i"  
+.LI "[ENOTCONN]" 
+The
+destination address of a datagram was not
+specified, and the socket has not been
+connected.
+.\"from TP 1i"  
+.LI "[ENOBUFS]" 
+The system ran out of memory for
+an internal data structure.
+.\"from TP 1i"  
+.LI "[EADDRINUSE]" 
+An attempt was made to create a
+socket with a network address for which no network interface
+exists.
+.\"from TP 1i"  
+.LI "[EADDRNOTAVAIL]" 
+An attempt was made to create a
+socket with a network address for which no network interface
+exists.
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Functions:
+\*Lsend\*O(2),
+\*Lrecv\*O(2)
+.PP 
+Files:
+\*Lnetintro\*O(7),
+\*Lns\*O(7)
+.iX "idp" "Xerox Internet Protocol"
+.EQ
+delim off
+.EN

@@ -1,0 +1,155 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: reloc.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/17 19:23:42 $
+.\" 
+.\" ------------------------------------------------------------------
+.\" | Copyright Unpublished, MIPS Computer Systems, Inc.  All Rights |
+.\" | Reserved.  This software contains proprietary and confidential |
+.\" | information of MIPS and its suppliers.  Use, disclosure or     |
+.\" | reproduction is prohibited without the prior express written   |
+.\" | consent of MIPS.                                               |
+.\" ------------------------------------------------------------------
+.\" $Header: /usr/doc/osf1doc/refpages/rcs/src/BASE/DEC/man4/reloc.4,v 3.2.4.2 1993/12/17 19:23:42 Blaise_Corcoran Exp $
+.TH reloc 4
+.SH NAME
+.PP
+\*Lreloc\*O \- Relocation information for an object file
+.SH SYNOPSIS
+.PP
+.iX "reloc header file"
+.sS
+\*L#include  <reloc.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+Object files have one relocation entry for each
+relocatable reference in the text or data.
+If relocation information is present, it will
+be in the following format.
+.PP
+.oS
+.ps -3
+struct	reloc
+{
+    long     r_vaddr ;     /* (virtual) address of reference */
+    long     r_symndx ;    /* index into symbol table */
+    ushort   r_type ;      /* relocation type */
+    unsigned r_symndx:24,  /* index into symbol table */
+             r_reserved:3,
+             r_type:4,     /* relocation type */
+             r_extern:1;   /* if 1 symndx is an index into the external
+                             symbol table, else symndx is a section # */
+} ;
+.sp
+/* Relocation types */
+#define    R_ABS        0
+#define    R_REFHALF    1
+#define    R_REFWORD    2
+#define    R_JMPADDR    3
+#define    R_REFHI      4
+#define    R_REFLO      5
+#define    R_GPREL      6
+#define    R_LITERAL    7
+.sp
+/* Section numbers */
+#define    R_SN_NULL    0
+#define    R_SN_TEXT    1
+#define    R_SN_RDATA   2
+#define    R_SN_DATA    3
+#define    R_SN_SDATA   4
+#define    R_SN_SBSS    5
+#define    R_SN_BSS     6
+#define    R_SN_INIT    7
+#define    R_SN_LIT8    8
+#define    R_SN_LIT4    9
+.ps +3
+.oE
+.PP
+The link editor reads each input section and performs relocation.
+The relocation entries
+direct how references found within the input section are treated.
+.PP
+If
+\*Vr_extern\*O
+is zero then it is a local relocation entry and then
+\*Vr_symndx\*O
+is a section number (R_SN_*).
+For these entries the starting address for the section referenced by the
+section number is used in place of an external symbol table entry's value.
+The assembler and loader always use local relocation entries if the item
+to be relocated is defined in the object file.
+.PP
+For every external relocation (except R_ABS) a signed constant is added
+to the symbol's virtual address that the relocation entry refers to.  This
+constant is assembled at the address being relocated.
+.PP
+.TP 18
+.SM R_ABS
+The reference is absolute and no relocation is necessary.
+The entry will be ignored.
+.TP
+.SM R_REFHALF
+A 16-bit reference to the symbol's virtual address.
+.TP
+.SM R_REFWORD
+A 32-bit reference to the symbol's virtual address.
+.TP
+.SM R_JMPADDR
+A 26-bit jump instruction reference to the symbol's virtual address.
+.TP
+.SM R_REFHI
+A reference to the high 16-bits of the symbol's virtual address.
+The next relocation entry must be the corresponding
+.SM R_REFLO
+entry so the proper value of the constant to be added to the
+symbol's virtual address can be reconstructed.
+.TP
+.SM R_REFLO
+A reference to low 16-bits to the symbol's virtual address.
+.TP
+.SM R_GPREL
+A 16-bit offset to the symbol's virtual address
+from the global pointer register.
+.TP
+.SM R_LITERAL
+A 16-bit offset to the literal's virtual address
+from the global pointer register.
+.PP
+Relocation entries are generated automatically by the assembler and
+automatically used by the link editor.
+Link editor options exist for both preserving and
+removing the relocation entries from object files.
+.PP
+The number of relocation entries for a section is found in the
+\*Vs_nreloc\*O
+field of the section header.  This field is a `C' language short and can
+overflow with large objects.  If this field overflows the section header
+\*Vs_flags\*O
+field has the
+.SM S_NRELOC_OVFL
+bit set.  In this case the true number of relocation entries is found in the
+\*Vr_vaddr\*O
+field of the first relocation entry for that section.  That relocation entry
+has a type of
+.SM R_ABS
+so it is ignored when the relocation takes place.
+.SH RELATED INFORMATION
+.PP
+\*Las\*O(1), \*Lld\*O(1), \*La.out\*O(4), \*Lsyms\*O(4), \*Lscnhdr\*O(4).
+.EQ
+delim off
+.EN

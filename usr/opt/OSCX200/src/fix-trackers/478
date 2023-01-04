@@ -1,0 +1,682 @@
+Path: news!nntpd.lkg.dec.com!nntpd2.cxo.dec.com!pa.dec.com!nobody
+Message-Id: <9211032308.AA02609@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2715) close XBUG #5589: Xlib: (Xsi) LocalIM returns only Keysym
+Date: Tue, 03 Nov 92 18:08:22 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5589
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d02496	Tue Nov  3 18:04:37 1992
+--- lib/X/Xsi/ProtoFlt.c	Thu Oct 22 14:26:08 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.27 92/04/24 16:13:58 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.28 92/10/22 14:25:16 rws Exp $
+   */
+  
+  /*
+***************
+*** 420,426 ****
+  		if (reply1.type == XIM_KEYSYM || reply1.type == XIM_STRING) {
+  		    if (_XipPutICQueue(ic, (short)reply1.type,
+  				       (int)reply1.length,
+! 				       (KeySym)reply1.keysym, 0, NULL) < 0) {
+  			return(-1);
+  		    }
+  		    count++;
+--- 420,426 ----
+  		if (reply1.type == XIM_KEYSYM || reply1.type == XIM_STRING) {
+  		    if (_XipPutICQueue(ic, (short)reply1.type,
+  				       (int)reply1.length,
+! 				       (KeySym)reply1.keysym, 0, 0, NULL) < 0) {
+  			return(-1);
+  		    }
+  		    count++;
+*** /tmp/d02515	Tue Nov  3 18:04:49 1992
+--- lib/X/Xsi/XIMKeyBind.c	Thu Oct 22 14:26:15 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMKeyBind.c,v 1.25 92/07/29 12:10:04 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMKeyBind.c,v 1.26 92/10/22 14:26:09 rws Exp $
+   */
+  
+  /*
+***************
+*** 45,51 ****
+      Status *status;
+  {
+      XipIC		ic = (XipIC)supic;
+!     short		type;
+      int			length;
+      unsigned char	*ptr;
+      int			ret_len, scanned_bytes;
+--- 45,51 ----
+      Status *status;
+  {
+      XipIC		ic = (XipIC)supic;
+!     short		type, string_is_mb;
+      int			length;
+      unsigned char	*ptr;
+      int			ret_len, scanned_bytes;
+***************
+*** 58,77 ****
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks, (char **)&ptr);
+  	}
+  	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+  #ifdef X_WCHAR
+  	    ret_len = nchars;
+! 	    ret = _XConvertCTToWC(ic->wc, ptr, length, (wchar *)buffer,
+! 				  &ret_len, &scanned_bytes, (_State *)NULL);
+  #else
+  	    ret_len = length * 2;
+  	    mbuf = _XAllocScratch(ev->display, ret_len);
+! 	    ret = _XConvertCTToMB(ic->mb, ptr, length, mbuf,
+! 				  &ret_len, &scanned_bytes, (_State *)NULL);
+  	    if (ret >= 0) {
+  #ifdef macII
+  		ret_len = 0;
+--- 58,90 ----
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks,
+! 				   &string_is_mb, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks,
+! 			       &string_is_mb, (char **)&ptr);
+  	}
+  	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+  #ifdef X_WCHAR
+  	    ret_len = nchars;
+! 	    if (string_is_mb) {
+! 		ret = _XConvertMBToWC(ic->wc, ptr, length, (wchar *)buffer,
+! 				      &ret_len, &scanned_bytes, (_State *)NULL);
+! 	    } else {
+! 		ret = _XConvertCTToWC(ic->wc, ptr, length, (wchar *)buffer,
+! 				      &ret_len, &scanned_bytes, (_State *)NULL);
+! 	    }
+  #else
+  	    ret_len = length * 2;
+  	    mbuf = _XAllocScratch(ev->display, ret_len);
+! 	    if (string_is_mb) {
+! 		ret = 0;
+! 		strncpy(mbuf, (char *)ptr, length);
+! 		ret_len = length;
+! 	    } else {
+! 		ret = _XConvertCTToMB(ic->mb, ptr, length, mbuf,
+! 				      &ret_len, &scanned_bytes, (_State *)NULL);
+! 	    }
+  	    if (ret >= 0) {
+  #ifdef macII
+  		ret_len = 0;
+***************
+*** 84,90 ****
+  	    }
+  #endif
+  	    if (ret == BadBuffer) {
+! 		_XipSaveOverflowICQueue(ic, type, length, tmp_ks, ptr);
+  		ev->state = 1;
+  		*status = XBufferOverflow;
+  		return(0);
+--- 97,104 ----
+  	    }
+  #endif
+  	    if (ret == BadBuffer) {
+! 		_XipSaveOverflowICQueue(ic, type, length, tmp_ks,
+! 					string_is_mb, ptr);
+  		ev->state = 1;
+  		*status = XBufferOverflow;
+  		return(0);
+***************
+*** 160,166 ****
+      Status *status;
+  {
+      XipIC		ic = (XipIC)supic;
+!     short		type;
+      int			length;
+      unsigned char	*ptr;
+      int			ret_len, scanned_bytes;
+--- 174,180 ----
+      Status *status;
+  {
+      XipIC		ic = (XipIC)supic;
+!     short		type, string_is_mb;
+      int			length;
+      unsigned char	*ptr;
+      int			ret_len, scanned_bytes;
+***************
+*** 169,202 ****
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks, (char **)&ptr);
+  	}
+! 	if (type == XIM_STRING) {
+! 	    ret_len = nbytes;
+! 	    ret = _XConvertCTToMB(ic->mb, ptr, length, (unsigned char *)buffer,
+! 				  &ret_len, &scanned_bytes, (_State *)NULL);
+! 	    if (ret == BadBuffer) {
+! 		_XipSaveOverflowICQueue(ic, type, length, tmp_ks, ptr);
+! 		ev->state = 1;
+! 		*status = XBufferOverflow;
+! 		return(0);
+! 	    } else if (ret < 0) {
+! 		*status = XLookupNone;
+! 		return(0);
+! 	    }
+! 	    *status = XLookupChars;
+! 	    return(ret_len);
+! 	} else if (type == XIM_KEYSYM) {
+! 	    if (length > 0) {
+  		ret_len = nbytes;
+  		ret = _XConvertCTToMB(ic->mb, ptr, length,
+! 				      (unsigned char *)buffer,
+! 				      &ret_len, &scanned_bytes,
+! 				      (_State *)NULL);
+  		if (ret == BadBuffer) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks, ptr);
+  		    ev->state = 1;
+  		    *status = XBufferOverflow;
+  		    return(0);
+--- 183,214 ----
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks,
+! 				   &string_is_mb, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks,
+! 			       &string_is_mb, (char **)&ptr);
+  	}
+! 	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+! 	    if (string_is_mb) {
+! 		if (nbytes < length) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks,
+! 					    string_is_mb, ptr);
+! 		    ev->state = 1;
+! 		    *status = XBufferOverflow;
+! 		    return(0);
+! 		}
+! 		(void)strncpy(buffer, (char *)ptr, length);
+! 		if (length < nbytes) buffer[length] = '\0';
+! 		ret_len = length;
+! 	    } else {
+  		ret_len = nbytes;
+  		ret = _XConvertCTToMB(ic->mb, ptr, length,
+! 				      (unsigned char *)buffer, &ret_len,
+! 				      &scanned_bytes, (_State *)NULL);
+  		if (ret == BadBuffer) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks,
+! 					    string_is_mb, ptr);
+  		    ev->state = 1;
+  		    *status = XBufferOverflow;
+  		    return(0);
+***************
+*** 204,222 ****
+  		    *status = XLookupNone;
+  		    return(0);
+  		}
+! 		if (keysym) {
+! 		    *keysym = tmp_ks;
+! 		    *status = XLookupBoth;
+! 		} else {
+! 		    *status = XLookupChars;
+! 		}
+! 		return(length);
+! 	    } else if (keysym) {
+  		*keysym = tmp_ks;
+! 		*status = XLookupKeySym;
+  	    } else {
+! 		*status = XLookupNone;
+  	    }
+  	    return(0);
+  	} else {
+  	    *status = XLookupNone;
+--- 216,232 ----
+  		    *status = XLookupNone;
+  		    return(0);
+  		}
+! 	    }
+! 	    if (type == XIM_KEYSYM && keysym) {
+  		*keysym = tmp_ks;
+! 		*status = XLookupBoth;
+  	    } else {
+! 		*status = XLookupChars;
+  	    }
++ 	    return(ret_len);
++ 	} else if (type == XIM_KEYSYM && keysym) {
++ 	    *keysym = tmp_ks;
++ 	    *status = XLookupKeySym;
+  	    return(0);
+  	} else {
+  	    *status = XLookupNone;
+***************
+*** 244,251 ****
+  }
+  
+  int
+! _XipctLookupString(ic, ev, buffer, nbytes, keysym, status)
+!     XIC ic;
+      register XKeyEvent *ev;
+      char *buffer;
+      int nbytes;
+--- 254,261 ----
+  }
+  
+  int
+! _XipctLookupString(supic, ev, buffer, nbytes, keysym, status)
+!     XIC supic;
+      register XKeyEvent *ev;
+      char *buffer;
+      int nbytes;
+***************
+*** 252,302 ****
+      KeySym *keysym;
+      Status *status;
+  {
+!     short		type;
+      int			length;
+      char		*ptr;
+!     int			ret_len;
+      KeySym		tmp_ks;
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks, &ptr);
+  	}
+! 	if (type == XIM_STRING) {
+! 	    if (length > nbytes) {
+! 		_XipSaveOverflowICQueue(ic, type, length, tmp_ks, ptr);
+! 		ev->state = 1;
+! 		*status = XBufferOverflow;
+! 		return(0);
+! 	    }
+! 	    (void)strncpy(buffer, ptr, length);
+! 	    if (length < nbytes) buffer[length] = 0;
+! 	    *status = XLookupChars;
+! 	    return(nbytes);
+! 	} else if (type == XIM_KEYSYM) {
+! 	    if (length > 0) {
+  		if (length > nbytes) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks, ptr);
+  		    ev->state = 1;
+  		    *status = XBufferOverflow;
+  		    return(0);
+  		}
+  		(void)strncpy(buffer, ptr, length);
+! 		if (length < nbytes) buffer[length] = 0;
+! 		if (keysym) {
+! 		    *keysym = tmp_ks;
+! 		    *status = XLookupBoth;
+! 		} else {
+! 		    *status = XLookupChars;
+! 		}
+! 		return(nbytes);
+! 	    } else if (keysym) {
+! 		*status = XLookupKeySym;
+  	    } else {
+! 		*status = XLookupNone;
+  	    }
+  	    return(0);
+  	} else {
+  	    *status = XLookupNone;
+--- 262,321 ----
+      KeySym *keysym;
+      Status *status;
+  {
+!     XipIC		ic = (XipIC)supic;
+!     short		type, string_is_mb;
+      int			length;
+      char		*ptr;
+!     int			ret_len, scanned_bytes;
+      KeySym		tmp_ks;
++     int			ret;
+  
+      if (ev->keycode == 0) {
+  	if (ev->state > 0) {
+! 	    _XipGetOverflowICQueue(ic, &type, &length, &tmp_ks,
+! 				   &string_is_mb, (char **)&ptr);
+  	} else {
+! 	    _XipGetNextICQueue(ic, &type, &length, &tmp_ks,
+! 			       &string_is_mb, &ptr);
+  	}
+! 	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+! 	    if (string_is_mb) {
+! 		ret_len = nbytes;
+! 		ret = _XConvertMBToCT(ic->mb, ptr, length,
+! 				      (unsigned char *)buffer, &ret_len,
+! 				      &scanned_bytes, (_State *)NULL);
+! 		if (ret == BadBuffer) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks,
+! 					    string_is_mb, ptr);
+! 		    ev->state = 1;
+! 		    *status = XBufferOverflow;
+! 		    return(0);
+! 		} else if (ret < 0) {
+! 		    *status = XLookupNone;
+! 		    return(0);
+! 		}
+! 	    } else {
+  		if (length > nbytes) {
+! 		    _XipSaveOverflowICQueue(ic, type, length, tmp_ks,
+! 					    string_is_mb, ptr);
+  		    ev->state = 1;
+  		    *status = XBufferOverflow;
+  		    return(0);
+  		}
+  		(void)strncpy(buffer, ptr, length);
+! 		if (length < nbytes) buffer[length] = '\0';
+! 		ret_len = length;
+! 	    }
+! 	    if (type == XIM_KEYSYM && keysym) {
+! 		*keysym = tmp_ks;
+! 		*status = XLookupBoth;
+  	    } else {
+! 		*status = XLookupChars;
+  	    }
++ 	    return(ret_len);
++ 	} else if (type == XIM_KEYSYM && keysym) {
++ 	    *keysym = tmp_ks;
++ 	    *status = XLookupKeySym;
+  	    return(0);
+  	} else {
+  	    *status = XLookupNone;
+*** /tmp/d02534	Tue Nov  3 18:04:59 1992
+--- lib/X/Xsi/XIMQueue.c	Thu Oct 22 14:26:20 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.11 92/07/29 13:55:40 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.12 92/10/22 14:26:15 rws Exp $
+   */
+  
+  /*
+***************
+*** 84,95 ****
+   * Stack 
+   */
+  int
+! _XipPutICQueue(ic, type, length, keysym, state, str)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
+      unsigned int state;
+      unsigned char *str;
+  {
+      XipIM im = ipIMofIC(ic);
+--- 84,96 ----
+   * Stack 
+   */
+  int
+! _XipPutICQueue(ic, type, length, keysym, state, string_is_mb, str)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
+      unsigned int state;
++     short string_is_mb;
+      unsigned char *str;
+  {
+      XipIM im = ipIMofIC(ic);
+***************
+*** 121,126 ****
+--- 122,128 ----
+      }
+  
+      ic->in->type = type;
++     ic->in->string_is_mb = string_is_mb;
+      if (type == XIM_KEYSYM) {
+  	if (str) {
+  	    length = strlen((char *)str);
+***************
+*** 163,173 ****
+   * Get 
+   */
+  void
+! _XipGetNextICQueue(ic, type, length, keysym, ptr)
+      XipIC ic;
+      short *type;
+      int *length;
+      KeySym *keysym;
+      char **ptr;
+  {
+      if (ic->out) {
+--- 165,176 ----
+   * Get 
+   */
+  void
+! _XipGetNextICQueue(ic, type, length, keysym, string_is_mb, ptr)
+      XipIC ic;
+      short *type;
+      int *length;
+      KeySym *keysym;
++     short *string_is_mb;
+      char **ptr;
+  {
+      if (ic->out) {
+***************
+*** 174,179 ****
+--- 177,183 ----
+  	*type = ic->out->type;
+  	*length = ic->out->length;
+  	if (keysym != NULL) *keysym = ic->out->keysym;
++ 	*string_is_mb = ic->out->string_is_mb;
+  	*ptr = ic->out->ptr;
+  	if (ic->out->next == ic->in) {
+  	    ic->out = NULL;
+***************
+*** 205,215 ****
+   * Save to Overflow Queue
+   */
+  void
+! _XipSaveOverflowICQueue(ic, type, length, keysym, ptr)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
+      char *ptr;
+  {
+      register XIMQueue *q = &ic->overflow;
+--- 209,220 ----
+   * Save to Overflow Queue
+   */
+  void
+! _XipSaveOverflowICQueue(ic, type, length, keysym, string_is_mb, ptr)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
++     short string_is_mb;
+      char *ptr;
+  {
+      register XIMQueue *q = &ic->overflow;
+***************
+*** 218,223 ****
+--- 223,229 ----
+      q->length = length;
+      q->keysym = keysym;
+      q->state = 0;
++     q->string_is_mb = string_is_mb;
+      if (q->length > 0) {
+  	if (q->buf_max < q->length) {
+  	    q->ptr = (char *)Xrealloc((char *)q->ptr, (unsigned)q->length);
+***************
+*** 231,241 ****
+   * Get from Overflow Queue
+   */
+  void
+! _XipGetOverflowICQueue(ic, type, length, keysym, ptr)
+      XipIC ic;
+      short *type;
+      int *length;
+      KeySym *keysym;
+      char **ptr;
+  {
+      register XIMQueue *q = &ic->overflow;
+--- 237,248 ----
+   * Get from Overflow Queue
+   */
+  void
+! _XipGetOverflowICQueue(ic, type, length, keysym, string_is_mb, ptr)
+      XipIC ic;
+      short *type;
+      int *length;
+      KeySym *keysym;
++     short *string_is_mb;
+      char **ptr;
+  {
+      register XIMQueue *q = &ic->overflow;
+***************
+*** 244,249 ****
+--- 251,257 ----
+  	*type = q->type;
+  	*length = q->length;
+  	if (keysym != NULL) *keysym = q->keysym;
++ 	*string_is_mb = q->string_is_mb;
+  	*ptr = q->ptr;
+  	q->type = 0;
+      } else {
+*** /tmp/d02553	Tue Nov  3 18:05:09 1992
+--- lib/X/Xsi/XLocalIM.c	Thu Oct 22 14:26:26 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.10 92/06/27 21:55:25 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.11 92/10/22 14:26:20 rws Exp $
+   */
+  
+  /*
+***************
+*** 290,296 ****
+  {
+      XipLocalKeySymTbl work_tbl[8], *p, *t;
+      unsigned char work[32], *str;
+!     register int i = 0, j = 0, total = 0, ret;
+  
+      for (p = work_tbl, total = 0; *buf; p++, total++, buf++) {
+  	if ((buf = index(buf, '{')) == NULL) {
+--- 290,296 ----
+  {
+      XipLocalKeySymTbl work_tbl[8], *p, *t;
+      unsigned char work[32], *str;
+!     register int i = 0, total = 0, ret;
+  
+      for (p = work_tbl, total = 0; *buf; p++, total++, buf++) {
+  	if ((buf = index(buf, '{')) == NULL) {
+***************
+*** 781,794 ****
+      return((XIM)xim);
+  }
+  
+- static void
+- _call_preedit_draw(ic, cb)
+-     XipIC ic;
+-     XIMCallback *cb;
+- {
+-     return;
+- }
+- 
+  int
+  _XipLocalCallCallbacks(ic)
+      XipIC ic;
+--- 781,786 ----
+***************
+*** 950,956 ****
+      case -2: /* No match */
+  	for (i = 0; i < xcvt->buf_cnt; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0, xcvt->buf[i].keysym,
+! 				xcvt->buf[i].state, NULL) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+--- 942,948 ----
+      case -2: /* No match */
+  	for (i = 0; i < xcvt->buf_cnt; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0, xcvt->buf[i].keysym,
+! 				xcvt->buf[i].state, 0, NULL) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+***************
+*** 979,985 ****
+  	for (i = 0; xcvt->tbl[c].to.tokey[i].keysym != XK_VoidSymbol; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0,
+  				xcvt->tbl[c].to.tokey[i].keysym,
+! 				xcvt->tbl[c].to.tokey[i].state,
+  				xcvt->tbl[c].to.tokey[i].str) < 0)
+  	       return(False);
+  	}
+--- 971,977 ----
+  	for (i = 0; xcvt->tbl[c].to.tokey[i].keysym != XK_VoidSymbol; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0,
+  				xcvt->tbl[c].to.tokey[i].keysym,
+! 				xcvt->tbl[c].to.tokey[i].state, 1,
+  				xcvt->tbl[c].to.tokey[i].str) < 0)
+  	       return(False);
+  	}
+*** /tmp/d02572	Tue Nov  3 18:05:20 1992
+--- lib/X/Xsi/Xi18nint.h	Thu Oct 22 14:26:29 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Xi18nint.h,v 1.21 92/10/19 18:10:30 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: Xi18nint.h,v 1.22 92/10/22 14:26:26 rws Exp $
+   */
+  
+  /*
+***************
+*** 66,71 ****
+--- 66,72 ----
+  
+  typedef struct _XIMQueue {
+      short type;				/* 0: XEvent, 1: String		 */
++     short string_is_mb;			/* 0: CT, 1: MB			 */
+      int length;				/* length of String or XEvent    */
+      KeySym keysym;			/* keysym			 */
+      unsigned int state;			/* state 			 */

@@ -1,0 +1,1043 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: tty.7,v $ $Revision: 3.2.9.4 $ (DEC) $Date: 1994/01/13 21:03:11 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+...\"
+...\"
+...\" Copyright (c) 1983 Regents of the University of California.
+...\" All rights reserved.  The Berkeley software License Agreement
+...\" specifies the terms and conditions for redistribution.
+...\"
+...\" @(#)tty.4	6.8 (Berkeley) 2/24/89
+...\"
+.TH tty 7
+.SH NAME
+.PP
+\*Ltty\*O - General terminal interface
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/termios.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "tty interface"
+.iX "terminal interface"
+.iX "interfaces for terminals"
+.iX "files" "/fB/dev/tty/fR"
+.iX "terminal drivers"
+.iX "drivers" "for terminals"
+This section describes
+both a particular special file
+\*L/dev/tty\*O
+and the terminal drivers used for conversational computing.  Much of
+the terminal interface performance is governed by the settings of a
+terminal's \*Ltermios\*O structure.
+This structure provides definitions for terminal input and output
+processing, control and local modes, and so on.
+These definitions are found in the \*Ltermios.h\*O header file.
+.SS Line Disciplines
+.\" Begin Digital-specific information 
+.\" The information in this subsection needs to be commented out because
+.\" DEC OSF/1 supports only one line discipline.
+.\"
+.\" OSF/1 provides different
+.\" \*Lline disciplines\*O
+.\" for controlling communications lines.
+.\" In this version of the system there are two disciplines available for use
+.\" with terminals:
+The operating system supports STREAMS-based and \*Lclist\*O-based
+line disciplines, which
+allows for both STREAMS- and \*Lclist\*O-based terminal drivers.  Both line
+disciplines are POSIX compliant.
+.PP
+The STREAMS-based line discipline is implemented as the STREAMS module
+\*Lldterm\*O.  This line discipline performs most of the functions defined
+by the \*Ltermios\*O interface for session management and character processing
+but not some low level device control.  In order to determine if a terminal
+device is implemented as a STREAMS device, use the libc function \*Lisastream\*O
+on the open file descriptor.  See the \*Lisastream\*O(3) reference page.
+.PP
+Users can switch line disciplines by using the
+command \*Lstrchg\*O or the \*LI_POP\*O or \*LI_PUSH\*O STREAMS \*Lioctl\*Os.
+However \*Lldterm\*O
+is the only STREAMS-based line discipline provided by the base operating system
+for use with terminals.
+.PP
+The operating system supports several \*Lclist\*O-based
+line disciplines for
+controlling communication lines; however, only the
+\*LStandard\*O line discipline is available for
+terminals.
+The \*LStandard\*O line discipline supports full POSIX terminal semantics.
+.PP
+Line discipline switching is done with the TIOCSETD \*Lioctl\*O for \*Lclist\*O-based
+terminal drivers.  The following example illustrates how to switch line
+disciplines:
+.PP
+.iS
+int ldisc = LDISC;
+.sp
+ioctl(fd,TIOCSETD,&ldisc);
+.iE
+.PP
+In this example,
+LDISC is the index into the \*Llinesw\*O table. (See the
+\*L/sys/bin/tty_conf.c\*O file.)
+.PP
+Other \*Lclist\*O disciplines exist for special purposes, such as
+communication lines for network devices.  The current line discipline
+can be obtained with the TIOCGETD \*Lioctl\*O for \*Lclist\*O-based terminal drivers.
+Pending output is discarded when the line discipline is changed.
+For BSD compatibility, NTTYDISC (value 2) is returned by default.
+TTYDISC (value 0) is returned only when you compile the application with
+the -D_USE_NEW_TTY switch.
+.\"
+.SS "The Controlling Terminal"
+The operating system supports the concept of a controlling terminal.
+Any process in the system can have a controlling terminal associated
+with it.
+Certain events, such as the delivery of keyboard generated
+signals (for example, interrupt, quit, suspend), affect all the processes in
+the process group associated with the controlling terminal.
+The controlling terminal also determines the physical device that is
+accessed when the indirect device \*L/dev/tty\*O is opened.
+.PP
+In earlier versions of UNIX systems, a controlling terminal was implicitly assigned
+to a process if, at the time an open was done on the terminal, the terminal
+was not the controlling terminal for any process, and if the process doing
+the open did not have a controlling terminal.
+In this version of UNIX, in accordance
+with POSIX 1003.1, a process must be a session leader to allocate
+a controlling terminal.
+In addition, the allocation is now done explicitly with a call to \*Lioctl()\*O.
+(This implies that the \*LO_NOCTTY\*O flag to the \*Lopen(\|)\*O function
+is ignored.)
+The following example illustrates the correct sequence for obtaining
+a controlling \*Ltty\*O (no error checking is shown).
+This code fragment calls the \*Lsetsid(\|)\*O function to make the
+current process the
+group and session leader, and to remove any controlling \*Ltty\*O that
+the process may already have.  It then opens the console device and
+attaches it to the current session as the controlling terminal.
+Note that the process must not already be a session or process group
+leader, and the console must not already be the controlling \*Ltty\*O of
+any other session.
+.oS
+(void)setsid();		/* become session leader and */
+.nL
+			/* lose controlling tty */
+.nL
+fd = open("/dev/console", O_RDWR);
+.nL
+(void)ioctl(fd,TIOCSCTTY,0);\*O
+.oE
+.PP
+A process can remove the association it has with its controlling
+terminal by opening the
+\*L/dev/tty\*O
+file and issuing the following call:
+.oS
+     \*Lioctl(fd, TIOCNOTTY, 0);\*O
+.oE
+For example:
+.oS
+fd = open("/dev/tty", O_RDWR);
+.nL
+if (fd > = 0) {
+.nL
+	ioctl(fd,TIOCNOTTY,0);
+.nL
+	close(fd);
+.nL
+}\*O
+.oE
+.PP
+When a control terminal file is closed, pending input is removed, and
+pending output is sent to the receiving device.
+.PP
+When a terminal file is opened, the process blocks until a
+carrier signal is detected.
+If the \*Lopen()\*O function is called with the O_NONBLOCK flag set,
+however, the process does not wait.
+Instead, the first \*Lread(\|)\*O or \*Lwrite(\|)\*O call will wait for carrier
+to be established.
+If the CLOCAL mode is set in the \*Ltermios\*O structure,
+the driver assumes that modem control is not in effect, and \*Lopen()\*O,
+\*Lread(\|)\*O, and \*Lwrite(\|)\*O
+therefore proceed without waiting for a carrier signal to be established.
+.SS "Process Groups"
+Each process belongs to a process group with a
+specific process group ID.
+Each process belongs to the process group of its creating process.
+This enables related processes to be signaled.
+Process group IDs are unique identifiers that cannot be used for other
+system process groups until the original process group is disbanded.
+Each process group also has a group leader process.
+A process group leader has the same process ID as its process group.
+.PP
+Each process group belongs to a session.  Each process in the process
+group also belongs to the process group's session.  A process which is
+not the process group leader can create its own session and process
+group with a call to the \*Lsetsid(\|)\*O function.
+That calling process then becomes the session leader
+of the new session and of the new process group.
+The new session has no controlling terminal until the session leader
+assigns one to it.
+The calling process's ID is assigned to the new process group.
+With the \*Lsetpgid(\|)\*O function, other processes can be
+added to a process group.
+.PP
+A controlling terminal can have a distinguished process group associated
+with it known as the \*Lforeground\*O process group.
+The terminal's foreground process group is the one that receives
+signals generated by the INTR, QUIT, and SUSP special control characters.
+Certain operations on the terminal are also restricted to processes in
+the terminal's foreground process group (see "Terminal Access Control").
+A terminal's foreground process group may be changed by
+calling the \*Ltcsetpgrp()\*O function.
+A terminal's current foreground process group may be obtained by
+calling the \*Ltcgetpgrp()\*O function.
+.SS "Input Processing Modes"
+The terminal drivers have two major modes, characterized by the
+kind of processing that takes place on the input characters:
+.VL
+.LI "\*LCanonical\*O"
+If a terminal is in canonical mode, input is collected and processed
+one line at a time.
+Lines are terminated by a newline (\\n), End-of-File (EOF),
+or End-of-Line (EOL) character.
+A read request is not returned until the line has been terminated,
+or a signal has been received.
+The maximum number of bytes of unread input allowed on an input terminal
+is 255 bytes.
+If the maximum number of unread bytes exceeds 255 bytes,
+the behavior of the driver depends on the setting of the IMAXBEL
+input flag (see "Input Editing").
+.sp
+Erase and kill processing is performed on input that has not been
+terminated by one of the line termination characters.
+Erase processing removes the last character in the line, kill processing
+removes the whole line.
+.LI "\*LNoncanonical\*O"
+This mode eliminates erase and kill processing,
+making input characters available to the user program as they are
+typed. Input is not processed into lines.  The received bytes are
+.\" Begin Digital-specific information
+.\" Changed the following line per Ron Menner in response to QAR 10447.
+processed according to the values at the VMIN and VTIME indexes of the c_cc
+.\" End Digital-specific information
+array in the \*Ltermios\*O structure.
+.VL
+.LI "MIN"
+MIN is the minimum number of bytes the terminal can receive in noncanonical
+mode before a read is considered successful.
+.LI "TIME"
+TIME, measured in 0.1 second granularity, times out sporadic input.
+.LE
+.sp
+These cases are
+summarized as follows:
+.VL
+.LI "MIN>0, TIME>0"
+In this case, TIME is an interbyte timer that is activated after the first byte
+of the input line is received, and
+reset after each byte is received.  The read operation is a success if
+MIN bytes are read before TIME runs out.  If TIME runs out before MIN
+bytes have been received, the characters that were received are returned.
+.LI "MIN>0, TIME=0"
+In this case, only MIN is used.  A queued \*Lread(\|)\*O waits until MIN bytes
+are received, or a signal is received.
+.LI "MIN=0, TIME>0"
+In this case, TIME is used as a read timer that starts when a \*Lread(\|)\*O
+call is made.
+The \*Lread(\|)\*O call is finished when one byte is read, or when
+TIME runs out.
+.LI "MIN=0, TIME=0"
+In this case, either the number of requested bytes or the number of
+currently available bytes is returned, depending on which is the
+lesser number.
+The \*Lread(\|)\*O function returns a zero if no data was read.
+.LE
+.LE
+.PP
+Canonical mode is entered by setting the ICANON flag of the \*Lc_lflag\*O
+field in the in the terminal's \*Ltermios\*O structure.
+Other input processing is performed according to the other flags
+set in the \*Lc_iflag\*O and \*Lc_lflag\*O fields.
+.SS "Input Editing"
+A terminal ordinarily operates in full-duplex mode.
+Characters may be typed at any time,
+even while output is occurring.  Characters are only lost when:
+.ML
+.LI
+The system's character input buffers become completely
+choked, which is rare.
+.LI
+The user has accumulated the maximum allowed number of
+input characters (MAX_INPUT) that have not yet been read by some program.
+Currently this limit is 255 characters.
+When this limit is reached, the terminal driver refuses to accept any
+further input and rings the terminal bell if IMAXBEL is set in
+the \*Lc_iflag\*O field, or
+throws away all input and output without notice if this flag is not set.
+.LE
+.PP
+Input characters are normally accepted in either even or odd parity
+with the parity bit being stripped off before the character is given to
+the program.
+The ISTRIP mask of the \*Lc_iflag\*O field controls
+whether the parity bit is stripped (ISTRIP set) or not stripped
+(ISTRIP not set).
+By setting the PARENB flag in the \*Lc_cflag\*O
+field, and either setting (not setting) the PARODD flag,
+it is possible to have input characters with EVEN (ODD) parity discarded
+or marked (see "Input Modes").
+.PP
+In all of the line disciplines, it is possible to simulate terminal
+input using the TIOCSTI
+\*Lioctl\*O,
+which takes, as its third argument,
+the address of a character.
+The system pretends that this character
+was typed on the argument terminal, which must be the control terminal
+for the process, unless the process has superuser privileges.
+.PP
+Input characters are normally echoed by putting them in an output queue
+as they arrive.
+This may be disabled by clearing the ECHO bit in the \*Lc_lflag\*O
+word using the
+\*Ltcsetattr()\*O
+call or the TIOCSETA, TIOCSETAW, or TIOCSETAF
+\*Lioctl\*Os.
+.PP
+In canonical mode, terminal input is processed in units of lines.
+A program attempting
+to read will normally be suspended until an entire line has been
+received
+(but see the description of SIGTTIN in "Terminal Access Control").
+No matter how many characters are requested
+in the read call, at most one line will be returned.
+It is not, however, necessary to read a whole line at
+once; any number of characters may be
+requested in a read, even one, without losing information.
+In \*Lread(\|)\*O requests, the O_NONBLOCK flag affects the
+\*Lread(\|)\*O operation
+behavior.
+.PP
+If O_NONBLOCK
+is not set, a \*Lread(\|)\*O request is blocked until
+data or a signal has been received.
+If the O_NONBLOCK flag is set,
+the \*Lread(\|)\*O request is not blocked, and one of the following
+situations holds:
+.ML
+.LI
+Some data may have been typed, but there may or may not be enough
+data to satisfy the entire \*Lread\*O request.
+In either case, the \*Lread(\|)\*O function returns the
+data available, returning the number of bytes of data it read.
+.LI
+If there is no data for the read operation, the
+\*Lread(\|)\*O returns a -1 with an error of EAGAIN.
+.LE
+.PP
+During input, line editing is normally done with the erase special
+control character
+(VERASE)
+logically erasing the last character typed and the
+kill special control character (VKILL)
+logically erasing the entire current input line.
+These characters
+never erase beyond the beginning of the current input line or an EOF
+(End-of-File).
+These characters, along with the other special control characters,
+may be entered literally by preceding them with the literal-next character
+(VLNEXT \(em default ^V).
+.PP
+The drivers normally treat either a newline character (`\e\|n'),
+End-of-File character (EOF), or End-of-Line character (EOL)
+as terminating an input line, echoing a return and a line feed.
+If the ICRNL character bit is
+set in the \*Lc_iflag\*O  word then carriage returns are translated
+to newline characters on input, and are normally echoed as carriage
+return-linefeed sequences.
+If ICRNL is not set, this processing for carriage return is disabled,
+and it is simply echoed as a return,
+and does not terminate cooked mode input.
+.PP
+The POSIX terminal driver also provides two other editing characters in
+normal mode.  The word-erase character, normally \*L<Ctrl-W>\*O, is a \*Lc_cc\*O
+structure special control character VWERASE.
+This character erases the preceding word, but not any spaces before it.
+For the purposes of \*L<Ctrl-W>\*O, a word
+is defined as a sequence of nonblank characters, with tabs counted as
+blanks.
+However, if the ALTWERASE flag is set in the \*Lc_lflag\*O word,
+then a word is considered to be any sequence of alphanumerics or underscores
+bounded by characters that are not alphanumerics or underscores.
+Finally, the reprint character, normally \*L<Ctrl-R>\*O, is a \*Lc_cc\*O
+structure special control character VREPRINT.  This character retypes
+the pending input beginning
+on a new line.
+Retyping occurs automatically in canonical mode if characters
+which would normally be erased from the screen are fouled by program output.
+.SS "Input Modes"
+The \*Ltermios\*O structure has an input mode field \*Lc_iflag\*O,
+which controls basic terminal input characteristics.
+These characteristics are masks that can be bitwise inclusive ORed.
+The masks include:
+.VL
+.LI "BRKINT"
+An interrupt is signaled on a break condition.
+.LI "ICRNL"
+All carriage returns are mapped to newline characters when input.
+.LI "IGNBRK"
+Break conditions are ignored.
+.LI "IGNCR"
+Carriage returns are ignored.
+.LI "IGNPAR"
+Characters with parity errors are ignored.
+.LI "INLCR"
+Newline characters are mapped to carriage returns when input.
+.LI "INPCK"
+Parity checks are enabled on input.
+.LI "ISTRIP"
+The eighth bit (parity bit) is stripped on input characters.
+.LI "IXOFF"
+Stop/start characters are sent for input flow control enabled.
+.LI "IXON"
+Stop/start characters are recognized for output flow control.
+.LI "IXANY"
+Any char will restart output after stop.
+.LI "IUCLC"
+Map upper case to lower case on input.
+.LI "PARMRK"
+Parity errors are marked with a three character sequence.
+.LI "IMAXBEL"
+The bell is rung when the input queue fills.
+.LE
+.PP
+The input mode mask bits can be combined for the following results:
+.PP
+The setting of IGNBRK causes input break conditions to be ignored.
+If IGNBRK is not set, but BRKINT is set, the break condition has the same
+effect as if the VINTR control character had been typed.
+If neither IGNBRK nor BRKINT are set, then the break condition is
+input as a single character '\\0'.
+If the PARMRK flag is set, then the input is
+read as three characters, '\\377', '\\0', and '\\0'.
+.PP
+The setting of IGNPAR causes a byte with a parity or framing error,
+except for breaks, to be ignored (that is, discarded).
+If IGNPAR is not set, but PARMRK is set,
+a byte with parity or framing error, except for breaks, is passed
+as the three characters '\\377', '\\0', and X, where X is the
+character data received in error.
+If the ISTRIP flag is not set, the valid character '\\377' is
+passed as '\\377', '\377'.
+If both PARMRK and IGNPAR are not set, framing or parity
+errors, including breaks, are passed as the single character '\\0'.
+.PP
+The setting of INPCK enables input parity checking.
+If input parity checking is not enabled (INPCK not set), then characters
+with parity errors are simply passed through as is.
+The enabling/disabling of input parity checking is independent of
+the generation of parity on output.
+.PP
+Setting ISTRIP causes the eighth bit of the eight valid input bits to
+be stripped before processing.
+If this mask is not set, all eight
+bits are processed.
+.PP
+Setting INLCR causes a newline character to be read as a
+carriage return character.
+If the IGNCR flag is also set, the carriage return is ignored.
+If the IGNCR flag is not set, INLCR works as described earlier.
+.PP
+The STOP character (normally \*L<Ctrl-S>\*O) suspends output and the
+START character (normally \*L<Ctrl-Q>\*O) restarts output.
+Setting IXON enables stop/start output control, in which the START and
+STOP characters are not read, but rather perform flow control
+functions.
+Extra stop characters typed when output
+is already stopped have no effect, unless the start and stop characters
+are made the same, in which case output resumes.
+Disabling IXON causes the START and STOP characters to be read.
+.PP
+Setting IXOFF enables stop/start input control.
+When this flag is set, the terminal device will be sent STOP characters
+to halt the transmission of data when the input queue is in danger
+of overflowing (exceed MAX_INPUT).
+When enough characters have been read to reduce the amount of data
+queued to an acceptable level, a START character is sent to the device
+to allow it to continue transmitting data.
+This mode is useful
+when the terminal is actually another machine that obeys those
+conventions.
+.\" Refer to the section \*LFlow Control\*O for further details on flow control.
+.SS "Input Echoing and Redisplay"
+The terminal driver has several modes for handling the echoing of
+terminal input, controlled by bits in the \*Lc_lflag\*O field of the
+\*Ltermios\*O structure.
+.SS "Hardcopy Terminals"
+When a hardcopy terminal is in use, the ECHOPRT bit is normally set in
+the local flags word.
+Characters which are logically erased are
+then printed out backwards preceded by \e\| (backslash) and followed
+by a / (slash) in this mode.
+.SS "Erasing Characters from a CRT"
+When a CRT terminal is in use, the ECHOE bit may be set to cause
+input to be erased from the screen with a \*(lqbackspace-space-backspace\*(rq
+sequence when character or word deleting sequences are used.
+The ECHOKE bit may be set as well, causing the input to
+be erased in this manner on line kill sequences as well.
+.SS "Echoing of Control Characters"
+If the ECHOCTL bit is set in the local flags word, then nonprinting (control)
+characters are normally echoed as \*L^\*VX\*O (for some \*VX\*O)
+rather than being echoed unmodified; DELETE is echoed as \*L^?\*O.
+.SS "Output Processing"
+When one or more characters are written, they are actually transmitted
+to the terminal as soon as previously written characters
+have finished typing.
+(As noted above, input characters are normally
+echoed by putting them in the output queue
+as they arrive.)
+When a process produces characters more rapidly than the terminal
+can accept them,
+it will be suspended when its output queue exceeds some limit.
+When the queue has drained down to some threshold
+the program is resumed.
+Even parity is normally generated on output.
+If the NOEOT bit is set in the \*Lc_oflag\*O word of the \*Ltermios\*O
+structure, the EOT character (\*L<Ctrl-D>\*O) is not transmitted, to prevent terminals
+that respond to it from hanging up.
+.PP
+The terminal drivers provide necessary processing for canonical and
+noncanonical mode
+output including delay generation for certain special characters and parity
+generation.
+Delays are available after backspaces (BSDLY), formfeeds (FFDLY),
+carriage returns (CRDLY), tabs (TABDLY) and newlines (NLDLY).
+The driver will also optionally
+expand tabs into spaces, where the tab stops are assumed to be set every
+eight columns, and optionally convert newlines to carriage returns
+followed by newline.
+Output process is controlled by bits in the
+\*Vc_oflag\*O field of the \*Ltermios\*O structure.
+Refer to the
+\*Lwrite(2)\*O reference manual page for a description of the O_NONBLOCK flag.
+.PP
+The terminal drivers provide for mapping from lowercase to uppercase
+(OLCUC) for
+terminals lacking lower case, and for other special processing on
+deficient terminals.
+.PP
+Finally, the terminal driver, supports an output flush character,
+normally \*L<Ctrl-O>\*O, which sets the FLUSHO bit in the local mode word, causing
+subsequent output to be flushed until it is cleared by a program or more
+input is typed.  This character has effect in both canonical and
+noncanonical modes
+and causes any pending input to be retyped.
+An
+\*Lioctl\*O
+to flush the characters in the input or output queues, TIOCFLUSH,
+is also available.
+.SS "Uppercase Terminals"
+If the IUCLC bit in the \*Lc_iflag\*O field is set in the \*Ltty\*O flags, then
+all uppercase letters are mapped into
+the corresponding lowercase letter.
+The uppercase letter may be generated by preceding
+it by \\ (backslash).
+Uppercase letters are preceded by a \e\| (backslash) when output.
+In addition, the following escape sequences will be generated
+on output and accepted on input if the XCASE bit is set in the \*Lc_lflag\*O
+word:
+.DS
+.nL
+\*LFor:\*O	\`	|	~	{	}
+.nL
+\*LUse:\*O	\e\|\'	\e\|!	\e\|^	\e\|(	\e\|)
+.DE
+.SS "Line Control and Breaks"
+There are several
+\*Lioctl\*O
+calls available to control the state of the terminal line.
+The TIOCSBRK
+\*Lioctl\*O
+will set the break bit in the hardware interface
+causing a break condition to exist; this can be cleared (usually after a delay
+with
+\*Lsleep\*O(3))
+by TIOCCBRK.
+The \*Ltcsendbreak()\*O can also be used to cause a break condition
+for a specified amount of time.
+Break conditions in the input
+are handled according to the \*Lc_iflag\*O field settings
+for the \*Ltermios\*O structure.  Refer to the section Input
+Modes" for a complete listing of the \*Lc_iflag\*O field settings.
+The TIOCCDTR
+\*Lioctl\*O
+will clear the data terminal ready condition; it can
+be set again by TIOCSDTR.
+.PP
+When the carrier signal from the dataset drops (usually
+because the user has hung up his terminal) a
+SIGHUP hangup signal is sent to the processes in the distinguished
+process group of the terminal; this usually causes them to terminate.
+The sending of SIGHUP does not take place if the CLOCAL bit is set in
+\*Lc_cflag\*O field of the driver.
+Access to the terminal by other processes is then normally revoked,
+so any further reads will fail, and programs that read a terminal and test for
+End-of-File on their input will terminate appropriately.
+.SS "Interrupt Characters"
+When the ISIG bit is set in the \*Lc_lflag\*O word,
+there are several characters that generate signals in both canonical and
+noncanonical mode;
+all are sent to the processes in the foreground process
+group of the terminal.
+If the NOFLSH bit is not set in \*Lc_lflag\*O, these characters also
+flush pending input and output when typed at a terminal.
+The characters shown here are the defaults; the symbolic names of
+the indices of these characters in the \*Lc_cc\*O array of the
+\*Ltermios\*O structure are also shown.
+The characters may be changed.
+.VL
+.LI "^C"
+VINTR (in \*Lc_cc\*O) generates a SIGINT signal.
+This is the normal way to stop a process which is no longer interesting,
+or to regain control in an interactive program.
+.LI "^\e"
+VQUIT (in \*Lc_cc\*O) generates a SIGQUIT signal.
+This is used to cause a program to terminate and produce a core image,
+if possible, in the file
+\*Lcore\*O
+in the current directory.
+.LI "^Z"
+VSUSP (in \*Lc_cc\*O) generates a SIGTSTP signal, which is used to suspend
+the current process group.
+.LI "^Y"
+VDSUSP (in \*Lc_cc\*O) generates a SIGTSTP signal as \*L<Ctrl-Z>\*O does, but the
+signal is sent when a program attempts to read the \*L<Ctrl-Y>\*O, rather than when
+it is typed.
+.LE
+.SS "Terminal Access Control"
+If a process attempts to read from its controlling terminal when the process
+is not in the foreground process group of the terminal, that background
+process group is sent a SIGTTIN signal.
+This signal normally causes the members of that process group to stop.
+If, however, the process is ignoring SIGTTIN, has SIGTTIN blocked,
+or if the reading process' process group is orphaned,
+the read will return \-1 and set \*Lerrno\*O
+to [EIO]. The operation will then not send a signal.
+.PP
+If a process attempts to write to its controlling terminal when the process
+is not in the foreground process group of the terminal, and the TOSTOP
+bit is set in the \*Lc_lflag\*O word of the \*Ltermios\*O structure,
+that background process group is sent a SIGTTOU
+signal and the process is prohibited from writing.
+If TOSTOP is not set, or if TOSTOP is set and the process is
+blocking or ignoring the SIGTTOU signal,
+process writes to the terminal are allowed, and the SIGTTOU signal is
+not sent.
+If TOSTOP is set, if the writing process' process group
+is orphaned, and if SIGTTOU is not blocked by the writing process, the
+write operation returns a -1 with
+\*Lerrno\*O
+set to [EIO],
+and does not a send a signal.
+.SS "Terminal/Window Sizes"
+To accommodate terminals and workstations with variable-sized
+windows, the terminal driver provides a mechanism for obtaining and setting
+the current terminal size.
+The driver does not use this information internally, but only stores it
+and provides a uniform access mechanism.
+When the size is changed, a SIGWINCH signal is sent to the terminal's process
+group so that knowledgeable programs may detect size changes.
+.SS "tty Parameters"
+In contrast to earlier versions of the \*Ltty\*O driver, the POSIX terminal
+parameters and structures are contained in a single structure, the
+\*Ltermios\*O structure defined in the \*Lsys/termios.h\*O file.
+Refer to the \*Ltermios.h(0)\*O reference manual page for a complete
+summary of this file.
+.SS "Basic ioctl Calls"
+A large number of
+\*Lioctl\*O(2)
+calls apply to terminals.  Some have the general form:
+.sS
+\*L#include <sys/termios.h>\*O
+
+\*Lioctl(fildes, code, arg)\*O
+.nL
+\*Lstruct termios *arg;\*O
+.sE
+The applicable codes are:
+.VL 1i
+.LI "TIOCGETA"
+Gets the termios structure and all its associated parameters.  The
+interface delays until output is quiescent, then throws away any
+unread characters.
+.LI "TIOCSETA"
+Sets the parameters according to the termios structure.
+.LI "TIOCSETAW"
+Drains the output before setting the parameters according to the
+termios structure. Sets the parameters like TIOCSETA.
+.LI "TIOCSETAF"
+Drains the output and flushes the input before setting the parameters
+according to the
+termios structure. Sets the parameters like TIOCSETA.
+.LE
+.PP
+With the following codes
+\*Varg\*O
+is ignored:
+.VL 1i
+.LI "TIOCEXCL"
+Set \*(lqexclusive-use\*(rq mode:
+no further opens are permitted until the file has been closed.
+.LI "TIOCNXCL"
+Turn off \*(lqexclusive-use\*(rq mode.
+.LE
+.PP
+With the following codes
+\*Varg\*O
+is a pointer to an
+\*Lint\*O:
+.VL 1i
+.LI "TIOCFLUSH"
+If the
+\*Lint\*O
+pointed to by
+\*Varg\*O
+has a zero value, all characters waiting in input or output queues are
+flushed.
+Otherwise, the value of the
+\*Lint\*O
+is for the FREAD and FWRITE bits defined in the
+\*Lsys/file.h\*O
+file;
+if the FREAD bit is set, all characters waiting in input queues are flushed,
+and if the FWRITE bit is set, all characters waiting in output queues are
+flushed.
+.LE
+.SS "ioctls for Controlling Terminals"
+.VL 1i
+.LI "TIOCSCTTY"
+Sets the terminal as the controlling terminal for the calling process.
+.LI "TIOCNOTTY"
+Voids the terminal as a controlling terminal.
+.LE
+.PP
+With the following codes, \*Varg\*O is a pointer to an \*Vint\*O:
+.VL 1i
+.LI "TIOCGPGRP"
+The
+\*Varg\*O
+parameter
+is a pointer to the value representing the process group ID of the process
+group, and is returned by the controlling terminal specified by the
+\*Vfiledes\*O parameter. See \*Ltcgetpgrp\*O(3) for
+more information on error codes that can occur if this ioctl fails.
+.LI "TIOCSPGRP"
+The
+\*Varg\*O
+parameter
+is a pointer to the value to which the process group ID for the terminal
+specified by the \*Vfiledes\*O parameter will be set. This terminal must be the
+controlling terminal and must be associated with the calling process's session.
+The process group value must match a process group ID of a process in the same
+session as the calling process. See \*Ltcsetpgrp\*O for more information on
+error codes that can occur if this ioctl fails.
+.LE
+.SS "Miscellaneous tty ioctl Codes"
+The following are miscellaneous \*Lioctl\*O terminal commands.
+In cases where arguments are required, they are described; \*Varg\*O
+should otherwise be given as 0.
+.VL 1i
+.LI "TIOCSTI"
+The argument points to a character that the system
+pretends had been typed on the terminal.
+.LI "TIOCSBRK"
+The break bit is set in the terminal.
+.LI "TIOCCBRK"
+The break bit is cleared.
+.LI "TIOCSDTR"
+Data terminal ready is set.
+.LI "TIOCCDTR"
+Data terminal ready is cleared.
+.LI "TIOCSTOP"
+Output is stopped as if the ``stop'' character had been typed.
+.LI "TIOCSTART"
+Output is restarted as if the ``start'' character had been typed.
+.LI "TIOCOUTQ"
+Returns in the
+\*Lint\*O
+pointed to by
+\*Varg\*O
+the number of characters queued for output to the terminal.
+.LI "TIOCREMOTE"
+Sets the terminal for remote input editing.
+.\" Begin Digital-specific information
+.\" Added TIOCCONS ioctl per Ron Menner.  Bob Amber
+.LI "TIOCCONS"
+Sets or clears the virtual console.
+The arg parameter is a pointer to an integer.  A non zero value sets
+the virtual console to the requesting \*Ltty\*O.  A zero value clears
+the virtual console.  Set this to write
+console messages to the virtual console rather
+than \*L/dev/console\*O. Clearing a virtual console causes
+console messages to resume being sent to \*L/dev/console\*O.  Only
+one virtual console may be in effect at a time.  This
+\*Lioctl\*O requires super user priviledge.
+.\" End Digital-specific information
+.LI "FIONREAD"
+returns in the
+\*Lint\*O
+pointed to by
+\*Varg\*O
+the number of characters immediately readable from the argument descriptor.
+This works for files, pipes, and terminals.
+.LE
+.SS "Controlling Terminal Modems"
+The following \*Lioctl\*Os apply to modems:
+.VL 1i
+.LI "TIOCMODG"
+The
+\*Varg\*O
+parameter
+is a pointer to an
+\*Lint\*O,
+which is the value of the modem control state.
+.LI "TIOCMODS"
+The
+\*Varg\*O
+parameter
+is a pointer to an
+\*Lint\*O,
+which is the value to which the modem control state is to be set.
+.LE
+.PP
+.VL 1i
+.LI "TIOCMSET"
+Sets all modem bits.
+.LI "TIOCMBIS"
+The
+\*Varg\*O parameter is a pointer to an \*Lint\*O, which specifies the
+modem bits
+to be set.
+.LI "TIOCMBIC"
+\*Varg\*O is a pointer to an \*Lint\*O, which specifies the modem bits
+to be cleared.
+.LI "TIOCMGET"
+Gets all the modem bits and returns them in the int point to by \*Varg\*O.
+.LE
+.SS "Window/Terminal Sizes"
+Each terminal has provision for storage of the current terminal or window
+size in a
+\*Vwinsize\*O
+structure, with format:
+.oS
+\*Lstruct winsize {\*O
+.nL
+	\*Lunsigned short	ws_row;		/* rows, in characters */\*O
+.nL
+	\*Lunsigned short	ws_col;		/* columns, in characters */\*O
+.nL
+	\*Lunsigned short	ws_xpixel;	/* horizontal size, pixels */\*O
+.nL
+	\*Lunsigned short	ws_ypixel;	/* vertical size, pixels */\*O
+.nL
+};\*O
+.oE
+.PP
+A value of 0 (zero) in any field is interpreted as ``undefined;''
+the entire structure is zeroed on final close.
+.PP
+The applicable \*Lioctl\*O functions are:
+.VL
+.LI "TIOCGWINSZ"
+.iX "TIOCGWINSZ function"
+The
+\*Varg\*O
+parameter
+is a pointer to a
+\*Lstruct winsize\*O
+into which will be placed the current terminal or window size information.
+.LI "TIOCSWINSZ"
+.iX "TIOCSWINSZ function"
+The
+\*Varg\*O
+parameter
+is a pointer to a
+\*Lstruct winsize\*O,
+which will be used to set the current terminal or window size information.
+If the new information is different than the old information,
+a SIGWINCH signal will be sent to the terminal's process group.
+.LE
+.\" Begin Digital-Specific Information
+.\" Added this information per Ron Menner.  Bob Amber
+.SH NOTES
+.PP
+The following System V and BSD \*Lioctl\*Os are currently supported
+as a compatibility interface for System V and older BSD system programs.
+They should not be used in new applications.
+The \*Lioctl\*O call has the following format:
+.sS
+\*Lioctl (fdes, cmd, arg)\*O
+.sE
+The System V \*Ltermio ioctl\*Os use a pointer to a \*Ltermio\*O
+structure for the
+\*Larg\*O parameter.  The following include is required for the
+System V \*Ltermio ioctl\*Os:
+.sS
+\*L#include <sys/termio>\*O
+.sE
+The parameters of the \*Ltty\*O driver are set/returned by translating
+the \*Ltermio\*O
+structure to/from a \*Ltermios\*O structure.
+.VL
+.LI "\*LTCGETA\*O"
+Gets \*Ltermio\*O structure.
+.LI "\*LTCSETA\*O"
+Sets \*Ltermio\*O structure.
+.LI "\*LTCSETAW\*O"
+Drains output and then sets \*Ltermio\*O structure.
+.LI "\*LTCSETAF\*O"
+Drains output, flushes input, and then sets \*Ltermio\*O structure.
+.LE
+.PP
+The following group of System V \*Lioctl\*Os take an integer value
+for the \*Larg\*O parameter.
+.VL
+.LI "\*LTCSBREAK\*O"
+Sends break.
+.LI "\*LTCSBRK\*O"
+Sends break.
+.LI "\*LTCXONC\*O"
+Sets flow control.  The \*Larg\*O parameter uses same values as
+the POSIX function \*Ltcflow()\*O (must include \*L<sys/termios.h>\*O)
+.LI "\*LTCFLSH\*O"
+Flushes queue(s).  You must include \*L<sys/fcntl.h>\*O for
+valid \*Larg\*O parameters (for example, \*LFREAD\*O for flushing input
+side).
+.LE
+.PP
+The following group of BSD compatibility \*Lioctl\*Os use a pointer to
+a \*Lsgttyb\*O structure for the \*Larg\*O
+parameter.  The \*Ltty\*O parameters of the \*Ltty\*O driver are
+set/returned by translating the \*Lsgttyb\*O structure to/from
+a \*Ltermios\*O structure.
+.VL
+.LI "\*LTIOCGETP\*O"
+Returns \*Ltty parameters.
+.LI "\*LTIOCSETP\*O"
+Sets \*Ltty\*O parameters.
+.LI "\*LTIOCSETN\*O"
+Sets \*Ltty\*O parameter without flushing.
+.LE
+.PP
+The next group uses a pointer to the local mode bits (an integer
+value) as their \*Larg\*O parameter.  The local mode bits are converted to the
+appropriate POSIX \*Ltermios\*O flag settings.
+.VL
+.LI "\*LTIOCLBIS\*O"
+The \*Larg\*O value is used as a mask to set the local mode bits.
+.LI "\*LTIOCLBIC\*O"
+The \*Larg\*O value is used as a mask to clear the local mode bits.
+.LI "\*LTIOCLSET\*O"
+The \*Larg\*O value is used to replace the current
+setting of the local mode bits.
+.LI "\*LTIOCLGET\*O"
+The \*Larg\*O parameter is used to return the current
+value of the local mode bits.
+.LE
+.PP
+The following group uses a pointer to a \*Lltchars\*O structure as their
+\*Larg\*O
+parameter.  The local special characters are translated to
+POSIX \*Ltermios\*O control characters.
+.VL
+.LI "\*LTIOCSLTC\*O"
+Set local control characters.
+.LI "\*LTIOCGLTC\*O"
+Get local control characters.
+.LE
+.PP
+The following group of BSD compatibility \*Lioctl\*Os sets/clears the POSIX
+\*LCLOCAL\*O and \*LHUPCL\*O flags.  The \*LCLOCAL\*O flag turns modem
+control on/off in the
+\*Ltty\*O driver.   If the \*Larg\*O parameter (a pointer to an
+integer) for \*LTIOCMODEM/TIOCNMODEM\*O is nonzero and the
+requesting process has super user privileges
+the change is made permanent.  Otherwise after the last close,
+the \*Ltty\*O line
+reverts back to the default value.  The \*LHUPCL\*O flag
+determines if the terminal
+line should be disconnected (that is, \*LDTR\*O is non asserted)
+after the last close.
+The \*LTIOCHPCL ioctl\*O ignores the \*Larg\*O parameter.
+.VL
+.LI "\*LTIOCMODEM\*O"
+Sets CLOCAL.
+.LI "\*LTIOCNMODEM\*O"
+Clears CLOCAL.
+.LI "\*LTIOCHPCL\*O"
+Sets HUPCL.
+.LE
+.\" End Digital-specific information
+.SH FILES
+.VL
+.LI "\*L/dev/tty\*O"
+Special file for \*Ltty\*O.
+.LI "\*L/dev/tty*\*O"
+Special files for ttys, where the * (asterisk) sign represents the \*Ltty\*O number.
+.LI "\*L/dev/console\*O"
+Device special file for console.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lioctl\*O(2),
+\*Lsigvec\*O(2),
+\*Ltcsetattr\*O(3),
+\*Ltcgetattr\*O(3),
+\*Ltcdrain\*O(3),
+\*Ltcflush\*O(3),
+\*Ltcsendbreak\*O(3),
+\*Ltcgetpgrp\*O(3),
+\*Ltcsetpgrp\*O(3)
+.PP
+Commands:
+\*Lcsh\*O(1),
+\*Lstrchg\*O(1),
+\*Ltset\*O(1),
+\*Lgetty\*O(8).
+.PP
+Interfaces:
+\*Lldterm\*O(7).
+.PP
+\*VIEEE Std POSIX 1003.1-1988\*O
+.PP
+\*(Si
+.iX "tty interface"
+.EQ
+delim off
+.EN

@@ -1,0 +1,110 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112022103.AA04633@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2247) close XBUG #4696: server: FreeColors on dynamic visual, BadAccess instead of BadValue
+Date: Mon, 02 Dec 91 16:03:21 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4696
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1004608	Mon Dec  2 16:02:23 1991
+--- server/dix/colormap.c	Fri Nov 29 18:56:07 1991
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: colormap.c,v 5.21 91/07/12 20:23:41 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: colormap.c,v 5.22 91/11/29 18:55:03 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+***************
+*** 2049,2055 ****
+  
+      Pixel	*ppixClient, pixTest;
+      int		npixClient, npixNew, npix;
+!     Pixel	bits, base, cmask;
+      Pixel	*pptr, *cptr;
+      int 	n, zapped;
+      int		errVal = Success;
+--- 2049,2055 ----
+  
+      Pixel	*ppixClient, pixTest;
+      int		npixClient, npixNew, npix;
+!     Pixel	bits, base, cmask, rgbbad;
+      Pixel	*pptr, *cptr;
+      int 	n, zapped;
+      int		errVal = Success;
+***************
+*** 2065,2070 ****
+--- 2065,2071 ----
+      {
+        case REDMAP:
+  	cmask = pmap->pVisual->redMask;
++ 	rgbbad = ~RGBMASK(pmap->pVisual);
+  	offset = pmap->pVisual->offsetRed;
+  	numents = (cmask >> offset) + 1;
+  	ppixClient = pmap->clientPixelsRed[client];
+***************
+*** 2072,2077 ****
+--- 2073,2079 ----
+  	break;
+        case GREENMAP:
+  	cmask = pmap->pVisual->greenMask;
++ 	rgbbad = ~RGBMASK(pmap->pVisual);
+  	offset = pmap->pVisual->offsetGreen;
+  	numents = (cmask >> offset) + 1;
+  	ppixClient = pmap->clientPixelsGreen[client];
+***************
+*** 2079,2084 ****
+--- 2081,2087 ----
+  	break;
+        case BLUEMAP:
+  	cmask = pmap->pVisual->blueMask;
++ 	rgbbad = ~RGBMASK(pmap->pVisual);
+  	offset = pmap->pVisual->offsetBlue;
+  	numents = (cmask >> offset) + 1;
+  	ppixClient = pmap->clientPixelsBlue[client];
+***************
+*** 2086,2091 ****
+--- 2089,2095 ----
+  	break;
+        case PSEUDOMAP:
+  	cmask = ~((Pixel)0);
++ 	rgbbad = 0;
+  	offset = 0;
+  	numents = pmap->pVisual->ColormapEntries;
+  	ppixClient = pmap->clientPixelsRed[client];
+***************
+*** 2100,2106 ****
+          for (pptr = ppixIn, n = npixIn; --n >= 0; pptr++)
+  	{
+  	    pixTest = ((*pptr | bits) & cmask) >> offset;
+! 	    if (pixTest >= numents)
+  	    {
+  		clientErrorValue = *pptr | bits;
+  		errVal = BadValue;
+--- 2104,2110 ----
+          for (pptr = ppixIn, n = npixIn; --n >= 0; pptr++)
+  	{
+  	    pixTest = ((*pptr | bits) & cmask) >> offset;
+! 	    if ((pixTest >= numents) || (*pptr & rgbbad))
+  	    {
+  		clientErrorValue = *pptr | bits;
+  		errVal = BadValue;

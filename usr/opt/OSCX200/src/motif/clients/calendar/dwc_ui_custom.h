@@ -1,0 +1,100 @@
+/* $Header$								    */
+#ifndef _dwc_ui_custom_h_
+#define _dwc_ui_custom_h_ 1
+/* #module DWC_UI_CUSTOM.H "V3-002"				    */
+/*
+**  Copyright (c) Digital Equipment Corporation, 1990
+**  All Rights Reserved.  Unpublished rights reserved
+**  under the copyright laws of the United States.
+**  
+**  The software contained on this media is proprietary
+**  to and embodies the confidential technology of 
+**  Digital Equipment Corporation.  Possession, use,
+**  duplication or dissemination of the software and
+**  media is authorized only pursuant to a valid written
+**  license from Digital Equipment Corporation.
+**
+**  RESTRICTED RIGHTS LEGEND   Use, duplication, or 
+**  disclosure by the U.S. Government is subject to
+**  restrictions as set forth in Subparagraph (c)(1)(ii)
+**  of DFARS 252.227-7013, or in FAR 52.227-19, as
+**  applicable.
+**++
+**  FACILITY:
+**
+**	DECwindows Calendar; user interface routines
+**
+**  AUTHOR:
+**
+**	Ken Cowan, March 1989
+**
+**  ABSTRACT:
+**
+**	Public entry points from DWC_UI_CUSTOM.C
+**
+**  ENVIRONMENT:
+**
+**	User mode, executable image.
+**
+**
+**  MODIFICATION HISTORY:
+**
+**  V3-002  Paul Ferwerda					16-Apr-1990
+**		Added RCS header
+**	V2-001	Ken Cowan					17-Mar-1989
+**		Initial version
+**--
+**/
+
+#include    "dwc_compat.h"
+
+Boolean CUSTApplyProfile PROTOTYPE ((
+	CalendarDisplay		cd,
+	ProfileStructure	*new));
+
+void CUSTDO_GENERAL_DISPLAY PROTOTYPE ((
+	Widget			w,
+	caddr_t			tag,
+	XmAnyCallbackStruct	*cbs));
+
+void CUSTDO_DAYVIEW_DISPLAY PROTOTYPE ((
+	Widget			w,
+	caddr_t			tag,
+	XmAnyCallbackStruct	*cbs));
+
+void CUSTDO_ICONBOX_DISPLAY PROTOTYPE ((
+	Widget			w,
+	caddr_t			tag,
+	XmAnyCallbackStruct	*cbs));
+
+void CUSTDO_ALARMS_DISPLAY PROTOTYPE ((
+	Widget			w,
+	caddr_t			tag,
+	XmAnyCallbackStruct	*cbs));
+
+void CUSTGetProfileAlarms PROTOTYPE ((
+	ProfileStructure	*profile,
+	int			*ret_alarms_number,
+	unsigned short int	**ret_alarms_times));
+
+void CUSTSetAlarmsFromProfile PROTOTYPE ((
+	CalendarDisplay		cd,
+	ProfileStructure	*profile));
+
+void CUSTSetDayviewFromProfile PROTOTYPE ((
+	CalendarDisplay		cd,
+	ProfileStructure	*profile));
+
+void CUSTSetGeneralFromProfile PROTOTYPE ((
+	CalendarDisplay		cd,
+	ProfileStructure	*profile));
+
+void CUSTSetIconboxFromProfile PROTOTYPE ((
+	CalendarDisplay		cd,
+	ProfileStructure	*profile));
+
+void CUSTTellDBWorkDays PROTOTYPE ((
+	CalendarDisplay	cd,
+	unsigned char	work_days));
+
+#endif /* _dwc_ui_custom_h_ */

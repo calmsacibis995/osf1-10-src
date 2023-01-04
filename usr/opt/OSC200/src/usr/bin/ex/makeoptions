@@ -1,0 +1,89 @@
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+#
+# (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+# ALL RIGHTS RESERVED 
+#
+# @(#)$RCSfile: makeoptions,v $ $Revision: 4.1.11.3 $ (DEC) $Date: 1993/06/10 21:34:56 $
+#
+#
+# HISTORY
+#
+# OSF/1 1.2
+#
+#
+# Copyright (c) 1980 Regents of the University of California.
+# All rights reserved.  The Berkeley software License Agreement
+# specifies the terms and conditions for redistribution.
+#
+#	@(#)makeoptions	6.4 (Berkeley) 5/31/85
+#
+
+#
+# remake options -- this isn't necessary unless you add/delete options
+#
+# only command-line #defines (-D) will be processed by this script.
+#
+trap 'rm -f ex_data.tmp.c' 0 2
+
+ex_data=${1-ex_data.c}
+cc=${_CC_-cc}
+shift
+
+	sed -e '/^#include/d' < $ex_data > ex_data.tmp.c
+	$cc -E $* ex_data.tmp.c | sed -e '
+/option options/{
+N
+h
+}
+1,/option options/d
+/^#/d
+/^[ 	]*$/d
+/^[ 	]*0/d
+/}/{
+g
+s/[^@]*\n//
+}
+s/[ 	]*"\([^"]*\)".*$/\1/
+y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' | \
+	cat -n | sed -e '
+1a\
+/* rcsid   @(#)  ex_vars.h  @(#)makeoptions $Revision: 4.1.11.3 $ $Date: 1993/06/10 21:34:56 $ */\
+
+s/[ 	]*\([0-9][0-9]*\)[ 	]*\(.*\)/#define	\2	\1/
+1{
+h
+d
+}
+$!{
+H
+d
+}
+${
+s/\(	[^	]*	\)\(.*\)$/\10\
+#define	NOPTS	\2/
+P
+s/[^@]*\n//
+H
+x
+}' > ex_vars.h

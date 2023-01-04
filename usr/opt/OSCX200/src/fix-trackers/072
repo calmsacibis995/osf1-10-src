@@ -1,0 +1,148 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112232217.AA27511@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2295) close XBUG #4822: server: hard for XTrap to wrap EnqueueEvent
+Date: Mon, 23 Dec 91 17:17:50 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4822
+### area:         server
+### severity:     enhancement
+### comments:     
+
+*** /tmp/,RCSt1022146	Mon Dec 23 11:57:25 1991
+--- server/include/input.h	Fri Nov 22 15:46:41 1991
+***************
+*** 58,65 ****
+  
+  typedef struct _DeviceRec {
+      pointer	devicePrivate;
+!     ProcessInputProc processInputProc;
+!     ProcessInputProc realInputProc;
+      Bool	on;			/* used by DDX to keep state */
+  } DeviceRec, *DevicePtr;
+  
+--- 58,66 ----
+  
+  typedef struct _DeviceRec {
+      pointer	devicePrivate;
+!     ProcessInputProc processInputProc;	/* current */
+!     ProcessInputProc realInputProc;	/* deliver */
+!     ProcessInputProc enqueueInputProc;	/* enqueue */
+      Bool	on;			/* used by DDX to keep state */
+  } DeviceRec, *DevicePtr;
+  
+*** /tmp/,RCSt1027450	Mon Dec 23 17:12:53 1991
+--- server/dix/devices.c	Mon Dec 23 17:12:55 1991
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.21 91/11/22 12:12:01 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.22 91/12/10 11:19:22 keith Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 45,50 ****
+--- 45,51 ----
+  extern void ActivatePointerGrab(), DeactivatePointerGrab();
+  extern void ActivateKeyboardGrab(), DeactivateKeyboardGrab();
+  extern Mask EventMaskForClient();
++ extern void EnqueueEvent();
+  
+  DevicePtr
+  AddInputDevice(deviceProc, autoStart)
+***************
+*** 65,70 ****
+--- 66,72 ----
+      dev->public.on = FALSE;
+      dev->public.processInputProc = NoopDDA;
+      dev->public.realInputProc = NoopDDA;
++     dev->public.enqueueInputProc = EnqueueEvent;
+      dev->deviceProc = deviceProc;
+      dev->startup = autoStart;
+      dev->sync.frozen = FALSE;
+*** /tmp/,RCSt1023337	Mon Dec 23 12:14:31 1991
+--- server/dix/events.c	Tue Dec 17 19:41:58 1991
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.48 91/11/22 12:19:11 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.49 91/12/17 19:41:32 keith Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 132,138 ****
+  void WriteEventsToClient();
+  Bool CheckDeviceGrabs();
+  void NewCurrentScreen();
+! static void EnqueueEvent();
+  
+  extern void MaybeStopHint();
+  
+--- 132,138 ----
+  void WriteEventsToClient();
+  Bool CheckDeviceGrabs();
+  void NewCurrentScreen();
+! void EnqueueEvent();
+  
+  extern void MaybeStopHint();
+  
+***************
+*** 483,489 ****
+   *            The following procedures deal with synchronous events       *
+   **************************************************************************/
+  
+! static void
+  EnqueueEvent(xE, device, count)
+      xEvent		*xE;
+      DeviceIntPtr	device;
+--- 483,489 ----
+   *            The following procedures deal with synchronous events       *
+   **************************************************************************/
+  
+! void
+  EnqueueEvent(xE, device, count)
+      xEvent		*xE;
+      DeviceIntPtr	device;
+***************
+*** 567,573 ****
+  {
+      dev->sync.frozen = frozen;
+      if (frozen)
+! 	dev->public.processInputProc = EnqueueEvent;
+      else
+  	dev->public.processInputProc = dev->public.realInputProc;
+  }
+--- 567,573 ----
+  {
+      dev->sync.frozen = frozen;
+      if (frozen)
+! 	dev->public.processInputProc = dev->public.enqueueInputProc;
+      else
+  	dev->public.processInputProc = dev->public.realInputProc;
+  }

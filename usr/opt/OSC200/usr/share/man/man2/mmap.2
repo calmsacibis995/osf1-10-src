@@ -1,0 +1,392 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: mmap.2,v $ $Revision: 3.2.5.5 $ (DEC) $Date: 1993/12/23 16:03:39 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH mmap 2
+.SH NAME
+\*Lmmap\*O \- Maps file system object into virtual memory
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.sp .4v
+\*L#include <sys/mman.h>
+.sp .4v
+\*Lcaddr_t mmap (
+.nL
+	\*Lcaddr_t \*Vaddr\*L,
+.nL
+	\*Lsize_t \*Vlen\*L,
+.nL
+	\*Lint \*Vprot\*L,
+.nL
+	\*Lint \*Vflags\*L,
+.nL
+	\*Lint \*Vfiledes\*L,
+.nL
+	\*Loff_t \*Voff\*L );
+.sE
+.SH PARAMETERS
+.PP
+.\"from TP "  
+.VL
+.LI "\*Vaddr\*O"
+Specifies the starting address of the new region
+(truncated to a page boundary).
+.\"from TP "  
+.LI "\*Vlen\*O"
+Specifies the length in bytes of the new region
+(rounded up to a page boundary).
+.\"from TP "  
+.LI "\*Vprot\*O"
+Specifies access permissions as either
+\*LPROT_NONE\*O or the result of a logical OR operation on
+any combination of \*LPROT_READ\*O, \*LPROT_WRITE\*O, and
+\*LPROT_EXEC\*O.
+.\"from TP "  
+.LI "\*Vflags\*O"
+Specifies attributes of the mapped region as the results of a
+bitwise-inclusive OR operation on any combination of
+\*LMAP_FILE\*O, \*LMAP_ANONYMOUS\*O, \*LMAP_VARIABLE\*O,
+\*LMAP_FIXED\*O, \*LMAP_SHARED\*O, or \*LMAP_PRIVATE\*O.
+.\"from TP "  
+.LI "\*Vfiledes\*O"
+Specifies the file to be mapped to the new mapped file region returned
+by \*Lopen()\*O.
+.\"from TP "  
+.LI "\*Voff\*O"
+Specifies the offset into the file that gets mapped at address
+\*Vaddr\*O.
+.LE
+.SH DESCRIPTION
+.iX "mmap function"
+.iX "filesystem" "mapping an object into virtual memory"
+.iX "virtual memory" "mapping an object into"
+.iX "file" "mapping a file system object into virtual memory"
+.PP
+The
+\*Lmmap(\|)\*O
+function creates a new mapped file region, a new private region, or a
+new shared memory region.
+.PP
+The
+\*Vaddr\*O
+and
+\*Vlen\*O
+parameters specify the requested starting address and length in bytes
+for the new region.  The address is a multiple of the page size
+returned by \*Lsysconf(_SC_PAGE_SIZE)\*O.
+.PP
+If the
+\*Vlen\*O
+parameter is not a multiple of the page size returned by
+\*Lsysconf(_SC_PAGE_SIZE)\*O,
+then the result of any reference to an address between the end of the
+region and the end of the page containing the end of the region is
+undefined.
+.PP
+The \*Vflags\*O parameter specifies attributes of the mapped region.
+Values of the \*Vflags\*O parameter are constructed by a
+bitwise-inclusive OR operation on the flags from the following list
+of symbolic names defined in the \*Lsys/mman.h\*O file:
+.\"from TP 1i"  
+.VL 1.3i
+.LI "\*LMAP_FILE\*O"
+Create a mapped file region.
+.\"from TP 1i"  
+.LI "\*LMAP_ANONYMOUS\*O"
+Create an unnamed memory region.
+.\"from TP 1i"  
+.LI "\*LMAP_VARIABLE\*O"
+Place region at the computed address.
+.\"from TP 1i"  
+.LI "\*LMAP_FIXED\*O"
+Place region at fixed address.
+.\"from TP 1i"  
+.LI "\*LMAP_SHARED\*O"
+Share changes.
+.\"from TP 1i"  
+.LI "\*LMAP_PRIVATE\*O"
+Changes are private.
+.LE
+.PP
+The \*LMAP_FILE\*O and \*LMAP_ANONYMOUS\*O flags control whether the
+region to be mapped is a mapped file region or an anonymous shared
+memory region. One of these flags must be selected.
+.PP
+If \*LMAP_FILE\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+A new mapped file region is created, mapping the file associated with
+the \*Vfiledes\*O parameter.
+.\"from TP 4"  
+.LI
+The
+\*Voff\*O
+parameter specifies the file byte offset at which the mapping starts.
+This offset must be a multiple of the page size returned by
+\*Lsysconf(_SC_PAGE_SIZE)\*O.
+.\"from TP 4"  
+.LI
+If the end of the mapped file region is beyond the end of the file,
+the result of any reference to an address in the mapped file region
+corresponding to an offset beyond the end of the file is
+unspecified.
+.LE
+.PP
+If \*LMAP_ANONYMOUS\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+A new memory region is created and initialized to all zeros.
+This memory region can be shared only with descendents of the
+current process.
+.\"from TP 4"  
+.LI
+If the \*Vfiledes\*O parameter is not -1, the \*Lmmap(\|)\*O
+function fails.
+.LE
+.PP
+The new region is placed at the requested address if the requested
+address is not null and it is possible to place the region at this
+address. (A region is never placed at address zero or at an address
+where it would overlap an existing region.)  When the requested address
+is null or the region cannot be placed at the requested address,
+the \*LMAP_VARIABLE\*O and \*LMAP_FIXED\*O flags control the placement
+of the region.  One of these flags must be selected.
+.PP
+If \*LMAP_VARIABLE\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+If the requested address is null or if it is not possible for the
+system to place the region at the requested address, the region
+is placed at an address selected by the system.
+.LE
+.PP
+If \*LMAP_FIXED\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+.\" ***BEGIN DIGITAL-SPECIFIC INFORMATION -- CORRECTION
+.\" ***FOLLOWING TEXT CHANGED AS RESULT OF QAR #12210 (OSF_QAR)
+.\" If the requested address is not null, and it is not possible for
+.\" the region to be placed at this address, the
+.\" \*Lmmap(\|)\*O
+.\" function fails.
+.\" ***REPLACEMENT TEXT
+If the requested address is not null, the \*Lmmap(\|)\*O function
+succeeds even if the requested address is already part of another
+region.  (If the address is within an existing region, the effect
+on the pages within that region and within the area of the overlap
+produced by the two regions is the same as if they were unmapped.
+In other words, whatever is mapped between \*Vaddr\*O and
+\*Vaddr\*O + \*Vlen\*O will be unmapped.)
+.\"from TP 4"  
+.LI
+.\" ***FOLLOWING TEXT CHANGED AS RESULT OF QAR #12210 (OSF_QAR)
+.\" If the requested address is null, the region is placed at the
+.\" default exact mapping address for the region.  If there is no
+.\" default exact mapping address for the region, the region is placed
+.\" at an address selected by the system, and this address becomes the
+.\" default exact mapping address for all subsequent attempts to map
+.\" the same region, until all mappings of the region are unmapped.
+.\" If it is not possible to place the region at the default exact
+.\" mapping address, the
+.\" \*Lmmap(\|)\*O
+.\" function fails.
+.\" Two mapped file regions are considered the same region for the
+.\" purpose of default exact mapping if they map the same file and
+.\" start at the same file offset.
+.\" ***REPLACEMENT TEXT
+If the requested address is null (zero), the \*Lmmap(\|)\*O function
+produces an error unless \*LVM_MAP_MIN\*O was changed to zero.
+.\" ***END DIGITAL-SPECIFIC INFORMATION -- CORRECTION
+.LE
+.PP
+The \*LMAP_PRIVATE\*O and \*LMAP_SHARED\*O flags control the
+visibility of modifications to the mapped file or shared memory region.
+One of these flags must be selected.
+.PP
+If \*LMAP_SHARED\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+If the region is a mapped file region, modifications to the region
+are visible to other processes that have mapped the same region
+using \*LMAP_SHARED\*O.
+.\"from TP 4"  
+.LI
+If the region is a mapped file region, modifications to the region
+are written to the file.
+(Note that the modifications are not immediately written to the file
+because of buffer cache delay; that is, the write to the file does not
+occur until there is a need to reuse the buffer cache.
+If the modifications must be written to the file immediately, the
+\*Lmsync()\*O function can be used to ensure that this is done.)
+.LE
+.PP
+If \*LMAP_PRIVATE\*O is set in the \*Vflags\*O parameter:
+.\"from TP 4"  
+.ML
+.LI
+Modifications to the mapped region by the calling process are
+not visible to other processes that have mapped the same region
+using either \*LMAP_PRIVATE\*O or \*LMAP_SHARED\*O.
+.\"from TP 4"  
+.LI
+Modifications to the mapped region by the calling process are not
+written to the file.
+.LE
+.PP
+It is unspecified whether modifications by processes that have
+mapped the region using \*LMAP_SHARED\*O are visible to other
+processes that have mapped the same region using \*LMAP_PRIVATE\*O.
+.PP
+The \*Vprot\*O parameter specifies the mapped region's access
+permissions.  The \*Lsys/mman.h\*O header file defines the following
+access options:
+.\"from TP 1i"  
+.VL 1i
+.LI "\*LPROT_READ\*O"
+The mapped region can be read.
+.\"from TP 1i"  
+.LI "\*LPROT_WRITE\*O"
+The mapped region can be written.
+.\"from TP 1i"  
+.LI "\*LPROT_EXEC\*O"
+The mapped region can be executed.
+.\"from TP 1i"  
+.LI "\*LPROT_NONE\*O"
+The mapped region cannot be accessed.
+.LE
+.PP
+The \*Vprot\*O parameter can be either \*LPROT_NONE\*O or
+the results of a logical OR operation on any combination of
+\*LPROT_READ\*O, \*LPROT_WRITE\*O, and \*LPROT_EXEC\*O.
+If \*LPROT_NONE\*O is not specified, access permissions may be granted
+to the region in addition to those explicitly requested, except that
+write access is not granted unless \*LPROT_WRITE\*O is specified.
+.PP
+If the region is a mapped file that was mapped with \*LMAP_SHARED\*O,
+the \*Lmmap(\|)\*O function grants read or execute access permission
+only if the file descriptor used to map the file is open for
+reading, and grants write access permission only if the file
+descriptor used to map the file is open for writing.  If the region
+is a mapped file that was mapped with \*LMAP_PRIVATE\*O, the
+\*Lmmap(\|)\*O function grants read, write, or execute access
+permission only if the file descriptor used to map the file is open
+for reading.  If the region is a shared memory region that was mapped
+with \*LMAP_ANONYMOUS\*O, the \*Lmmap(\|)\*O function grants all
+requested access permissions.
+.PP
+After the successful completion of the \*Lmmap(\|)\*O function, the
+\*Vfiledes\*O parameter can be closed without effect on the mapped
+region or on the contents of the mapped file.  Each mapped region
+creates a file reference, similar to an open file descriptor, which
+prevents the file data from being deallocated.
+.PP
+Modifications made to the file using the \*Lwrite(\)\*O
+function are visible to mapped regions, and modifications to
+a mapped region are visible with the \*Lread(\|)\*O function.
+.PP
+After a call to the \*Lfork(\|)\*O function, the child process
+inherits all mapped regions with the same sharing and protection
+attributes as in the parent process.  Each mapped file and shared
+memory region created with the \*Lmmap(\|)\*O function is unmapped
+by a successful call to any of the \*Lexec\*O functions, unless
+that region is made inheritable across \*Lexec\*O.
+.SH NOTES
+.PP
+Note that memory acquired with the \*Lmmap(\|)\*O function is not
+locked, regardless of the previous use of the \*Lplock(\|)\*O function.
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Trial use
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lmmap(\|)\*O function returns the
+address at which the mapping was placed.  Otherwise, \*Lmmap(\|)\*O
+returns (\*Lcaddr_t\*O)-1 and sets \*Lerrno\*O to indicate the error.
+.SH ERRORS
+.PP
+If the \*Lmmap(\|)\*O function fails, \*Lerrno\*O may be set to one
+of the following values:
+.PP
+.\"from TP 1i"  
+.VL 1i
+.LI "[EACCES]"
+The file referred to by \*Vfiledes\*O is not open for read access,
+or the file is not open for write access and \*LPROT_WRITE\*O was
+set for a \*LMAP_SHARED\*O mapping operation.
+.\"from TP 1i"  
+.LI "[EBADF]"
+The \*Vfiledes\*O parameter is not a valid file descriptor.
+.\"from TP 1i"  
+.LI "[EINVAL]"
+The \*Vflags\*O or \*Vprot\*O parameter is invalid, or the \*Vaddr\*O
+parameter or \*Voff\*O parameter is not a multiple of the page size
+returned by \*Lsysconf(_SC_PAGE_SIZE)\*O.
+.\"from TP 1i"  
+.LI "[ENODEV]"
+The file descriptor \*Vfiledes\*O refers to an object that cannot
+be mapped, such as a terminal.
+.\"from TP 1i"  
+.LI "[ENOMEM]"
+.\" ***BEGIN DIGITAL-SPECIFIC INFORMATION -- CORRECTION
+.\" ***FOLLOWING TEXT CHANGED AS RESULT OF QAR #12210 (OSF_QAR)
+.\" There is not enough address space to map \*Vlen\*O bytes,
+.\" or MAP_FIXED was set and part of the address space
+.\" range [\*Vaddr\*O, \*Vaddr\*O + \*Vlen\*O) is already allocated.
+.\" ***REPLACEMENT TEXT
+There is not enough address space to map \*Vlen\*O bytes.
+.\" ***END DIGITAL-SPECIFIC INFORMATION -- CORRECTION
+.\"from TP 1i"  
+.LI "[ENXIO]"
+The addresses specified by the range [\*Voff\*O, \*Voff\*O + \*Vlen\*O)
+are invalid for \*Vfiledes\*O.
+.\"from TP 1i"  
+.LI "[EINVAL]"
+\*LMAP_ANONYMOUS\*O was specified in \*Vflags\*O and \*Vfiledes\*O
+is not -1.
+.\"from TP 1i"  
+.LI "[EFAULT]"
+The \*Vaddr\*O parameter is an invalid address.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lfcntl\*O(2),
+\*Lfork\*O(2),
+\*Lmadvise\*O(2),
+\*Lmprotect\*O(2),
+\*Lmsync\*O(2),
+\*Lmunmap\*O(2),
+\*Lplock\*O(2),
+\*Lsysconf\*O(3)
+.iX "mmap function"
+.EQ
+delim off
+.EN

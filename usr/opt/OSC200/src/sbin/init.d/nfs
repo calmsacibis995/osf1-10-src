@@ -1,0 +1,212 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# @(#)$RCSfile: nfs,v $ $Revision: 4.3.12.2 $ (DEC) $Date: 1993/12/21 20:38:48 $
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+#
+# Default configuration for NFS parameters
+#
+NUM_NFSD=8 
+NUM_NFSIOD=7
+NFSSERVING=0
+NFSLOCKING=0
+#WALLD=0
+MOUNTOPTS="-i"
+NONROOTMOUNTS=0
+PORTMAP=/usr/sbin/portmap
+PMAP=1
+AUTOMOUNT=0
+AUTOMOUNT_ARGS=""
+PCNFSD=0
+
+#
+# Read configuration for NFS parameters
+#
+if [ -f /etc/rc.config ] ; then
+	. /etc/rc.config
+else
+	echo "ERROR: /etc/rc.config defaults file MISSING"
+fi
+
+case "$1" in
+'start')
+        set `who -r`
+	pid=`/bin/ps -e | grep portmap | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+        if [ "X$pid" = "X" ] 
+	then
+        	if $PORTMAP; then
+			echo "ONC portmap service started"
+        	else
+			PMAP=0
+			echo "Unable to start ONC portmap, NFS service unavailable"
+		fi
+        fi
+	if [ $NONROOTMOUNTS != 0 ]
+	then
+		MOUNTOPTS="${MOUNTOPTS} -n"
+	fi
+	if [ $PMAP != 0 -a $NFSSERVING != 0 ]; then
+            if /usr/sbin/mountd $MOUNTOPTS; then
+                    echo "NFS mount daemon started"
+            else
+                    echo "Unable to start mount daemon service"
+            fi
+            if /usr/sbin/nfsd $NUM_NFSD; then
+                    echo "NFS export service started"
+            else
+                    echo "Unable to export NFS service"
+            fi
+	fi
+	if [ $NUM_NFSIOD != 0 ]; then
+            if /usr/sbin/nfsiod $NUM_NFSIOD; then
+                    echo "NFS IO service started"
+            else
+                    echo "Unable to provide NFS IO service"
+            fi
+	fi
+	if [ $AUTOMOUNT != 0 ]; then
+            if /usr/sbin/automount $AUTOMOUNT_ARGS; then
+                    echo "NFS automount service started"
+            else
+                    echo "Unable to provide NFS automount service"
+            fi
+	fi
+	if [ $PCNFSD != 0 ]; then
+            if /usr/sbin/rpc.pcnfsd; then
+                    echo "PC-NFS service started"
+            else
+                    echo "Unable to provide PC-NFS service"
+            fi
+	fi
+	if [ $NFSLOCKING != 0 ]; then
+		/bin/echo -n 'NFS Locking: '					
+		if /usr/sbin/rpc.statd && /usr/sbin/rpc.lockd; then
+			echo 'rpc.statd and rpc.lockd started'
+		else
+			echo 'Unable to provide NFS locking service'
+		fi
+	fi
+#	if [ WALLD != 0 ]; then
+#	    if /usr/sbin/rwalld; then 
+#		echo 'rwall daemon: rwalld'		
+#	else
+#		echo 'Unable to start rwall'
+#	fi
+        ;;
+'stop')
+        # Stop automount
+	for pid in `/bin/ps -e | grep automount | grep -v grep | sed -e 's/^  *//' -e 's/ .*//'`
+	do
+		/bin/kill -TERM  $pid
+	done
+        # Stop rpc.pcnfsd
+	for pid in `/bin/ps -e | grep rpc.pcnfsd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//'`
+	do
+		/bin/kill -TERM  $pid
+	done
+        # Stop mountd
+	pid=`/bin/ps -e | grep mountd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	if [ "X$pid" != "X" ]
+	then
+		/bin/kill -9  $pid
+	fi
+        # Stop nfsd
+	pid=`/bin/ps -e | grep nfsd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	while [ "X$pid" != "X" ]
+	do
+		/bin/kill -9  $pid
+		pid=`/bin/ps -e | grep nfsd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	done
+        # Stop nfsiod
+	pid=`/bin/ps -e | grep nfsiod | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	while [ "X$pid" != "X" ]
+	do
+		/bin/kill -9  $pid
+		pid=`/bin/ps -e | grep nfsiod | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	done
+# 	Stop portmap
+#	pid=`/bin/ps -e | grep portmap | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+#	if [ "X$pid" != "X" ]
+#	then
+#		/bin/kill -9  $pid
+#	fi
+# 	disable nfs locking
+#	if [ -f /usr/sbin/nfssetlock ] 
+#	then
+#		/usr/sbin/nfssetlock off & 
+#	fi
+# 	Stop rpc.statd
+	pid=`/bin/ps -e | grep rpc.statd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	if [ "X$pid" != "X" ]
+	then
+		/bin/kill -9  $pid
+	fi
+# 	Stop rpc.lockd
+	pid=`/bin/ps -e | grep rpc.lockd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	if [ "X$pid" != "X" ]
+	then
+		/bin/kill -9  $pid
+	fi
+# 	Stop rwalld
+#	pid=`/bin/ps -e | grep rwalld | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+#	if [ "X$pid" != "X" ]
+#	then
+#		/bin/kill -9  $pid
+#	fi
+
+#	Pause until automount daemons have removed mounted filesystems.
+
+
+	for apid in `/bin/ps -e | grep automount  | grep -v grep | sed -e 's/^  *//' -e 's/ .*//'`
+	do
+		while [ "X$apid" != "X" ]
+		do
+			apid=`/bin/ps -e | grep automount | grep -v grep | \
+				 sed -e 's/^  *//' -e 's/ .*//' | head -1`
+			sleep 1
+		done
+	done
+
+        ;;
+*)
+        echo "usage: $0 {start|stop}"
+        ;;
+esac
+
+# %NFSSTART% - NFS has been started by "nfssetup"
+
+
+
+

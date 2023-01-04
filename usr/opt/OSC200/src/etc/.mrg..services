@@ -1,0 +1,229 @@
+#!/sbin/sh
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+#
+# @(#)$RCSfile: .mrg..services,v $ $Revision: 1.1.2.8 $ (DEC) $Date: 1994/01/03 20:18:27 $
+#
+#
+
+
+MERGE_ROUTINE=DRI_Merge
+
+      
+#	-DRI_Merge
+#		merge routine provided by the DRIs.
+#
+#	given: 	global variable $_FILE
+#	return: 0 if success
+#		non-zero if failure
+#
+#	Note:	1) use MRG_Echo() to output additional messages.
+#		2) see also /usr/share/lib/shell/libmrg for other available 
+#		   global variables.
+
+DRI_Merge()
+{
+	RET=0
+
+	#
+	# If the merge has not been performed for auditd do it
+	#
+	grep -q '^auditd[ 	].*/tcp' $_FILE ||
+	{ 
+		# Do the merge for auditd
+
+		MRG_Echo "adding 'auditd' entry"
+
+		#
+		# 	Section to add the auditd
+		#
+		ed - $_FILE << _Add_auditd_ 1>/dev/null
+/^whois
+a
+auditd		48/tcp			# Digital Audit Daemon
+.
+w
+q
+_Add_auditd_
+	
+		[ "$?" = 0 ] ||
+		{
+			MRG_Echo "failed to add 'auditd' entry"
+			RET=1
+		}
+	}	
+
+	#
+	# If the merge has not been performed for domain tcp do it
+	#
+	grep -q '^domain[ 	].*/tcp' $_FILE ||
+	{ 
+		# Do the merge for domain tcp
+
+		MRG_Echo "adding 'domain tcp' entry"
+
+		#
+		# 	Section to add the domain tcp entry
+		#
+		ed - $_FILE << _Add_domaintcp_ 1>/dev/null
+/^mtp
+i
+domain          53/tcp          nameserver
+.
+w
+q
+_Add_domaintcp_
+	
+		[ "$?" = 0 ] ||
+		{
+			MRG_Echo "failed to add 'domain tcp' entry"
+			RET=1
+		}
+	}	
+
+        #
+        # If the merge has not been performed for domain udp do it
+        #
+        grep -q '^domain[ 	].*/udp' $_FILE ||
+        {
+                # Do the merge for domain udp 
+
+                MRG_Echo "adding 'domain udp' entry"
+
+                #
+                #       Section to add the domain udp entry
+                #
+                ed - $_FILE << _Add_domainudp_ 1>/dev/null
+/^domain
+i
+domain          53/udp          nameserver      # domain name server
+.
+w
+q
+_Add_domainudp_
+
+                [ "$?" = 0 ] ||
+                {
+                        MRG_Echo "failed to add 'domain udp' entry"
+                        RET=1
+                }
+        }
+
+	#
+	# If the merge has not been performed for auth do it
+	#
+	grep -q '^auth[ 	].*/tcp' $_FILE ||
+	{ 
+		# Do the merge for auth
+		MRG_Echo "adding 'auth' entry"
+
+		#
+		# 	Section to add the auth
+		#
+		ed - $_FILE << _Add_auth_ 1>/dev/null
+/^nntp
+i
+auth		113/tcp		authentication
+.
+w
+q
+_Add_auth_
+		[ "$?" = 0 ] ||
+		{
+			MRG_Echo "failed to add 'auth' entry"
+			RET=1
+		}
+	}
+
+	#
+	# Change port number of talk to 517 and ntalk to 518
+	#
+	# First get rid of the lines for talk and ntalk
+	#
+	grep -q '^[n]*talk\(.*\)\/udp' $_FILE &&
+	{
+		MRG_Echo "removing talk and ntalk entries"
+
+		if grep -v '^[n]*talk\(.*\)\/udp' $_FILE > $_TMPFILE
+		then
+			mv $_TMPFILE $_FILE
+		else
+			MRG_Echo "failed to remove talk or ntalk entries"
+			RET=1
+		fi
+	}
+
+	#
+	# Add talk 517/udp and ntalk 518/udp
+	#
+	grep -q '^[n]*talk\(.*\)\/udp' $_FILE ||
+	{ 
+		MRG_Echo "adding talk and ntalk entries"
+
+		ed - $_FILE << _Add_talk_ 1>/dev/null
+/^efs
+i
+talk		517/udp
+ntalk		518/udp
+.
+w
+q
+_Add_talk_
+
+		[ "$?" = 0 ] ||
+		{
+			MRG_Echo "failed to add talk or ntalk entries"
+			RET=1
+		}
+	}
+
+	#
+	# If the merge has not been performed for /etc/gateways do it
+	#
+	if [ ! -f /etc/gateways.PreUPD ]
+	then
+		# If /etc/gateways exists, move it to /etc/gateways.PreUPD
+		if [ -f /etc/gateways ]
+		then
+			MRG_Echo "moving /etc/gateways to /etc/gateways.PreUPD"
+			MRG_Echo "See release notes for more information on /etc/gateways."
+			mv /etc/gateways /etc/gateways.PreUPD
+			[ "$?" = 0 ] ||
+			{
+				MRG_Echo "failed to move /etc/gateways to /etc/gateways.PreUPD"
+				RET=1
+			}
+		fi
+	fi
+
+	return $RET
+}
+
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 
+

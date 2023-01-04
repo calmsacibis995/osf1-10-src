@@ -1,0 +1,305 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+#	@(#)nis	3.2	 (ULTRIX/OSF) 	8/9/91
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+#
+#
+# Control the Network Information Service (formerly YP)
+#
+
+ECHO=/bin/echo
+RCMGR=/usr/sbin/rcmgr
+KILL="/bin/kill -9"
+
+PATH=/sbin:/usr/sbin:/usr/bin:/usr/lbin
+export PATH
+
+YPBIND=/usr/sbin/ypbind
+YPSERV=/usr/sbin/ypserv
+PORTMAP=/usr/sbin/portmap
+DOMAINNAME=/usr/bin/domainname
+YPPASSWDD=/usr/sbin/rpc.yppasswdd
+YPXFRD=/usr/sbin/ypxfrd
+PASSWD=/var/yp/src/passwd
+
+#defaults
+NIS_CONF="NO"
+NIS_TYPE=""
+NIS_ARGS=""
+NIS_PASSWDD="NO"
+NIS_DOMAIN=""
+
+#pre-sets
+NIS_CONF=`$RCMGR get NIS_CONF`
+NIS_TYPE=`$RCMGR get NIS_TYPE`
+NIS_ARGS=`$RCMGR get NIS_ARGS`
+NIS_PASSWDD=`$RCMGR get NIS_PASSWDD`
+NIS_DOMAIN=`$RCMGR get NIS_DOMAIN`
+
+if [ "$NIS_CONF" = "YES" ]
+then
+	case $NIS_TYPE in
+	MASTER)
+		case "$1" in
+                'start')
+			pid=`/bin/ps -e | grep portmap | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                        	if $PORTMAP; then
+					echo "ONC portmap service started"
+			       	fi
+                        fi
+
+				if [ -x $DOMAINNAME ]; then
+					if $DOMAINNAME $NIS_DOMAIN
+					then
+						$ECHO "NIS domain name set to $NIS_DOMAIN "
+				 	else 
+						$ECHO "Cannot set NIS domain name"
+					fi
+				fi
+
+			pid=`/bin/ps -e | grep ypserv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+				if [ -x $YPSERV ]; then
+					if $YPSERV; then
+						$ECHO "ypserv daemon started"
+					else
+						$ECHO "Cannot start NIS server daemon"
+					fi
+				fi
+			fi
+
+			pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+				if [ -x $YPBIND ]; then
+					if $YPBIND $NIS_ARGS; then
+						$ECHO "ypbind daemon started"
+					else
+                                                $ECHO "Cannot start ypbind daemon"
+					fi
+				fi
+			fi
+
+			pid=`/bin/ps -e | grep yppasswdd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+			        if [ "$NIS_PASSWDD" = "YES" ]
+			        then
+				   if [ -x $YPPASSWDD ]; then
+                                        if $YPPASSWDD $PASSWD -m passwd; then
+                                                $ECHO "NIS passwd daemon started"
+					else
+                                                $ECHO "Cannot start NIS passwd daemon"
+					fi
+				   fi
+				fi
+			fi
+
+			pid=`/bin/ps -e | grep ypxfrd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+				if [ -x $YPXFRD ]; then
+					if $YPXFRD; then
+                                                $ECHO "NIS high-speed transfer daemon started"
+					else
+                                                $ECHO "Cannot start NIS high-speed transfer daemon"
+					fi
+				fi
+			fi
+			;;
+		'stop')
+			pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+			if [ "X$pid" != "X" ]
+		        then
+                		$KILL $pid
+        		fi
+			
+			pid=`/bin/ps -e | grep ypserv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+			
+			pid=`/bin/ps -e | grep yppasswdd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+
+                       pid=`/bin/ps -e | grep ypxfrd | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+			;;
+		*)
+			$ECHO "usage: $0 {start|stop}"
+			;;
+		esac
+		;;
+	SLAVE)
+		case "$1" in
+                'start')
+			pid=`/bin/ps -e | grep portmap | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                               	if $PORTMAP; then
+					echo "ONC portmap service started"
+			       	fi
+                        fi
+
+				if [ -x $DOMAINNAME ]; then
+                                        if $DOMAINNAME $NIS_DOMAIN
+                                        then
+                                                $ECHO "NIS domain name set to $NIS_DOMAIN "
+                                        else
+                                                $ECHO "Cannot set NIS domain name"
+                                        fi
+                                fi
+
+			pid=`/bin/ps -e | grep ypserv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                                if [ -x $YPSERV ]; then
+                                        if $YPSERV; then
+                                                $ECHO "NIS server daemon started"
+                                        else
+                                                $ECHO "Cannot start NIS serverdaemon"
+                                        fi
+                                fi
+			fi
+
+			pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                                if [ -x $YPBIND ]; then
+                                        if $YPBIND $NIS_ARGS; then
+                                                $ECHO "NIS bind daemon started"
+					else
+                                        	$ECHO "Cannot start NIS bind daemon"
+                                        fi
+                                fi
+			fi
+                        ;;
+                'stop')
+                        pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+
+                        pid=`/bin/ps -e | grep ypserv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+                      ;;
+                *)
+                        $ECHO "usage: $0 {start|stop}"
+                        ;;
+                esac
+		;;
+	CLIENT)
+		case "$1" in
+                'start')
+			pid=`/bin/ps -e | grep portmap | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                               	if $PORTMAP; then
+					echo "ONC portmap service started"
+			       	fi
+                        fi
+
+				if [ -x $DOMAINNAME ]; then
+                                        if $DOMAINNAME $NIS_DOMAIN
+                                        then
+                                                $ECHO "NIS domain name set to $NIS_DOMAIN "
+                                        else
+                                                $ECHO "Cannot set NIS domain name"
+                                        fi
+                                fi
+
+			pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" = "X" ]
+                        then
+                                if [ -x $YPBIND ]; then
+                                        if $YPBIND $NIS_ARGS
+					then
+						$ECHO "NIS bind daemon started"
+					else
+						$ECHO "Cannot start NIS bind daemon"
+                                        fi
+                                fi
+			fi
+			;;
+		'stop')
+                        pid=`/bin/ps -e | grep ypbind | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+                        if [ "X$pid" != "X" ]
+                        then
+                                $KILL $pid
+                        fi
+                       ;;
+                *)
+                        $ECHO "usage: $0 {start|stop}"
+                        ;;
+                esac
+
+		;;
+	esac
+fi	
+
+
+

@@ -1,0 +1,433 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sed.1,v $ $Revision: 3.2.5.4 $ (DEC) $Date: 1993/11/30 18:07:01 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+.TH sed 1
+.SH NAME
+.PP
+\*Lsed\*O - Provides a stream line editor
+.SH SYNOPSIS
+.PP
+.iX "sed command"
+.iX "stream line editor"
+.iX "line editors" "stream"
+.sS
+\*Lsed\*O [\*L\-n\*O] [\*L\-e \*Vscript\*O ...]
+[\*L\-f \*Vsource-file\*O] [\*Vfile\*O ...]
+.sE
+.IP
+.sS
+\*Lsed\*O [\*L\-n\*O] [\*Vscript\*O] [\*Vfile\*O ...]
+.sE
+.IP
+The \*Lsed\*O command modifies lines from the specified
+\*Vfile\*O or from standard input according to edit commands
+and writes them to standard output.
+.SH DESCRIPTION
+.PP
+The \*Lsed\*O command includes
+many features for selecting lines to be modified and making changes
+only to the selected lines.
+.PP
+The \*Lsed\*O command uses two work spaces for holding the line
+being modified:  the \*Vpattern space\*O, where the selected line
+is held, and the \*Vhold space\*O, where a line can be stored temporarily.
+.PP
+An edit script consists of individual subcommands, each one on a
+separate line.  The general form of \*Lsed\*O subcommands is as
+follows:
+.iS
+[\*Vaddress_range\*O] \*Vfunction\*O [\*Vmodifier\*O \&...]
+.iE
+.PP
+The \*Lsed\*O command processes each input file by
+reading an input line into a pattern space, sequentially
+applying all \*Lsed\*O
+subcommands in sequence whose addresses select that line, and writing
+the pattern space to standard output.  It then clears the pattern space
+and repeats this process for each line in the input file.
+Some of the subcommands use a hold space to save all or part of
+the pattern space for subsequent retrieval.
+.PP
+When a command includes an address, either a line number or a search
+pattern, only the addressed line or lines are affected by the command.
+Otherwise, the command is applied to all lines.
+.SS \*Lsed\*O Addresses
+.IP
+An address is either a decimal line number, a \*L$\*O, which addresses the
+last line of input, or a \*Vcontext address\*O.  A
+context address is a regular expression (R.E.) as described for
+\*Lgrep\*O, except that you can select the character delimiter for patterns.
+The general form of the expression is as follows:
+.iS
+\&\e\*V?pattern\*L\e\*V?\*O
+.iE
+.PP
+The \*V?\*O represents a character delimiter you select.
+This delimiter cannot be a 2-byte international character
+support extended character.
+.PP
+The default form for the pattern is as follows:
+.iS
+/\*Vpattern\*O/
+\*O\c
+.iE
+.ML
+.LI
+In a context address, the construction \*L\e\*Vcexpressionc\*O, where
+\*Vc\*O is any character other than a \*L\e\*O (backslash) or the
+newline character, is identical to \*L/\*Vexpression\*L/\*O.
+If the character designated by \*Vc\*O appears following a \*L\e\*O
+(backslash), then it is considered to be that literal character, which
+does not terminate the RE.  For example, in the context address
+\*L\exabc\exdefx\*O, the second \*Lx\*O stands for itself, so that the
+regular expression is \*Labcxdef\*O.
+.LI
+The sequence \*L\en\*O matches a newline character
+in the pattern space, except the terminating new line.
+.LI
+A \*L\&.\*O (dot) matches any character except a terminating newline
+character.  That is, unlike \*Lgrep\*O, which cannot match a newline
+character in the middle of a line, \*Lsed\*O can match a newline
+character in the pattern space.
+.LE
+.PP
+Certain commands allow you to specify one line or a range of lines
+to which the command applies.  These commands are called
+\*Vaddressed commands\*O.  The following rules apply to addressed commands:
+.ML
+.LI
+A command line with no address selects every line.
+.LI
+A command line with one address, expressed in context form,
+selects each line that matches the address.
+.LI
+A command line with two addresses separated by a \*L,\*O (comma) or
+\*L;\*O (semicolon) selects the
+entire range from the first line that matches the first address through
+the next line that matches the second.  (If the second address is a
+number less than or equal to the line number first selected, only one
+line is selected.)  Thereafter, the process is repeated, looking again for
+the first address.
+.LE
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L-e \*Vscript\*O"
+Uses the string \*Vscript\*O as an editing script.
+If you are using just one \*L-e\*O flag and no \*L-f\*O flag,
+you can omit the \*L-e\*O flag and include the single \*Vscript\*O
+on the command line as an argument to \*Lsed\*O.
+.LI "\*L-f \*Vsource_file\*O"
+Uses \*Vsource_file\*O as the source of the edit
+script.  The \*Vsource_file\*O is a set of editing commands to
+be applied to \*Vfile\*O.
+.LI "\*L-n\*O"
+Suppresses all information normally written to standard output.
+.LE
+.SS Subcommands
+.if n .PP
+Backslashes in text are treated like backslashes in the replacement
+string of an \*Ls\*O command and can be used to protect initial
+spaces and tabs against the stripping that is done on every script line.
+.PP
+The \*Vtext\*O argument accompanying the \*La\e\*O, \*Lc\e\*O, and \*Li\e\*O
+commands can continue onto more than one line, provided all lines but the
+last end with a \e (backslash) to quote the newline character.
+.PP
+The \*Vread_file\*O and \*Vwrite_file\*O arguments must end the
+command line and must be preceded by exactly one space.  Each
+\*Vwrite_file\*O is created before processing begins.
+.PP
+The \*Lsed\*O command can process up to 99 commands in a file.
+.PP
+In the following list of subcommands, the maximum number of permissible
+addresses for each subcommand is indicated in parentheses.
+The \*Lsed\*O script subcommands are as follows:
+.VL 4m
+.LI "\*O(2)\*L{\*Vsubcommand\*O ..."
+.LI "\*L}\*O"
+Groups subcommands enclosed in \*L{ }\*O (braces).
+The \*L{\*O (left brace) can be preceded by spaces and can be followed
+by spaces or tabs.  The list of subcommands
+must be separated by newline characters.  The subcommands can
+also be preceded by spaces or tabs.  The terminating
+\*L}\*O (right brace) must be preceded by
+a newline character and then zero or more spaces.
+.LI "\*O(1) \*La\e\*O"
+.LI "\*Vtext\*O"
+Places \*Vtext\*O on the output before reading the next input line.
+.LI "\*O(2)\*Lb\*O[\*Vlabel\*O]"
+Branches to the : command bearing the \*Vlabel\*O.
+If \*Vlabel\*O is empty, it branches to the end of the script.
+.LI "\*O(2)\*Lc\e\*O"
+.LI "\*Vtext\*O"
+Deletes the pattern space.  With a 0 or 1 address or at the end of a
+2-address range, places \*Vtext\*O on the output.  Then it starts the next
+cycle.
+.LI "\*O(2)\*Ld\*O"
+Deletes the pattern space.  Then it starts the next cycle.
+.LI "\*O(2)\*LD\*O"
+Deletes the initial segment of the pattern space through the first
+newline character.  Then it starts the next cycle.
+.LI "\*O(2)\*Lg\*O"
+Replaces the contents of the pattern space with the contents of the hold space.
+.LI "\*O(2)\*LG\*O"
+Appends the contents of the hold space to the pattern space.
+.LI "\*O(2)\*Lh\*O"
+Replaces the contents of the hold space with the contents of the pattern space.
+.LI "\*O(2)\*LH\*O"
+Appends the contents of the pattern space to the hold space.
+.LI "\*O(1)\*Li\e\*O"
+.LI "\*Vtext\*O"
+Writes \*Vtext\*O to standard output before reading the next
+line into the pattern space.
+.LI "\*O(2)\*Ll\*O"
+Writes the pattern space to standard output, showing nonprinting
+characters as 3-digit octal values.
+Long lines are folded, with the point of folding indicated by
+\*L<Backslash><Return>\*O.  The end of each line is marked with a \*L$\*O.
+.IP
+Certain characters are shown as escape sequences as follows:
+.VL 4m
+.LI "\e\e"
+Backslash
+.LI "\ea"
+Alert
+.LI "\eb"
+Backspace
+.LI "\ef"
+Formfeed
+.LI "\en"
+Newline
+.LI "\er"
+Carriage-return
+.LI "\et"
+Tab
+.LI "\ev"
+Vertical tab
+.LE
+.LI "\*O(2)\*Ln\*O"
+Writes the pattern space to standard output.  It replaces the pattern
+space with the next line of input.
+.LI "\*O(2)\*LN\*O"
+Appends the next line of input to the pattern space with an embedded
+newline character.  (The current line number changes.)  You can use
+this to search for patterns that are split onto two lines.
+.LI "\*O(2)\*Lp\*O"
+Writes the pattern space to standard output.
+.LI "\*O(2)\*LP\*O"
+Writes the initial segment of the pattern space through the first
+newline character to standard output.
+.LI "\*O(1)\*Lq\*O"
+Branches to the end of the script.  It does not start a new cycle.
+.LI "\*O(1)\*Lr\*O \*Vread_file\*O"
+Reads the contents of \*Vread_file\*O.
+It places contents on the output before reading the next input line.
+.LI "(2)\*Ls/\*Vpattern\*O/\*Vreplacement\*L/\*Vflags\*O"
+Substitutes the \*Vreplacement\*O string for the first
+occurrence of the \*Vpattern\*O in the pattern space.  Any character
+that is entered after the \*Ls\*O command
+can substitute for the \*L/\*O (slash) separator, except \*L\e\*O
+(backslash) and the newline character.  Within the regular expression
+and replacement string, the delimiter can appear as a literal if it is
+preceded by a \*L\e\*O (backslash).
+.IP
+An \*L&\*O (ampersand) appearing in the replacement string is replaced
+by the string matching the RE.  The special meaning of \*L&\*O in this
+context can be suppressed by preceding it with a \*L\e\*O (backslash).
+The characters \*L\e\*Vn\*O, where \*Vn\*O is a digit, are replaced by
+the text matched by the corresponding backreference expression.
+.IP
+A line can be split by substituting a newline character into it.  You
+must escape the newline character in the replacement string
+by preceding it with a \*L\e\*O backslash.  A substitution is
+considered to have been performed even if the replacement string is
+identical to the string that it replaces.
+.IP
+You can add zero or more of the following \*Vflags\*O:
+.VL 4m
+.LI "\*Vn\*O"
+Where \*Vn\*O is 1-512, substitutes \*Vreplacement\*O for the \*Vn\*Oth
+occurrence of \*Vpattern\*O on each addressed line, rather than for the first
+occurrence.
+.LI "\*Lg\*O"
+Substitutes \*Vreplacement\*O for all nonoverlapping instances of
+\*Vpattern\*O on each addressed line, rather than for just the first one
+(or for the one specified by \*Vn\*O).
+.LI "\*Lp\*O"
+Writes the pattern space to standard output if a replacement was made.
+.LI "\*Lw \*Vwrite_file\*O"
+Writes the pattern space to \*Vwrite_file\*O if a replacement was
+made.  Appends the pattern space to \*Vwrite_file\*O.
+If \*Vwrite_file\*O was not already created by a previous write by this
+\*Lsed\*O script, \*Lsed\*O creates it.
+Each \*Vwrite_file\*O is created before processing begins.
+.LE
+.LI "\*O(2)\*Lt\*O[\*Vlabel\*O]"
+Branches to \*L:\*Vlabel\*O in the script file if any
+substitutions were made since the most recent reading of an input line
+execution of a \*Lt\*O subcommand.  If you do not
+specify \*Vlabel\*O, control transfers to the end of the script.
+.LI "\*O(2)\*Lw\*O \*Vwrite_file\*O"
+Appends the pattern space to \*Vwrite_file\*O.
+.LI "\*O(2)\*Lx\*O"
+Exchanges the contents of the pattern space and the hold space.
+.LI "\*O(2)\*Ly\*O/\*Vpattern1\*O/\*Vpattern2\*O/"
+Replaces all occurrences of characters in \*Vpattern1\*O with
+the corresponding characters from \*Vpattern2\*O.  The byte
+lengths of \*Vpattern1\*O and \*Vpattern2\*O must be equal.
+.LI "\*O(2)\*L!\*O\*Vsed_command\*O"
+Applies the specified \*Lsed\*O subcommand only to lines
+not selected by the address or addresses.
+.LI "\*O(0)\*L:\*Vlabel\*O"
+This script entry simply marks a branch point to be referenced by
+the \*Lb\*O and \*Lt\*O commands.
+This label can be any sequence of eight or fewer bytes.
+.LI "\*O(1)\*L=\*O"
+Writes the current line number to standard output as a line.
+.LI "\*O(2)\*L{\*Vsubcommand\*O ..."
+.LI "\*L}\*O"
+Groups subcommands enclosed in \*L{ }\*O (braces).
+.LI "\*L(0)\*O"
+Ignores an empty command.
+.LI "\*L(0)#\*O"
+If a \*L#\*O (number sign) appears as the first character on the first line
+of a script file, that entire line is treated as a comment,
+with one exception.  If the character after the \*L#\*O is an \*Ln\*O,
+the default output is suppressed.  The rest of the line
+after the \*L#n\*O is ignored.  A script must contain at least one
+noncomment line.
+.LE
+.\" Begin Digital-specific information
+.\" Adding RESTRICTIONS from BL11 Release Notes.
+.SH RESTRICTIONS
+.PP
+The \*Lh\*O subcommand for \*Lsed\*O does not work properly.  When you
+use the \*Lh\*O subcommand to place text into the hold area, only
+the last line of the specified text is saved.  You can use the \*LH\*O
+subcommand to append text to the hold area.  The \*LH\*O subcommand
+and all others dealing with the hold area work correctly.
+.\" End Digital-specific information
+.SH EXAMPLES
+.PP
+.AL
+.LI
+To perform a global change, enter:
+.iS
+sed  "s/happy/enchanted/g"  chap1  >chap1.new
+\*O\c
+.iE
+.IP
+This replaces each occurrence of \*Lhappy\*O found in the file
+\*Lchap1\*O with \*Lenchanted\*O, and puts the edited version
+in a separate file named \*Lchap1.new\*O.  The \*Lg\*O at the
+end of the \*Ls\*O subcommand tells \*Lsed\*O to make as many
+substitutions as possible on each line.  Without the \*Lg\*O,
+\*Lsed\*O replaces only the first \*Lhappy\*O on a line.
+.IP
+The \*Lsed\*O stream editor operates as a filter.  It reads text
+from standard input or from the files named on the command line
+(\*Lchap1\*O in this example), modifies this text, and writes it to
+standard output.  Unlike most editors, it does not replace the original
+file.  This makes \*Lsed\*O a powerful command when used in pipelines.
+.LI
+To use \*Lsed\*O as a filter in a pipeline (\*Lsh\*O only), enter:
+.iS
+pr  chap2 | sed  "s/Page  *[0-9]*$/(&)/" | print
+\*O\c
+.iE
+.IP
+This encloses the page numbers in parentheses before printing
+\*Lchap2\*O.  The \*Lpr\*O command puts a heading and page
+number at the top of each page, then \*Lsed\*O puts the page
+numbers in parentheses, and the \*Lprint\*O command prints the
+edited listing.
+.IP
+The \*Lsed\*O pattern \*L/Page *[0-9]*$/\*O
+matches page numbers that appear at the end of a line.  The \*Ls\*O
+subcommand changes this to \*L(&)\*O, where the \*L&\*O
+stands for the pattern that was matched (for example, \*LPage  5\*O).
+.LI
+To display selected lines of a file, enter:
+.iS
+sed  -n  "/food/p" chap3
+\*O\c
+.iE
+.IP
+This displays each line in \*Lchap3\*O that contains the word
+\*Lfood\*O.  Normally, \*Lsed\*O copies every line to standard
+output after it is edited.  The \*L-n\*O flag stops \*Lsed\*O
+from doing this.  You then use subcommands like \*Lp\*O to write
+specific parts of the text.  Without the \*L-n\*O, this example
+displays all the lines in \*Lchap3\*O, and it
+shows each line containing \*Lfood\*O twice.
+.LI
+To perform complex editing, enter:
+.iS
+sed  -f  script.sed  chap4  >chap4.new
+\*O\c
+.iE
+.IP
+It is always a good idea to create a \*Lsed\*O script file when
+you want to do anything complex.  You can then test and modify your
+script before using it.  You can also reuse your script to edit other
+files.  Create the script file with an interactive text editor.
+.LI
+A sample \*Lsed\*O script follows:
+.iS
+:join
+/\e\e$/{N
+s/\e\e\en//
+b join
+}
+\*O\c
+.iE
+.IP
+This \*Lsed\*O script joins each line that ends
+with a \e (backslash) to the line that follows it.
+First, the pattern \*L/\e\e$/\*O selects a line
+that ends with a \e for the group of commands enclosed in
+\*L{ }\*O.  The \*LN\*O subcommand then appends
+the next line, embedding a newline character.  The
+\*Ls/\e\e\en//\*O deletes the \e (backslash) and
+embedded newline character.  Finally, \*Lb join\*O
+branches back to the label \*L:join\*O to check for a
+\e (backslash) at the end of the newly joined line.  Without the branch,
+\*Lsed\*O writes the joined line and reads the next one before
+checking for a second \e character.
+.IP
+The \*LN\*O subcommand causes \*Lsed\*O to stop immediately if
+there are no more lines of input (that is, if \*LN\*O reads the
+End-of-File character).  It does not copy the pattern space to standard
+output before stopping.  This means that if the last line of the input
+ends with a \e
+(backslash) character, then it is not copied to the output.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lawk\*O(1), \*Lgrep\*O(1)/\*Legrep\*O(1)/\*Lfgrep\*O(1),
+\*Lvi\*O(1)/\*Lvedit\*O(1)/\*Lview\*O(1).
+.PP
+\*EProgramming Support Tools\*O
+.EQ
+delim off
+.EN

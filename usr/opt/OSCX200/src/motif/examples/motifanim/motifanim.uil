@@ -1,0 +1,244 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! @(#)$RCSfile: motifanim.uil,v $ $Revision: 1.1.2.2 $ (DEC) $Date: 1993/11/05 17:09:55 $
+! 
+! 
+! (c) Copyright 1989, 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+! ALL RIGHTS RESERVED 
+! 
+! 
+! Motif Release 1.2
+! 
+!   $RCSfile: motifanim.uil,v $ $Revision: 1.1.2.2 $ $Date: 1993/11/05 17:09:55 $
+!******************************************************************************
+
+!***************************************************************
+!*                                                            **
+!*   Motifanim general interface.                             **
+!*   Author : Daniel Dardailler, March 90, June 90, August 91 **
+!*                                                            **
+!**************************************************************/
+module motifanim
+    version = 'v1.0'
+    names = case_sensitive
+
+procedure
+    p_motifanim_start();    
+    p_motifanim_stop();    
+    p_motifanim_step();
+    p_motifanim_speed(integer);
+    p_motifanim_exit();
+    p_motifanim_draw(integer);	
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The main is a big Form that try to manage its children 
+! as well as possible...
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+object
+    motifanim_main : XmMainWindow {
+       controls {
+            XmMenuBar     motifanim_bar ;
+            XmForm        motifanim_form ;
+       };
+    };
+
+object
+    motifanim_form : XmForm {
+	arguments { 
+	    XmNdefaultButton = motifanim_start ;
+	};
+	controls {
+	    XmScrolledWindow    motifanim_view;
+	    XmSeparator		motifanim_sep;
+	    XmPushButton	motifanim_start;
+	    XmPushButton	motifanim_stop;
+	    XmPushButton	motifanim_step;
+	    XmScale		motifanim_speed;
+	};
+    };
+
+!-------------------------------------------------------
+! As a geometry starting point, we fix the bottom line of 
+! PushButtons (start, stop..) to the Form bottom and sides
+! and the menubar to the top
+!-------------------------------------------------------
+
+object
+    motifanim_bar : XmMenuBar {
+        arguments { 
+            XmNorientation = XmHORIZONTAL;
+        };
+        controls {                              
+            XmCascadeButton file_menu_entry;
+        };
+    };
+
+object
+        file_menu_entry : XmCascadeButton {
+            arguments {
+                XmNlabelString = compound_string('File') ;
+		XmNmnemonic = keysym("F");
+            };                                            
+            controls {
+                XmPulldownMenu file_menu;
+            };
+        };
+
+object
+        file_menu : XmPulldownMenu {
+            controls {
+                XmPushButton motifanim_quit;
+            };
+        };
+
+object
+    motifanim_quit : XmPushButton {
+	arguments { 
+	    XmNlabelString = compound_string('Quit');
+	    XmNaccelerator = "Ctrl<Key>z:";
+	    XmNacceleratorText = "Ctrl/z";
+ 	    XmNmnemonic = keysym("Q");
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure p_motifanim_exit();
+	};
+    };
+
+object
+    motifanim_start : XmPushButton {
+	arguments { 
+	    XmNlabelString = compound_string('Start');
+	    XmNbottomAttachment = XmATTACH_FORM ;
+	    XmNleftAttachment = XmATTACH_FORM ;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure p_motifanim_start();
+	};
+    };
+
+object
+    motifanim_stop : XmPushButton {
+	arguments { 
+	    XmNlabelString = compound_string('Stop');
+	    XmNbottomAttachment = XmATTACH_FORM ;
+	    XmNleftAttachment = XmATTACH_WIDGET ;
+	    XmNleftWidget = XmPushButton motifanim_start ;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure p_motifanim_stop();
+	};
+    };
+
+object
+    motifanim_step : XmPushButton {
+	arguments { 
+	    XmNlabelString = compound_string('One step');
+	    XmNbottomAttachment = XmATTACH_FORM ;
+	    XmNleftAttachment = XmATTACH_WIDGET ;
+	    XmNleftWidget = XmPushButton motifanim_stop ;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure p_motifanim_step();
+	};
+    };
+
+object
+    motifanim_speed : XmScale {
+	arguments { 
+	    XmNtitleString = compound_string('Speed');
+	    XmNorientation = XmHORIZONTAL ;
+	    XmNbottomAttachment = XmATTACH_FORM ;
+	    XmNleftAttachment = XmATTACH_WIDGET ;
+	    XmNleftWidget = XmPushButton motifanim_step ;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure p_motifanim_speed(0);
+	    XmNdragCallback = procedure p_motifanim_speed(1);
+	    XmNvalueChangedCallback = procedure p_motifanim_speed(2);
+        };
+    };
+
+
+
+!-------------------------------------------------------
+! Now that the bottom pushbuttons are fixed,
+! we attach the Separator to the first one in the line
+!-------------------------------------------------------
+
+
+object
+    motifanim_sep : XmSeparator {
+	arguments {
+	    XmNrightAttachment = XmATTACH_FORM ;
+	    XmNleftAttachment = XmATTACH_FORM ;
+	    XmNbottomAttachment = XmATTACH_WIDGET ;
+	    XmNbottomWidget = motifanim_speed ;
+	};
+    };
+
+
+
+!-------------------------------------------------------
+! This one is full rubber
+!-------------------------------------------------------
+
+object
+    motifanim_view : XmScrolledWindow {
+	arguments {
+	    XmNrightAttachment = XmATTACH_FORM ;
+	    XmNtopAttachment = XmATTACH_FORM ;
+	    XmNbottomAttachment = XmATTACH_WIDGET ;
+	    XmNbottomWidget = XmSeparator motifanim_sep ;
+	    XmNleftAttachment = XmATTACH_FORM ;
+	    XmNscrollingPolicy = XmAUTOMATIC ;
+	};
+	controls {
+	    XmDrawingArea	view_anim ;
+	};
+    };
+
+value
+	anim_width     : imported integer ;
+	anim_height    : imported integer ;
+	anim_backcolor : imported color ;
+
+object
+    view_anim : XmDrawingArea {
+	arguments { 
+	    XmNwidth = anim_width ;
+	    XmNheight = anim_height ;
+	    XmNbackground = anim_backcolor ;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure p_motifanim_draw(0);
+	    XmNexposeCallback = procedure p_motifanim_draw(1);
+	};
+    };
+
+end module;
+
+

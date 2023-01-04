@@ -1,0 +1,75 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205012116.AA08896@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2524) Close XBUG #4619:  server: MoveResize drops bits needlessly if (newx!=oldx||newy!=oldy)
+Date: Fri, 01 May 92 17:16:53 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4619
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da8836	Fri May  1 17:11:41 1992
+--- server/dix/window.c	Fri May  1 17:11:04 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.87 92/03/31 17:49:24 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.88 92/05/01 17:10:19 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+***************
+*** 2281,2286 ****
+--- 2281,2288 ----
+  	if (HasBorder (pWin))
+  	{
+  	    int	offx, offy, dx, dy;
++ 
++ 	    /* kruft to avoid double translates for each gravity */
+  	    offx = 0;
+  	    offy = 0;
+  	    for (g = 0; g <= StaticGravity; g++)
+***************
+*** 2288,2298 ****
+  		if (!gravitate[g])
+  		    continue;
+  
+! 		/* align winSize to gravitate[g] */
+  		GravityTranslate (x, y, oldx, oldy, dw, dh, g, &nx, &ny);
+  		
+! 		dx = (nx - oldx) - offx;
+! 		dy = (ny - oldy) - offy;
+  		if (dx || dy)
+  		{
+  		    (*pScreen->TranslateRegion) (&pWin->winSize, dx, dy);
+--- 2290,2302 ----
+  		if (!gravitate[g])
+  		    continue;
+  
+! 		/* align winSize to gravitate[g].
+! 		 * winSize is in new coordinates,
+! 		 * gravitate[g] is still in old coordinates */
+  		GravityTranslate (x, y, oldx, oldy, dw, dh, g, &nx, &ny);
+  		
+! 		dx = (oldx - nx) - offx;
+! 		dy = (oldy - ny) - offy;
+  		if (dx || dy)
+  		{
+  		    (*pScreen->TranslateRegion) (&pWin->winSize, dx, dy);

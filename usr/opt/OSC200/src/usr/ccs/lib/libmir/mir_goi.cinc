@@ -1,0 +1,187 @@
+
+/* get_oid_index - Determine Index into OID for current arc value */
+/* get_oid_index - Determine Index into OID for current arc value */
+/* get_oid_index - Determine Index into OID for current arc value */
+
+static mir_status
+get_oid_index ( mas, sslice, skip_count, thing, index, oid_value )
+
+                            /* RECURSIVE */
+
+unsigned int *mas;  /* MIR address space                                     */
+masa    sslice;     /* masa of slice-to-search                               */
+int     skip_count; /* Number of OID matches to skip before accepting OK     */
+masa    thing;      /* masa of thing whose entry in the slice is to be found */
+unsigned int *index;    /* Address of index to use (OUT)                     */
+unsigned int *oid_value;/* Address of OID value array                        */
+
+/*
+INPUTS:
+
+    "mas" - Array that is the MIR address space.
+
+    "sslice" - the masa of the search-slice to be scanned to see what index
+    into it's slice entry table refers to "thing".
+
+    "skip_count" - Part of the disambiguation logic for OIDs from different
+    SMIs that match except for the last (rightmost) arc, this number is the
+    number of OID backpointer "matches" to SKIP before accepting the next
+    match as the one we want.  See discussion in "mir_t0.c" and
+    "mir_external.c".
+
+    "index" receives the value that is the position in the "oid_value" array
+    where the arc-number discovered by this function will be stored.
+
+
+OUTPUTS:
+
+The function returns one of:
+
+    MS_SUCCESS - The arc and index were successfully returned.
+
+    MS0_INDEX_CORRUPTED -  MIR Database File Index is corrupted.
+
+
+BIRD'S EYE VIEW:
+    Context:
+        The caller wants to obtain the arc number and index to the position
+        in the OID for an object that has an arc somewhere in the supplied
+        index slice.
+
+    Purpose:
+        This function scans the specified slice and returns the arc
+        and the index for that arc in the object's OID.
+        This function is RECURSIVE.
+
+
+ACTION SYNOPSIS OR PSEUDOCODE:
+
+    if (slice-to-search is a subregister address)
+        <use subregister backptr as slice-to-search address>
+    if (slice-to-search is not a slice address)
+        <set status to MS0_INDEX_CORRUPTED>
+        <return 0>
+    <search slice received skipping skip-count matches, find arc number>
+    if (arc-number not found)
+        <set status fo MS0_INDEX_CORRUPTED>
+        <return 0>
+    if (search-slice has non-zero back pointer)
+        <call get_oid_index_to_use>
+        <assign arc into oid using index>
+    else
+        <assign index value of 0>
+        <assign arc into oid using 0>
+    <increment index by 1>
+    <return index>
+
+CALLS:
+    Function        Module      Reason/Purpose
+
+OTHER THINGS TO KNOW:
+
+    This function 'walks' backward from the original 'sslice' looking for
+    'thing' in a recursive manner, changing "sslice" and "thing" on each
+    call until a slice is encountered that has no previous slice associated
+    with it.  An OID arc is extracted for each recursive invocation.
+
+    On the first call, "skip_count" indicates successful matches that should
+    be skipped.  On all subsequent recursive calls, skip_count is always 0.
+
+    The first atomic reactor constructed as such was built on a squash court
+    at the University of Chicago during World War II by a team led by Enrico
+    Fermi.
+*/
+
+{
+masa            s_entry;    /* Address of a slice entry              */
+unsigned int    count;      /* Count of number of slice entries      */
+unsigned int    arc_number; /* Arc number extracted from slice entry */
+BOOL            found_arc;  /* TRUE: "arc_number" (above) is set     */
+mir_status      r_status;   /* Recursive status                      */
+int             i;          /* General loop index                    */
+
+/* if (slice-to-search is a subregister address) */
+if (IS_A_SUBREG(sslice)) {
+    /* use subregister backptr as slice-to-search address */
+    thing = sslice;             /* Look for the subregister address  */
+    sslice = mas[sslice];       /* Scan the Real slice pted "back to"*/
+    }
+
+/* if (slice-to-search is not a slice address) */
+if (!IS_A_SLICE(sslice)) {
+    /* set status to MS0_INDEX_CORRUPTED and return index of 0 */
+    *index = 0;
+    return (MS0_INDEX_CORRUPTED);
+    }
+
+/* The slice in the MIR Address Space is composed of the following      */
+/* (where the start of the slice (its masa) is added to):               */
+/* +0: Back Pointer to Previous Slice                                   */
+/* +1: Count of number of entries                                       */
+/*     .... (Start of Entry)                                            */
+/* +2: Arc Value                                                        */
+/* +3: External Address of Next (thing) "Down"                          */
+/*     ....  where there are "count" of these entries                   */
+
+/* search slice received skipping skip-count matches, find arc number */
+count =  mas[sslice+1];
+s_entry = sslice + 2;
+found_arc = FALSE;                      /* No arc number found yet */
+
+for (i = 0;  i < count; i++) {
+    if (mas[s_entry+1] == thing) {      /* Found match ?                */
+
+        /* Disambiguation logic */
+        if (skip_count == 0) {          /* Success if no skips remain   */
+            arc_number = mas[s_entry];  /* Yes: Record it and break out */
+            found_arc = TRUE;
+            break;
+            }
+        else {                          /* No:                          */
+            skip_count -= 1;            /* Show one less match to skip  */
+            s_entry += 2;               /* Step to the next entry       */
+            }
+        }
+
+    else {
+        s_entry += 2;                   /* No: Step to the next entry   */
+        }
+    }
+
+/* if (arc-number not found) */
+if (found_arc == FALSE) {
+    /* set status to MS0_INDEX_CORRUPTED */
+    *index = 0;
+    return (MS0_INDEX_CORRUPTED);
+    }
+
+/* if (search-slice has non-zero back pointer) */
+if (mas[sslice] != 0) {
+
+    thing = sslice;		/* Find this slice in the next higher level */
+
+    /* call get_oid_index */
+    if ((r_status = get_oid_index(mas,          /* MIR address space       */
+                                  mas[sslice],  /* Slice to search         */
+                                  0,            /* Matches to skip         */
+                                  thing,        /* Find this thing's entry */
+                                  index,        /* Ptr to Index variable   */
+                                  oid_value     /* OID Arc array           */
+                                  )) != MS_SUCCESS) {
+        return (r_status);
+        }
+    }
+else {
+    /* assign index value of 0 */
+    *index = 0;
+    }
+
+/* assign arc into oid using index */
+oid_value[*index] = arc_number;
+
+/* increment index and return it */
+*index += 1;    
+
+return (MS_SUCCESS);
+
+}

@@ -1,0 +1,775 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sendmail.m4.8,v $ $Revision: 1.1.2.5 $ (DEC) $Date: 1993/10/12 19:55:56 $
+.\"
+.TH sendmail.m4 8
+.SH NAME
+.PP
+\*Lsendmail.m4\*O \- Introduction to using \*Lm4\*O macros to create a \*Lsendmail.cf\*O configuration file
+.SH DESCRIPTION
+.PP
+.iX "sendmail.m4" "introduction"
+.iX "sendmail.cf" "creating with m4 macros"
+The \*Lmailsetup\*O script enables you to create new mail configurations.  If
+you have experience creating \*Lsendmail.cf\*O configuration files or
+your system requires specialized configuration files, you may want to create
+your configuration files manually.
+.PP
+The macros described in this reference page can help you generate a
+configuration file manually.
+These parameters are then used as input to generate
+a new \*Lsendmail.cf\*O.  It is suggested that you save different configurations
+under the name \*Vhostname\*L.m4\*O (where \*Vhostname\*O is the name of
+your system) or some other suitable mnemonic.
+.PP
+After you create the \*Lm4\*O file with the parameters you want, you can
+generate the \*Lsendmail.cf\*O file by issuing the following command:
+.iS
+# m4 -D_Configfile=\*Vhostname\*L.m4 sendmail m4\*O > sendmail.cf
+.iE
+You must be in the \*L/var/adm/sendmail\*O directory to use this
+command.
+.PP
+The \*Lsendmail.m4\*O package used by
+DEC OSF/1
+provides the following functions:
+.ML
+.LI
+Rewrites addresses, encapsulating mail from non-Internet protocols (for
+example, DECnet) within pseudodomains.  This helps to ensure that replies
+are sent back to the correct address, where they can be handled
+appropriately.
+.LI
+Performs routing, based on th domain to which the mail is sent.
+.LI
+Supports multiple return address formats, including domain based
+addresses.  For example, a host with the name
+\*Lmyhost.mysite.ecd.com\*O would normally format the mail address as
+\*Luser@myhost.mysite.ecd.com\*O.  By using the \*L_ExportedName\*O
+parameter, you can set the return address to be \*Lmysite.ecd.com\*O.
+By using the \*L_MailHub\*O and \*LMyDomain|*O parameters, your mail
+system recognizes the phrase \*Lmysite.ecd.com\*O as a synonym for this
+host.
+.LI
+Supports optionally stripping off host names for mail sent within your
+local domain, leaving the unqualified user name.  This feature can
+improve the readability of mail sent within you local domain.
+.LE
+The \*Ldnl\*O command is "delete to newline" command and causes the \*Lm4\*O compiler
+to ignore the \*Ldnl\*O characters and all text that
+follows it, up to and including the end of line.  If you do not follow a
+\*Ldefine\*O command with a \*Ldnl\*O command, then the newline after the
+right parenthesis (\)\) is emitted into
+the output (which is a \*Lsendmail.cf\*O file).
+.PP
+Blank lines are permitted in the \*Lsendmail.cf\*O file; however, they
+are unnecessary and not recommended.
+.PP
+Braces ({}) are used as quoting characters.  You can use them even when
+they are not required.
+.PP
+Note that null definitions have the following of the form:
+.sS
+.sp
+\*Ldefine(\*VParameter\*O, {})
+.sp
+.sE
+The only rule you must follow in creating the configuration \*Lm4\*O file is to
+surround literal text with braces ({}); however, you must leave macro names
+(which you presumably want expanded by \*Lm4\*O) unquoted. (That is, do
+not enclose macros that yu want expanded in braces ({}).)
+.SS Mailers
+The \*Lsendmail\*O program invokes a mailer to handle your mail.
+Usually, this is \*Llocal\*O (for local delivery on the host),
+\*Lsmtp\*O (standard SMTP), \*Lsmtpl\*O (SMTP local), or *Lsmtpr\*O
+(SMTP to relay) for delivery over the Internet.
+These mailers (\*Lsmtp\*O, \*Lsmtpl\*O, and *Lsmtpr\*O) invoke SMTP
+to deliver the mail; however, they differ in
+how they rewrite the return address.  If you are in doubt as to which
+mailer to use, it is safest to use \*Lsmtp\*O.
+.PP
+The \*Lsmtp\*O mailer qualifies you mail with the \*ExportedName\*O
+parameter, except for mail sent from \*LNonHiddenUsers\* or from an
+alias (if \*LAliasesLocal\*O is true).
+.PP
+The \*Lsmtpl\*O mailer handles mail sent within you local domain.  This
+mailer is used when mail is sent to users within the local domain.
+Depending on how the \*L_MailCluster\*O and \*L_NonHiddenUsers\*O
+parameters are defined, the nostname is removed from the return address
+before the mail is sent.
+.PP
+The \*Lsmtpr\*O mailer always removes the hostname, except for
+\*L_NonHiddenUsers\*O.  This is useful when the relay machine is a mail
+hub and has aliases for all users in your mail system.
+.SS Routing
+The \*Lsendmail.m4\*O package performs some routing decisions based on
+the domain in which the address ends.  In general, you can configure
+your system to check for some special cases (for example, DECnet or UUCP
+style addresses).  If the address does not conform to any of the cases
+specified, it will check to see if the mail resides in your local domain
+(\*L_GateLocal), parent domain (\*LGateParent\*O), or is outside your
+local network (\*LGateINET\*O).  You can configure your system to pass
+mail to and from the Internet by setting the \*L_GateINET\*O parameter
+to the name of the Internet gateway on your local network and leaving the
+\*LGateDomain\*O and \*LGateParent\*O parameters blank.
+.SH PARAMETERS
+.PP
+The following list provides definitions of the parameters
+used in the configuration files.  The parameters appear in the recommended
+usage order.
+.sS
+.sp
+\*Ldefine\*O(\*L_ParentDomain\*O, {\*Vyyy.xxx\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the name of the next-highest domain above your
+own (\*Vyyy.xxx\*O).  It is
+used to determine which hosts you can send mail to that might be close
+enough to be reached directly, and to figure out where \*LMyDomains\*O
+are located.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_MyDomains\*O, {\*Vdomain\*O ... })\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the list of all the domains under \*LParentDomain\*O
+that are aliases for
+your own.  It is a list of single tokens separated with blanks.  These
+are qualified under \*LParentDomain\*O in actual use.  You must include the
+single-token component of \*LMyDomain\*O.  For example, if the
+\*LParentDomain\*O is ECD.COM and \*LMyDomain\*O is \*LAP.ECD.COM\*O, then
+\*LMyDomains\*O must include at least the token \*LAP\*O.  This
+parameter is used in conjunction with the \*L_MailHub\*O parameter.
+.rE
+.sS
+.sp
+\*Ldefine(\*L_MyDomain\*O, {\*Vdomain\*O.}\*L_ParentDomain\*O)\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the fully-qualified domain that you are in.
+It must end in \*L_ParentDomain\*O.
+.PP
+If you set both \*LMyDomain\*O and \*LParentDomain\*O
+to the string \*LLOCAL\*O, \*Lsendmail\*O assumes that you do not have
+a domain, but instead use single-token hostnames (which can include
+dashes and underscores but not dots) and that you are using \*L/etc/hosts\*O
+or NIS, but not BIND.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_MyNicknames\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro is used to initialize the \*L$=w\*O parameter.  If your host is known
+by several names inside of \*L_MyDomain\*O, you must put the first token of all
+names (optionally including the first token of your \*L/bin/hostname\*O)
+into this list.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_exportedName\*O, \*L_MyDomain)\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the domain name (\*L@DOMAIN\*O) appended to
+any mail that address that leaves the local domain and does not have
+a domain name in it's address.  (For example, local user names do not
+have the domain name in the address.)
+.PP
+Usually, \*L_MyDomain\*O is specified; therefore, the mail leaves the
+domain with a host name (such as, \*Lwicked@AP.ECD.COM\*O) even though there is
+no such host.
+.PP
+If you do this, you need an MX RR at the root ("@")
+of the domain that points to some set of mail servers whose
+\*LMyDomain\*O's variables include your domain.  This is irrelevant if
+you are using \*LLOCAL\*O for \*LMyDomain\*O and \*LParentDomain\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_MailCluster\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+Use this macro if you are using \*Lrdist\*O, or NIS to insure that all
+aliases on all machines in your local domain are equivalent. (They do not
+need to have the same values, but the same alias names must be present
+on all machines.)
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 5
+It is recommended that you use this macro, unless you have specific
+reasons for not using it.
+.sp 6p
+.rE
+If you use this macro, mail sent to \*L@MyDomain\*O is treated as
+local mail, which means that any host in the domain can strip off
+the \*L@MyDomain\*O and
+search its aliases database to decide what to do with the message.
+Also, setting this variable will cause mail sent between hosts in
+the local domain to have no \*L@hostname\*O appended to any address, which
+is a great boon to the readability of local mail headers.
+.PP
+Mail sent to other hosts in the local domain with
+.nL
+\*LMailCluster\*O turned
+on will have the hostname (rather than \*LExportedName\*O) appended to the
+username.  Because it is local mail, you know it came from some host in
+the local domain and you presumably want to know which which host.
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 5
+Setting \*LExportedName\*O to \*LMyDomain\*O and turning on \*LMailCluster\*O,
+creates a mail cluster where all mail names are equivalent on
+all hosts in the domain.  This simplifies the address formats for all
+local mail.
+.sp 6p
+.rE
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_MailHub\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+You use this macro if your machine recognizes mail to \*Luser@localdomain\*O
+and therefore can access anyone's mailbox (usually
+through an aliases file containing the real mailboxes for
+everyone who might receive such mail).  A Mail Hub treats all
+mail to \*Luser@localdomain\*O as local mail by using the
+aliases file.
+.PP
+This is different than a Mail Cluster, where every host acts
+as a Mail Hub (by virtue of everyone having the same "all knowing"
+aliases file).
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_QueueDir\*O, {\*Vdirectory\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the mail spool location (which is usually
+\*L/var/spool/mqueue\*O).
+Note that there is no advantage to using \*L/usr/spool/mail\*O for this
+if that is a \*Lsymlink\*O to \*L/var/spool/mail\*O.  Using the correct names
+and avoiding \*Lsymlinks\*O is recommended.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TrustedUsers\*O, {\*Vlist\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the list of user names that are allowed to run
+\*Lsendmail\*O with the \*L-f\*O flag that
+sets the envelope sender address.  There are users
+that have a legitimate need to use the \*L-f\*O; however, for security
+reasons, it is
+recommended that only those users be allowed that option.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_NonHiddenUsers\*O, {\*Vlist\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the list of users that have the
+.nL
+\*L@hostname\*O of the
+sending host added to their \*LFrom:\*O line, if they send mail to some other
+host in the local domain.  This procedure is performed regardless of
+the \*LMailCluster\*O and \*LMailHub\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_UnqualifiedW\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro sets the unqualified hostname.
+.PP
+This macro is not required. Under
+DEC OSF/1
+\*Lsendmail\*O it is recommended that you do not use this parameter.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TagPOP\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enables your machine to recognize POP customers as
+\*Vusername\*L.POP\*O.  This is preferable to \*LHostPOP\*O.
+as explained below,
+If you use this macro, you must format your aliases as follows:
+.sS
+.sp
+\*Vusername\*O:\*Vusername\*L.POP\*O
+.sp
+.sE
+Instead of the following format:
+.sS
+.sp
+\*Vusername\*O:\*Vusername\*L@POP\*O
+.sp
+.sE
+Be aware that older versions of the \*Lpopaka\*O utility create the \*L@pop\*O
+style address.  If you want to change, turn both \*LTagPOP\*O and \*LHostPOP\*O
+on and wait for a new \*Lpopaka\*O utility, at which point you can shut off
+\*LHostPOP\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_HostPOP\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enables your system to be able to recognize POP customers as
+\*Lusername@POP\*O.  Older popaka utilities generate aliases in this form.
+If you are using an older version of the \*Lpopaka\*O utilities, you can
+enable \*LHostPOP\*O.
+However, you will not be able to name any host in your domain "POP"
+because it would conflict with the \*Lsendmail.cf\*O file's internal meaning
+for the \*L@POP\*O string.  It is recommend that you use
+.nL
+\*LTagPOP\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_DECNet\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enables you to recognize DECnet-style addresses or to communicate
+with DECnet.
+.\" I don't think we need to mention the following.
+.\"
+.\"BUG: the \*Lm4\*O file has UMC embedded within it.  This implies that
+.\"we need both DECnet and UMC config'd.  WRONG.  We can still relay
+.\"to another machine, or reply.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_DollarY\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro only applies to DECnet. You use this macro to
+define this to your DECnet node name if your sendmail binary
+does not define \*L$y\*O as the result of DECnet's
+.nL
+\*Lgetnodename()\*O call.  If you have such a binary it is best not to
+define this variable because that way you can share a single \*Lsendmail.cf\*O
+file across all of your DECnet nodes.  Otherwise you need to build a
+separate \*Lsendmail\*O configuration file for DECnet node, just to
+set \*L$y\*O.
+DEC OSF/1
+automatically defines \*L$y\*O if DECnet's installed.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_UTK_Mail11\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.  You can use this macro, if you are using
+the UTK Mail11 package.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_UUCP\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enables your system to recognize UUCP addresses.
+If you do not also define \*L_GateUUCP\*O, you must run UUCP
+on your host.  In most cases, mail with UUCP addresses is relayed to a
+host that recognizes UUCP addresses to process the address.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_POP\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enables your system to recognize POP customers.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_RFC976\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro instructs \*Lsendmail\*O to format your headers in RFC 976
+format. For example:
+.oS
+From: waxie@ap.ecd.com (Paul Waxie)
+.oE
+If you use this macro, you should define this to be \*LT\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransDomain\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateDomain\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+These macros control how mail that is destined for some other host in
+your local domain is handled.
+.PP
+\*LTransDomain\*O is the transport used to reach other hosts or to reach
+the designated gateway (usually \*Lsmtpl\*O which specifies
+local SMTP).
+.PP
+If you decide to route all such local-domain mail
+through a gateway, then specify the name of the gateway in \*LGateDomain\*O.
+If you want the mail to go directly to the gateway, do not specify
+anything for the \*LGateDomain\*O parameter.
+.\" I don't think the following is necessary.
+.\".PP
+.\"It is theoretically possible to set \*LMyDomain\*O and \*LParentDomain\*O to
+.\"\*LLOCAL\*O and then to set \*LTransDomain\*O to \*Luucp\*O or \*Lmail11\*O,
+.\"but all this would buy you is the ability to send using user@host syntax instead of the native
+.\"host!user or host::user syntax.  In any case it has not been tested.
+.PP
+In practice, \*LTransDomain\*O is always set to \*Lsmtpl\*O and \*LGateDomain\*O
+is always either null or the name of your local mail hub.  However,
+there is no penalty for sending local mail directly between workstations
+and no advantage for sending such mail through your mail hub.
+Using a gateway is not recommended for local mail.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransParent\*O, {\*Vsmtp\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateParent\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+These two macros perform the same functions as \*LTransDomain\*O and
+\*LGateDomain\*O except that they control mail which is sent to the parent
+domain rather than to the local domain.
+.PP
+In most domains, there are
+no security filters that restrict SMTP traffic between hosts in the
+domain. If that is true in your domain then it is recommended that you
+set
+.nL
+\*LTransParent\*O to \*Lsmtp\*O and set \*LGateParent\*O to null string.
+.PP
+As with local-domain mail, there is no real advantage to using a
+gateway for local mail.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransINET\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateINET\*O, {\*Vhost\*O.}\*L_MyDomain\*O)\*Ldnl\*O
+.sp
+.sE
+.rS
+These macros specify the transport to be used and the gateway host for
+mail leaving the domain.
+.PP
+If you are directly connected to the Internet,
+then you can set \*LTransINET\*O to \*Lsmtp\*O and leave \*LGateINET\*O empty.
+.PP
+If you need to use a gateway to reach the Internet, then
+set \*LTransINET\*O to the protocol used by the gateway (\*Luucp\*O,
+\*Lmail11\*O, or \*Lsmtp\*O) and set \*LGateINET\*O to the name of the host
+you will reach through that transport.  That host will presumably
+deliver your mail to its ultimate recipient or forward it to another host
+that will deliver the mail or forward it on.
+.PP
+If you leave \*LGateINET\*O empty, then \*LTransINET\*O is ignored because it
+must be the local \*Lsmtp\*O transport.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransUUCP\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateUUCP\*O, {\*Lhost\*O.}\*L_MyDomain\*O)\*Ldnl\*O
+.sp
+.sE
+.rS
+These macros specify the transport and the gateway for UUCP mail.
+Note that if \*LGateUUCP\*O is empty, then
+\*LTransUUCP\*O is ignored since the local uucp transport must be used.
+In which case \*Luux\*O is used as the transport.
+.PP
+You might set \*LTransUUCP\*O to \*Lsmtpr\*O \*LGateUUCP\*O host has aliases
+for all of your users.  This permits outbound UUCP addresses to omit
+your local host name.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_MyUUCPname\*O, {\*Vhost\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the UUCP host name for your system.  Use this
+macro only if you are running UUCP on your system.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_UuxArgs\*O, {\*Voptions\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the arguments for UUCP. For a complete list of the
+possible options, see uux(1).
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_GateUsenet\*O, {\*Lhost\*O.}\*L_MyDomain\*O)\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies the name of a host on your network that
+is capable of accepting mail sent to the USENET.
+.PP
+If there is no such host on your network, leave this macro empty.
+.PP
+Note that
+DEC OSF/1
+does not currently include the software necessary
+on the receiving host, because it varies according to whether you are running
+\*LC News\*O or \*LB News\*O or \*LINN\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_AddMail11Cl\*O, {\*Vpseudodomain\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet mail only.  If your users or your inbound
+\*Lmail11\*O listener puts
+a pseudodomain name other than \*L.DNET\*O on incoming addresses,
+\*Lsendmail\*O needs to know.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransIV\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateIV\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.
+.PP
+If \*LGateIV\*O is set to an empty string, then \*Lsendmail\*O
+attempts to deliver the mail directly using \*LTransIV\*O (which is almost
+always \*Lsmtp\*O).
+.PP
+If you have MX RRs for all of your \*Lmail11\*O hosts then
+you can use SMTP to reach them or at least the closest relay host.
+.PP
+If \*LGateIV\*O is set to a fully qualified host name, then \*LTransIV\*O
+is used to forward the mail to that host, unless \*LGateIV\*O is set to the
+same hostname.  In this case the \*Lmail11\*O mailer is called directly.
+.PP
+This lets you share a \*Lsendmail.cf\*O file across all of your workstations
+and \*Lmail11\*O gateway machines, because the mail will go to the designated
+\*Lmail11\*O gateway first, which, on forwarding, the mail will recognize
+its own name as the designated gateway and instead call the \*Lmail11\*O
+transport.
+.PP
+It is recommended that you set \*LTransIV\*O to \*Lsmtpr\*O, if the
+\*LGateIV\*O host has aliases for
+all of your users.  This enables outbound DECnet addresses to omit the local
+host name.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_PhaseIVdomain\*O, {\*Vpsuedodomain\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.
+.PP
+Mail from a DECnet node is always encapsulated in a pseudodomain.  The
+DECnet pseudodomain is an arbitrary string that should be used
+uniformly by your site or organization.  The DECnet pseudodomain must
+always appear after the parent domain. For example, in the following
+domain name, \*LQNET\*O is the DECnet pseudodomain portion of the domain names:
+.oS
+NODEONE.QNET.ECD.COM
+.sp
+NODETWO.QNET.ECD.COM
+.oE
+.\" Idon't think we have to mention this.
+.\"Specify your own
+.\"domain unless you are directly connected to Digital Equipment Corporation's
+.\"internal network.)
+\*LPhaseIVdomain\*O is the non-qualified name of the
+\*Lpseudodomain\*O.  It is always qualified with \*LParentDomain\*O before being
+emitted into the Internet.
+.PP
+This can be anything you want but is usually the name of the DECnet
+network.  Do not set this to \*LDNET\*O. Set it to the
+proper name of your network, not the name of the
+network's technology.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_Mail11path\*O, {\*L/usr/sbin/mail11v3\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.
+.PP
+This macro specifies the location of the mail11 binary.
+For this operating system it is located in \*L/usr/sbin/mail11v3\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_ReversePhaseIV\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.
+.PP
+Unnamed DECnet nodes are reachable through the \*VAA.NNN\*O:: notation.
+The \*VAA\*O in this is actually of higher precedence than the \*VNNN\*O.
+You may want to reverse the order when rewriting into Internet form
+because Internet addresses have higher precedence toward the right side.
+Whatever you do you must do it consistently across all \*Lmail11\*O gateways
+in your network, and you will probably not be able to change your mind
+later.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_PhaseVns\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DECnet only.
+.PP
+This macro applies to DECnet Phase V only.  It specifies the
+namespace that \*Lsendmail\*O assumes for any mail
+it receives in without a namespace, if you are running DECnet Phase V.
+It is recommended that you make it the name of the namespace you are in.
+If you are running DECnet Phase IV, you must get the name of the
+namespace from your network administrator.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransV\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateV\*O, {\*Vgateway\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_PhaseVdomain\*O, {\*Vpseudodomain\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+These macros apply to DECnet Phase V only.  They specify the transport,
+gateway, and psuedodomain for DECnet Phase V mail.
+.PP
+Note that Phase V names are always reversed so there is no
+\*LReversePhaseV\*O variable.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_UMC\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro enable your system to MR or UMC addresses.
+If you do not define \*LGateMsgRout\*O you must run
+UMC on your host.  Most hosts use a gateway to reach MR.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_TransMR\*O, {\*Vtransport\*O})\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_GateMR\*O, {\*Vgateway\*O.}\*L_MyDomain\*O)\*Ldnl\*O
+.nL
+\*Ldefine\*O(\*L_MsgRoutDomain\*O, {\*Vpseudodomain\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to DEC MessageRouter (\*Lmail-plus\*O) only.
+They define the transport, gateway, and psuedodomain.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_GateMsgRoutCl\*O, {\*Vlist\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro applies to the DEC MessageRouter (\*Lmail-plus\*O) only.
+It specifies other pseudodomains that the software or your users may
+use, expecting them to be recognized as Message Router
+pseudodomains.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_IDA\*O, {\*LT\*O})\*Ldnl\*O
+.sp
+.sE
+.rS
+Use this macro if you have an IDA version of \*Lsendmail\*O.  This turns
+on split rewrite rules (O/).  It also allows for local aliases lookup.
+If you are using
+DEC OSF/1's
+\*Lsendmail\*O utility, it is recommended that you set this parameter to be
+\*LT\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_AliasesLocal\*O, {\*LT})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies that aliases in your local aliases file are
+\*L_NonHiddenUsers\*O.  You must have \*L_IDA\*O defined because
+it uses IDA features to do the aliases lookup.
+See the explanation of \*O_NonHiddenUsers\*O and \*L_IDA\*O.
+.rE
+.sS
+.sp
+\*Ldefine\*O(\*L_RelayAll\*O, {})\*Ldnl\*O
+.sp
+.sE
+.rS
+This macro specifies to bypass most of the other routing options
+(for example, \*LGateDomain\*O)
+and forces almost your mail to be sent by \*L_TransINET\*O
+to your \*L_GateINET\*O machine.  This allows workstations with simple
+mail configurations to create mail locally, but have it appear as if it
+came from the main relay (\*LGateINET\*O) machine.  Using this option can
+simplify things for the system administrator, by funneling
+all mail through central, well-maintained machines.
+.PP
+The only mail that is delivered locally (to the simple
+workstation) is the mail addressed to the user names contained
+in \*L_NonHiddenUsers\*O.
+.rE
+.EQ
+delim off
+.EN

@@ -1,0 +1,204 @@
+.\"##
+.\" $XConsortium: p383,v 5.1 91/02/16 09:44:34 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.\" 1. Substitute PHIGS Extension function name (in CAPS) for "PNAME" in line be.\"low:
+.ds pN SET TEXT REPRESENTATION PLUS
+.TH "\*(pN" 3P+ "29 February 1991"
+.SH NAME
+\*(pN \-
+use to define an extended text attribute representation bundle on a workstation
+.IX "PHIGS Extension Functions" "\*(pN"
+.IX "Attribute Representations" "SET TEXT REPRESENTATION PLUS"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+.\" 6. Insert C syntax below
+void
+pset_text_rep_plus ( ws, index, rep )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	index;	\fItext bundle index\fP
+Ptext_bundle_plus	*rep;	\fItext representation pointer\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET TEXT REPRESENTATION PLUS\s+2 defines an extended
+text attribute representation bundle on a workstation.
+Depending on the \s-2ASF\s+2 for each of the text attributes,
+the bundled attributes may apply to the following primitives:  
+.RS
+.LP
+\(bu
+.SM TEXT
+.LP
+\(bu
+.SM "TEXT 3
+.LP
+\(bu
+.SM "ANNOTATION TEXT RELATIVE"
+.LP
+\(bu
+.SM "ANNOTATION TEXT RELATIVE 3"
+.RE
+.SS C Input Parameters
+.IP \fIws\fP
+The identifier of the workstation.
+.IP \fIindex\fP
+This is an index to the workstation text bundle table.
+.IP \fIrep\fP
+A pointer to a Ptext_bundle_plus structure. Ptext_bundle_plus is defined as:
+.sp .2
+.nf
+.ta .5i +1.25i  +1.25i  +1.5i
+.sp .2
+typedef struct {
+.sp .2
+	Pint	font;	/* text font */
+	Ptext_prec	prec;	/* text precision */
+	Pfloat	char_expan;	/* character expansion factor */
+	Pfloat	char_space;	/* character spacing */
+	Pgcolr	colr_ind;	/* text colour */
+.sp .2
+} Ptext_bundle_plus;
+.fi
+.IP
+Ptext_prec is defined as:
+.sp .2
+.nf
+.ta .5i 
+.sp .2
+typedef enum {
+.sp .2
+	PPREC_STRING,
+	PPREC_CHAR,
+	PPREC_STROKE
+.sp .2
+} Ptext_prec;
+.fi
+.IP
+Pgcolr is defined as:
+.ta .5i +1.5i   +1i  +2i
+.nf
+.sp .4
+typedef struct {
+.sp .2
+	Pint	type;	/* indirect, RGB, CIE, HSV, HLS */
+	union {
+	     Pint	ind;	/* index in workstation colour bundle table */
+	     struct {
+	          Pfloat	x;	/* red, hue, etc. */
+	          Pfloat	y;	/* green, saturation, lightness, etc. */
+	          Pfloat	z;	/* blue, value, saturation, etc. */
+	     } general;
+	} val;
+} Pgcolr;
+.fi
+.SS Execution
+In the text bundle table of the workstation state list, the given
+index is associated with the specified parameters.
+.LP
+The text precision value determines the fidelity with which the other
+aspects are used. The values of text precision, in order of increasing
+fidelity, are \s-2STRING, CHAR,\s+2 and \s-2STROKE\s+2. During structure
+traversal, if the specified text precision is not available on a 
+workstation, the value \s-2STRING\s+2 is used on that workstation.
+.LP
+The character expansion factor specifies the deviation of the width
+to height ratio of the characters from the ratio indicated by the
+font designer. During structure traversal, only the magnitude of the
+character expansion factor is considered. If the result of taking the
+absolute value of the character expansion factor value is less than
+the smallest supported character expansion factor on a workstation,
+the smallest supported character expansion factor on that workstation
+is used.
+.LP
+Character spacing specifies how much additional space is inserted
+between two adjacent character bodies. Character spacing is specified
+as a fraction of the font-nominal character height.
+.LP
+Text colour is a general colour, either an indirect or a
+direct colour in a specified colour model. If an indirect colour is
+specified and the specified colour index is not available during
+structure traversal, then colour index one is used.
+.LP
+The extended text bundle table in the workstation state list has
+predefined entries taken from the workstation description table. A
+number of these entries are predefined for every workstation of category
+\s-2OUTPUT\s+2 or \s-2OUTIN\s+2. Any table entry, including the predefined
+entries, may be redefined with this function.
+.LP
+When either text, or annotation text, is displayed during structure traversal,
+the current text index in the \s-2PHIGS\s+2 
+traversal state list
+refers to an entry in the extended text bundle table. If the
+current text index is not present in the extended text
+bundle table, then text index one is used. The setting of the 
+corresponding Aspect Source Flags(\s-2ASF\s+2s) determines which 
+aspects in the entry are used.
+.RE
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP, WSOP, *, *\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 059
+Ignoring function, the specified workstation does not have output capability
+(that is, the workstation category is neither \s-2OUTPUT\s+2,
+\s-2OUTIN\s+2, nor \s-2MO\s+2)
+.IP 100
+Ignoring function, the bundle index value is less than one
+.IP 103
+Ignoring function, setting this bundle table entry would exceed the maximum
+number of entries allowed in the workstation bundle table
+.IP 106
+Ignoring function, the specified font is not available for the 
+requested text precision on the specified workstation
+.IP 110
+Ignoring function, the specified colour model is not available on the 
+workstation
+.IP 113
+Ignoring function, the colour index value is less than zero
+.IP 136
+Ignoring function, one of the components of the color specification
+is out of range
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET INDIVIDUAL ASF (3P)"
+.SM "INQUIRE TEXT REPRESENTATION PLUS (3P+)"
+.SM "SET TEXT REPRESENTATION (3P)"
+.SM "SET TEXT INDEX (3P)"
+.SM "SET TEXT FONT (3P)"
+.SM "SET TEXT PRECISION (3P)"
+.SM "SET CHARACTER EXPANSION FACTOR (3P)"
+.SM "SET CHARACTER SPACING (3P)"
+.SM "SET TEXT COLOUR (3P+)"
+.SM "SET TEXT COLOUR INDEX (3P)"
+.SM "INQUIRE TEXT REPRESENTATION (3P)"
+.fi

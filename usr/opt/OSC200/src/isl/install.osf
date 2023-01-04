@@ -1,0 +1,1249 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+########
+#
+#	install.osf -
+#		installation engine for initial system load of OSF/1
+#	on Digital Equipment Corp. systems.
+#
+#	*********************************************************************
+#	*                                                                   *
+#	*      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+#	*                                                                   *
+#	*                       All Rights Reserved.                        *
+#	*                                                                   *
+#	*********************************************************************
+#
+#	SCCSID	"@(#)install.osf	3.12	DEC OSF/1	12/6/91"
+#
+#	000	20-APR-1991	ccb
+#		Directly derived from work produced by "cherng" and "jon"
+#		which is used to install ULTRIX/BSD.
+#
+#	001	30-may-1991	ccb
+#		call setld, cleanup after install, tape and CDROM
+#		support, Lite package description support, rcmgr(8) and
+#		it(8) interface, default file systems, paging support.
+#
+#	002	21-jun-1991	ccb
+#		Code inspection w/jon
+#		Shake out against shared libraries
+#		Shake out for full use as official code path
+#
+#	003	12-jul-1991	ccb
+#		add rz58 support
+#		add disklabeling
+#		switch to using raw swap w/immediate swapon
+#		restore creation of /var and /usr/var
+#		set inst.cnfg for it(8)
+#
+#	004	18-jul-1991	ccb
+#		fixes for MPK and CDROM
+#		user interface cleanup
+#
+#	005	08-oct-1991	ccb
+#		make start of swapping silent
+#		put correct media label info in prompts
+#		correct info about when interactions continue
+#		Use finder and new partition menus to take disk info
+#			from the user
+#
+#	006	11-oct-1991	ccb
+#		created AskPart. use AskPart to prompt to usr, swap1,
+#		swap2, var file systems
+#
+#	007	11-oct-1991	ccb
+#		renamed PAGE area in default selections to SWAP1 so
+#		that Configure() can correctly create rc.config entries
+#
+#	008	04-dec-1991	ccb
+#		Remove unneeded CDROM change prompts
+#		Offline tape volume 1
+#		Cosmetic cleanups
+#
+#	009	06-dec-1991	ccb
+#		Remove infomsg trailer in Load()
+#
+
+
+SHELL_LIB=${SHELL_LIB:=/kit/isl}
+export SHELL_LIB
+
+:	-Load Libraries
+. $SHELL_LIB/Error
+. $SHELL_LIB/Strings
+. $SHELL_LIB/Ticker
+. $SHELL_LIB/Wait
+. $SHELL_LIB/libscp
+
+_Ticker_PIPE=/tmp/pipe$$
+
+:	-Variable Declarations
+#
+D35=-----------------------------------	# table divider
+DEFSWAP=swapdefault		# name of default swap file (in /sbin)
+ISL_DEVMNEMONICS="rz"		# case table hit for valid mnemonics
+ISL_FSTMP=/tmp/fstmp		# temp storage for newfs messages
+ISL_FSLOG=/install.FS.log	# perm storage for newfs messages
+ISL_LABEL_MPK="Installation Software and Mandatory Update"
+ISL_LABEL_OSKIT="Operating System Software"
+ISL_NETINIT=/netstart		# network initialization program
+ISL_SWID="DEC OSF/1"		# product name dujour
+
+ISL_IGNAME="$ISL_SWID Installation Guide"	# IG Name DuJour
+
+ISL_TAPE=/dev/nrmt0h		# tape drive
+NUL=/dev/null			# shorthand
+TMP=/tmp/#tmp			# a tmp file
+
+
+:	-AskPart
+#		get user selection of a partition for a particular use
+#
+#	given:	$1 - file system key
+#	does:	gets a disk an partition from the user for a specific
+#			purpose
+#	return:	nil
+
+AskPart()
+{
+	_PARTID=$1
+	MPART=$2
+	shift 2
+	FPART=$*
+
+	while :
+	do
+		echo "
+You can allocate the $MPART $FPART to one of the disks listed in the
+table below.  See the $ISL_IGNAME for an explanation of
+this table:
+"
+		ROUTINE="$MPART $FPART ALLOCATION"
+		export ROUTINE
+
+		set -- `finder $FINDEROPT`
+		TPART=$1;	NPART=$2;	UPART=$3
+		FINDEROPT=-f
+
+		case "$NPART$UPART" in
+		$NLOAD$ULOAD)
+			Error "
+You attempted to allocate the $MPART $FPART on $NLOAD$ULOAD, which
+contains your distribution medium."
+			continue
+			;;
+		esac
+		Member $NPART$UPART $USEDUP &&
+		{
+			Error "
+There are no partitions available on $TPART, $NPART$UPART.
+
+Please select a different disk.
+"
+			continue
+		}
+
+		while :
+		do
+			echo "
+You selected $TPART, device number $UPART.  Make sure this disk is
+online and write-enabled (if applicable), then confirm your choice.
+
+Use $TPART, $NPART$UPART for $MPART $FPART? ($LC_Y/$LC_N) []: \c"
+
+			INPUT=`read INPUT; ToLower $INPUT`
+			case "$INPUT" in
+			$LC_Y)	break
+				;;
+			$LC_N)	continue 2
+				;;
+			*)	echo "
+$LC_YESORNO"
+				continue
+			esac
+		done
+
+		# create device special files
+		#! check read/write status of drive here
+
+		(cd /dev;
+			./MAKEDEV $NPART$UPART > $NUL 2>&1) ||
+		{
+##
+			Error "
+The MAKEDEV command could not make the special files on device $NPART$UPART."
+			Exit 1
+		}
+
+		eval N$_PARTID=\$NPART
+		eval T$_PARTID=\$TPART
+		eval U$_PARTID=\$UPART
+
+		LABELED=`DiskLabel $_PARTID`
+		while :
+		do
+			echo "
+Select the $NPART$UPART partition on which the $MPART $FPART
+will be mounted:
+
+"
+
+			PPART=`pickapart $NPART$UPART $USEDPARTS` ||
+			{
+				# no partitions on this disk.
+				#  make it an invalid selection
+				Error "
+There are no partitions available on $TPART, $NPART$UPART.
+"
+				case "$_PARTID" in
+				SWAP2|VAR)
+					# optional partition, see if the
+					#  user still wants it
+					return 1
+					;;
+				esac
+				Error "
+Please select a different partition.
+"
+				USEDUP="$USEDUP $NPART$UPART"
+				continue 2
+			}
+
+			[ "$PPART" ] || continue
+
+			while :
+			do
+				echo "
+
+Use $NPART$UPART partition '$PPART' for the $MPART $FPART ($LC_Y/$LC_N) []? \c"
+
+				INPUT=`read INPUT; ToLower $INPUT`
+				case "$INPUT" in
+				$LC_Y)	break
+					;;
+				$LC_N)	continue 2
+				esac
+				echo "
+$LC_YESORNO"
+			done
+			break
+		done
+		break
+	done
+
+
+	BPART=$NPART$UPART$PPART
+	CPART=r$BPART
+
+	eval B$_PARTID=\$BPART
+	eval C$_PARTID=r\$BPART
+
+	eval P$_PARTID=\$PPART
+	(cd /dev; ./MAKEDEV $BPART > $NUL 2>&1) ||
+	{
+		Error "
+The MAKEDEV command could not make the special files on device $BPART."
+		Exit 1
+	}
+	USEDPARTS="$USEDPARTS $BPART $NPART${UPART}c"
+}
+
+
+
+
+:	-CheckLayoutDefaults
+#		return 0 if file system defaults are to be used
+#
+#	given:	nothing, uses global ISL_ADVFLAG
+#	does:	determine if default file systems are to be used
+#	return:	0 for defaults, 1 for selections
+#	effect:	Private
+
+CheckLayoutDefaults()
+{
+	#%{ LOCALIZE
+	CheckLay_BANNER="
+*****	SELECT FILE SYSTEMS
+"
+
+	CheckLay_DEFAULTS="
+*****	CREATING DEFAULT FILE SYSTEMS
+"
+	CheckLay_DEFQ="
+	Would you like to use these defaults? ($LC_Y/$LC_N): \c"
+
+	CheckLay_NODEFAULTS="
+
+	The default file system layout cannot be used on your system disk.
+"
+
+	CheckLay_PAGE="	The default location for the swap space is"
+	CheckLay_USR="	The default location for the /usr file system is"
+	CheckLay_VAR="	The default location for the var area is"
+
+	#}% LOCALIZE
+
+	if [ $ISL_ADVFLAG = 1 ]; then
+	{
+		echo "$CheckLay_BANNER"
+		[ "$WARN" ] &&
+		{
+			# root is on a small disk
+	
+			echo "$CheckLay_NODEFAULTS"
+			return 0
+		}
+	}
+	else
+	{
+		echo "$CheckLay_DEFAULTS"
+
+	}; fi
+
+	echo "$CheckLay_USR $NROOT${UROOT}g"
+	echo "$CheckLay_VAR $NROOT${UROOT}g (in /usr)"
+	echo "$CheckLay_PAGE $NROOT${UROOT}b"
+
+	[ $ISL_ADVFLAG = 0 ] && return 0	# BASIC install
+
+
+	while :
+	do
+		echo "$CheckLay_DEFQ"
+
+		read INPUT
+		INPUT=`ToLower $INPUT`
+
+		case "$INPUT" in
+		$LC_Y)	return 0
+			;;
+		$LC_N)	return 1
+			;;
+		*)	Error "$LC_YESORNO"
+		esac
+	done
+}
+
+
+
+:	-Configure
+#		set up environment for itrun
+#
+#	given:	nothing
+#	does:	sets up 'itruns' to run in all environments, builds
+#			rc.config
+#	return:	0
+#	effect:	Private
+
+Configure()
+{ (
+	cd /sbin/it.d/bin
+
+	for K in *
+	{
+		[ $K != '*' -a $K != gitout ] && (cd /;itruns $K in 2 or 3)
+	}
+	cd ../data
+	echo "ISL_ADVFLAG=$ISL_ADVFLAG" > inst.cnfg
+
+	#! better error legs, status checks and messages required
+	rcmgr set PAGERAW 1
+	rcmgr set PAGEFILE /dev/$BSWAP1
+	rcmgr set PARTITION $BSWAP1
+	rcmgr set PARTITIONTYPE $TSWAP1
+	[ "$TLOAD" = "REMOTE" ] && rcmgr set INST_SERVER $NLOAD
+	rcmgr set HOSTNAME "$ISL_HOSTNAME"
+	return 0
+) }
+
+
+
+:	-Connect
+#		Get the rest of the info from install.1
+#
+#	given:	nothing
+#	does:	read the $ISL_CTXFILE and turn on the network
+#	return:	0 on success, 1 if there is no ISL_CTXFILE or ISL_NETINIT file
+#	effect:	Global - sets: ISL_ADVFLAG ISL_DEF_PT ISL_MACHINE
+#				ISL_TYPE ISL_HOSTNAME
+
+Connect()
+{
+	#%{ LOCALIZE
+	Connect_HOSTMSG="
+The name assigned to your system by your RIS administrator is: "
+
+	Connect_NO_ADVFLAG="
+The $ISLINFO file was not found or is empty.
+
+The installation procedure cannot re-establish context from the
+previous installation phase.
+
+$LC_TROUBLE"
+
+	Connect_NO_NETINIT="
+The $ISL_NETINIT file was not found or is empty.
+
+The installation procedure cannot initialize the network.
+
+$LC_TROUBLE"
+	#}% LOCALIZE
+
+	[ -s $ISLINFO ] ||
+	{
+		Error "$Connect_NO_ADVFLAG"
+		return 1
+	}
+	. $ISLINFO
+
+	ADVFLAG=$ISL_ADVFLAG	#  for setld compatibility
+	ISL_MACHINE=`machine`	# architecture info
+
+	export ADVFLAG		# again, setld.
+
+	return 0
+}
+
+
+
+:	-DiskLabel
+#		label a disk
+#
+#	given:	file system handle - USR, ROOT, PAGE, etc.
+#		global - LABELED
+#	does:	labels the disk
+#	output:	the list of currently labeled partitions
+#	return:	0
+
+DiskLabel()
+{ (
+	__PARTID=$1
+
+	eval NPART=\$N$__PARTID
+	eval TPART=\$T$__PARTID
+	eval UPART=\$U$__PARTID
+
+	IsLabeled $NPART$UPART $LABELED && return 0
+
+	echo y | 2>&1 disklabel -wr $NPART$UPART $TPART > $NUL
+	echo $LABELED $NPART$UPART
+	return 0
+) }
+
+
+
+:	-Error
+#		print args on stderr
+#
+#	given:	strings to print
+#	does:	print them on stderr
+#	return:	0
+#	effect:	none
+
+Error()
+{ (
+	1>&2 echo "$*"
+	return 0
+) }
+
+
+
+:	-Exit
+#		handles special requirements before exiting
+#
+#	given:	$1 - exit status
+#	does:	exit
+#	return:	no
+#	effect:	Global
+
+Exit()
+{
+	exit $1
+}
+
+
+
+:	-GetMupSubsets
+#		generate list of mup subsets to be installed
+#		
+#	given:
+#	does:
+#	return:
+
+GetMupSubsets()
+{
+	# load the scp library
+	. $SHELL_LIB/libscp
+
+	#%{ LOCALIZE
+	GetMup_AMSG="No mandatory upgrade subsets will be installed."
+
+	GetMup_NODIR="Cannot create control info directory.
+$GetMup_AMSG"
+
+	GetMup_NOCTRL="No MUP control information is available.
+$GetMup_AMSG"
+
+	GetMup_NOSUBCTRL="No MUP subset control files found.
+$GetMup_AMSG"
+
+	GetMup_TARERR="Could not extract contents of MUPCTRL.
+$GetMup_AMSG"
+	#}% LOCALIZE
+
+	# set up mupctrl dir
+	CTRLDIR=
+	WUTMUP=$1
+
+	case "$TLOAD" in
+	CDROM)
+		CTRLDIR=/kit/$WUTMUP/instctrl
+		[ -d $CTRLDIR ] || return 1
+		;;
+	*)
+		[ -f var/tmp/$WUTMUP ] ||
+		{
+			# Error "$GetMup_NOCTRL"
+			return 1
+		}
+		CTRLDIR="var/tmp/`echo $WUTMUP | dd conv=lcase 2> /dev/null`"
+		mkdir -p $CTRLDIR ||
+		{
+			Error "$GetMup_NODIR"
+			return 1
+		}
+		(cd $CTRLDIR;tar xf ../$WUTMUP) ||
+		{
+			Error "$GetMup_TARERR"
+			return 1
+		}
+		;;
+	esac
+
+	#
+	# get a list of subsets available on the mup
+	# MUPSETS=`cd $CTRLDIR;echo *.ctrl | sed 's/.ctrl//g'`
+	# The single line code above did not work in testing.
+	#
+
+	PWD=`pwd`
+	cd $CTRLDIR
+	MUPSETS=`echo *.ctrl | sed 's/.ctrl//g'`
+	cd $PWD
+
+	[ "$TLOAD" != CDROM ] &&
+	{
+		# cleanup
+		rm -rf $WUTMUP
+		rm -rf $CTRLDIR
+	}
+
+	case "$MUPSETS" in
+	'*')	return 1
+		;;
+	esac
+
+	STL_DepInit
+	for K in $MUPSETS
+	{
+		KBASE=`expr $K : '\(.*\)...'`
+		STL_DepEval ${KBASE}??? && echo "$K"
+	}
+	return 0
+}
+
+
+
+:	-IsLabeled
+#		check if device is in labeled list
+#
+#	given:	$1 - a partition-id
+#		$2...$N - ids of partitions known to be labeled
+#	does:	searches for partition in list. If there, echos
+#		list and returns. If not there, checks for disklabel
+#		on disk. If disk is labeled, echos list of labeled
+#		disks, adding $1
+#	return:	0 if disk is labeled, 1 if it is not
+
+
+IsLabeled()
+{
+	X=$1;shift
+
+	for K in $*
+	{
+		[ $X = $K ] &&
+		{
+			echo $LABELED
+			return 0
+		}
+	}
+	# Not in labeled list, see if we can read the label
+	#
+	disklabel -r $X > $NUL 2>&1 &&
+	{
+		echo $LABELED $X
+		return 0
+	}
+	return 1
+}
+
+
+
+:	-Layout
+#		determine file system locations. create fs data
+#		structures on disk. create fstab.
+#
+#	given:	nothing
+#	does:	layout disk partitions for the system, determining locations
+#		and initializing where appropriate
+#	return:	1 on error, 0 otherwise
+#	effect:	sets a disk name package for each partition including
+#		disk type, name, unit and partition.
+#
+#	NOTE:	REQUIRES LOCALIZATION
+
+Layout()
+{
+	#%{ LOCALIZE
+	Layout_FINDERERR="
+The installation procedure is unable to access the device you selected
+for your root file system."
+
+	Layout_SWAP1_BANNER="
+***		Allocate the SWAP1 space"
+
+	Layout_SWAP2_BANNER="
+***		Allocate the SWAP2 space"
+	Layout_SWAP2_Q="
+Do you want to allocate a second swap space? ($LC_Y/$LC_N) []: \c"
+
+	Layout_USR_BANNER="
+***		Allocate the /usr file system"
+	Layout_VAR_BANNER="
+***		Allocate the /var file system"
+	Layout_VAR_Q="
+The /var area of your system can either be placed in the /usr
+file system or on a separate file system.
+
+Do you want to allocate a separate file system for /var? ($LC_Y/$LC_N): \c"
+
+	#}% LOCALIZE
+
+	# set up ROOT filesystem
+	#	start fstab with root file system entry
+
+	MROOT=/
+	echo "/dev/$BROOT	$MROOT	ufs rw 1 1" > /etc/fstab
+	LABELED=`DiskLabel ROOT`
+	USEDPARTS="$USEDPARTS $BROOT $NROOT${UROOT}c"
+
+	# set up /proc filesystem
+	#
+	echo "/proc	/proc	procfs rw 0 0" >> /etc/fstab
+
+	CheckLayoutDefaults &&
+	{
+		# establish default filesystems
+		
+		# set up USR
+		MUSR=/usr
+		TUSR=$TROOT;	NUSR=$NROOT;	UUSR=$UROOT;	PUSR=g
+		BUSR=$NUSR${UUSR}g
+		CUSR=r$BUSR
+
+		(cd /dev/; 2>&1 ./MAKEDEV $BUSR > $NUL) ||
+		{
+			Error "
+The MAKEDEV command could not make the special files on device $BUSR."
+			Exit 1
+		}
+		LABELED=`DiskLabel USR`
+
+		PartInit USR || return $?
+		echo "/dev/$BUSR	$MUSR	ufs rw 1 2" >> /etc/fstab
+		USEDPARTS="$USEDPARTS $BUSR"
+		mkdir usr/var
+		ln -s usr/var var
+		sync
+
+		# set up PAGING
+		MSWAP1=swap1
+		TSWAP1=$TROOT;	NSWAP1=$NROOT;	USWAP1=$UROOT;	PSWAP1=b
+		BSWAP1=$NSWAP1${USWAP1}b
+		CSWAP1=r$BSWAP1
+
+		echo "/dev/$BSWAP1	$MSWAP1	ufs sw 0 2" >> /etc/fstab
+		(cd /dev; 2>&1 ./MAKEDEV $BSWAP1 > $NUL) ||
+		{
+			Error "
+The MAKEDEV command could not make the special files on device $BWAP1."
+			Exit 1
+		}
+		# establish swapdefault
+		(cd /sbin;
+			ln -s ../dev/$BSWAP1 $DEFSWAP
+		)
+
+		LABELED=`DiskLabel SWAP1`
+		USEDPARTS="$USEDPARTS $BSWAP1"
+		sync
+		swapon -a 2>&1 > $NUL
+
+		return 0
+	}
+
+	FINDEROPT=-d
+	USEDUP=
+	# get the /usr file system
+	echo "$Layout_USR_BANNER"
+	MUSR=/usr
+	AskPart USR $MUSR file system
+	echo "/dev/$BUSR	$MUSR	ufs rw 1 2" >> /etc/fstab
+	PartInit USR || return 1
+	sync
+
+	echo "$Layout_SWAP1_BANNER"
+	MSWAP1=swap1
+	AskPart SWAP1 $MSWAP1 space
+	echo "/dev/$BSWAP1	$MSWAP1	ufs sw 0 2" >> /etc/fstab
+
+	# change default swap
+	(
+		cd /sbin
+		rm -f $DEFSWAP
+		ln -s ../dev/$BSWAP1 $DEFSWAP
+	)
+	sync
+
+	# get the swap2 area
+	echo "$Layout_SWAP2_BANNER"
+
+	SWAP2=
+	while :
+	do
+		echo "$Layout_SWAP2_Q"
+
+		INPUT=`read INPUT; ToLower $INPUT`
+		case "$INPUT" in
+		"$LC_Y")
+			SWAP2=x
+			MSWAP2=swap2
+			AskPart SWAP2 $MSWAP2 space || continue
+			echo "/dev/$BSWAP2	$MSWAP2	ufs sw 0 2" >> /etc/fstab
+			sync
+			break
+			;;
+		"$LC_N")
+			break
+		esac
+		echo "
+$LC_YESORNO"
+
+	done
+
+	# let's start swapping!
+	2>&1 swapon -a > $NUL
+
+	# get the var file system
+	echo "$Layout_VAR_BANNER"
+	rm -rf /var /usr/var
+
+	while :
+	do
+		echo "$Layout_VAR_Q"
+
+		INPUT=`read INPUT; ToLower $INPUT`
+		case "$INPUT" in
+		"$LC_Y")
+			MVAR=/var
+			AskPart VAR $MVAR file system || continue
+			echo "/dev/$BVAR	$MVAR	ufs rw 1 2" >> /etc/fstab
+
+			PartInit VAR || return 1
+			ln -s ../var /usr/var
+			sync
+			break
+			;;
+		"$LC_N")
+			mkdir /usr/var
+			ln -s usr/var /var
+			break
+		esac
+		echo "
+$LC_YESORNO"
+
+	done
+
+	return 0
+}
+
+
+:	-Load
+#		Load the software from the media
+#
+#	given:	Nothing
+#	does:	load subsets using setld
+#	return:	0 on success
+
+Load()
+{
+	ISL_LOAD="`echo $ISL_MACHINE | dd conv=ucase 2> /dev/null`"
+	ISL_LOADDIR=$ISL_LOAD/BASE
+
+	# %{ LOCALIZE
+	Load_BANNER1="
+***		Loading the operating system software subsets"
+
+	Load_BANNER2="
+***		Loading the mandatory software update subsets"
+
+	Load_BANNER3="
+***		Loading the mandatory hardware update subsets"
+
+	Load_CDROM_MOUNT="
+Please insert the CDROM labeled '$ISL_LABEL_OSKIT' and make
+sure that the drive is online and ready."
+
+	Load_CHANGE_MEDIA="
+Please insert the media labeled '$ISL_LABEL_MPK'
+in $TLOAD device unit $ULOAD.
+
+$LC_CONTINUE"
+
+
+	Load_CONTINUE="The software installation will continue."
+
+	Load_FATAL_ERROR="
+The installation procedure was not able to correctly install
+the mandatory software subsets."
+
+	Load_FIRST_FATAL_ERROR="$Load_FATAL_ERROR
+Another attempt will be made to install the software subsets."
+
+	Load_INFOMSG="
+The installation procedure will now load the software on your
+disk partitions. This process will take anywhere between
+20 minutes to an hour, depending on your distribution media
+and processor type."
+
+	Load_INFOMSG_NONTAPE="
+After the software has been loaded, there will be more
+questions."
+
+	Load_INFOMSG_ADV="
+You will be presented with a menu of software options in a
+few moments."
+
+	Load_MOUNT_ERROR="
+Cannot access the load media on $TLOAD unit $ULOAD.
+
+Please make sure that the media is mounted and online.
+
+$LC_CONTINUE"
+
+	Load_NO_TRIM_ENTRY="typedb entry not found"
+
+	Load_OK_MESSAGE="
+The installation procedure has successfully installed the software subsets"
+
+	Load_OPTION_ERROR="
+The installation procedure successfully installed the mandatory software
+subsets. Some optional subsets did not install correctly."
+
+	Load_RETRY_Q="
+Would you like to try again to install these subsets? ($LC_Y/$LC_N) []:\c"
+
+	Load_TEMP_ERROR="Unsupported load device"
+
+	# }% LOCALIZE
+
+	echo "$Load_BANNER1"
+	echo "$Load_INFOMSG"
+	[ "$ISL_ADVFLAG" = 1 ] && echo "$Load_INFOMSG_ADV"
+
+	RETRY=
+	while :
+	do
+		case "$TLOAD" in
+		REMOTE)
+			setld -D / -l $NLOAD:
+			;;
+		CDROM)
+			setld -D / -l /kit/$ISL_LOADDIR
+			;;
+		esac
+		STATUS=$?
+
+		case "$STATUS$RETRY" in
+		0*)	echo "$Load_OK_MESSAGE"
+			break
+			;;
+		1)	Error "$Load_FIRST_FATAL_ERROR"
+			RETRY=x
+			continue
+			;;
+		1x)	# two strikes
+			Error "$Load_FATAL_ERROR"
+			return 1
+			;;
+		*x)	Error "$Load_CONTINUE"
+			break
+			;;
+		*)	Error "$Load_OPTION_ERROR"
+			while :
+			do
+				echo "$Load_RETRY_Q"
+				read INPUT
+				INPUT=`ToLower $INPUT`
+				case "$INPUT" in
+				$LC_Y)
+					RETRY=x
+					continue 2
+					;;
+				$LC_N)
+					break 2
+					;;
+				esac
+			done
+			;;
+		esac
+	done
+
+
+	# load hardware mup, if any
+
+	case "$TLOAD" in
+	CDROM )
+		ISL_LOADMPK="$ISL_LOAD/UPDATE"
+		[ -f /hinstall ] && ISL_LOADHPK="$ISL_LOAD/hUPDATE"
+		;;
+	* )
+		ISL_LOADMPK="MUPCTRL"
+		[ -f /hinstall ] && ISL_LOADHPK="hMUPCTRL"
+		;;
+	esac
+
+	for K in "$ISL_LOADHPK"
+	do
+
+		ISL_SUBSETS=`GetMupSubsets $ISL_LOADHPK` || continue
+
+		unset ADVFLAG
+
+		if [ "$K" = "$ISL_LOADMPK" ]
+		then
+			echo "$Load_BANNER2"
+		else
+			echo "$Load_BANNER3"
+		fi
+
+		RETRY=
+		while :
+		do
+			case "$TLOAD" in
+			REMOTE)
+				setld -D / -l $NLOAD: $ISL_SUBSETS
+				;;
+			CDROM)
+				setld -D / -l /kit/$K $ISL_SUBSETS
+				;;
+			esac
+			STATUS=$?
+
+			case "$STATUS$RETRY" in
+			0*)	echo "$Load_OK_MESSAGE"
+				ISL_SUBSETS=
+				break
+				;;
+			1)	Error "$Load_FIRST_FATAL_ERROR"
+				RETRY=x
+				continue
+				;;
+			1x)	# two strikes
+				Error "$Load_FATAL_ERROR"
+				return 1
+				;;
+			*x)	Error "$Load_CONTINUE"
+				break
+				;;
+			*)	Error "$Load_OPTION_ERROR"
+				while :
+				do
+					echo "$Load_RETRY_Q"
+					read INPUT
+					INPUT=`ToLower $INPUT`
+					case "$INPUT" in
+					$LC_Y)
+						continue 2
+						;;
+					$LC_N)
+						ISL_SUBSETS=
+						break 2
+						;;
+					esac
+				done
+				;;
+			esac
+		done
+	done
+	return 0
+}
+
+
+
+:	-Localize
+#		set global localization parameters in this routine
+#
+#	given:	nil
+#	does:	sets a number of string variables used throughout the
+#		program to values useful in your neighborhood. Change
+#		these values to things folks in your marketplace will
+#		understand.
+#	return:	0
+
+Localize()
+{
+	# general strings
+
+	LC_Y=y		# affirmative	(si, yes, oui, da, ja, ...)
+	LC_N=n		# negative	(no, no, non, nyet, nein, ...)
+
+	LC_CONTINUE="Press the <RETURN> key to continue: \c"
+	LC_YESORNO="Please respond with either '$LC_Y' or '$LC_N'."
+	LC_TROUBLE="The installation procedure cannot continue.
+
+Consult your installation guide for troubleshooting information."
+
+	return 0
+}
+
+
+
+:	-Main
+#		The main body
+#
+#	given:	nil
+#	does:	establish execution, localization and trap contexts
+#		call Layout(), Load(), and Configure() - upon exit
+#		the isl resumes execution in .profile
+#	return:	exits 0 if all is well, 1 otherwise
+
+Main()
+{
+
+	#%{ LOCALIZE
+	Main_CONFERR="Installation configuration error, exiting."
+	Main_CONNERR="Installation connect error, exiting."
+	Main_CONTINUING="*****	Continuing $ISL_SWID installation"
+	Main_LAYOUTERR="Installation layout error, exiting."
+	Main_LOADERR="Installation load error, exiting."
+	#}% LOCALIZE
+
+	Localize
+	SetTrap
+
+	echo "$Main_CONTINUING\n"
+
+	Connect ||
+	{
+		Error "$Main_CONNERR"
+		Exit 1
+	}
+
+	Layout ||
+	{
+		Error "$Main_LAYOUTERR"
+		Exit 1
+	}
+
+	# move hMUPCTRL to var/tmp
+	for K in hMUPCTRL
+	{
+		[ -f $K ] &&
+		{
+			[ -d var/tmp ] || mkdir -p var/tmp 2> /dev/null
+			mv isl/$K var/tmp
+		}
+	}
+
+	Load ||
+	{
+		Error "$Main_LOADERR"
+		Exit 1
+	}
+	# subsets have been loaded, let the rest of the software
+	#  use the real shell libraries.
+
+	SHELL_LIB=/usr/share/lib/shell
+	export SHELL_LIB
+
+	Configure ||
+	{
+		Error "$Main_CONFERR"
+		Exit 1
+	}
+
+	Exit 0
+}
+
+
+
+:	-Member
+#		is an element in a list
+#
+#	given:	$1 - element to search for
+#		$* - list to search in
+#	does:	look for $1 in $*
+#	return:	0 if element is a member, 1 otherwise
+
+Member()
+{ (
+	X=$1
+	shift
+
+	for Y in $*
+	{
+		[ "$X" = "$Y" ] && return 0
+	}
+	return 1
+) }	
+
+
+
+:	-PartInit
+#		initialize partitions
+#
+#	given:	$1 - partition identifier
+#	does:	newfs and mount the partition
+#	return:	1 if there are any error, 0 otherwise
+
+PartInit()
+{
+	__PARTID=$1
+
+	eval BPART=\$B$__PARTID
+	eval MPART=\$M$__PARTID
+	eval CPART=\$C$__PARTID
+	eval TPART=\$T$__PARTID
+
+	#%{ LOCALIZE
+	PartInit_INFO1="
+Making the new file system for $MPART on /dev/$CPART $TPART"
+
+	PartInit_MOUNT_ERROR="Cannot mount file system."
+	PartInit_NEWFS_ERROR="Cannot initialize file system."
+	#}% LOCALIZE
+
+	# make new filesystem
+	echo "$PartInit_INFO1"
+
+	(cd /dev; MAKEDEV $BPART > $NUL 2>&1) ||
+	{
+		Error "
+The MAKEDEV command could not make the special files on device $BPART."
+		Exit 1
+	}
+	Ticker on
+	2>&1 newfs /dev/$CPART $TPART > $ISL_FSTMP ||
+	{
+		1>&2 cat $ISL_FSTMP
+		Ticker off
+		Error "
+$CPART: $PartInit_NEWFS_ERROR"
+		return 1
+	}
+	cat $ISL_FSTMP >> $ISL_FSLOG
+
+	mkdir $MPART 2> $NUL
+	Ticker off
+	mount /dev/$BPART $MPART ||
+	{
+		Error "
+$BPART: $PartInit_MOUNT_ERROR"
+		return 1
+	}
+	return 0
+}
+
+
+
+:	-SetTrap
+#		set shell signal handler for interupts
+#
+#	given:	nil
+#	does:	set up handler for SIGHUP, SIGINT, SIGQUIT
+#	return:	0
+#	effect:	GLOBAL
+
+SetTrap()
+{
+	#%{ LOCALIZE
+	SetTrap_Q1="
+Do you want to stop the installation? ($LC_Y/$LC_N) []: \c"
+
+	SetTrap_INFO1="
+Begin your installation again by following the instructions in
+your installation guide."
+
+	SetTrap_HELP1="
+You typed a Ctrl/C during the installation. This indicates that you
+want to halt the installation and return to the shell '#' prompt.
+
+If you answer '$LC_Y' to the next question, the installation will stop
+and you will be returned to the shell '#' prompt. If you type '$LC_N',
+the installation will continue undisturbed.
+"
+	#}% LOCALIZE
+
+	trap '
+	while :
+	do
+		echo "$SetTrap_Q1"
+
+		read INPUT
+		INPUT=`ToLower $INPUT`
+
+		case "$INPUT" in
+		$LC_Y)	echo "$SetTrap_INFO1"
+			Exit 1
+			;;
+		$LC_N)	break
+			;;
+		*)	echo "$SetTrap_HELP1"
+			echo "$LC_CONTINUE"
+			read INPUT
+			;;
+		esac
+
+	done' 1 2 3
+}
+
+
+[ "$CHECK_SYNTAX" ] || Main "$@"
+
+

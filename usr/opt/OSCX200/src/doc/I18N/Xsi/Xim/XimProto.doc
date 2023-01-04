@@ -1,0 +1,702 @@
+$Header: /usr/sde/x11/rcs/x11/src/./doc/I18N/Xsi/Xim/XimProto.doc,v 1.1 91/12/15 12:41:16 devrcs Exp $
+$Date: 91/12/15 12:41:16 $
+
+[This is the internal document on I18N sample implementation group of
+ X Consortium.  This material is new verison of the oldest distributed
+ one as follows:
+	Date: Thu, 4 Oct 90 22:34:29 jst
+	From: Hiroshi Kuribayashi <proj@rnb.ncl.omron>
+
+No body distributed on Public domain.  -- M.Morisaki/NTT -- ]
+
+ 
+
+
+Communication Protocol between XIM and xwnmo
+	Ver major 4, minor 0			    May 23 1991
+						    OMRON Corporation
+
+
+This chapter defines the Communication protocol between the XIM
+library and the input manager. This chapter does not describe the
+protocol between the input manager and the language conversion server.
+
+
+1 Communicating data using properties
+
+Properties are used for receiving information from the input manager.  
+
+	Name of property: _XWNMO
+
+(a) This is a property of the root window structure.
+(b) The following are the components of this property.
+
+    char hostname[128]	Specifies the host name of the input manager.
+    long portnumber
+    long major_version	Sepecifies the major version of XIM protocol.
+    long mijor_version	Sepecifies the minor version of XIM protocol.
+
+
+2 Communicating data using socket
+
+The data format for each case is described below.
+There are 10 protocols existing.
+
+(0) initialize
+	initialize an input method
+(1) XIM_GetIM              
+	querying Input Method
+(2) XIM_CreateIC       
+	create a new input context
+(3) XIM_ChangeIC
+	setting input context slots
+(4) XIM_GetIC              
+	reading input context slots
+(5) XIM_DestroyIC      
+	destroy the input context
+(6) XIM_SetICFocus         
+	enable conversion
+(7) XIM_UnsetICFocus       
+	uneable conversion
+(8) XIM_ResetIC            
+	reset the state of an input context to initial state
+(9) XIM_Event              
+	pass the key event and get from input server
+
+
+(0) initialize
+
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximConnClient)
+	1			byte-order:
+		'B'		 MSB first
+		'l'		 LSB first
+	1			unused
+	2	n		length of display name
+	n	STRING8		display name
+
+Reply Encording
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 success
+		-1		 failed
+	2			unused
+
+(1) XIM_GetIM            
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximGetIMReq)
+	1	XIM_GetIM	Req type
+	1			unused
+	2	8		length of data
+	4			mask
+
+Reply Encording
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximGetIMReply)	
+	2			Reply
+		0		 success
+		-1		 failed
+	2	n		count_style
+	2	m		length of language string
+	4n	XIMStyle	supported_styles
+	m			language string
+
+(2) XIM_CreateIC         
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximCreateICReq)
+	1	XIM_CreateIC	Req type
+	1			unused
+	2	n		length of data
+XIM -> xwnmo (ximICValuesReq)
+	4	CARD32		mask
+	4	XIMStyle	input method style
+	4	Window		client_window
+	4	Window		focus_window
+	4	CARD32		filter evets mask
+	4	INT32		maximum keycode
+	2	INT16		length of using language string
+	2	INT16		length of current language string
+
+XIM -> xwnmo (ximICAttributesReq) pre-edit
+	2	INT16		pre-edit area x
+	2	INT16		pre-edit area y
+	2	CARD16		pre-edit area width
+	2	CARD16		pre-edit area height
+	2	CARD16		pre-edit need area width
+	2	CARD16		pre-edit need area height
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+XIM -> xwnmo (ximICAttributesReq) status
+	2	INT16		status area x
+	2	INT16		status area y
+	2	CARD16		status area width
+	2	CARD16		status area height
+	2	CARD16		status need area width
+	2	CARD16		status need area height
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+
+Reply Encording
+# xwnmo returns callback (a) or ic (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) ic
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_IC		detail
+	4	CARD32		xic
+	break;
+  }
+XIM <- xwnmo (ximCreateICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	CARD16		detail
+	4	CARD32		xic
+
+(3) XIM_ChangeIC
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximChangeICReq)
+	1	XIM_ChangeIC	Req type
+	1			unused
+	2	36		length of client data
+	4	CARD32		xic
+XIM -> xwnmo (ximICValuesReq)
+	4	CARD32		mask
+	4	XIMStyle	input method style
+	4	Window		client_window
+	4	Window		focus_window
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	CARD32		filter evets mask
+	4	INT32		maximum keycode
+	2	INT16		length of using language string
+	2	INT16		length of current language string
+
+XIM -> xwnmo (ximICAttributesReq) pre-edit
+	2	INT16		pre-edit area x
+	2	INT16		pre-edit area y
+	2	CARD16		pre-edit area width
+	2	CARD16		pre-edit area height
+	2	CARD16		pre-edit need area width
+	2	CARD16		pre-edit need area height
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+XIM -> xwnmo (ximICAttributesReq) status
+	2	INT16		status area x
+	2	INT16		status area y
+	2	CARD16		status area width
+	2	CARD16		status area height
+	2	CARD16		status need area width
+	2	CARD16		status need area height
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+
+Reply Encoding
+# xwnmo returns callback (a) or else (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) else
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	0		detail
+	4	0		unused
+	break;
+  }
+
+(4) XIM_GetIC            
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximGetICReq)
+	1	XIM_GetIC	Req type
+	1			unused
+	2	12		length of data
+	4	CARD32		xic
+	4	CARD32		mask
+
+Reply Encording
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximGetICReply = ximGetICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	CARD16		detail
+
+XIM <- xwnmo (ximICValuesReq)	# Data of Client area
+	4	CARD32		mask
+	4	XIMStyle	input method style
+	4	Window		client_window
+	4	Window		focus_window
+	2	INT16		spot location x
+	2	INT16		spot location y
+	4	CARD32		filter evets mask
+	4	INT32		maximum keycode
+	2	INT16		length of using language string
+	2	INT16		length of current language string
+
+XIM -> xwnmo (ximICAttributesReq) # Data of pre-edit window
+	2	INT16		pre-edit area x
+	2	INT16		pre-edit area y
+	2	CARD16		pre-edit area width
+	2	CARD16		pre-edit area height
+	2	CARD16		pre-edit need area width
+	2	CARD16		pre-edit need area height
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+XIM -> xwnmo (ximICAttributesReq) # Data of status window
+	2	INT16		status area x
+	2	INT16		status area y
+	2	CARD16		status area width
+	2	CARD16		status area height
+	2	CARD16		status need area width
+	2	CARD16		status need area height
+	4	Colormap	colormap
+	4	Atom		std_colormap
+	4	CARD32		foreground
+	4	CARD32		background
+	4	Pixmap		background pixmap
+	2	INT16		line_space
+	2			unused
+	4	Cursor		cursor
+	2	n		number of font
+	2	m		length of fontname string
+	m	String8		fontname string
+
+(5) XIM_DestroyIC
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximDestroyICReq)
+	1	XIM_DestroyIC	Req type
+	1			unused
+	2	8		length of data
+	4	CARD32		xic
+
+Reply Encording
+# xwnmo returns callback (a) or else (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) else
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	0		detail
+	4	0		unused
+	break;
+  }
+
+(6) XIM_SetICFocus
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximICFocusReq)
+	1	XIM_SetICFocus	Req type
+	1			unused
+	2	8		length of data
+	4	CARD32		xic
+
+Reply Encording
+# xwnmo returns callback (a) or else (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) else
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	0		detail
+	4	0		unused
+	break;
+  }
+
+(7) XIM_UnsetICFocus
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximICFocusReq)
+	1	XIM_UnsetICFocus Req type
+	1			unused
+	2	8		length of data
+	4	CARD32		xic
+
+Reply Encording
+# xwnmo returns callback (a) or else (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) else
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	0		detail
+	4	0		unused
+	break;
+  }
+
+(8) XIM_ResetIC
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximResetICReq)
+	1	XIM_ResetIC	Req type
+	1			unused
+	2	8		length of data
+	4	CARD32		xic
+
+Reply Encording
+# xwnmo returns callback (a) or else (b)
+  for ( ) {
+ # of Bytes	Value		Description
+ (a) callback
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	XIM_CALLBACK	detail
+	4	CARD32		xic
+    (Call 2.1 CALLBACK ROOP)
+
+ (b) else
+XIM <- xwnmo (ximEventICReply)
+	2	CARD16		state
+		0		 succsess
+		-1		 failed
+	2	0		detail
+	4	0		unused
+	break;
+  }
+
+(9) XIM_Event
+Request Encording
+ # of Bytes	Value		Description
+XIM -> xwnmo (ximEventReq)
+	1	XIM_Event	Req type
+	1			unused
+	2	n		length of data (sizeof(XEvent) + 8)
+	4	CARD32		xic
+	n-8			XEVENT
+
+# There are 5 kind of reply.
+
+(a)Reply Encording (in case of XIM_NOTHING)
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximEventReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_NOTHING	mode
+	2	0		number
+	2			unuse
+
+
+(b)Reply Encording (in case of XIM_NOFILTER)
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximEventReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_NOFILTER	mode
+	2	0		number
+	2			unuse
+
+(c)Reply Encording (in case of XIM_RETURN)
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximEventReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_RETURN	mode
+	2	0		number
+	2			unuse
+
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximReturnReply)
+# xwnmo returns keysym (c-1) or strings (c-2) or end (c-3)
+
+  for ( ) {
+(c-1)
+	2	XIM_KEYSYM	type
+	2	n		length
+	4	KeySym		keysym
+	n	STRING8		string
+(c-2)
+	2	XIM_STRING	type
+	2	n		length of string
+	4	0		keysym
+	n	STRING8		string
+(c-3)
+	2	0		type
+	2	0		length
+	4	0		keysym
+	break;
+   }
+
+(d)Reply Encording (in case of XIM_CALLBACK)
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximEventReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CALLBACK	mode
+	2	0		number
+	2			unuse
+    (Call 2.1 CALLBACK ROOP)
+
+(e)Reply Encording (in case of XIM_CH_LOCALE)
+ # of Bytes	Value		Description
+XIM <- xwnmo (ximEventReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CH_LOCALE	mode
+	2	n		number
+	2			unuse
+	n	STRING8		locale name
+
+
+2.1 CALLBACK ROOP
+ # There are 8 kind of reply.
+  for ( ) {
+  (1) Preedit start
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_PRE_START type
+
+  (2) Preedit done
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_PRE_DONE	type
+
+  (3) Preedit draw
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_PRE_DRAW	type
+  XIM <- xwnmo (ximPreDrawReply)
+	2	INT16		caret
+	2	INT16		change first
+	2	INT16		change length
+	2	INT16		encoding_is_wchar
+		True		WCHAR
+		False		CompoundText
+	2	n		length
+	2	CARD6		unused
+	4	INT32		feedback
+    (3-1) WCHAR
+	4n			wchar
+    (3-2) CompoundText
+	n	STRING8		compound text
+
+  (4) Preedit caret
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_PRE_CARET type
+  XIM <- xwnmo (ximPreCaretReply)
+	2	INT16		position
+	2	CARD16		direction
+	2	CARD16		style
+	2	CARD16		unused
+
+  (5) Status start
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_ST_DONE	type
+
+  (6) Status done
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_ST_DONE	type
+
+  (7) Status draw
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2			Reply
+		0		 succcess
+		-1		 failed
+	2	XIM_CB_ST_DONE	type
+  XIM <- xwnmo (ximPreDrawReply)
+	2	CARD16		type
+	2	INT16		encoding_is_wchar
+		True		WCHAR
+		False		CompoundText
+	2	n		length
+	4	INT32		feedback
+	4	Pixmap		bitmap
+    (7-1) WCHAR
+	4n			wchar
+    (7-2) CompoundText
+	n	STRING8		compound text
+
+  (8) End
+   # of Bytes	Value		Description
+  XIM <- xwnmo (ximNormalReply)
+	2	0		Reply
+	2	0		type
+	break;
+  }
+
+
+3 Protocol list each XIM function uses
+example:
+(*) Xim function
+	protocal
+
+(1) XOpenIM()
+	(0) initalize
+(2) XCloseIM()
+	Nothing
+(3) XGetIMValues()
+	(1) XIM_GetIM
+(4) XCreateIC()
+	(2) XIM_CreateIC
+	(4) XIM_GetIC
+(5) XDestroyIC()
+	(5) XIM_DestroyIC
+(6) XSetICFocus()
+	(6) XIM_SetICFocus
+(7) XUnsetICFocus()
+	(7) XIM_UnsetICFocus     
+(8) XmbResetIC(), XwcResetIC()
+	(8) XIM_ResetIC
+(9) XIMOfIC()
+	Nothing
+(10) XDisplayOfIM()
+	Nothing
+(11) XLocaleOfIM()
+	Nothing
+(12) XSetICValues()
+	(3) XIM_ChangeIC	
+(13) XGetICValues()
+	(4) XIM_GetIC
+(14) XFileterEvent()
+	(9) XIM_Event
+
+(15) XRegisterFilter()
+	Nothing
+(16) XUnRegisterFilter()
+	Nothing
+(17) XmbLookupString()
+	Nothing
+(18) XwcLookupString()
+	Nothing

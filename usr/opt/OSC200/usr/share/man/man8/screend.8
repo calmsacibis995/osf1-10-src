@@ -1,0 +1,380 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.TH screend 8
+.SH NAME
+.PP
+\*Lscreend\*O - Internet (IP) gateway screening daemon
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/screend\*O [\*L\-d\*O] [\*L\-c\*O] [\*L\-l\*O] [\*L\-f \*Vconfigfile\*O]
+ [\*L\-L \*Vlogfile\*O] [\*L\-s\*O] [\*L\-r\*O]
+.sE
+.SH DESCRIPTION
+.PP
+.iX "screend server daemon"
+.iX "Internet gateway screening daemon"
+The \*Lscreend\*O daemon is used in conjunction with the gateway screen
+facility to decide which IP packets should be forwarded when the
+system is acting as an IP gateway.  Only the super-user may run
+this program.
+.PP
+Before using \*Lscreend\*O you must add the following line to your system
+configuration file:
+.oS
+pseudo-device      gwscreen
+.oE
+.PP
+After editing the system configuration file you must rebuild
+the kernel, and reboot the system.  For information on
+rebuilding the kernel see the
+\*ESystem Administration\*O
+and the \*Ldoconfig\*O(8) reference page.
+.PP
+When \*Lscreend\*O is started, it reads the configuration file specified
+(\*Vconfigfile\*O) and then processes packets according to the
+instructions in that file.
+.PP
+The kernel screening facility must be enabled using \*Lscreenmode\*O(8)
+before \*Lscreend\*O has any effect. (When screening is disabled, packets are
+forwarded by the kernel according to its usual procedures.)
+.PP
+It is possible to run more than one copy of \*Lscreend\*O at a time, although
+it is not recommended. You might do this, however, when the configuration file
+is changed. Because the configuration file is read only at program startup, you
+must restart \*Lscreend\*O when the file is changed.  To avoid any service
+interruption, you should start a new instance of \*Lscreend\*O
+before killing the old one.
+.SH FLAGS
+.PP
+.VL
+.LI "\*L\-d\*O"
+Prints large amounts of debugging information.  This is not
+meant for normal use.
+.LI "\*L\-c\*O"
+Checks the syntax of the configuration file but does not actually
+process any packets.
+.LI "\*L\-l\*O"
+Turns on logging for all packets (normally, packets are logged only
+if requested in the configuration file).
+.LI "\*L\-f \*Vconfigfile\*O"
+Specifies the configuration file.  If not specified, the default,
+\*L/etc/screend.conf\*O, is used.
+.LI "\*L\-L \*Vlogfile\*O"
+Specifies that logging records should be appended to the given file.
+There is no default logging file. This may be specified simultaneously with
+\*L\-s\*O, in which case each logging record is stored by both means.
+.LI "\*L\-s\*O"
+Specifies that logging records should be logged using \*Lsyslogd\*O(8).
+.LI "\*L\-r\*O"
+Specifies that logging records should include the rule number
+of the configuration file rule responsible for the action logged.
+This is useful for debugging configuration file problems.
+See the section in this reference page on Rule Numbers.
+.LE
+.SH RESTRICTIONS
+.PP
+IP gateways are allowed to fragment IP datagrams if they are too large to be
+forwarded in one piece. Only the first fragment of a datagram carries enough
+information to make certain kinds of accept/reject decisions.
+The \*Lscreend\*O daemon can only handle fragments if it sees the first
+fragment of a datagram before it sees any subsequent fragments.
+Also, only a limited rate of fragmented packet arrival can be accommodated by
+the program (fragmentation is, in general, a bad idea). Finally, if more than
+one instance of \*Lscreend\*O is running, most likely this will result in
+significant loss of fragments.
+.PP
+The current implementation does not forward packets that contain IP header
+options.  This is because several of these options can be used to subvert
+checks based on the IP header destination address.
+.PP
+If a host \*Vname\*O given in an object specification has more than one IP
+address associated with it, \*Lscreend\*O does not understand that all these
+addresses should be checked. Only the first (primary) address of the host is
+used.  This may lead to erroneous operation in some cases (possibly including
+a security hole), so a warning is printed if the configuration file
+contains such names.  (Note that you probably will not see this warning
+if \*Lscreend\*O is started using the \*Linit\*O program.)
+.SH EXAMPLES
+.PP
+This following is an example of the syntax; it is not intended to
+be used in an actual installation:
+.oS
+# Example configuration file
+default reject;
+for 36.0.0.0 netmask is 255.255.0.0;
+from subnet 36.8.0.0 to net milnet reject notify;
+from host nic.ddn.mil to host any accept;
+from host any to net arpanet tcp port telnet accept;
+from host any to host any icmp type redirect reject log;
+from host any to subnet 36.10.0.0 tcp port-not reserved reject;
+.oE
+.SH CONFIGURATION FILE
+.PP
+This is an informal guide to the grammar of the \*Lscreend\*O
+configuration file.  It is intended for readers who are familiar with the basic
+concepts of the IP protocol family, including the distinction between the terms
+``network'' and ``subnet.''
+.PP
+Lexical structure:
+.RS
+.VL
+.LI "Comments"
+Can either be C-style comments, delimited by /* and */
+or csh-style comments begun with a number sign (\&#) and
+terminated by the end of a line.  Comments do not nest.
+.LI "Case"
+Significant in reserved words (all are lower-case).
+This is actually a benefit, because if a host name happens
+to conflict with a reserved word, you can use the
+host name in upper-case.
+.LI "Host names"
+Must begin with a letter but may contain
+digits, minus signs (\-), dots ( . ), and underscores (\&_ ).
+The same is true of network, subnet, and netmask names.  Hosts can also be
+identified by their IP address, in dotted quad notation (for example,
+``128.45.40.15'').
+.LI "Numbers"
+May be in decimal or in hex (0x0 notation).
+Octal notation is not allowed.  Decimal notation is the preferred method.
+.LI "Protocol names"
+Specified as they are found in \*L/etc/protocols\*O.
+These can also be given as numbers.
+.LI "Port names"
+For TCP or UDP, specified as they are in \*L/etc/services\*O.
+These can also be given as numbers (host byte order).
+.LI "ICMP type codes"
+Must be chosen from the following list, or given as
+numbers:
+.br
+.\"	###################################################
+.\" Documentation writer: PLEASE do not change this back to a "tbl"
+.\" table, or it won't work with the online "man" command!
+.\"	###################################################
+.\".TS
+.ta +\w'addressmaskrequest  'u +\w'addressmaskreply  'u
+echo	echoreply	sourcequench
+redirect	unreachable	timeexceeded
+parameterproblem	timestamp	timestampreply
+informationrequest	informationreply
+addressmaskrequest	addressmaskreply
+.\".TE
+.LI "White space"
+All white space is the same (including newlines).
+.LE
+.RE
+.PP
+General syntax rules:
+.RS
+.PP
+The configuration file consists of specifications terminated by
+semicolons.
+.PP
+There are three kinds of specifications:
+.VL 7m
+.LI "default-action specification"
+There should only be one of these (the last
+one is the one that counts); it specifies what action to take
+if no action specification matches a packet.
+.LI "subnet mask specifications"
+Specifies the subnet mask used for a given network.
+.LI "action specifications"
+Specifies a class of packets and
+the action to take when such a packet is received.
+.LE
+.PP
+Specifications can appear in any order, but the evaluation
+order of action specifications is the order in which
+they appear in the file.
+.RE
+.PP
+In BNF, this is:
+.\"Added an e to the end of the line to get backslash to appear
+.\"and the line to continue on the next line.  And some jerk took it
+.\"off, so I've added it back (rfb)
+.oS
+\*V<configuration-file>\*O ::= \e
+{ \*V<specification>\*O | \*V<configuration-file>\*O \*V<specification>\*O }
+\*V<specification>\*O ::= \e
+{ \*V<default-action>\*O | \*V<subnet-spec>\*O | \*V<action-spec>\*O }
+.oE
+.PP
+The syntax for a default-action specification is:
+.oS
+\*V<default-action>\*O ::= \*Ldefault\*O {\*Laccept\*O | \*Lreject\*O} [\*Lnotify\*O] [\*Llog\*O];
+.oE
+.PP
+Note that \*Ldefault accept notify;\*O is not legal.
+If not specified, the default-action is \*Lreject\*O.
+.PP
+The syntax for subnet mask specifications is:
+.oS
+\*V<subnet-spec>\*O ::= \
+\*Lfor\*O \*V<network>\*O \*Lnetmask is\*O \*V<maskval>\*O;
+.oE
+.PP
+The \*V<network>\*O is either a network name or a dotted-quad address,
+such as ``36.0.0.0''.  The number ``36'' is not a reasonable value.
+\*V<Maskval>\*O is either a name (treated as a hostname) or a dotted-quad
+address, such as ``255.255.255.0'' (bits are \*Von\*O for the network
+and subnet fields.)
+.PP
+The syntax for action specifications is:
+.oS
+\*V<action-spec>\*O ::= \e
+\*Lfrom\*O \*V<object>\*O \*Lto\*O \*V<object>\*O {\*Laccept\*O | \*Lreject\*O} [\*Lnotify\*O] [\*Llog\*O];
+.oE
+.PP
+Such a specification says that packets flowing this way between this pair of
+objects (defined below) should either be accepted or rejected.  If
+\*Lnotify\*O is specified, when a packet is rejected an ICMP error message is
+returned to the source.  If \*Llog\*O is specified, this packet and its
+disposition are logged.
+.PP
+Conceptually, for each packet the action specifications are
+searched in the order they appear in the configuration file, until
+one matches.  The specified action is then performed.  If no specification
+matches, the default action is performed.
+.PP
+To simplify the configuration file, the following syntax
+may be used to indicate that the same action should be performed
+on packets flowing in either direction between the specified pair
+of objects:
+.oS
+\*V<action-spec>\*O ::= \e
+\*Lbetween\*O \*V<object>\*O \*Land\*O \*V<object>\*O {\*Laccept\*O | \*Lreject\*O} [\*Lnotify\*O] [\*Llog\*O] ;
+.oE
+.PP
+Note that this has the same effect as specifying the two unidirectional rules,
+with the forward direction listed first.
+.PP
+An object is a specification of the source or destination of a packet.
+The syntax for object specifications is somewhat complex, since certain fields
+are optional:
+.oS
+\*V<object>\*O ::= \
+{ \*V<address-spec>\*O | \*V<port-spec>\*O | \e
+\*V<address-spec>\*O \*V<port-spec>\*O }
+.oE
+.PP
+If the \*V<address-spec>\*O is not given, any host will match.
+If the \*V<port-spec>\*O is not given, any protocol and port will match.
+.oS
+\*V<address-spec>\*O ::= { \*V<net-spec>\*O | \*V<subnet-spec>\*O | \*V<host-spec>\*O | \*Lany\*O }
+\*V<net-spec>\*O ::= { \*Lnet\*O \*V<name-or-addr>\*O | \*Lnet\-not\*O \*V<name-or-addr>\*O }
+\*V<subnet-spec>\*O ::= \e
+{ \*Lsubnet\*O \*V<name-or-addr>\*O | \*Lsubnet\-not\*O \*V<name-or-addr>\*O }
+\*V<host-spec>\*O ::= \
+{ \*Lhost\*O \*V<name-or-addr>\*O | \*Lhost\-not\*O \*V<name-or-addr>\*O }
+.oE
+.PP
+The \*L\-not\*O convention means that the object specification matches
+if the specified field does \*Vnot\*O have the specified value.  In the
+following example, packets not from nic.ddn.mil are dropped.
+.oS
+from host\-not nic.ddn.mil to host any reject;
+.oE
+.PP
+The ``subnet'' and ``subnet\-not'' forms match against the
+entire address under the subnet mask (for example, if the
+netmask for net 36 is ``255.255.0.0'', then ``subnet
+36.8.0.0'' matches a packet address of 36.8.0.1).
+.\"Begin Digital modification.
+.\"This example seems to change font and was too wide
+.\"for our format.
+.\".oS
+.\"\*V<name-or-addr>\*O ::= \
+.\"{ \*V<name>\*O | \*V<dotted-quad>\*O | \*Lany\*O }
+.\"
+.\"\*V<port-spec>\*O ::= { \*Lproto\*O \*V<proto-name-or-number>\*O 
+.\".rS
+.\"| \*Licmp type\*O \*V<type-name-or-number>\*O \
+.\"| \*Licmp type\-not\*O \*V<type-name-or-number>\*O
+.\"| \*Ltcp port\*O \*V<port-name-or-number>\*O \
+.\"| \*Ltcp port\-not\*O \*V<port-name-or-number>\*O
+.\"| \*Ludp port\*O \*V<port-name-or-number>\*O \
+.\"| \*Ludp port\-not\*O \*V<port-name-or-number>\*O }
+.\".rE
+.\"
+.\"\*V<proto-name-or-number>\*O ::= { \*V<name>\*O | \*V<number>\*O }
+.\"\*V<type-name-or-number>\*O ::= \
+.\"{ \*V<name>\*O | \*V<number>\*O | \*Lany\*O |  \*Linfotype\*O }
+.\"\*V<port-name-or-number>\*O ::= \
+.\"{ \*V<name>\*O | \*V<number>\*O | \*Lany\*O | \*Lreserved\*O  | \*Lxserver\*O }
+.\".oE
+.oS
+\*V<name-or-addr>\*O ::= \
+{ \*V<name>\*O | \*V<dotted-quad>\*O | \*Lany\*O }
+\*V<port-spec>\*O ::= { \*Lproto\*O \*V<proto-name-or-number>\*O \e
+.\".rS
+    | \*Licmp type\*O \*V<type-name-or-number>\*O \e
+    | \*Licmp type\-not\*O \*V<type-name-or-number>\*O \e
+    | \*Ltcp port\*O \*V<port-name-or-number>\*O \e
+    | \*Ltcp port\-not\*O \*V<port-name-or-number>\*O \e
+    | \*Ludp port\*O \*V<port-name-or-number>\*O \e
+    | \*Ludp port\-not\*O \*V<port-name-or-number>\*O }
+.\".rE
+\*V<proto-name-or-number>\*O ::= { \*V<name>\*O | \*V<number>\*O }
+\*V<type-name-or-number>\*O ::= { \*V<name>\*O | \*V<number>\*O | \*Lany\*O |  \*Linfotype\*O }
+\*V<port-name-or-number>\*O ::= \e
+{ \*V<name>\*O | \*V<number>\*O | \*Lany\*O | \*Lreserved\*O  | \*Lxserver\*O }
+.oE
+.PP
+``Reserved'' ports are those reserved by 4.2BSD Unix for privileged processes.
+``Xserver'' ports are those used by X11 window system servers.
+``Infotype'' ICMP packets are those that are
+purely informational: echo, timestamp, information, and addressmask
+requests, and the corresponding replies.
+.SH RULE NUMBERS
+.PP
+If the \*L\-r\*O option is given, log records contain a notation
+of the rule number responsible for the action being logged.
+A rule is a ``from ... to ...'' specification in the configuration file; rules
+are numbered in order starting with zero. Note that ``between ... and ...''
+specifications expand to two ``from ... to ... '' rules, each numbered
+individually. The default action, whether explicitly stated or not, is
+not numbered; it is referred to distinctively in the log.
+.SH DIAGNOSTICS
+.PP
+During argument processing and configuration file parsing,
+various diagnostics may be issued.  During normal operation,
+only serious internal inconsistencies result in diagnostics.
+(See the Restrictions section about warning messages in some
+borderline cases.)
+Except in debug mode (\*L\-d\*O), most diagnostics are logged using
+\*Lsyslogd\*O(8).
+.PP
+Once an hour, a statistics report is made using \*Lsyslogd\*O(8)
+that shows the number of packets processed since the program was
+started, the hit rate of an internal cache buffer, and the number
+of packets dropped because they arrived too rapidly.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/screend.conf\*O"
+Default configuration file
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lscreen\*O(2)
+.PP
+Commands:
+\*Lscreenmode\*O(8), \*Lscreenstat\*O(8)
+.EQ
+delim off
+.EN

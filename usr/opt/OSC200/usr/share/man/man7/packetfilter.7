@@ -1,0 +1,949 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: packetfilter.7,v $ $Revision: 1.1.4.6 $ (DEC) $Date: 1993/12/17 20:10:34 $
+.\"
+.\"************
+.\" I replaced the Minor version with the 
+.\" Ag/Maint version. 7/18/93. TW
+.\" The Minor version did not have all the Ag/Maint changes
+.\"************
+.\"
+.TH packetfilter 7
+.SH NAME
+.PP
+\*Lpacketfilter\*O \- Ethernet packet filter
+.SH SYNOPSIS
+.PP
+\*Loptions     PACKETFILTER\*O
+.SH DESCRIPTION
+.PP
+.iX "packetfilter"
+The packet filter pseudo-device driver
+provides a raw interface to Ethernets and similar network data link layers.
+Packets received that are not used by the kernel
+(for example, to support the IP and DECnet protocol families)
+are available through this mechanism.
+The packet filter driver is kernel-resident code provided by
+the DEC OSF/1 operating system.  The driver appears to
+applications as a set of character special files, one
+for each open packet filter application.
+(Throughout this reference page, the word \*Vfile\*O
+refers to such a character special file.)
+.PP
+To include packet filter support in your kernel, you must include the
+following option in your configuration file:
+.oS
+\*Loptions     PACKETFILTER\*O
+.oE
+You must then reconfigure and rebuild your kernel using the
+\*Ldoconfig\*O command. For more information see the
+\*ESystem Administration\*O.
+.PP
+You create the minor device files
+with the \*LMAKEDEV\*O(8) script using these commands:
+.iS
+# cd /dev
+# MAKEDEV pfilt
+.iE
+A single call to \*LMAKEDEV\*O with an argument of \*Lpfilt\*O
+creates 64 character special files in \*L/dev/pf\*O,
+which are named \*Lpfilt\*Vnnn\*O, where \*Vnnn\*O is
+the unit number.  Successive calls to \*LMAKEDEV\*O with arguments of
+\*Lpfilt1\*O, \*Lpfilt2\*O, and \*Lpfilt3\*O
+make additional sets of 64 sequentially numbered packet filters
+to a maximum of 256.  The maximum number of packet filter special files
+is limited to 256, which is the maximum number of
+minor device numbers allowed for each major device number.
+(See \*LMAKEDEV\*O(8) for more information on making system special files.)
+.PP
+For opening these special files, the operating system
+provides the \*Lpfopen\*O(3) library routine. For more
+information, see \*Lpfopen\*O(3).
+.PP
+Associated with each open instance of a
+packet filter special file is a user-settable packet filter ``program''
+that is used to select which incoming packets are delivered by that
+packet filter special file.  Whenever a packet is received from the net,
+the packet filter driver successively applies the filter
+programs of each of the open packet filter files to the
+packet, until one filter program ``accepts'' the packet.
+When a filter accepts the packet, it is placed on the packet input queue of
+the associated special file.  If no filters accept the packet, it is discarded.
+The format of a packet filter is described later.
+.PP
+Reads from these files return the next packet from a queue of packets that have
+matched the filter.  If the read operation specifies insufficient buffer space
+to store the entire packet, the packet is truncated and the trailing contents
+lost.  Writes to these files transmit packets on the
+network, with each write operation generating exactly one packet.
+.PP
+The packet filter supports a variety of different Ethernet
+data-link levels:
+.VL 4m
+.LI "10Mb Ethernet"
+.IP
+Packets consist of fourteen or more bytes, with the first six
+bytes specifying the destination Ethernet address,
+the next six bytes the source Ethernet address,
+and the next two bytes specifying the packet type.
+See \*L<netinet/if_ether.h>\*O.
+(802.3 packets follow the same format, except that the last field gives
+the packet length).
+.LI "FDDI"
+.IP
+FDDI packets start with a 13-byte header; the first
+byte is the ``frame control'' field, which is normally
+followed by a 6-byte (Ethernet-style) destination
+address and a 6-byte source address.  For alignment
+reasons, the packet filter prepends a 3-byte padding field
+to incoming packets, and expects to see a corresponding
+padding field on transmitted packets.  See the declaration
+for "struct fddi_header" in \*L<netinet/if_fddi.h>\*O.  FDDI
+headers are usually followed by 802.2 headers; see
+\*L<net/if_llc.h>\*O.
+.\".LI "3Mb Ethernet"
+.\".IP
+.\"Packets consist of four or more bytes, with the first byte
+.\"specifying the source Ethernet address, the second
+.\"byte specifying the destination Ethernet address,
+.\"and the next two bytes specifying the packet type.
+.\"(On the network, the source and destination addresses
+.\"are in the opposite order.)
+.\".LI "Byte-swapping 3Mb Ethernet"
+.\".IP
+.\"Packets consist of four or more bytes, with the first byte
+.\"specifying the source Ethernet address, the second
+.\"byte specifying the destination Ethernet address,
+.\"and the next two bytes specifying the packet type.
+.\"Each short word (pair of bytes) is swapped from the network
+.\"byte order.  This device type is provided only for
+.\"backwards-compatibility.
+.LE
+The remaining words are interpreted according to the packet type.
+Note that 16-bit and 32-bit quantities may have to be byteswapped
+(and possibly short-swapped) to be intelligible on DEC OSF/1
+systems.
+.PP
+The packet filters treat the entire packet, including headers, as uninterpreted
+data.  The user must supply the headers for transmitted packets (although the
+system makes sure that the source address is correct) and the headers of
+received packets are delivered to the user.
+The packet filter mechanism does not know anything about the data
+portion of the packets it sends and receives.
+.PP
+In addition to the FIONREAD \*Lioctl\*O request (described in the
+.\" change from tty(4) to tty(7)  dms
+\*Ltty\*O(7) reference page), the application can apply several special
+\*Lioctl\*O requests to an open packet filter file.  The calls are divided
+into five categories: packet-filter specifying, packet handling, device
+configuration, administrative, and miscellaneous.
+.\"The following was added for Ag/Maint as per John Dustin's request.
+.PP
+The DEC OSF/1 packet filter also supports most of the BSD
+Packet Filter
+(BPF) \*Lioctl\*O commands. This provides nearly complete source-level
+compatibility with existing BPF application code. The BPF packet filter
+format is quite different from the format described in this reference
+page and may be far more efficient or flexible for many applications.
+For more information on the \*VBSD Packet Filter Extensions\*O, see
+\*Lbpf\*O(7).
+.SS Packet-filter Specification ioctl Request
+The \*LEIOCSETF\*O \*Lioctl\*O
+is central to the operation of the packet filter interface, because
+it specifies which packets the application wishes to receive.
+It is used to set the packet filter ``program''
+for an open packet filter file, and is of the form:
+.iS
+ioctl(\*Vfildes\*O, \*LEIOCSETF\*O, \*Vfilter\*O)
+\*Lstruct enfilter *\*Vfilter\*O
+.iE
+The \*Lenfilter\*O structure is defined in \*L<net/pfilt.h>\*O
+as:
+.oS
+.ta \w'struct 'u \w'struct u_short  'u
+struct enfilter
+{
+	u_char	enf_Priority;
+	u_char	enf_FilterLen;
+	u_short	enf_Filter[ENMAXFILTERS];
+};
+.oE
+.PP
+A packet filter consists of a priority,
+the filter command list length (in shortwords),
+and the filter command list itself.  Each filter command list specifies
+a sequence of actions that operate on an internal stack.
+Each shortword of the command list specifies an action and a binary operator.
+.SS Command List Actions
+The action can be one of the following:
+.VL 4m
+.LI "ENF_PUSHLIT"
+.IP
+Pushes the next shortword of the command list on the stack.
+.LI "ENF_PUSHWORD+N"
+.IP
+Pushes shortword N of the incoming packet on the stack.
+.LI "ENF_PUSHZERO"
+.IP
+Pushes a zero.  Is slightly faster than ENF_PUSHLIT with an
+explicit literal.
+.LI "ENF_PUSHONE"
+.IP
+Pushes a one.  Is slightly faster than ENF_PUSHLIT with an
+explicit literal.
+.LI "ENF_PUSHFFFF"
+.IP
+Pushes 0xFFFF.  Is slightly faster than ENF_PUSHLIT with an
+explicit literal.
+.LI "ENF_PUSH00FF"
+.IP
+Pushes  0x00FF.  Is slightly faster than ENF_PUSHLIT with an
+explicit literal.
+.LI "ENF_PUSHFF00"
+.IP
+Pushes 0xFF00.  Is slightly faster than ENF_PUSHLIT with an
+explicit literal.
+.LI "ENF_NOPUSH"
+.IP
+Defined as zero.
+.LE
+.SS Binary Operators
+When both an action and an operator are specified in the
+same shortword, the action is performed, followed by the
+operation.  You can combine an action with an operator
+using bitwise \*LOR\*O;
+for example,
+.oS
+((ENF_PUSHWORD+3) | ENF_EQ)
+.oE
+The binary operator, which can be one of the following, operates on
+the top two elements of the stack and replaces them with its
+result:
+.VL 4m
+.LI "ENF_EQ"
+.IP
+Returns true if the result is equal.
+.LI "ENF_NEQ"
+.IP
+Returns true if the result is not equal.
+.LI "ENF_LT"
+.IP
+Returns true if the result is less than.
+.LI "ENF_LE"
+.IP
+Returns true if the result is less than or equal.
+.LI "ENF_GT"
+.IP
+Returns true if the result is greater than.
+.LI "ENF_GE"
+.IP
+Returns true if the result is greater than or equal.
+.LI "ENF_AND"
+.IP
+Returns the result of the binary AND operation.
+.LI "ENF_OR"
+.IP
+Returns the result of the binary OR operation.
+.LI "ENF_XOR"
+.IP
+Returns the result of the binary XOR operation.
+.LI "ENF_NOP"
+.IP
+Defined as zero.
+.LI "ENF_CAND"
+.IP
+Returns false immediately if the result is false,
+and continues execution of the filter otherwise.
+(Short-circuit operator)
+.LI "ENF_COR"
+.IP
+Returns true immediately if the result is true,
+and continues execution of the filter otherwise.
+(Short-circuit operator)
+.LI "ENF_CNAND"
+.IP
+Returns true immediately if the result is false,
+and continues execution of the filter otherwise.
+(Short-circuit operator)
+.LI "ENF_CNOR"
+.IP
+Returns false immediately if the result is true,
+and continues execution of the filter otherwise.
+(Short-circuit operator)
+.LE
+The short-circuit operators are so called because they terminate
+the execution of the filter immediately if the condition they are
+checking for is found, and continue otherwise.
+All the short-circuit operators pop two elements from the stack and
+compare them for equality.
+Unlike the other binary operators, these four operators do not leave a result
+on the stack, even if they continue.
+.PP
+Use the short-circuit operators whenever possible, to reduce the
+amount of time spent evaluating filters.  When you use them, you should
+also arrange the order of the tests so that the filter will succeed or fail
+as soon as possible. For example, checking a word in
+an address field of an Ethernet packet
+is more likely to indicate failure than the Ethernet type field.
+.PP
+The special action ENF_NOPUSH and the special operator ENF_NOP
+can be used to only perform the binary operation or
+to only push a value on the stack.
+Because both are defined to be zero, specifying
+only an action actually specifies the action followed by
+ENF_NOP, and specifying only an operation actually specifies
+ENF_NOPUSH followed by the operation.
+.PP
+After executing the filter command list, a nonzero value (true)
+left on top of the stack (or an empty stack) causes the incoming
+packet to be accepted for the corresponding
+packet filter file and a zero value (false) causes the packet to
+be passed through the next packet filter.
+If the filter exits as the result of a short-circuit operator,
+the top-of-stack value is ignored.
+Specifying an undefined operation or action in the command list
+or performing an illegal operation or action (such as pushing
+a shortword offset past the end of the packet or executing a binary operator
+with fewer than two shortwords on the stack) causes a filter to
+reject the packet.
+.PP
+To resolve problems with overlapping or conflicting packet filters,
+the filters for each open packet filter file are ordered by the driver
+according to their priority (lowest priority is 0, highest is 255).
+When processing incoming packets, filters are applied according to their
+priority (from highest to lowest) and for identical priority values according
+to their relative ``busyness'' (the filter that has previously
+matched the most packets is checked first), until one or more filters
+accept the packet or all filters reject it and it is discarded.
+.PP
+Normally once a packet is delivered to a filter, it is not presented to any
+other filters.  However, if the packet is accepted by a filter in
+nonexclusive mode (ENNONEXCL set using EIOCMBIS,
+described in the following section), the packet is
+passed along to lower-priority filters and may be delivered more than
+once.  The use of nonexclusive filters imposes an additional cost on
+the system, because it increases the average number of filters applied to each
+packet.
+.PP
+The packet filter for a packet filter file is initialized
+with length 0 at priority 0 by \*Lopen\*O(2), and hence, by default, accepts all
+packets in which no higher-priority filter is interested.
+.PP
+Priorities should be assigned so that, in general, the more packets a
+filter is expected to match, the higher its priority.  This prevents
+a lot of checking of packets against filters that are unlikely
+to match them.
+.PP
+The filter in this example accepts incoming
+RARP (Reverse Address Resolution Protocol) broadcast packets.
+.PP
+The filter first checks the Ethernet type of the packet.
+If it is not a RARP (Reverse ARP) packet, it is discarded.
+Then, the RARP type field is checked for a reverse request (type 3),
+followed by a check for a broadcast destination address.
+Note that the packet type field is checked before the destination address,
+because the total number of broadcast packets on the network is larger
+than the number of RARP packets.  Thus, the filter is
+ordered with a minimum amount of processing overhead.
+.oS
+struct enfilter f;
+buildfilter()
+{
+    f.enf_Priority = 36;       /* anything > 2 should work */
+    f.enf_FilterLen = 0;
+    /* packet type is last short in header */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 6;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0x3580;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_CAND;  /* Ethernet type == 0x8035 (RARP) */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 10;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0x0300;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_CAND;  /* reverse request type = 0003 */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 0;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0xFFFF;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_CAND;       /* dest addr = FF-FF */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 1;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0xFFFF;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_CAND;       /* dest addr = FF-FF */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 2;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0xFFFF;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_CAND;       /* dest addr = FF-FF */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 2;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT;
+    f.enf_Filter[f.enf_FilterLen++] = 0xFFFF;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_EQ;         /* dest addr = FF-FF */
+    return;
+}
+.oE
+.PP
+Note that shortwords, such as the packet type field, are in network
+byte-order.  The literals you compare them to may have to be byte-swapped
+on machines like the VAX.
+.PP
+By taking advantage of the ability to
+specify both an action and operation in each word of
+the command list, you could abbreviate the filter to the
+following:
+.oS
+struct enfilter f;
+buildfilter()
+{
+    f.enf_Priority = 36; /* anything > 2 should work */
+    f.enf_FilterLen = 0;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 6;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT | ENF_CAND;
+    f.enf_Filter[f.enf_FilterLen++] =
+        0x3580;          /* Ethernet type == 0x8035 (RARP) */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 10;
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHLIT | ENF_CAND;
+    f.enf_Filter[f.enf_FilterLen++] =
+        0x0300;          /* reverse request type = 0003 */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 0;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_PUSHFFFF | ENF_CAND; /* dest addr = FF-FF */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 1;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_PUSHFFFF | ENF_CAND; /* dest addr = FF-FF */
+    f.enf_Filter[f.enf_FilterLen++] = ENF_PUSHWORD + 2;
+    f.enf_Filter[f.enf_FilterLen++] =
+        ENF_PUSHFFFF | ENF_EQ;   /* dest addr = FF-FF */
+        return;
+}
+.oE
+.SS Packet-Handling ioctl Requests
+These \*Lioctl\*O requests control how the packet filter processes input packets
+and returns them to the application process.
+The most useful of these requests set and clear so-called
+``mode bits'' for the file and are of this form:
+.oS
+ioctl(\*Vfildes, code, bits\*O)
+u_short *\*Vbits\*O;
+.oE
+.PP
+In these calls, \*Vbits\*O
+is a bitmask specifying which bits to set or clear.  The applicable
+\*Vcodes\*O are:
+.VL 4m
+.LI "EIOCMBIS"
+.IP
+Sets the specified mode bits.
+.LI "EIOCMBIC"
+.IP
+Clears the specified mode bits.
+.LE
+.PP
+The bits are:
+.VL 4m
+.LI "ENTSTAMP"
+.IP
+If set, a received packet is preceded by a header structure (see the
+description of \*Lenstamp\*O
+following) that includes a time stamp and other information.
+.LI "ENBATCH"
+.IP
+If clear, each \*Lread\*O(2) system call returns at most one packet.  If set, a
+\*Lread\*O call might return more than one packet, each of which is preceded by
+an \*Lenstamp\*O header.
+.LI "ENPROMISC"
+.IP
+If set, this filter will be applied to promiscuously-received packets.
+This puts the interface into ``promiscuous mode'' only if this
+has been allowed by the superuser using the EIOCALLOWPROMISC
+\*Lioctl\*O call (described later).
+.LI "ENCOPYALL"
+.IP
+If set, this filter will see packets sent and received by the
+kernel-resident protocols of the local host.  (Normally, these packets
+are not copied to the packet filter.)  This mode takes effect only if this
+has been allowed by the superuser using the EIOCALLOWCOPYALL
+\*Lioctl\*O call (described later).
+.LI "ENNONEXCL"
+.IP
+If set, packets accepted by this filter will be available to
+any lower-priority filters.  If clear, no lower-priority filter will see
+packets accepted by this filter.
+.LI "ENHOLDSIG"
+.IP
+If clear, means that the driver should disable the effect of EIOCENBS
+(described later) once it has delivered a signal.
+If set (the default), the effect of EIOCENBS persists.
+.\"The following was added for Ag/Maint as per John Dustin's request.
+.LI "ENBPFHDR"
+.IP
+If set, a received packet is preceded by a BPF-style header (see
+\*Lbpf\*O(7).
+.LE
+The \*Lenstamp\*O structure contains useful information about the packet that
+immediately follows it; in ENBATCH mode, it also allows the reader to separate
+the packets in a batch.  It is defined in \*L<net/pfilt.h>\*O as:
+.oS
+.ta \w'struct 'u +\w'struct timeval  'u
+struct enstamp {
+	u_short	ens_stamplen;
+	u_short	ens_flags;
+	u_short	ens_count;
+	u_short	ens_dropped;
+	u_int 	ens_ifoverflows;
+	struct	timeval	ens_tstamp;
+};
+.oE
+.PP
+The fields are:
+.VL 4m
+.LI "ens_stamplen"
+.IP
+The length of \*Lenstamp\*O
+structure in bytes.  The packet data follows immediately.
+.LI "ens_flags"
+.IP
+Indicates how the packet was received. The bits are:
+.VL 4m
+.LI "ENSF_PROMISC"
+.IP
+Received promiscuously (unicast to some other host).
+.LI "ENSF_BROADCAST"
+.IP
+Received as a broadcast.
+.LI "ENSF_MULTICAST"
+.IP
+Received as a multicast.
+.LI "ENSF_TRAILER"
+.IP
+Received in a trailer encapsulation.  The packet has been rearranged into
+header format.
+.LE
+.LI "ens_count"
+.IP
+The length of the packet in bytes (does not include the \*Lenstamp\*O
+header).
+.LI "ens_dropped"
+.IP
+The number of packets accepted by this filter but dropped because the input
+queue was full; this is a cumulative count since the previous \*Lenstamp\*O
+was read from this packet filter file.  This count may be completely wrong
+if the ENNONEXCL mode bit is set for this filter.
+.LI "ens_ifoverflows"
+.IP
+The total number of input overflows reported by the network interface since the
+system was booted.
+.LI "ens_tstamp"
+.IP
+The approximate time the packet was received.
+.LE
+.PP
+If the buffer returned by a batched \*Lread\*O(2)
+contains more than one packet, the offset from the beginning of the buffer
+at which each \*Lenstamp\*O
+structure begins is an integer multiple of the word-size of the processor.
+For example, on a VAX, each \*Lenstamp\*O
+is aligned on a longword boundary (provided that the buffer address passed to
+the \*Lread\*O(2) system call is aligned).  The alignment (in units of bytes)
+is given by the constant \*LENALIGNMENT\*O, defined in \*L<net/pfilt.h>\*O.
+If you have an integer \*Vx\*O, you can use the macro
+\*LENALIGN\*Vx\*O to get the least integer that is a multiple of
+\*LENALIGNMENT\*O and not less than \*Vx\*O.
+For example, this code fragment reads and processes one batch:
+.oS
+char *buffer = &(BigBuffer[0]);
+int buflen;
+int pktlen, stamplen;
+struct enstamp *stamp;
+buflen = read(f, buffer, sizeof(BigBuffer));
+while (buflen > 0) {
+    stamp = (struct enstamp *)buffer;
+    pktlen = stamp->ens_count;
+    stamplen = stamp->ens_stamplen;
+    ProcessPacket(&(buffer[stamplen]), pktlen);   /* your code here */
+    if (buflen == (pktlen + stamplen))
+        break;                             /* last packet in batch */
+    pktlen = ENALIGN(pktlen);     /* account for alignment padding */
+    buflen -= (pktlen + stamplen);
+    buffer += (pktlen + stamplen);          /* move to next stamp */
+}
+.oE
+.PP
+If a buffer filled by a batched read contains more than one packet, the final
+packet is never truncated.
+If, however, the entire buffer is not big enough to contain a single
+packet, the packet will be truncated; this is also true for unbatched
+reads.  Therefore, the buffer passed to the \*Lread\*O(2)
+system call should always be big enough to hold the largest
+possible packet plus an \*Lenstamp\*O structure.
+(See the \*LEIOCDEVP ioctl\*O request later in this reference page for
+information on how to determine the maximum packet size.  See also the
+\*LEIOCTRUNCATE ioctl\*O request for an example that delivers only the desired
+number of bytes of a packet.)
+.PP
+Normally, a packet filter application blocks in the \*Lread\*O
+system call until a received packet is available for reading.
+There are several ways to avoid blocking indefinitely: an application
+can use the \*Lselect\*O(2) system call, it can set a ``timeout'' for the
+packet filter file, or it can request the delivery of a signal (see
+\*Lsigvec\*O(2)) when a packet matches the filter.
+.VL 4m
+.LI "EIOCSETW"
+.IP
+The packet filter interface limits the number of packets that can
+be queued for delivery for a specific packet filter file.  Application
+programs can vary this ``backlog'', if necessary, using the
+following call:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCSETW, \*Vmaxwaitingp)\*O
+u_int *\*Vmaxwaitingp\*O;
+.oE
+The argument \*Vmaxwaitingp\*O points to an integer containing
+the input queue size to be set.  If this is greater than the maximum allowable
+size (see EIOCMAXBACKLOG later), it is set to the maximum.
+If it is zero, it is set to a default value.
+.LI "EIOCFLUSH"
+.IP
+After changing the packet filter program, the input queue may contain packets
+that were accepted under the old filter.
+To flush the queue of incoming packets, use the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCFLUSH, 0)\*O
+.oE
+.LI "EIOCTRUNCATE"
+.IP
+An application, such as a network load monitor, that does not want to
+see the entire packet can ask the packet filter to truncate
+received packets at a specified length. This action may improve performance
+by reducing data movement.
+.IP
+To specify truncation, use:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCTRUNCATE, \*Vtruncationp)\*O
+u_int *\*Vtruncationp\*O;
+.oE
+The argument \*Vtruncationp\*O
+points to an integer specifying the truncation length, in bytes.
+Packets shorter than this length are passed intact.
+.LE
+This example, a revision of the previous example, illustrates
+the use of EIOCTRUNCATE, which causes the packet filter to
+deliver only the first \*Vn\*O bytes of a packet, not the
+entire packet.
+.oS
+char *buffer = &(BigBuffer[0]);
+int buflen;
+int pktlen, stamplen;
+struct enstamp *stamp;
+int truncation = SIZE_OF_INTERESTING_PART_OF_PACKET;
+if (ioctl(f, EIOCTRUNCATE, &truncation) < 0)
+    exit(1);
+while (1) {
+    buflen = read(f, buffer, sizeof(BigBuffer));
+    while (buflen > 0) {
+       stamp = (struct enstamp *)buffer;
+       pktlen = stamp->ens_count; /* ens_count is untruncated length */
+       stamplen = stamp->ens_stamplen;
+.sp 0.5
+       ProcessPacket(&(buffer[stamplen]), pktlen); /* your code here */
+.sp 0.5
+       if (pktlen > truncation)   /* truncated portion not in buffer */
+           pktlen = truncation;
+       if (buflen == (pktlen + stamplen))
+           break;                            /* last packet in batch */
+       pktlen = ENALIGN(pktlen);    /* account for alignment padding */
+       buflen -= (pktlen + stamplen);
+       buffer += (pktlen + stamplen);          /* move to next stamp */
+   }
+}
+.oE
+.PP
+Two calls control the timeout mechanism; they are of the following
+form:
+.oS
+#include <net/time.h>
+.sp 0.5
+ioctl(\*Vfildes, code, tvp\*O)
+.oE
+.oS
+struct timeval *\*Vtvp\*O;
+.oE
+The \*Vtvp\*O argument is the address of a \*Lstruct\*O \*Ltimeval\*O
+containing the timeout interval (this is a relative
+value, not an absolute time).  The codes are:
+.VL 4m
+.LI "EIOCGRTIMEOUT"
+.IP
+Returns the current timeout value.
+.LI "EIOCSRTIMEOUT"
+.IP
+Sets the timeout value.  When the value is positive, a \*Lread\*O(2)
+call returns a 0 if no packet arrives during the period.
+When the timeout value is zero, reads block indefinitely (this
+is the default).  When the value is negative, a \*Lread\*O(2)
+call returns a 0 immediately if there are no queued packets.
+Note that the largest legal timeout value is a few million seconds.
+.LE
+Two calls control the signal-on-reception mechanism;
+they are of the following form:
+.oS
+ioctl(\*Vfildes, code, signp\*O)
+\*Lu_int *\*Vsignp\*O;
+.oE
+The argument \*Vsignp\*O is a pointer to an integer containing the number
+of the signal to be sent when an input packet arrives.
+The applicable \*Vcodes\*O
+are:
+.VL 4m
+.LI "EIOCENBS"
+.IP
+Enables the specified signal when an input packet
+is received for this file.
+If the ENHOLDSIG flag (see EIOCMBIS later) is not set,
+further signals are automatically disabled
+whenever a signal is sent to prevent nesting, and hence
+must be explicitly re-enabled after processing.
+When the signal number is 0,
+this call is equivalent to EIOCINHS.
+.LI "EIOCINHS"
+.IP
+Disables signaling on packet reception.
+The \*Vsignp\*O argument is ignored.
+This is the default when the file is first opened.
+.LE
+.SS Device Configuration ioctl Requests
+.VL 4m
+.LI "EIOCIFNAME"
+.IP
+Each packet filter file is associated with a specific network interface.
+To find out the name of the interface underlying the
+packet filter file, use the following:
+.oS
+#include <net/socket.h>
+#include <net/if.h>
+.sp
+ioctl(\*Vfildes\*O, \*LEIOCIFNAME\*O, \*Vifr\*O)
+struct ifreq *\*Vifr\*O;
+.oE
+The interface name (for example, ``ln0'') is returned in \*Vifr->ifr_name\*O;
+other fields of the \*Vstruct ifreq\*O are not set.
+.LI "EIOCSETIF"
+.IP
+To set the interface associated with a packet filter file, use
+the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCSETIF\*O, \*Vifr\*O)
+struct ifreq *\*Vifr\*O;
+.oE
+The interface name should be passed \*Vifr->ifr_name\*O;
+other fields of the \*Vstruct ifreq\*O are ignored.
+The name provided may be one of the actual interface names,
+such as ``ln0'' or ``xna1'', or it may be a pseudo-interface
+name of the form ``pf\*Vn\*O'',
+used to specify the \*Vn\*Oth interface attached to the system.
+For example, ``pf0'' specifies the first interface.
+This is useful for applications
+that do not know the names of specific interfaces.
+Pseudo-interface names are never returned by EIOCIFNAME.
+.LI "EIOCDEVP"
+.IP
+To get device parameters of the network interface underlying the
+packet filter file, use the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCDEVP\*O, \*Vparam\*O)
+struct endevp *\*Vparam\*O;
+.oE
+The \*Lendevp\*O structure is defined in \*L<net/pfilt.h>\*O
+as:
+.oS
+.ta \w'struct 'u +\w'u_short  'u
+struct endevp {
+	u_char	end_dev_type;
+	u_char	end_addr_len;
+	u_short	end_hdr_len;
+	u_short	end_MTU;
+	u_char	end_addr[EN_MAX_ADDR_LEN];
+	u_char	end_broadaddr[EN_MAX_ADDR_LEN];
+};
+.oE
+The fields are:
+.VL 4m
+.LI "end_dev_type"
+Specifies the device type: ENDT_10MB or ENDT_FDDI. (ENDT_3MB and ENDT_BS3MB
+are defined but no longer supported.)
+.IP "end_addr_len"
+Specifies the address length in bytes (for example, 1 or 6).
+.IP "end_hdr_len"
+Specifies the total header length in bytes (for example, 4 or 14).
+.LI "end_MTU"
+Specifies the maximum packet size, including header, in bytes.
+.LI "end_addr"
+The address of this interface; aligned so that the low order
+byte of the address is in \*Vend_addr[0]\*O.
+.LI "end_broadaddr"
+The hardware destination address for broadcasts on this network.
+.LE
+.LE
+.SS Administrative ioctl Requests
+.VL 4m
+.LI "EIOCMAXBACKLOG"
+The maximum queue length that can be set using EIOCSETW depends
+on whether the process is running as the superuser or not.  If
+so, the maximum is a kernel constant; otherwise, the maximum is a
+value that can be set, by the superuser, for each interface.
+To set the maximum non-superuser backlog for an interface, use
+EIOCSETIF to bind to the interface, and then use the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCMAXBACKLOG\*O, \*Vmaxbacklogp\*O)
+int *\*Vmaxbacklogp\*O;
+.oE
+The argument \*Vmaxbacklogp\*O
+points to an integer containing the maximum value.
+(If \*Vmaxbacklogp\*O
+points to an integer containing a negative value, it is replaced
+with the current backlog value, and no action is taken.)
+.IP "EIOCALLOWPROMISC"
+Certain kinds of network-monitoring applications need to place the
+interface in ``promiscuous mode'', where it receives all packets on
+the network.  Promiscuous mode can be set by the superuser with the
+\*L/usr/sbin/ifconfig\*O command, or the superuser can configure an interface
+to go into promiscuous mode automatically if any packet filter applications
+have the ENPROMISC mode bit set.  To do so, use
+EIOCSETIF to bind to the interface, and then use the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCALLOWPROMISC\*O, \*Vallowp\*O)
+int *\*Vallowp\*O;
+.oE
+The argument \*Vallowp\*O
+points to an integer containing a Boolean value (nonzero
+means promiscuous mode is set automatically).
+(If \*Vallowp\*O
+points to an integer containing a negative value, it is replaced
+with the current Boolean value, and no action is taken.)
+.IP "EIOCALLOWCOPYALL"
+Certain promiscuous-mode network-monitoring applications need to see
+unicast packets sent or received by the local host.  For reasons of
+efficiency, these packets are not normally provided to the packet filter,
+but in ``copy all'' mode they are.  The superuser can configure an
+interface to go into copy-all mode automatically if any packet filter
+applications have the ENCOPYALL mode bit set.  To do so, use EIOCSETIF
+to bind to the interface, and then use the following:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCALLOWCOPYALL\*O, \*Vallowp\*O)
+int *\*Vallowp\*O;
+.oE
+The argument \*Vallowp\*O
+points to an integer containing a Boolean value (nonzero
+means copy-all mode is set automatically).
+(If \*Vallowp\*O
+points to an integer containing a negative value, it is replaced with
+the current Boolean value, and no action is taken.)
+.IP "EIOCMFREE"
+To find out how many packet filter files remain for opening, use this
+\*Lioctl\*O, which places the number in the integer pointed to by
+\*Vmfree\*O:
+.oS
+ioctl(\*Vfildes\*O, \*LEIOCMFREE\*O, \*Vmfree\*O)
+int *\*Vmfree\*O;
+.oE
+.LE
+.SS Miscellaneous ioctl Requests
+Two calls are provided for backwards compatibility and should not be used
+in new code.  These calls are used to set and fetch parameters
+of a packet filter file (\*Vnot\*O the underlying device; see EIOCDEVP).
+The form for these calls is:
+.oS
+#include <sys/types.h>
+#include <net/pfilt.h>
+.sp 0.5
+ioctl(\*Vfildes, code, param\*O)
+.sp 0.5
+struct eniocb *\*Vparam\*O;
+.oE
+The structure \*Leniocb\*O is defined in \*L<net/pfilt.h>\*O as:
+.oS
+struct eniocb
+{
+	u_char	en_addr;
+	u_char	en_maxfilters;
+	u_char	en_maxwaiting;
+	u_char	en_maxpriority;
+	int 	en_rtout;
+};
+.oE
+The applicable \*Vcodes\*O are:
+.VL 4m
+.LI "EIOCGETP"
+Fetch the parameters for this file.
+.LI "EIOCSETP"
+Set the parameters for this file.
+All the fields, which are described later, except \*Ven_rtout\*O,
+are read-only.
+.VL 4m
+.LI "en_addr"
+No longer maintained; use EIOCDEVP.
+.LI "en_maxfilters"
+The maximum length of a filter command list; see EIOCSETF.
+.LI "en_maxwaiting"
+The maximum number of packets that can be queued for reading on the
+packet filter file; use EIOCMAXBACKLOG.
+.LI "en_maxpriority"
+The highest allowable filter priority; see EIOCSETF.
+.LI "en_rtout"
+The number of clock ticks to
+wait before timing out on a read request and returning a zero length.
+If zero, reads block indefinitely until a packet arrives.
+If negative, read requests return a zero length
+immediately if there are no packets in the input queue.
+Initialized to zero by \*Lopen\*O(2), indicating no timeout.
+(Use EIOCSRTIMEOUT and EIOCGRTIMEOUT.)
+.LE
+.LE
+.SH RESTRICTIONS
+.PP
+A previous restriction against accessing data words past approximately
+the first hundred bytes in a packet has been removed.  However, it becomes
+slightly more costly to examine words that are not near the beginning
+of the packet.
+.PP
+Because packets are streams of bytes, yet the filters operate
+on short words, and standard network byte order is usually opposite
+from little-endian byte-order, the relational operators ENF_LT, ENF_LE, ENF_GT,
+and ENF_GE are not particularly useful.  If this becomes a severe problem,
+a byte-swapping operator could be added.
+.SH FILES
+.PP
+.VL 4m
+.LI "\*L/dev/pf/pfilt\*Vnnn\*O"
+Packet filter special files.
+.LI "\*L/usr/examples/packetfilter/pfsample.c\*O"
+Example packet filter program.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lifconfig\*O(8), \*LMAKEDEV\*O(8),
+\*Lnfswatch\*O(8), \*Lpfconfig\*O(8),
+\*Lpfstat\*O(1), \*Ltcpdump\*O(8)
+.PP
+Files: \*Lbpf\*O(7), \*Lfta\*O(7), \*Lfza\*O(7), \*Lln\*O(7),
+\*Ltty\*O(7), \*Lxna\*O(7)
+Routines: \*Lpfopen\*O(3)
+.EQ
+delim off
+.EN

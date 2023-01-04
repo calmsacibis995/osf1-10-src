@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+#
+# HISTORY
+
+#
+# "@(#)uudemon.poll	1.6  com/cmd/uucp,3.1,9013 1/25/90 19:20:02"
+#
+# COMPONENT_NAME: UUCP uudemon.poll
+#
+# FUNCTIONS:
+#
+#
+# (C) COPYRIGHT International Business Machines Corp. 1985, 1989
+# All Rights Reserved
+# Licensed Materials - Property of IBM
+#
+# US Government Users Restricted Rights - Use, duplication or
+# disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+#
+# This shell should be run out of crontab every hour,
+# a little before  uudemon.hour since this one
+# does not start the scheduler.
+#
+
+PATH=/usr/bin:/etc:/usr/lbin/uucp
+SPOOL=/usr/spool/uucp
+
+POLLFILE=/etc/uucp/Poll
+# POLLFILE is a list of "system <tab> hour1 hour2 hour3 ..." for polling
+# For example 
+#	raven	2  6  10
+# without the # at the beginning.  Lines starting with # are ignored.
+# NOTE a tab must follow the machine name
+
+umask 022
+set +e
+
+HOUR="`date '+%H'`"
+# HOUR="`date | sed -e 's/:.*//' -e 's/^.*\(..\)$/\1/'"
+HOUR=`expr $HOUR + 0`
+
+cat $POLLFILE  |
+sed -n -e "/^[^#].*[ 	]$HOUR[ 	]/s/	.*//p" -e "/^[^#].*[ 	]$HOUR\$/s/	.*//p" |
+while read site
+do
+	if test ! -d $SPOOL/$site
+	then
+		mkdir $SPOOL/$site
+		chown uucp $SPOOL/$site
+	fi
+
+	j=`expr $site : '\(.\{1,7\}\)'`
+	touch $SPOOL/$site/C.${j}n0000
+	chown uucp $SPOOL/$site/C.${j}n0000
+done

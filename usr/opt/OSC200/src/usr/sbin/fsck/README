@@ -1,0 +1,150 @@
+
+#	@(#)README	3.1	(ULTRIX/OSF)	2/26/91
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+This README discusses the interface for the fsck front-end.
+
+First, you need to have the following binaries installed in /sbin:
+ufs_fsck and s5fsck.  These are the filesystem dependent fsck programs
+for the ufs and System V filesystems respectively.
+
+The design hopefully is sufficient for supporting the various file 
+system dependent fsck programs.  The interface is designed to be 
+simple to use, requires no changes for 'simple OSF/1 systems' which 
+has only ufs file system types in /etc/fstab, and flexible if the 
+user needs extensive control over how the various fs types and/or
+devices should be checked. 
+
+Two options are used exclusively by the front end: -t and -T.  
+
+Supported file system types must be configured in this front-end.
+To add support for a new fs type, a user only needs to add an one
+line description for the new fs type to this front-end and recompile.
+
+This front-end supports a default file system type.  If a device
+input to this front-end is not listed in /etc/fstab and no file
+system type is specified on the command line, it will be checked
+by the fsck program of the default file system type.  To change 
+the default fs type, the user only needs to change one line in 
+the front-end and recompile.  The default fs type for OSF/1 is ufs.
+
+In the following discussions:
+a) /dev/ufs_dev is listed in /etc/fstab as a ufs file system.
+b) /dev/s5fs_dev is listed in /etc/fstab as a s5fs file system.
+c) /dev/unlisted is NOT listed in /etc/fstab 
+
+
+The interface:
+
+
+1) fsck [options]
+	The front end checks /etc/fstab and executes the appropriate
+	fsck for the fs types found in /etc/fstab with the listed options, 
+	but with no arguments.  I.e., if only ufs filesystems are listed 
+	in /etc/fstab, only ufs_fsck will be executed.
+
+	Although we check /etc/fstab in the front-end, the underlying
+	fsck programs are executed with no arguments.  This is because
+	if a fsck program performs special processing (e.g., parallel 
+	processing) when it is called with no arguments, it will 
+	continue to do so.
+	
+	For example:
+		if /etc/fstab has only ufs entries,
+		% fsck
+			ufs:  execute ufs_fsck
+			s5fs: will not be executed
+		
+		if /etc/fstab has both ufs and s5fs entries,
+		% fsck
+			ufs:  execute ufs_fsck
+			s5fs: execute s5fs_fsck
+
+   fsck [options] device_name [device_name]
+	The front end looks up the type of the listed device_name in
+	/etc/fstab.  If found, it executes the appropriate fsck for that 
+	fs type with the device name as argument.  If the device
+	is not listed in /etc/fstab, the device is checked as if it is
+	of the default type.
+
+	For example:
+		% fsck /dev/ufs_dev /dev/s5fs_dev /dev/unlisted
+			ufs:  check /dev/ufs_dev /dev/unlisted
+			s5fs: check /dev/s5fs_dev
+
+
+2) fsck [common_options] [ -T ufs|s5fs [fs_spec_options] ] [device_name]
+	-T is for specifying options for a specific file system type.
+	It requires a file system type argument.  -T has no effect on
+	which devices to check.  Once -T fs_type is specified, all 
+	following options are specified only for the fs_type, until 
+	-t or a new -T is encountered.  -T is useful if you want to 
+	control only the options to different fsck's, but not which
+	file system types to run fsck on.
+
+	For example:
+		% fsck -T ufs -p 
+			ufs:  apply -p to ufs fsck.  
+			s5fs: no options to s5fs fsck.
+
+		% fsck -T ufs -p -T s5fs -D
+			ufs:  check with -p all ufs fs in /etc/fstab
+			s5fs: check with -D all s5fs fs in /etc/fstab
+
+		% fsck -T ufs -p -T s5fs -D /dev/ufs_dev /dev/s5fs_dev
+			ufs:  check /dev/ufs_dev with option -p
+			s5fs: check /dev/s5fs_dev with option -D
+
+
+3) fsck [common_options] [ -t ufs|s5fs [fs_spec_options] [dev_names] ]
+	-t specifies the fs type to check.  Once -t fstype is specified,
+	the following options (if any) are treated as specific to the fstype, 
+	and the following device names (if any) are treated as filesystems
+	of fstype.  If no device names follow a -t option, /etc/fstab is
+	checked for file systems of fstype.  Options to a file system type
+	are accumulative and are used in all instances when a file system
+	dependent fsck is invoked.  
+
+	For example:
+		% fsck -t ufs
+			ufs:  check all ufs fs in /etc/fstab
+			s5fs: will not be executed
+		% fsck -t ufs -p /dev/rrz3a -t s5fs
+			ufs:  check /dev/rrz3a as a ufs fs with -p flag
+			s5fs: check all s5fs in /etc/fstab with no flags
+
+
+4) The root file system should be of the same type as the default file
+   system type configured in this front-end.  However, this is NOT enforced
+   in the front-end so that we could support diskless clients in the future
+   with no modifications.
+
+   If the exit status of the default filesystem type fsck is non-zero,
+   the front-end exits immediately with the same exit status.  
+
+   Non-zero exit status of other fsck programs do not cause the front-end 
+   to terminate immediately.  The front-end will finish executing all the other
+   fsck programs.  Its exit status will be the first non-zero exit status
+   it gets from these non-default fsck programs.
+
+   This behavior is needed to support auto-reboot or other behaviors in 
+   /etc/rc.
+

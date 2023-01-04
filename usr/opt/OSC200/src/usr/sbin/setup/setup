@@ -1,0 +1,167 @@
+#!/usr/bin/ksh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+#	setup - run setups
+#
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+
+. $SHELL_LIB/Error
+. $SHELL_LIB/Strings
+
+
+CreateMenu()
+{
+	SETUPCONF=${SETUPCONF:-/etc/setup.conf}
+	MENUFILE=/tmp/setupmenu
+	CMDFILE=/tmp/setupcmds
+
+	[ -f $SETUPCONF ] ||
+	{
+		Error "$SETUPCONF: no such file or directory"
+		Exit 1
+	}
+	NITEMS=1
+	> $MENUFILE
+	> $CMDFILE
+	cat $SETUPCONF | while read LINE
+	do
+		case "$LINE" in
+		'#'*)	# ignore comments
+			continue
+			;;
+		esac
+		set -- `Parse ':' $LINE`
+		if [ -f $1 ]; then
+		{
+			# command exists on system
+			#
+			echo $1 >> $CMDFILE
+			shift
+			P=`expr " $NITEMS" : '.*\(..\)'`
+			echo "\t$P) $*" >> $MENUFILE
+			NITEMS=$(( $NITEMS + 1 ))
+		}
+		else
+		{
+			shift
+			echo "\t  ) $*" >> $MENUFILE
+		}; fi
+	done
+	CMDS=`cat $CMDFILE`
+	CMDS="$CMDS Exit"
+	set $CMDS
+	NITEMS=$#
+	echo "\t$NITEMS) Exit Setup Menu" >> $MENUFILE
+	I=1
+	for CMD in $CMDS
+	{
+		eval CMD$I=\$CMD
+		I=$(( $I + 1 ))
+	}
+}
+
+
+Exit()
+{
+	rm -f $CMDFILE $MENUFILE
+	[ "$1" ] && exit $1
+	exit $0
+}
+
+
+
+IAmRoot()
+{
+	[ X`whoami` = Xroot ]
+}
+
+
+Main()
+{
+	PATH="/sbin:/usr/sbin:/usr/bin"
+	export PATH
+
+	IAmRoot ||
+	{
+		echo "You must be super-user (root) to use setup"
+		exit 1
+	}
+
+	CreateMenu
+
+	RunMenu
+	exit 0
+}
+
+
+RunMenu()
+{
+	trap : 1 2 3 15
+
+	while :
+	do
+		echo "
+You can use this menu to set up your system and network. 
+Select the item you want to set up and answer the questions. 
+
+For more information on the items in the menu see the \"Guide 
+to System Administration\" and \"Configuring Your Network Software.\""
+
+		echo; echo
+		cat $MENUFILE
+		echo "
+Please enter your selection: \c"
+
+		read USER_INPUT
+		USER_INPUT=`echo $USER_INPUT`
+
+		[ "$USER_INPUT" ] || continue
+
+		expr $USER_INPUT : '\([0-9][0-9]*\)' > /dev/null ||
+		{
+			Error "$USER_INPUT: please enter numbers only"
+			continue
+		}
+		
+		[ "$USER_INPUT" -gt "$NITEMS" ] &&
+		{
+			Error "$USER_INPUT: maximum menu item is $NITEMS"
+			continue
+		}
+
+		for CMD in $CMDS
+		{
+			[ "$USER_INPUT" -eq 1 ] && break
+			USER_INPUT=$(( $USER_INPUT - 1 ))
+		}
+
+		$CMD
+	done
+}
+
+[ "$CHECK_SYNTAX" ] || Main "$@"
+

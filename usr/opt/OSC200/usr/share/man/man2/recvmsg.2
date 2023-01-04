@@ -1,0 +1,233 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: recvmsg.2,v $ $Revision: 3.5.7.5 $ (DEC) $Date: 1994/01/19 21:01:43 $
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.TH recvmsg 2
+.SH NAME
+.PP
+\*Lrecvmsg\*O \- Receives a message from a socket using a message structure
+.SH SYNOPSIS
+.PP
+.iX "socket" "receiving messages from connected or unconnected"
+.iX "messages" "receiving from connected or unconnected sockets"
+.iX "recvmsg function"
+.sS
+\*L#include\*O <\*Lsys/types.h\*O>\*L
+.sp .4v
+\*L#include\*O <\*Lsys/socket.h\*O>\*L
+.sp .4v
+\*Lint recvmsg\*O(\*L
+.nL
+	\*Lint \*Vsocket\*O,\*L
+.nL
+	\*Lstruct msghdr \*V*message\*O,\*L
+.nL
+	\*Lint \*Vflags \*L) ;
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vsocket\*O"
+Specifies the socket descriptor.
+.LI "\*Vmessage\*O"
+\*OPoints to a
+\*Lmsghdr\*O
+structure, containing pointers to both the destination address for the incoming
+message and to buffers containing ancillary data. The format of the
+address is determined by the behavior requested for the
+socket.
+If the compile-time option
+_SOCKADDR_LEN
+is defined before the
+<\*Lsys/socket.h\*O>
+header file is included, the
+\*Lmsghdr\*O
+structure takes 4.4BSD behavior.
+Otherwise, the default 4.3BSD
+\*Lmsghdr\*O
+structure is used.
+.LI
+In 4.4BSD, the
+\*Lmsghdr\*O
+structure has
+a separate
+\*Lmsg_flags\*O
+field for holding flags from the received message.
+In addition, the
+\*Lmsg_accrights\*O
+field is generalized into a
+\*Lmsg_control\*O
+field.  See
+\*EDESCRIPTION\*O
+for more information.
+.LI
+If
+_SOCKADDR_LEN
+is defined, the 4.3BSD
+\*Lmsghdr\*O
+structure is defined with the name
+\*Lomsghdr\*O.
+.LI "\*Vflags\*O"
+Permits the caller of this function to exercise control over the
+reception of messages.  The value for this parameter is formed by a
+logical OR of one or both of the following values:
+.RS
+.VL 15
+.LI "MSG_PEEK"
+Peeks at the incoming message.
+.LI "MSG_OOB"
+Processes out-of-band data on sockets that support
+out-of-band data.
+.LE
+.LE
+.RE
+.SH DESCRIPTION
+.PP
+The
+\*Lrecvmsg(\|)\*O
+function receives messages from unconnected
+or connected sockets and returns the
+length of the message.  When a message is too long for the buffer,
+the message may be truncated depending on the type of socket
+.\" Begin Digital-specific information CORRECTION
+.\" Removed extra 'the' per QAR 6887.
+from which the message is written.
+.\" End Digital-specific information CORRECTION
+.PP
+When no messages are available at the socket specified by the \*Vsocket\*O
+parameter, the \*Lrecvmsg(\|)\*O
+function waits for a message to arrive. When the socket is nonblocking
+and no message is available, the \*Lrecvmsg(\|)\*O function fails and
+sets
+\*Lerrno\*O
+to [EWOULDBLOCK].
+.PP
+\*OUse the \*Lselect(\|)\*O function to determine when more data arrives.
+.\" This functionality will not be part of the Digital product  -  D. Suitor
+.\" #ifdef SEC_ILB
+.\" .LI "SEC_RIGHTS_ILB"
+.\" The information label of the sending process (\*Lilb_bytes(\|)\*O).
+.\" .LE
+.\" .PP
+.\" When receiving a message with the \*Lrecvmsg(\|)\*O function,
+.\" the process is floated to
+.\" accommodate the information label of the incoming message.
+.\" If the information label of the incoming message would cause the
+.\" process's
+.\" information level to float such that it would no longer be dominated
+.\" by the
+.\" process's sensitivity level, the system call fails.
+.\" The socket's information label is reset to System Low when a process
+.\" receives the last byte off the socket.
+.\" #endif /* SEC_ILB */
+.PP
+The \*Lrecvmsg(\|)\*O function uses a \*Lmsghdr\*O structure to minimize the
+number of directly supplied parameters. In the
+\*Lmsghdr\*O
+structure, the
+\*Lmsg_name\*O
+and
+\*Lmsg_namelen\*O
+fields
+specify the destination address if the socket is unconnected.
+The
+\*Lmsg_name\*O
+field
+may be given as a null pointer if no names are desired or required.
+The
+\*Lmsg_iov\*O
+and
+\*Lmsg_iovlen\*O
+fields describe the scatter gather locations.
+.PP
+In 4.3BSD, the
+\*Lmsg_accrights\*O
+field is a buffer for passing access rights.  In 4.4BSD, the
+\*Lmsg_accrights\*O
+field
+has been expanded into a
+\*Lmsg_control\*O
+field,
+to include other protocol control messages
+or other miscellaneous ancillary data.
+.PP
+In the 4.4BSD
+\*Lmsghdr\*O
+structure, the
+\*Lmsg_flags\*O
+field holds flags from the received message.
+In addition to MSG_PEEK and MSG_OOB, the incoming flags reported in
+the
+\*Lmsg_flags\*O
+field can be any of the following values:
+.VL 20
+.LI "MSG_EOR"
+Data includes the end-of-record marker.
+.LI "MSG_TRUNC"
+Data was truncated before delivery.
+.LI "MSG_CTRUNC"
+Control data was truncated before delivery.
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion, the
+\*Lrecvmsg(\|)\*O
+function returns the length of the message in bytes,
+and fills in the fields of the
+\*Lmsghdr\*O
+structure pointed to by the
+\*Vmessage\*O
+parameter as appropriate.
+Otherwise, a value of -1 is returned and \*Lerrno\*O
+is set to indicate the error.
+.SH ERRORS
+.PP
+If the
+\*Lrecvmsg(\|)\*O
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL 15
+.LI "[EBADF]"
+The \*Vsocket\*O parameter is not valid.
+.LI "[EFAULT]"
+The \*Vmessage\*O parameter is not in a readable or writable
+part of user address-space.
+.LI "[EINTR]"
+This function was interrupted by a signal before any data was available.
+.LI "[ENOTSOCK]"
+The \*Vsocket\*O parameter refers to a file, not a socket.
+.LI "[EWOULDBLOCK]"
+The socket is marked nonblocking and no data is ready to be received.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lrecv\*O(2),
+\*Lrecvfrom\*O(2),
+\*Lsend\*O(2),
+\*Lsendmsg\*O(2),
+\*Lsendto\*O(2),
+\*Lselect\*O(2),
+\*Lshutdown\*O(2),
+\*Lsocket\*O(2)
+.iX "recvmsg function"
+.EQ
+delim off
+.EN

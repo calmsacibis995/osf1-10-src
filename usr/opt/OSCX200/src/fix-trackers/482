@@ -1,0 +1,138 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211052242.AA12874@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2719) close XBUG #5471: xsuite: [src/lib]: verifyimage() can write past end of .dat file buffer
+Date: Thu, 05 Nov 92 17:42:08 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Watch out, this is for the test suite, not R5!
+
+### bug number:   5471
+### area:         xsuite
+### severity:     low
+### comments:     
+
+*** /tmp/d12847	Thu Nov  5 17:39:02 1992
+--- xtest/src/lib/verimage.c	Thu Nov  5 13:56:41 1992
+***************
+*** 12,18 ****
+   * make no representations about the suitability of this software for any
+   * purpose.  It is provided "as is" without express or implied warranty.
+   *
+!  * $XConsortium: verimage.c,v 1.15 92/06/11 15:44:26 rws Exp $
+   */
+  
+  #include	"stdio.h"
+--- 12,18 ----
+   * make no representations about the suitability of this software for any
+   * purpose.  It is provided "as is" without express or implied warranty.
+   *
+!  * $XConsortium: verimage.c,v 1.16 92/11/05 13:56:26 rws Exp $
+   */
+  
+  #include	"stdio.h"
+***************
+*** 25,30 ****
+--- 25,32 ----
+  #include	"xtestlib.h"
+  #include	"pixval.h"
+  
++ #define	BUF_LEN	512
++ 
+  extern	int 	tet_thistest;
+  extern	struct	tet_testlist tet_testlist[];
+  
+***************
+*** 49,55 ****
+  unsigned int width, height;
+  long depth;
+  long	imdepth;
+! char	buf[64];
+  char	name[128];
+  static	int lasttest;
+  static	int lastvinf;
+--- 51,57 ----
+  unsigned int width, height;
+  long depth;
+  long	imdepth;
+! char	buf[BUF_LEN];
+  char	name[128];
+  static	int lasttest;
+  static	int lastvinf;
+***************
+*** 125,131 ****
+  	initfpos = ftell(fp);
+  
+  	do {
+! 	    if (fgets(buf, 512, fp) == NULL)
+  		goto badformat;
+  	} while (buf[0] == '!');
+  	if (sscanf(buf, "%d %d %d", &width, &height, &imdepth) < 3) {
+--- 127,133 ----
+  	initfpos = ftell(fp);
+  
+  	do {
+! 	    if (fgets(buf, BUF_LEN, fp) == NULL)
+  		goto badformat;
+  	} while (buf[0] == '!');
+  	if (sscanf(buf, "%d %d %d", &width, &height, &imdepth) < 3) {
+***************
+*** 158,164 ****
+  
+  	x = y = 0;
+  
+! 	while (fgets(buf, 512, fp) != NULL) {
+  		if (strchr(buf, ',') != NULL) {
+  			if (sscanf(buf, "%x,%x", &count, &pix) < 2)
+  			    goto badformat;
+--- 160,166 ----
+  
+  	x = y = 0;
+  
+! 	while (fgets(buf, BUF_LEN, fp) != NULL) {
+  		if (strchr(buf, ',') != NULL) {
+  			if (sscanf(buf, "%x,%x", &count, &pix) < 2)
+  			    goto badformat;
+***************
+*** 194,200 ****
+  	/*
+  	 * Make this separate routine XXX
+  	 */
+! 	char	buf[512];
+  	char	errfile[64];
+  	long	newpos;
+  	int 	n;
+--- 196,202 ----
+  	/*
+  	 * Make this separate routine XXX
+  	 */
+! 	char	buf[BUF_LEN];
+  	char	errfile[64];
+  	long	newpos;
+  	int 	n;
+***************
+*** 212,220 ****
+  		} else {
+  			fseek(fp, initfpos, 0);
+  			for (n = newpos-initfpos; n > 0; ) {
+! 				fread(buf, 1, (n>512)? 512: n, fp);
+! 				fwrite(buf, 1, (n>512)? 512: n, errfp);
+! 				n -= 512;
+  			}
+  			report("Pixel check failed. See file %s for results", errfile);
+  			Errnum++;
+--- 214,222 ----
+  		} else {
+  			fseek(fp, initfpos, 0);
+  			for (n = newpos-initfpos; n > 0; ) {
+! 				fread(buf, 1, (n>BUF_LEN)? BUF_LEN: n, fp);
+! 				fwrite(buf, 1, (n>BUF_LEN)? BUF_LEN: n, errfp);
+! 				n -= BUF_LEN;
+  			}
+  			report("Pixel check failed. See file %s for results", errfile);
+  			Errnum++;

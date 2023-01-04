@@ -1,0 +1,214 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207312106.AA02259@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2638) close XBUG #5399: demos: x11perf: EndShmPutImage not called for shmput500
+Date: Fri, 31 Jul 92 17:06:06 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5399
+### area:         demos
+### severity:     low
+### comments:     
+
+This patch also adds four new tests, unrelated to the bug fix.
+
+*** /tmp/d02192	Fri Jul 31 17:03:10 1992
+--- demos/x11perf/do_tests.c	Fri Jul 31 16:47:39 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_tests.c,v 2.28 92/07/31 16:47:28 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 175,180 ****
+--- 176,184 ----
+  extern void DoComplexPoly();
+  extern void EndComplexPoly();
+  
++ extern Bool InitGeneralPoly();
++ extern void DoGeneralPoly();
++ 
+  /*
+   * some test must be done a certain multiple of times. That multiple is
+   * in the second half of the products below. You can edit the multiplier,
+***************
+*** 754,759 ****
+--- 758,779 ----
+  		InitComplexPoly, DoComplexPoly, NullProc, EndComplexPoly,
+  		VERSION1_3, ROP, 0,
+  		{POLY/10, 100}},
++   {"-64poly10convex", "Fill 10x10 64-gon (Convex)",
++ 		InitGeneralPoly, DoGeneralPoly, NullProc, EndComplexPoly,
++ 		VERSION1_3, ROP, 0,
++ 		{POLY, 10, (char *) 64, (char *) Convex}},
++   {"-64poly100convex", "Fill 100x100 64-gon (Convex)",
++ 		InitGeneralPoly, DoGeneralPoly, NullProc, EndComplexPoly,
++ 		VERSION1_3, ROP, 0,
++ 		{POLY/10, 100, (char *) 64, (char *) Convex}},
++   {"-64poly10complex", "Fill 10x10 64-gon (Complex)",
++ 		InitGeneralPoly, DoGeneralPoly, NullProc, EndComplexPoly,
++ 		VERSION1_3, ROP, 0,
++ 		{POLY, 10, (char *) 64, (char *) Complex}},
++   {"-64poly100complex", "Fill 100x100 64-gon (Complex)",
++ 		InitGeneralPoly, DoGeneralPoly, NullProc, EndComplexPoly,
++ 		VERSION1_3, ROP, 0,
++ 		{POLY/10, 100, (char *) 64, (char *) Complex}},
+    {"-ftext",    "Char in 80-char line (6x13)",
+  		InitText, DoText, ClearTextWin, EndText,
+  		VALL, ROP, 0,
+***************
+*** 931,937 ****
+  		VALL, ROP, 0,
+  		{4, 100}},
+    {"-shmput500", "ShmPutImage 500x500 square",
+! 		InitShmPutImage, DoShmPutImage, MidCopyPix, EndGetImage,
+  		VALL, ROP, 0,
+  		{4, 500}},
+  #endif
+--- 951,957 ----
+  		VALL, ROP, 0,
+  		{4, 100}},
+    {"-shmput500", "ShmPutImage 500x500 square",
+! 		InitShmPutImage, DoShmPutImage, MidCopyPix, EndShmPutImage,
+  		VALL, ROP, 0,
+  		{4, 500}},
+  #endif
+*** /tmp/d02211	Fri Jul 31 17:03:21 1992
+--- demos/x11perf/do_complex.c	Fri Jul 31 17:02:51 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_complex.c,v 2.7 92/07/31 17:02:47 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 30,35 ****
+--- 31,37 ----
+  
+  extern double sin();
+  extern double cos();
++ extern double tan();
+  extern double sqrt();
+  #define PI  3.14159265357989
+  
+***************
+*** 124,126 ****
+--- 126,201 ----
+      free(points);
+  }
+  
++ int InitGeneralPoly (xp,p,reps)
++     XParms  xp;
++     Parms   p;
++     int     reps;
++ {
++     int     i, j, numPoints;
++     int	    nsides;
++     int	    x, y;
++     int     size, iradius;
++     double  phi, phiinc, inner_radius, outer_radius, delta, phi2;
++     XPoint  *curPoint;
++ 
++     pgc = xp->fggc;
++     size = p->special;
++     nsides = (int) p->font;
++     phi = 0.0;
++     delta = 2.0 * PI / ((double) nsides);
++     phiinc = delta / 10.0;
++ 
++     inner_radius = size / sqrt (nsides * tan (PI / nsides));
++     outer_radius = inner_radius / cos (PI / (2 * nsides));
++     numPoints = p->objects * nsides;
++     points = (XPoint *) malloc (numPoints * sizeof (XPoint));
++     curPoint = points;
++     iradius = outer_radius + 1;
++     x = iradius;
++     y = iradius;
++     for (i = 0; i < p->objects; i++) {
++ 	phi2 = phi;
++ 	for (j = 0; j < nsides; j++) {
++ 	    curPoint->x = x + (outer_radius * cos(phi2) + 0.5);
++ 	    curPoint->y = y + (outer_radius * sin(phi2) + 0.5);
++ 	    curPoint++;
++ 	    phi2 += delta;
++ 	}
++ 	phi += phiinc;
++ 	y += 2 * iradius;
++ 	if (y + iradius >= HEIGHT) {
++ 	    y = iradius;
++ 	    x += 2 * iradius;
++ 	    if (x + iradius >= WIDTH) {
++ 		x = iradius;
++ 	    }
++ 	}
++     }
++     return reps;
++ }
++ 
++ void DoGeneralPoly(xp,p,reps)
++     XParms  xp;
++     Parms   p;
++     int     reps;
++ {
++     int     i, j;
++     int	    nsides;
++     int	    mode;
++     XPoint  *curPoint;
++ 
++     nsides = (int) p->font;
++     mode = (int) p->bfont;
++     for (i = 0; i != reps; i++) {
++         curPoint = points;
++         for (j = 0; j != p->objects; j++) {
++             XFillPolygon(xp->d, xp->w, pgc, curPoint, nsides, mode, 
++ 			 CoordModeOrigin);
++             curPoint += nsides;
++ 	  }
++         if (pgc == xp->bggc)
++             pgc = xp->fggc;
++         else
++             pgc = xp->bggc;
++     }
++ }
+*** /tmp/d02230	Fri Jul 31 17:03:30 1992
+--- demos/x11perf/x11perf.man	Fri Jul 31 16:58:40 1992
+***************
+*** 1,4 ****
+! .\" $XConsortium: x11perf.man,v 1.10 91/08/26 18:00:44 gildea Exp $
+  .TH X11PERF 1 "Release 5" "X Version 11"
+  .SH NAME
+  x11perf \- X11 server performance test program
+--- 1,4 ----
+! .\" $XConsortium: x11perf.man,v 1.11 92/07/31 16:58:21 rws Exp $
+  .TH X11PERF 1 "Release 5" "X Version 11"
+  .SH NAME
+  x11perf \- X11 server performance test program
+***************
+*** 600,605 ****
+--- 600,617 ----
+  .TP 14
+  .B \-complex100
+  Fill 100-pixel/side complex polygon.
++ .TP 14
++ .B \-64poly10convex
++ Fill 10x10 convex 64-gon.
++ .TP 14
++ .B \-64poly100convex
++ Fill 100x100 convex 64-gon.
++ .TP 14
++ .B \-64poly10complex
++ Fill 10x10 complex 64-gon.
++ .TP 14
++ .B \-64poly100complex
++ Fill 100x100 complex 64-gon.
+  .TP 14
+  .B \-ftext
+  Character in 80-char line (6x13).

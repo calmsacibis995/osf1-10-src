@@ -1,0 +1,98 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204222055.AA02038@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: fxrojas@nlsarch.austin.ibm.com
+Subject: (seq: 2503) close XBUG #5182: Xt: XIM w/ keycode 0 (as defined by Xlib I18N) does not work with Xt
+Date: Wed, 22 Apr 92 16:55:54 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5182
+### area:         Xt
+### severity:     medium
+### comments:     
+
+*** /tmp/d01992	Wed Apr 22 16:53:07 1992
+--- lib/Xt/Keyboard.c	Wed Apr 22 16:52:24 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Keyboard.c,v 1.24 91/07/21 16:55:01 converse Exp $ */
+  
+  /********************************************************
+  
+--- 1,4 ----
+! /* $XConsortium: Keyboard.c,v 1.25 92/04/22 16:49:33 rws Exp $ */
+  
+  /********************************************************
+  
+***************
+*** 273,279 ****
+  		       * focus 
+  		       */
+  		      if (
+! 			  (event->type != KeyPress)
+  			  )
+  			dspWidget = focusWidget;
+  		      else
+--- 273,280 ----
+  		       * focus 
+  		       */
+  		      if (
+! 			  (event->type != KeyPress) ||
+! 			  (event->keycode == 0) /* Xlib XIM composed input */
+  			  )
+  			dspWidget = focusWidget;
+  		      else
+***************
+*** 341,347 ****
+        {
+  	case KeyPress:
+  	  {
+! 	      if (!IsServerGrab(device->grabType) && 
+  		  (newGrab = CheckServerGrabs((XEvent*)event,
+  					      pdi->trace,
+  					      pdi->traceDepth)))
+--- 342,349 ----
+        {
+  	case KeyPress:
+  	  {
+! 	      if (event->keycode != 0 && /* Xlib XIM composed input */
+! 		  !IsServerGrab(device->grabType) && 
+  		  (newGrab = CheckServerGrabs((XEvent*)event,
+  					      pdi->trace,
+  					      pdi->traceDepth)))
+*** /tmp/d02013	Wed Apr 22 16:53:17 1992
+--- lib/Xt/TMkey.c	Wed Apr 22 16:53:28 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMkey.c,v 1.14 92/04/03 13:23:43 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: TMkey.c,v 1.15 92/04/22 16:51:17 rws Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+***************
+*** 90,96 ****
+  { \
+      int _i_ = (((key) - (pd)->min_keycode + modmix[(mod) & 0xff]) & \
+  	       (TMKEYCACHESIZE-1)); \
+!     if ((ctx)->keycache.keycode[_i_] == (key) && \
+  	(ctx)->keycache.modifiers[_i_] == (mod)) { \
+  	mod_ret = (ctx)->keycache.modifiers_return; \
+  	sym_ret = (ctx)->keycache.keysym[_i_]; \
+--- 90,97 ----
+  { \
+      int _i_ = (((key) - (pd)->min_keycode + modmix[(mod) & 0xff]) & \
+  	       (TMKEYCACHESIZE-1)); \
+!     if ((key) != 0 && /* Xlib XIM composed input */ \
+! 	(ctx)->keycache.keycode[_i_] == (key) && \
+  	(ctx)->keycache.modifiers[_i_] == (mod)) { \
+  	mod_ret = (ctx)->keycache.modifiers_return; \
+  	sym_ret = (ctx)->keycache.keysym[_i_]; \

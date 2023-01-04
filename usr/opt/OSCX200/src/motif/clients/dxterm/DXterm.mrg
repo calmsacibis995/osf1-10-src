@@ -1,0 +1,92 @@
+#!/sbin/sh
+#
+# =========================================================================
+# For update installation merges, there are two schemes you can use:
+#
+#	1. provide your own merge routine.
+#		a) set MERGE_ROUTINE to the name of your merge routine. 
+#	
+#			Example: MERGE_ROUTINE=DRI_Merge
+#	
+#		b) define your merge routine. 
+#	
+# 			- given: global variable   
+#				 	$_FILE - file name  
+#			- return: 0 if success
+#		    		  non-zero if failure
+#
+# 			Note: 	1. use MRG_Echo() to output additional messages.
+#				2. see /usr/share/lib/shell/libmrg for other
+#				   available global variables.
+#	
+#			Example:
+#				DRI_Merge ()
+#				{
+#					RET=0
+#
+#					# merge operations, 
+#					# use 'grep -v', 'ed', 'echo >>', etc. 
+#					# set $RET to non-zero on failure.
+#
+#					return $RET
+#				}
+#
+#	2. use the RCS 3-way merge utility. 
+#		a) use the template as is 
+#		b) if necessary, check for duplicates after merge, call 
+#		   MRG_SetCheck at specified location.
+#
+#			Note: 	1. specify one check (a regular expression or a
+#			  	   plain text string) in one call
+# 				2. enclose regular expressions in single quotes
+#				   (' ') and plain text strings in double quotes#				   (" ") as argument of MRG_SetCheck is to be 
+#				   passed to 'egrep'
+#
+#			Example: 
+#				MRG_SetCheck "auth"    
+#				MRG_SetCheck '^auditd[ 	].*/tcp'
+#
+# =========================================================================
+#
+# specify name of your merge routine here if you are not using 3-way merge. 
+
+MERGE_ROUTINE=DXterm_merge
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+# define your merge routine here. 
+
+DXterm_merge()
+{
+	S1="DXterm.main.terminal.bigFontSetName:\(.*\)-\*-terminal-\*-\*-\*--\*-140-\*-\*-\*-\*-\*-\*"
+	S2="DXterm.main.terminal.littleFontSetName:\(.*\)-\*-terminal-\*-\*-\*--\*-100-\*-\*-\*-\*-\*-\*"
+	S3="DXterm.main.terminal.periodCommaKeys:"
+
+	grep -q "$S1" $_FILE &&
+	{
+		MRG_Echo "removing DXterm.main.terminal.bigFontSetName"
+		grep -v "$S1" $_FILE > /tmp/$_FILE
+		mv /tmp/$_FILE $_FILE
+	}
+
+	grep -q "$S2" $_FILE &&
+	{
+		MRG_Echo "removing DXterm.main.terminal.littleFontSetName"
+		grep -v "$S2" $_FILE > /tmp/$_FILE
+		mv /tmp/$_FILE $_FILE
+	}
+
+	grep -q "$S3" $_FILE ||
+	{
+		MRG_Echo "adding DXterm.main.terminal.periodCommaKeys"
+		echo "DXterm.main.terminal.periodCommaKeys:\t\t1" >> $_FILE
+	}
+
+	return 0
+}
+
+# OPTIONAL: for 3-way merge, make MRG_SetCheck calls here.
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 
+

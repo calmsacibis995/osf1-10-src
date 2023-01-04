@@ -1,0 +1,156 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+ * ALL RIGHTS RESERVED
+ */
+#if !defined(lint) && !defined(_NOIDENT)
+static char rcsid[] = "@(#)$RCSfile: termcap.form,v $ $Revision: 4.2.5.4 $ (DEC) $Date: 1994/01/07 18:09:57 $";
+#endif
+/*
+ * HISTORY
+ */
+static char sccsid[] = "@(#)termcap.form  1.8  com/lib/curses,3.1,9008 2/8/90 12:28:52";
+/*
+ * COMPONENT_NAME: (LIBCURSE) Curses Library
+ *
+ * FUNCTIONS:   tgetent, tgetflag, tgetnum, tgetstr
+ *
+ *
+ * (C) COPYRIGHT International Business Machines Corp. 1985, 1988
+ * All Rights Reserved
+ * Licensed Material - Property of IBM
+ *
+ * US Government Users Restricted Rights - Use, duplication or
+ * disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+ */
+
+#include "cursesext.h"
+
+
+char *UP;
+char *BC;
+char PC;
+_SHORT ospeed;
+
+/*
+ * NAME:        tgetent
+ *
+ * FUNCTION:
+ *
+ *      Simulation of termcap using terminfo.
+ */
+
+int
+tgetent(bp, name)
+char *bp, *name;
+{
+	int rv;
+
+	if (setupterm(name, 1, &rv) >= 0)
+		/* Leave things as they were (for compatibility) */
+		reset_shell_mode();
+	return rv;
+}
+
+/* Make a 2 letter code into an integer we can switch on easily.*/
+#define two(s1, s2) (s1 + 256*s2)
+#define twostr(str) two(*str, str[1])
+
+/*
+ * NAME:        tgetflag
+ */
+
+int
+tgetflag(id)
+char *id;
+{
+	register int rv;
+	register char *p;
+
+	switch (twostr(id)) {
+	BOOLS
+	case two('b','s'):
+		p = cursor_left;
+		rv = p && *p==8 && p[1] == 0;
+		break;
+	case two('p','t'):
+		p = tab;
+		rv = p && *p==9 && p[1] == 0;
+		break;
+	case two('n','c'):
+		p = carriage_return;
+		rv = ! (p && *p==13 && p[1] == 0);
+		break;
+	case two('n','s'):
+		p = scroll_forward;
+		rv = ! (p && *p==10 && p[1] == 0);
+		break;
+	default: rv = 0;
+	}
+	return rv;
+}
+
+/*
+ * NAME:        tgetnum
+ */
+
+int
+tgetnum(id)
+char *id;
+{
+	int rv;
+
+	switch (twostr(id)) {
+	NUMS
+	default: rv = -1;
+	}
+	return rv;
+}
+
+/*
+ * NAME:        tgetstr
+ *
+ * SPECIAL NOTE: The area parm should be char * not char **.
+ *               Due to unknown repercussions from the change
+ *               to char *, the code has been changed back
+ *               to the incorrect char ** for this release.
+ *                                              1-6-94 DWD
+ */
+
+char *
+tgetstr(char *id, char **area)
+{
+	char *rv = (char *)NULL;
+
+	switch (twostr(id)) {
+	STRS
+	default: rv = (char *)NULL;
+	}
+	if (rv && *area) {
+		strcpy(*area, rv)   ;
+		*area += strlen(rv) ;
+	}
+
+	return rv;
+}

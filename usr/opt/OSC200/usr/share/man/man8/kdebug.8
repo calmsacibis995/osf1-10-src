@@ -1,0 +1,311 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: kdebug.8,v $ $Revision: 1.1.4.2 $ (DEC) $Date: 1993/03/15 15:42:58 $
+.\"
+.TH kdebug 8
+.SH NAME
+.PP
+\*Lkdebug\*O \- enables running, testing, and debugging of test kernels
+.SH SYNOPSIS
+.PP
+.sS
+\*L/kdebug\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "kdebug debugger"
+The \*Lkdebug\*O debugger is used for debugging a kernel by controlling and
+monitoring a kernel's execution. You use  a serial line connection between the
+system whose kernel you are debugging and a remote system or terminal.
+.PP
+.\" 
+The \*Lkdebug\*O debugger operates in either local or remote mode. Kernels
+are tested on a DEC OSF/1 Version 1.2 test system. In the local mode, a serial
+port on the test system is connected to an ASCII terminal or to a
+\*Ltip\*O line.  Local mode debugging is nonsymbolic and stack back traces
+are not available. You can set breakpoints, step through, and examine and modify
+memory and registers.
+.PP
+In remote mode, the test system is connected to a gateway system using a
+serial line. The tested kernels are built on a build system residing somewhere
+on the Internet network.  After the kernel is built on the build system,
+it is copied to the test system. The \*Ldbx\*O debugger is then
+invoked on the build system, communicating with the test system through
+the gateway system.
+.PP
+Note that the gateway and build systems may be the same
+physical system.
+.PP
+You can invoke the \*Lkdebug\*O debugger in one of two modes: remote and local.
+.SS Remote Mode
+You invoke the \*Lkdebug\*O debugger in remote mode as follows:
+.AL
+.LI
+On the build system, add the following lines to your \*L.dbxinit\*O file:
+.sp
+.oS
+set $kdebug_host="\*Vhostname\*O"
+set $kdebug_line="\*Vserial_line\*O"
+set $kdebug_dbgtty="\*Vtty_line\*O"
+.oE
+.sp
+The variable "\*Vhostname\*O" is the name of the gateway system and must be set.
+The variable "\*Vserial_line\*O" specifies the alternate serial line from the
+\*L/etc/remote\*O file on the gateway system. By default, "\*Vserial_line\*O"
+is set to kdebug. The variable "\*Vtty_line\*O"
+sets the tty line on the gateway system  to display
+the communication between build and the test systems,
+which is useful in debugging your setup.
+By default, this variable is null.
+.LI
+Copy the kernel to be tested to \*L/vmunix\*O on the test system.
+.LI
+Start up the \*Ldbx\*O debugger on the build system, supplying the pathname
+of the test kernel. Set a breakpoint and start running \*Ldbx\*O as follows:
+.sp
+.iS
+# dbx -remote vmunix
+.iE
+.oS
+dbx version 3.12.1
+Type 'help' for help.
+main: 602  p = &proc[0];
+.oE
+.iS
+(dbx) stop in main
+.iE
+.oS
+[2] stop in main
+.oE
+.iS
+(dbx) run
+.iE
+.sp
+Note that a breakpoint can be set any time after the execution of the \*LKDEBUB_BOOTSTRAP()\*O routine.
+Setting a breakpoint prior to the execution of this routine may result in unpredictable behavior.
+.LI
+Halt the test system and, at the console prompt, set the \*Lboot_osflags\*O
+console variable to contain the \*Lk\*O
+option, and boot the system. For example:
+.sp
+.iS
+>>> set boot_osflags k
+>>> b
+.iE
+.sp
+The kernel will now start executing, \*Ldbx\*O will catch the breakpoint,
+and you can begin issuing \*Ldbx\*O debugging commands as described in
+the \*Ldbx\*O(1) reference page and in the \*VProgrammer's Guide\*O.
+.LE
+.SS Local Mode
+Unlike remote mode, you cannot use the \*Ldbx\*O debugger. Instead, the
+\*Lkdebug\*O debugger in local mode uses its own set of commands, which are
+similar to the \*Ldbx\*O debugger's. You invoke and use the \*Lkdebug\*O
+debugger in local mode as follows:
+.AL
+.LI
+Copy the kernel to be tested to \*L/vmunix\*O on the test system.
+.LI
+Establish a serial line connection to the test system using a terminal or a \*Ltip\*O session on
+another system.
+.LI
+Halt the test system, and at the console prompt, set the
+\*Lboot_osflags\*O console variable to contain \*Lk\*O
+option. For example:
+.sp
+.iS
+>>> set boot_osflags k
+>>> b
+.iE
+.sp
+The kernel will now start executing and you will see
+the following message on your serial line connection:
+.sp
+.oS
+Kdebug Kernel Debugger Version 1.0 Tue Dec 15 22:13:45 EST 1992
+
+KDB:
+.oE
+.sp
+The \*Lkdebug\*O debugger is now ready to accept commands.
+.LE
+.PP
+The following commands are available to the \*Lkdebug\*O
+debugger in local mode:
+.VL 5
+.LI "\*Lbrk\*O [ \*Vaddrlist\*O ]"
+.sp
+Sets a breakpoint. The argument \*Vaddrlist\*O specifies one or more addresses
+at which breakpoints are set. If no arguments are given, \*Lbrk\*O
+lists the breakpoints set. Equivalent to the \*Ldbx stop\*O command.
+.LI "\*Lc\*O"
+.sp
+Specifies \*Lkdebug\*O to continue after a breakpoint. When
+\*Lkdebug\*O encounters a breakpoint, the \*Lc\*O
+command displays the address, the disassembled instruction, and
+the contents of the registers that the instruction used.
+.LI "\*Lcalc\*O"
+.sp
+Performs postfix notation arithmetic calculations (for example, 4+5 is entered
+as 45+). The \*Lcalc\*O command works by placing the entered value followed by a Return on
+a stack. It continues placing values on the stack until you enter an operator.
+The operator performs the operation on the last two items on the stack, replaces
+the second-to-last item with the resulting value, and removes the last item
+from the stack.
+.sp
+Note that the \*Lcalc\*O command uses only a single line on the screen. As you enter
+a value and press Return, the value you entered is erased from the screen
+in order to accept new input.
+.LI "\*Ldis \*Vrange\*O"
+.sp
+Displays the contents of an address in memory. The \*Ldis\*O command
+breaks down the value stored in the address into its hexadecimal value, the
+instruction being excuted, the registers the instruction is using, and the
+action being performed on the registers. The argument \*Vrange\*O
+can be specified as one of the following:
+.sp
+.oS
+\*VBASE_ADDRESS#COUNT\*O
+\*VSTART_ADDRESS:END_ADDRESS\*O
+.oE
+.LI "\*Ldump\*O [ \*Vsize\*O ] [ \*Vbase\*O ]  \*Vrange\*O"
+.sp
+Displays the contents of an address in memory in the specified
+size and base value. The argument \*Vsize\*O can be one of the following switches:
+.sp
+.TS
+tab(@);
+l l .
+\*L-b\*O@byte
+\*L-s\*O@short (2 bytes)
+\*L-i\*O@integer (4 bytes, default)
+\*L-l\*O@long (8 bytes)
+.TE
+.sp
+The argument \*Vbase\*O can be one of the following switches:
+.sp
+.TS
+tab(@);
+l l .
+\*L-o\*O@octal
+\*L-d\*O@decimal
+\*L-x\*O@hexadecimal (default)
+\*L-c\*O@ASCII
+.TE
+.sp
+The argument \*Vrange\*O can be specified as one of the following:
+.sp
+.oS
+\*VBASE_ADDRESS#COUNT\*O
+\*VSTART_ADDRESS:END_ADDRESS\*O
+.oE
+.sp
+.LI "\*Lg\*O [ \*Vsize\*O ] \*Vaddress\*O | \*Vregister\*O"
+.sp
+Examines the contents in the specified size of either an address in memory or
+a register. The \*Vsize\*O argument can be one of the following switches:
+.sp
+.TS
+tab(@);
+l l.
+\*L-b\*O@byte
+\*L-s\*O@short (2 bytes)
+\*L-i\*O@integer (4 bytes, default)
+\*L-l\*O@long (8 bytes)
+.TE
+.sp
+.LI "\*Lgoto\*O \*Vaddr\*O"
+.sp
+Branches to the specified source line. Execution continues from that point
+when you issue a \*Lc\*O command.
+.LI "\*Lhelp\*O | \*L?\*O [ \*Vcommand\*O ]
+.sp
+Displays usage text. The argument \*Vcommand\*O
+can be any of the commands listed in this section.
+.LI "\*Lp\*O [ \*Vsize\*O ] \*Vaddress\*L | \*Vregister number\*O"
+.sp
+Modifies the contents of memory and registers. The \*Vsize\*O
+switch can be one of the following:
+.sp
+.TS
+tab(@);
+l l .
+\*L-b\*O@byte
+\*L-s\*O@short (2 bytes)
+\*L-i\*O@integer (4 bytes, default)
+\*L-l\*O@long (8 bytes)
+.TE
+.sp
+.LI "\*Lquit\*O"
+.sp
+Exits a \*Lkdebug\*O session and returns you to the console prompt.
+.LI "\*Ls\*O | \*LS\*O [ \*VCOUNT\*O ]"
+.sp
+Single steps through each instruction in the kernel. These commands are the equivalent
+of setting a breakpoint at each instruction. The \*Ls\*O
+command follows subroutines calls. The \*LS\*O
+command executes a subroutine, but does not follow it. The
+\*VCOUNT\*O argument specifies the number of instructions to execute
+before stopping.
+.LI "\*Lstring\*O \*Vaddr\*O [ \*VMAXLEN\*O ]"
+.sp
+Displays the contents of memory at address \*Vaddr\*O in ASCII. The argument
+\*VMAXLEN\*O specifies the length of the string displayed.
+.LI "\*Lunbrk\*O [ \*Vbpnumlist\*O ]"
+.sp
+Removes the breakpoints as specified in \*Vbpnumlist\*O.
+.LE
+.PP
+Erase single characters with Ctrl/H or Del;
+rubout an entire line with Ctrl/U.
+.SH RESTRICTIONS
+.PP
+Prior to running the \*Lkdebug\*O debugger, the test, build, and gateway
+systems must meet the following requirements:
+.ML
+.LI
+Test system
+.sp
+Must be running DEC OSF/1 Version 1.2, must have the "Kernel Debugging Tools"
+subset loaded, must have configured the "Reserve Kernel Debug Space" kernel option.
+.LI
+Gateway system
+.sp
+Must be running DEC OSF/1 Version 1.2 and must have the
+"Kernel Debugging Tools" subset loaded.
+.LI
+Build system
+.sp
+Must be running DEC OSF/1 Version 1.2 and must have the "Kernel
+Debugging Tools" subset loaded.
+.LE
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/sbin/kdebugd\*O"
+Gateway daemon used for communications between the \*Lkdebug\*O debugger and
+the \*Ldbx\*O debugger.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Ldbx\*O(1), \*Lkdbx\*O(8)
+.PP
+Books: \*VGuide to Kernel Debugging\*O, \*VProgrammer's Guide\*O,
+\*VGuide to System Administration\*O
+.EQ
+delim off
+.EN

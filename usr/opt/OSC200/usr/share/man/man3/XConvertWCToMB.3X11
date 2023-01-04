@@ -1,0 +1,122 @@
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: XConvertWCToMB.3X11,v $ $Revision: 1.2.4.2 $ (DEC) $Date: 1993/05/03 16:19:36 $
+.\" 
+.\" $XConsortium: WCToMB.man,v 1.2 91/10/08 15:24:26 rws Exp $
+.\" Copyright 1990 by OMRON Corp.  All Rights Reserved.
+.TH _XConvertWCToMB 3X11 "" "" "" "X11R5"
+.SH NAME
+_XConvertWCToMB \- conversion from  WC string to mb string
+.SH SYNOPSIS
+.B int _XConvertWCToMB\f2(xlocale, wc_str, wc_len, mb_str, mb_bytes,
+.br
+.B                                    \f2scanned_len)
+.br
+.B XLocale \f2xlocale\f3;
+.br
+.B wchar \f2*wc_str\f3;
+.br
+.B int \f2wc_len\f3;
+.br
+.B unsigned char \f2*mb_str\f3;
+.br
+.B int \f2*mb_bytes\f3;
+.br
+.B int \f2*scanned_len\f3;
+.SH ARGUMENTS
+.IP \f2xlocale\fP 1i
+In: specifies locale, the default NULL is the current locale.
+.IP \f2wc_str\fP 1i
+In: wchar string.
+.br
+.IP \f2wc_len\fP 1i 
+In: length of wchar string, counted in wchars.
+.br
+.IP \f2mb_str\fP 1i 
+Out: conversion buffer of result mb string.
+.br
+.IP \f2mb_bytes\fP 1i 
+In/Out: as "In" it is length of buffer mb_str
+passed by caller; as "Out" it is the returned
+length of converted mb string, both counted in bytes
+.br
+.IP \f2scanned_len\fP 1i 
+Out: scanned number of wchars,
+counted in wchars
+.br
+.SH DESCRIPTION
+The
+.B _XConvertWCToMB
+converts the wc string to multibyte string encoded in the current locale.
+After successful conversion function will automatically
+append a null to mb_str if more room in output buffer mb_str.
+This null character is not counted in length of mb string.
+.PP
+When function returns at any time, scanned_len always remembers
+where stopped.
+.PP
+The caller of this function has to provide the output buffer mb_str.
+By using scanned_len, the caller can break a large
+wchar string into pieces, and convert one piece at a time.
+The result of mb string is concatenatable. However concatenation
+may produce redundant designation sequence if the codeset is state-dependent.
+.PP
+The function returns BadBuffer meaning that
+the output buffer mb_str was exhausted. In this case function
+ensure that the mb_str
+stores already converted mb string; mb_bytes stores 
+number of bytes of mb_str; the scanned_len stores
+the number of already processed wchars. 
+Caller can move wc_str to (wc_str + *scanned_len) for next conversion.
+.PP
+The function returns a number greater than zero meaning a BadEncoding,
+the unconvertable codes in wchar string were met.
+In this case the function will automatically recover the wrong code
+with the following algorithm:
+.IP "" 2
+If a byte of wchar code is wrong, replace it with the minimum character 
+of the current encoding.
+.PP
+Then function continues to do conversion.
+.PP
+Both the WNULL character and wc_len will terminate the conversion.
+.PP
+All errors are defined less than zero, i.e.:
+.IP "" 2
+#define Success         0
+.IP 
+#define BadBuffer      -1
+.IP
+#define BadTerminate   -2
+.IP
+#define BadEncoding    -3
+.SH RETURNED VALUE
+The
+.B _XConvertWCToMB returns the following value:
+.TP
+.B Success
+successful conversion.
+.TP
+.B BadBuffer
+buffer was exhausted.
+.TP
+.B BadEncoding
+wrong codepoints can not be recovered.
+.TP
+.B "> 0"
+number of wrong codepoints, but recovered.
+.SH "SEE ALSO"
+Refer to "CT and WC" for their definitions.
+.EQ
+delim off
+.EN

@@ -1,0 +1,139 @@
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+XCOMM $XConsortium: Imakefile,v 5.31 91/07/16 22:51:52 gildea Exp $
+#include <Server.tmpl>
+
+#undef PixelSize
+#define PixelSize 8
+
+#ifdef MipsArchitecture
+#define MIPSASM
+#endif
+#ifdef AlphaArchitecture
+#define ALPHAASM
+#endif
+
+#ifdef MIPSASM
+ASMSRCS = mipsloadstore.s
+ASMOBJS = loadstore.o
+
+#else
+#ifdef ALPHAASM
+ASMSRCS =
+ASMOBJS =
+#else
+ASMSRCS = mipsloadstore.s
+ASMOBJS = loadstore.o
+#endif
+#endif
+
+SRCS =	 cfbdec.c cfbdecclip.c cfbdecline.c cfbdecplane.c \
+	 ${ASMSRCS}
+
+OBJS =   cfbdec.o cfbdecclip.o cfbdecline.o cfbdecplane.o \
+	 ${ASMOBJS}
+   
+    DEFINES = -DPSZ=PixelSize
+STD_DEFINES = ServerDefines $(MODEL_FLAG) -DMITR5
+   INCLUDES = -I. -I../../cfb -I../../mfb -I../../mi -I../../../include -I$(INCLUDESRC) \
+   	      -I$(FONTSRC)/include -I../ws
+   LINTLIBS = ../../dix/llib-ldix.ln ../../os/llib-los.ln \
+	     ../mfb/llib-lmfb.ln ../mi/llib-lmi.ln
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(cfb,$(OBJS))
+LintLibraryTarget(cfb,$(SRCS))
+
+#if SharedServerLibs
+# Don't do anything here. This library NEEDS to be part of libsfb
+# and not separate. Nothing else uses it but if it did, we'd have
+# to rethink this.
+#endif
+
+NormalLintTarget($(SRCS))
+
+#if HasSaberC
+saber_src:
+	XCOMM load $(CFLAGS) $(SRCS)
+#endif
+
+loadstore.o:
+	$(RM) $@
+	$(RM) loadstore.s
+	$(LN) mipsloadstore.s loadstore.s
+	$(CC) -c -O loadstore.s
+	$(RM) loadstore.s
+
+#ifdef MIPSASM
+ObjectFromSpecialSource(cfbpntcopy,cfbpntarea, \
+		-DCFBSOLIDFILLAREA=cfbSolidFillAreaCopy \
+		-DCFBTSFILLAREA=cfbTSFillAreaCopy \
+		-DCFBOSFILLAREA=cfbOSFillAreaCopy \
+		-DCFBOSFILLAREA32=cfbOSFillArea32Copy \
+		-DCFBTSFILLAREA32=cfbTSFillArea32Copy \
+		-DCFBOSPLANE=cfbOSPlaneCopy -DCFBFILL=DFCOPY \
+		-DCFBFILLLEFT=DFCOPYLEFT -DCFBFILLRIGHT=DFCOPYRIGHT \
+		-DCOPYINASM)
+#else
+ObjectFromSpecialSource(cfbpntcopy,cfbpntarea, \
+		-DCFBSOLIDFILLAREA=cfbSolidFillAreaCopy \
+		-DCFBTSFILLAREA=cfbTSFillAreaCopy \
+		-DCFBOSFILLAREA=cfbOSFillAreaCopy \
+		-DCFBOSFILLAREA32=cfbOSFillArea32Copy \
+		-DCFBTSFILLAREA32=cfbTSFillArea32Copy \
+		-DCFBOSPLANE=cfbOSPlaneCopy -DCFBFILL=DFCOPY \
+		-DCFBFILLLEFT=DFCOPYLEFT -DCFBFILLRIGHT=DFCOPYRIGHT)
+
+#endif
+
+ObjectFromSpecialSource(cfbpntxor,cfbpntarea, \
+		-DCFBSOLIDFILLAREA=cfbSolidFillAreaXor \
+		-DCFBTSFILLAREA=cfbTSFillAreaXor \
+		-DCFBOSFILLAREA=cfbOSFillAreaXor \
+		-DCFBOSFILLAREA32=cfbOSFillArea32Xor \
+		-DCFBTSFILLAREA32=cfbTSFillArea32Xor \
+		-DCFBOSPLANE=cfbOSPlaneXor -DCFBFILL=DFXOR \
+		-DCFBFILLLEFT=DFXORLEFT -DCFBFILLRIGHT=DFXORRIGHT)
+ObjectFromSpecialSource(cfbpntgeneral,cfbpntarea, \
+		-DCFBSOLIDFILLAREA=cfbSolidFillAreaGeneral \
+		-DCFBTSFILLAREA=cfbTSFillAreaGeneral \
+		-DCFBOSFILLAREA=cfbOSFillAreaGeneral \
+		-DCFBOSFILLAREA32=cfbOSFillArea32General \
+		-DCFBTSFILLAREA32=cfbTSFillArea32General \
+		-DCFBOSPLANE=cfbOSPlaneGeneral -DCFBFILL=DFGENERAL \
+		-DCFBFILLLEFT=DFGENERALLEFT -DCFBFILLRIGHT=DFGENERALRIGHT)
+
+ObjectFromSpecialSource(cfbdecbresCopy,cfbdecbres,-DCFBBRESS=cfbBresSCopy \
+	-DCFBVERTS=cfbVertSCopy -DCFBHORZS=cfbHorzSCopy \
+	-DCFBOOBRESS=cfbOODashCopy -DCFBDBRESS=cfbDDashCopy -DCFBFILL=DFCOPY)
+ObjectFromSpecialSource(cfbdecbresxor,cfbdecbres,-DCFBBRESS=cfbBresSXor \
+	-DCFBVERTS=cfbVertSXor -DCFBHORZS=cfbHorzSXor \
+	-DCFBOOBRESS=cfbOODashXor -DCFBDBRESS=cfbDDashXor -DCFBFILL=DFXOR)
+ObjectFromSpecialSource(cfbdecbresGeneral,cfbdecbres, \
+	-DCFBBRESS=cfbBresSGeneral -DCFBVERTS=cfbVertSGeneral \
+	-DCFBHORZS=cfbHorzSGeneral -DCFBOOBRESS=cfbOODashGeneral \
+	-DCFBDBRESS=cfbDDashGeneral -DCFBFILL=DFGENERAL)
+                                                 
+DependTarget()

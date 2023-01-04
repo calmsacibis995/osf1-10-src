@@ -1,0 +1,102 @@
+Path: news!nntpd.lkg.dec.com!pa.dec.com!nobody
+Message-Id: <9211151840.AA08273@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2727) close XBUG #5606: server: miWindowExposures doesn't call RestoreAreas on occluded windows
+Date: Sun, 15 Nov 92 13:39:57 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5606
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d08253	Sun Nov 15 13:39:08 1992
+--- server/ddx/mi/miexpose.c	Sat Nov 14 15:21:03 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: miexpose.c,v 5.15 92/03/13 16:03:50 eswu Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: miexpose.c,v 5.16 92/11/14 15:20:42 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+***************
+*** 389,397 ****
+      WindowPtr pWin;
+      register RegionPtr prgn, other_exposed;
+  {
+!     if ((prgn && !REGION_NIL(prgn)) || other_exposed)
+      {
+- 	RegionPtr   exposures = prgn;
+  	RegionRec   expRec;
+  	int	    clientInterested;
+  
+--- 389,410 ----
+      WindowPtr pWin;
+      register RegionPtr prgn, other_exposed;
+  {
+!     RegionPtr   exposures = prgn;
+!     if (pWin->backStorage && prgn)
+! 	/*
+! 	 * in some cases, backing store will cause a different
+! 	 * region to be exposed than needs to be repainted
+! 	 * (like when a window is mapped).  RestoreAreas is
+! 	 * allowed to return a region other than prgn,
+! 	 * in which case this routine will free the resultant
+! 	 * region.  If exposures is null, then no events will
+! 	 * be sent to the client; if prgn is empty
+! 	 * no areas will be repainted.
+! 	 */
+! 	exposures = (*pWin->drawable.pScreen->RestoreAreas)(pWin, prgn);
+!     if ((prgn && !REGION_NIL(prgn)) || 
+! 	(exposures && !REGION_NIL(exposures)) || other_exposed)
+      {
+  	RegionRec   expRec;
+  	int	    clientInterested;
+  
+***************
+*** 399,416 ****
+  	 * Restore from backing-store FIRST.
+  	 */
+  	clientInterested = (pWin->eventMask|wOtherEventMasks(pWin)) & ExposureMask;
+-  	if (pWin->backStorage && prgn)
+- 	    /*
+- 	     * in some cases, backing store will cause a different
+- 	     * region to be exposed than needs to be repainted
+- 	     * (like when a window is mapped).  RestoreAreas is
+- 	     * allowed to return a region other than prgn,
+- 	     * in which case this routine will free the resultant
+- 	     * region.  If exposures is null, then no events will
+- 	     * be sent to the client; if prgn is empty
+- 	     * no areas will be repainted.
+- 	     */
+- 	    exposures = (*pWin->drawable.pScreen->RestoreAreas)(pWin, prgn);
+  	if (other_exposed)
+  	{
+  	    if (exposures)
+--- 412,417 ----
+***************
+*** 466,471 ****
+--- 467,474 ----
+  	if (prgn)
+  	    (* pWin->drawable.pScreen->RegionEmpty)(prgn);
+      }
++     else if (exposures && exposures != prgn)
++ 	(* pWin->drawable.pScreen->RegionDestroy) (exposures);
+  }
+  
+  

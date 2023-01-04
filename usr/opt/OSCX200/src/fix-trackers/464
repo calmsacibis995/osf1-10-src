@@ -1,0 +1,3486 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210200008.AA19697@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2699) close XBUG #5571: Xlib: (Ximp) keyEvent dropping/dis-order problem (5 of 7)
+Date: Mon, 19 Oct 92 20:08:34 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5571
+### area:         Xlib
+### severity:     low
+### comments:     part 5 of 7
+
+*** /tmp/d18915	Mon Oct 19 19:34:13 1992
+--- lib/X/Ximp/XimpDefCnv.c	Mon Oct 19 19:24:18 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpDefCnv.c,v 1.3 92/04/14 13:28:51 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpDefCnv.c,v 1.4 92/10/19 19:24:14 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 68,83 ****
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+- static Bool def_initialize();
+- static void null_proc();
+  static char def_mbchar();
+  static int def_mbstocs(), def_wcstocs(), def_cstombs(), def_cstowcs();
+  
+! XLCdXimpMethods def_lc_methods =
+! {
+!     def_initialize,
+!     null_proc,
+!     null_proc,
+      def_mbchar,
+      def_mbstocs,
+      def_wcstocs,
+--- 68,88 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+  static char def_mbchar();
+  static int def_mbstocs(), def_wcstocs(), def_cstombs(), def_cstowcs();
+  
+! static XLCdMethodsRec lcd_methods = {
+!     _XlcDefaultMapModifiers,
+!     _XDefaultCreateFontSet,
+!     _Ximp_OpenIM,
+! };
+! 
+! static LCMethodsRec c_lc_methods = {
+!     _XlcDestroyLC,
+!     _XlcCreateState,
+!     _XlcDestroyState,
+!     _XlcCnvStart,
+!     _XlcCnvEnd,
+      def_mbchar,
+      def_mbstocs,
+      def_wcstocs,
+***************
+*** 85,109 ****
+      def_cstowcs,
+  };
+  
+! static void
+! null_proc(lcd)
+!     Ximp_XLCd lcd;
+  {
+  }
+  
+! static Bool
+! def_initialize(lcd)
+!     Ximp_XLCd lcd;
+  {
+!     lcd->ximp_lcpart->mb_cur_max = 1;
+!     lcd->ximp_lcpart->state_dependent = False;
+  
+!     return True;
+  }
+  
+  static char
+! def_mbchar(lcd, str, lenp)
+!     Ximp_XLCd lcd;
+      register char *str;
+      register int *lenp;
+  {
+--- 90,186 ----
+      def_cstowcs,
+  };
+  
+! 
+! XLCd
+! _XlcCLoader(name)
+!     char *name;
+  {
++     XimpLCd lcd;
++ #ifdef XIMP_BC
++ extern Bool _XimpBCSetAtr();
++ #endif
++ 
++     lcd = _XlcCreateLC(name, &lcd_methods, &c_lc_methods);
++     if (lcd == NULL)
++ 	return (XLCd) NULL;
++ 
++     if (strcmp(name, "C") && strncmp(lcd->locale.codeset, "ISO8859", 7))
++ 	goto error;
++ 
++     if (_XlcLoadCodeSet(lcd) == False)
++         goto error;
++ 
++ #ifdef XIMP_BC
++     if (lcd->locale.mb_cur_max == 0)
++ 	if (_XimpBCSetAtr(lcd) == False)
++ 	    goto error;
++ #endif
++ 
++     return (XLCd) lcd;
++ 
++ error:
++     _XlcDestroyLC(lcd);
++ 
++     return (XLCd) NULL;
+  }
+  
+! static State state_list = NULL;
+! 
+! State
+! _XlcCreateState(lcd)
+!     XimpLCd lcd;
+  {
+!     State state;
+  
+!     for (state = state_list; state; state = state->next)
+! 	if (state->is_used == False)
+! 	    break;
+! 
+!     if (state == NULL) {
+! 	state = (State) Xmalloc(sizeof(StateRec));
+! 	if (state == NULL)
+! 	    return (State) NULL;
+! 
+! 	state->next = state_list;
+! 	state_list = state;
+!     }
+! 
+!     state->lcd = lcd;
+!     state->is_used = True;
+! 
+!     return state;
+  }
+  
++ void
++ _XlcDestroyState(state)
++     State state;
++ {
++     state->is_used = False;
++ }
++ 
++ void
++ _XlcCnvStart(state)
++     State state;
++ {
++     Locale locale = &state->lcd->locale;
++ 
++     state->GL_codeset = locale->initial_state_GL;
++     state->GR_codeset = locale->initial_state_GR;
++ 
++     if (state->GL_codeset == NULL)
++ 	state->GL_codeset = *locale->codeset_list;
++ }
++ 
++ void
++ _XlcCnvEnd(state)
++     State state;
++ {
++ }
++ 
++ 
+  static char
+! def_mbchar(state, str, lenp)
+!     State state;
+      register char *str;
+      register int *lenp;
+  {
+***************
+*** 113,141 ****
+  }
+  
+  static int
+! def_mbstocs(lcd, mbstr, mbstr_len, csbuf, csbuf_len, cs_number, char_length)
+!     Ximp_XLCd lcd;
+      unsigned char *mbstr;
+      register int mbstr_len;
+      register unsigned char *csbuf;
+      int *csbuf_len;
+-     int *cs_number;
+-     int *char_length;
+  {
+!     register unsigned char *mbptr = mbstr;
+  
+      if (csbuf_len && mbstr_len > *csbuf_len)
+  	mbstr_len = *csbuf_len;
+  
+!     while (mbstr_len--)
+! 	*csbuf++ = *mbptr++;
+  
+!     if (cs_number)
+! 	*cs_number = 0;
+  
+-     if (char_length)
+- 	*char_length = 1;
+- 
+      if (csbuf_len)
+  	*csbuf_len = mbptr - mbstr;
+  
+--- 190,219 ----
+  }
+  
+  static int
+! def_mbstocs(state, mbstr, mbstr_len, csbuf, csbuf_len)
+!     State state;
+      unsigned char *mbstr;
+      register int mbstr_len;
+      register unsigned char *csbuf;
+      int *csbuf_len;
+  {
+!     register unsigned char *mbptr = mbstr, msb_mask;
+  
+      if (csbuf_len && mbstr_len > *csbuf_len)
+  	mbstr_len = *csbuf_len;
+  
+!     msb_mask = *mbptr & 0x80;
+!     while (mbstr_len--) {
+! 	*csbuf++ = *mbptr++ & 0x7f;
+! 	if ((*mbptr & 0x80) != msb_mask)
+! 	    break;
+!     }
+  
+!     if (msb_mask && state->GR_codeset)
+! 	state->codeset = state->GR_codeset;
+!     else
+! 	state->codeset = state->GL_codeset;
+  
+      if (csbuf_len)
+  	*csbuf_len = mbptr - mbstr;
+  
+***************
+*** 143,171 ****
+  }
+  
+  static int
+! def_wcstocs(lcd, wcstr, wcstr_len, csbuf, csbuf_len, cs_number, char_length)
+!     Ximp_XLCd lcd;
+      wchar_t *wcstr;
+      register int wcstr_len;
+      register unsigned char *csbuf;
+      int *csbuf_len;
+-     int *cs_number;
+-     int *char_length;
+  {
+!     register wchar_t *wcptr = wcstr;
+  
+      if (csbuf_len && wcstr_len > *csbuf_len)
+          wcstr_len = *csbuf_len;
+  
+!     while (wcstr_len--)
+!         *csbuf++ = (unsigned char) *wcptr++;
+  
+!     if (cs_number)
+!         *cs_number = 0;
+  
+-     if (char_length)
+-         *char_length = 1;
+- 
+      if (csbuf_len)
+          *csbuf_len = wcptr - wcstr;
+  
+--- 221,252 ----
+  }
+  
+  static int
+! def_wcstocs(state, wcstr, wcstr_len, csbuf, csbuf_len)
+!     State state;
+      wchar_t *wcstr;
+      register int wcstr_len;
+      register unsigned char *csbuf;
+      int *csbuf_len;
+  {
+!     register wchar_t *wcptr = wcstr, msb_mask;
+!     unsigned long wc_encode_mask = state->lcd->locale.wc_encode_mask;
+!     int num = state->lcd->locale.codeset_num;
+  
+      if (csbuf_len && wcstr_len > *csbuf_len)
+          wcstr_len = *csbuf_len;
+  
+!     msb_mask = *wcptr & wc_encode_mask;
+!     while (wcstr_len--) {
+!         *csbuf++ = (unsigned char) *wcptr++ & 0x7f;
+! 	if ((*wcptr & wc_encode_mask) != msb_mask)
+! 	    break;
+!     }
+  
+!     if (msb_mask && state->GR_codeset)
+! 	state->codeset = state->GR_codeset;
+!     else
+! 	state->codeset = state->GL_codeset;
+  
+      if (csbuf_len)
+          *csbuf_len = wcptr - wcstr;
+  
+***************
+*** 173,185 ****
+  }
+  
+  static int
+! def_cstombs(lcd, csstr, csstr_len, mbbuf, mbbuf_len, cs_number)
+!     Ximp_XLCd lcd;
+      unsigned char *csstr;
+      register int csstr_len;
+      register unsigned char *mbbuf;
+      int *mbbuf_len;
+-     int cs_number;
+  {
+      register unsigned char *csptr = csstr;
+  
+--- 254,265 ----
+  }
+  
+  static int
+! def_cstombs(state, csstr, csstr_len, mbbuf, mbbuf_len)
+!     State state;
+      unsigned char *csstr;
+      register int csstr_len;
+      register unsigned char *mbbuf;
+      int *mbbuf_len;
+  {
+      register unsigned char *csptr = csstr;
+  
+***************
+*** 186,193 ****
+      if (mbbuf_len && csstr_len > *mbbuf_len)
+  	csstr_len = *mbbuf_len;
+  
+!     while (csstr_len--)
+! 	*mbbuf++ = *csptr++;
+  
+      if (mbbuf_len)
+  	*mbbuf_len = csptr - csstr;
+--- 266,278 ----
+      if (mbbuf_len && csstr_len > *mbbuf_len)
+  	csstr_len = *mbbuf_len;
+  
+!     if (state->codeset->side) {
+! 	while (csstr_len--)
+! 	    *mbbuf++ = *csptr++ | 0x80;
+!     } else {
+! 	while (csstr_len--)
+! 	    *mbbuf++ = *csptr++ & 0x7f;
+!     }
+  
+      if (mbbuf_len)
+  	*mbbuf_len = csptr - csstr;
+***************
+*** 196,219 ****
+  }
+  
+  static int
+! def_cstowcs(lcd, csstr, csstr_len, wcbuf, wcbuf_len, cs_number)
+!     Ximp_XLCd lcd;
+      unsigned char *csstr;
+      int csstr_len;
+!     wchar_t *wcbuf;
+      int *wcbuf_len;
+-     int cs_number;
+  {
+      register unsigned char *csptr = csstr;
+  
+      if (wcbuf_len && csstr_len > *wcbuf_len)
+  	csstr_len = *wcbuf_len;
+  
+      while (csstr_len--)
+! 	*wcbuf++ = (wchar_t) *csptr++;
+  
+      if (wcbuf_len)
+  	*wcbuf_len = csptr - csstr;
+  
+      return csptr - csstr;
+  }
+--- 281,700 ----
+  }
+  
+  static int
+! def_cstowcs(state, csstr, csstr_len, wcbuf, wcbuf_len)
+!     State state;
+      unsigned char *csstr;
+      int csstr_len;
+!     register wchar_t *wcbuf;
+      int *wcbuf_len;
+  {
+      register unsigned char *csptr = csstr;
++     unsigned long wc_encoding = state->codeset->wc_encoding;
+  
+      if (wcbuf_len && csstr_len > *wcbuf_len)
+  	csstr_len = *wcbuf_len;
+  
+      while (csstr_len--)
+! 	*wcbuf++ = (wchar_t) (*csptr++ & 0x7f) | wc_encoding;
+  
+      if (wcbuf_len)
+  	*wcbuf_len = csptr - csstr;
++ 
++     return csptr - csstr;
++ }
++ 
++ 
++ static LCMethodsRec default_lc_methods = {
++     _XlcDestroyLC,
++     _XlcCreateState,
++     _XlcDestroyState,
++     _XlcCnvStart,
++     _XlcCnvEnd,
++     _Xlc_mbchar,
++     _Xlc_mbstocs,
++     _Xlc_wcstocs,
++     _Xlc_cstombs,
++     _Xlc_cstowcs,
++ };
++ 
++ XLCd
++ _XlcGenericLoader(name)
++     char *name;
++ {
++     XimpLCd lcd;
++ 
++     lcd = _XlcCreateLC(name, &lcd_methods, &default_lc_methods);
++     if (lcd == NULL)
++ 	return (XLCd) NULL;
++ 
++     if (_XlcLoadCodeSet(lcd) == False)
++         goto error;
++ 
++     return (XLCd) lcd;
++ 
++ error:
++     _XlcDestroyLC(lcd);
++ 
++     return (XLCd) NULL;
++ }
++ 
++ static int
++ compare(src, encoding, length)
++     register char *src;
++     register char *encoding;
++     register int length;
++ {
++     char *start = src;
++ 
++     while (length-- > 0) {
++ 	if (*src++ != *encoding++)
++ 	    return 0;
++ 	if (*encoding == '\0')
++ 	    return src - start;
++     }
++ 
++     return 0;
++ }
++ 
++ static Bool
++ mbtocs(state, src_data, dst_data)
++     State state;
++     register CvtData src_data, dst_data;
++ {
++     Locale locale = &state->lcd->locale;
++     ParseInfo *parse_list, parse_info;
++     CodeSet codeset;
++     char *src = src_data->string.multi_byte;
++     char *dst = dst_data->string.multi_byte;
++     unsigned char ch, side;
++     int length, number, encoding_len = 0;
++     register i;
++ 
++     if (locale->mb_parse_table) {
++ 	number = locale->mb_parse_table[(unsigned char) *src];
++ 	if (number > 0) {
++ 	    parse_list = locale->mb_parse_list + number - 1;
++ 	    for ( ; parse_info = *parse_list; parse_list++) {
++ 		encoding_len = compare(src, parse_info->encoding,
++ 				       src_data->length);
++ 		if (encoding_len > 0) {
++ 		    switch (parse_info->type) {
++ 			case E_SS:
++ 			    src += encoding_len;
++ 			    codeset = parse_info->codeset;
++ 			    goto found;
++ 			case E_LSL:
++ 			case E_LSR:
++ 			    src += encoding_len;
++ 			    if (parse_info->type == E_LSL)
++ 			    	state->GL_codeset = parse_info->codeset;
++ 			    else
++ 			    	state->GR_codeset = parse_info->codeset;
++ 			    length = 0;
++ 			    codeset = parse_info->codeset;
++ 			    goto end;
++ 			case E_GL:
++ 			    codeset = state->GL_codeset;
++ 			    goto found;
++ 			case E_GR:
++ 			    codeset = state->GR_codeset;
++ 			    goto found;
++ 		    }
++ 		}
++ 	    }
++ 	}
++     }
++ 
++     if ((*src & 0x80) && state->GR_codeset)
++ 	codeset = state->GR_codeset;
++     else
++ 	codeset = state->GL_codeset;
++ 
++ found:
++     if (codeset == NULL)
++ 	return False;
++ 
++     length = codeset->length;
++     if (length > src_data->length - encoding_len)
++ 	return False;
++ 
++     if (dst) {
++ 	if (length > dst_data->length)
++ 	    return False;
++ 	side = (*(codeset->charset_list))->side;
++ 	for (i = 0; i < length; i++)
++ 	    *dst++ = (*src++ & 0x7f) | side;
++ 	dst_data->string.multi_byte = dst;
++ 	dst_data->length -= length;
++     }
++ end:
++     src_data->string.multi_byte = src;
++     src_data->length -= encoding_len + length;
++     src_data->cvt_length = encoding_len + length;
++     dst_data->cvt_length = length;
++     dst_data->codeset = codeset;
++ 
++     return True;
++ }
++ 
++ char
++ _Xlc_mbchar(state, str, lenp)
++     State state;
++     char *str;
++     int *lenp;
++ {
++     CvtDataRec src_data_rec, dst_data_rec;
++     register CvtData src_data = &src_data_rec;
++     register CvtData dst_data = &dst_data_rec;
++     char buf[BUFSIZE];
++     register int length;
++ 
++     src_data->string.multi_byte = str;
++     src_data->length = strlen(str) + 1;
++     dst_data->string.multi_byte = buf;
++     dst_data->length = BUFSIZE;
++ 
++     length = 0;
++     while (1) {
++ 	if (mbtocs(state, src_data, dst_data) == False) {
++ 	    *lenp = length;
++ 	    return '\0';
++ 	}
++ 	length += src_data->cvt_length;
++ 	if (dst_data->cvt_length > 0) {
++ 	    state->codeset = dst_data->codeset;
++ 	    *lenp = length;
++ 	    return buf[0];
++ 	}
++     }
++ }
++ 
++ int
++ _Xlc_mbstocs(state, mbstr, mbstr_len, csbuf, csbuf_len)
++     State state;
++     char *mbstr;
++     int mbstr_len;
++     char *csbuf;
++     int *csbuf_len;
++ {
++     CvtDataRec src_data_rec, dst_data_rec;
++     register CvtData src_data = &src_data_rec;
++     register CvtData dst_data = &dst_data_rec;
++     CodeSet codeset;
++     register int src_cvt_length, dst_cvt_length;
++ 
++     src_data->string.multi_byte = mbstr;
++     src_data->length = mbstr_len;
++     dst_data->string.multi_byte = csbuf;
++     dst_data->length = csbuf_len ? *csbuf_len : MAXINT;
++ 
++     if (mbtocs(state, src_data, dst_data) == False)
++ 	return -1;
++     codeset = dst_data->codeset;
++     src_cvt_length = src_data->cvt_length;
++     dst_cvt_length = dst_data->cvt_length;
++ 
++     while (mbtocs(state, src_data, dst_data) == True) {
++ 	if (dst_data->codeset != codeset)
++ 	    break;
++ 	
++ 	src_cvt_length += src_data->cvt_length;
++ 	dst_cvt_length += dst_data->cvt_length;
++     }
++ 
++     state->codeset = codeset;
++     if (csbuf_len)
++ 	*csbuf_len = dst_cvt_length;
++ 
++     return src_cvt_length;
++ }
++ 
++ static CodeSet
++ wc_parse_codeset(state, wcstr)
++     State state;
++     wchar_t *wcstr;
++ {
++     Locale locale = &state->lcd->locale;
++     CodeSet *codeset;
++     wchar_t wch;
++     unsigned long wc_encoding;
++     int num;
++ 
++     wch = *wcstr;
++     wc_encoding = wch & locale->wc_encode_mask;
++     num = locale->codeset_num;
++     codeset = locale->codeset_list;
++     while (num-- > 0) {
++ 	if (wc_encoding == (*codeset)->wc_encoding)
++ 	    return *codeset;
++ 	codeset++;
++     }
++ 
++     return NULL;
++ }
++ 
++ int
++ _Xlc_wcstocs(state, wcstr, wcstr_len, csbuf, csbuf_len)
++     State state;
++     wchar_t *wcstr;
++     int wcstr_len;
++     unsigned char *csbuf;
++     int *csbuf_len;
++ {
++     wchar_t *wcptr = wcstr;
++     register unsigned char *bufptr = csbuf;
++     register wchar_t wch;
++     unsigned char *tmpptr;
++     int buf_len;
++     register length;
++     Locale locale = &state->lcd->locale;
++     CodeSet codeset;
++     unsigned long wc_encoding;
++ 
++     if (csbuf_len)
++ 	buf_len = *csbuf_len;
++     else
++ 	buf_len = MAXINT;
++     
++     codeset = wc_parse_codeset(state, wcptr);
++     wc_encoding = codeset->wc_encoding;
++ 
++     if (wcstr_len < buf_len / codeset->length)
++ 	buf_len = wcstr_len * codeset->length;
++ 
++     for ( ; wcstr_len > 0 && buf_len > 0; wcptr++, wcstr_len--) {
++ 	wch = *wcptr;
++ 	if ((wch & locale->wc_encode_mask) != wc_encoding)
++ 	    break;
++ 	length = codeset->length;
++ 	buf_len -= length;
++ 	bufptr += length;
++ 
++ 	tmpptr = bufptr - 1;
++ 	while (length--) {
++ 	    *tmpptr-- = (unsigned char) ((wch & 0x7f) | codeset->side);
++ 	    wch >>= locale->wc_shift_bits;
++ 	}
++     }
++ 
++     if (csbuf_len)
++ 	*csbuf_len = bufptr - csbuf;
++ 
++     state->codeset = codeset;
++ 
++     return wcptr - wcstr;
++ }
++ 
++ int
++ _Xlc_cstombs(state, csstr, csstr_len, mbbuf, mbbuf_len)
++     State state;
++     unsigned char *csstr;
++     int csstr_len;
++     unsigned char *mbbuf;
++     int *mbbuf_len;
++ {
++     register unsigned char *csptr = csstr;
++     register unsigned char *bufptr = mbbuf;
++     register buf_len;
++     int num, encoding_len = 0;
++     CodeSet codeset = state->codeset;
++     EncodingType type;
++ 
++     if (mbbuf_len)
++ 	buf_len = *mbbuf_len;
++     else
++ 	buf_len = MAXINT;
++     
++     if (codeset->parse_info) {
++ 	switch (type = codeset->parse_info->type) {
++ 	    case E_SS:
++ 		encoding_len = strlen(codeset->parse_info->encoding);
++ 		break;
++ 	    case E_LSL:
++ 	    case E_LSR:
++ 		if (type == E_LSL) {
++ 		    if (codeset == state->GL_codeset)
++ 			break;
++ 		} else {
++ 		    if (codeset == state->GR_codeset)
++ 			break;
++ 		}
++ 		encoding_len = strlen((char *) codeset->parse_info->encoding);
++ 		if (encoding_len > buf_len)
++ 		    return -1;
++ 		strcpy((char *)bufptr, codeset->parse_info->encoding);
++ 		bufptr += encoding_len;
++ 		buf_len -= encoding_len;
++ 		encoding_len = 0;
++ 		if (type == E_LSL)
++ 		    state->GL_codeset = codeset;
++ 		else
++ 		    state->GR_codeset = codeset;
++ 		break;
++ 	}
++     }
++ 
++     csstr_len /= codeset->length;
++     buf_len /= codeset->length + encoding_len;
++     if (csstr_len < buf_len)
++ 	buf_len = csstr_len;
++     
++     while (buf_len--) {
++ 	if (encoding_len) {
++ 	    strcpy((char *) bufptr, codeset->parse_info->encoding);
++ 	    bufptr += encoding_len;
++ 	}
++ 	num = codeset->length;
++ 	while (num--)
++ 	    *bufptr++ = (*csptr++ & 0x7f) | codeset->side;
++     }
++ 
++     if (mbbuf_len)
++ 	*mbbuf_len = bufptr - mbbuf;
++ 
++     return csptr - csstr;
++ }
++ 
++ int
++ _Xlc_cstowcs(state, csstr, csstr_len, wcbuf, wcbuf_len)
++     State state;
++     unsigned char *csstr;
++     int csstr_len;
++     wchar_t *wcbuf;
++     int *wcbuf_len;
++ {
++     register unsigned char *csptr = csstr;
++     wchar_t *bufptr = wcbuf;
++     register wchar_t wch;
++     register buf_len;
++     unsigned long code_mask, wc_encoding;
++     int num, length, wc_shift_bits;
++ 
++     if (wcbuf_len)
++ 	buf_len = *wcbuf_len;
++     else
++ 	buf_len = MAXINT;
++ 
++     length = state->codeset->length;
++     csstr_len /= length;
++     if (csstr_len < buf_len)
++ 	buf_len = csstr_len;
++     
++     code_mask = ~state->lcd->locale.wc_encode_mask;
++     wc_encoding = state->codeset->wc_encoding;
++     wc_shift_bits = state->lcd->locale.wc_shift_bits;
++ 
++     while (buf_len--) {
++ 	wch = (wchar_t) (*csptr++ & 0x7f);
++ 	num = length - 1;
++ 	while (num--)
++ 	    wch = (wch << wc_shift_bits) | (*csptr++ & 0x7f);
++ 
++ 	*bufptr++ = (wch & code_mask) | wc_encoding;
++     }
++ 
++     if (wcbuf_len)
++ 	*wcbuf_len = bufptr - wcbuf;
+  
+      return csptr - csstr;
+  }
+*** /tmp/d18934	Mon Oct 19 19:34:24 1992
+--- lib/X/Ximp/XimpDrStr.c	Mon Oct 19 19:24:21 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpDrStr.c,v 1.2 92/04/14 13:28:54 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpDrStr.c,v 1.3 92/10/19 19:24:18 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 71,94 ****
+   */
+  
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char xchar_buf[BUFSIZE];
+      XChar2b xchar2b_buf[BUFSIZE];
+-     FontSetRec *fontset;
+      XFontStruct *font;
+      int	(*cnv_func)();
+-     int cset_num, char_length;
+      int count, length, tmp_len;
+  
+!     cnv_func = lcd->ximp_lcpart->methods->CNV_FUNC;
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(lcd, text, text_length, strbuf, &length, 
+! 			    &cset_num, &char_length);
+  	if (count <= 0)
+  	    break;
+  
+--- 71,95 ----
+   */
+  
+  {
+!     XLCd lcd = xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char xchar_buf[BUFSIZE];
+      XChar2b xchar2b_buf[BUFSIZE];
+      XFontStruct *font;
+      int	(*cnv_func)();
+      int count, length, tmp_len;
++     int xx = x;
++     LCMethods methods = LC_METHODS(lcd);
++     State state;
+  
+!     cnv_func = methods->CNV_FUNC;
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(state, text, text_length, strbuf, &length);
+  	if (count <= 0)
+  	    break;
+  
+***************
+*** 96,117 ****
+  	text_length -= count;
+  
+  	strptr = strbuf;
+- 	fontset = ((Ximp_XFontSet) xfont_set)->ximp_fspart->fontset + cset_num;
+- 	if (fontset == NULL)
+- 	    continue;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (char_length < 2)
+! 		count = _Ximp_cstoxchar(fontset, strptr, length,
+! 					xchar_buf, &tmp_len, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(fontset, strptr, length,
+! 					  xchar2b_buf, &tmp_len, &font);
+  	    if (count <= 0)
+  		break;
+  
+              XSetFont(dpy, gc, font->fid);
+! 	    if (char_length < 2) {
+  	        XDrawString(dpy, d, gc, x, y, (char *)xchar_buf, tmp_len);
+  		x += XTextWidth(font, (char *)xchar_buf, tmp_len);
+              } else {
+--- 97,115 ----
+  	text_length -= count;
+  
+  	strptr = strbuf;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (state->codeset->length < 2)
+! 		count = _Ximp_cstoxchar(xfont_set, strptr, length, xchar_buf,
+! 					&tmp_len, state->codeset, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(xfont_set, strptr, length, xchar2b_buf,
+! 					  &tmp_len, state->codeset, &font);
+  	    if (count <= 0)
+  		break;
+  
+              XSetFont(dpy, gc, font->fid);
+! 	    if (state->codeset->length < 2) {
+  	        XDrawString(dpy, d, gc, x, y, (char *)xchar_buf, tmp_len);
+  		x += XTextWidth(font, (char *)xchar_buf, tmp_len);
+              } else {
+***************
+*** 123,127 ****
+  	}
+      }
+  
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  }
+--- 121,127 ----
+  	}
+      }
+  
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+!     x -= xx;
+  }
+*** /tmp/d18953	Mon Oct 19 19:34:35 1992
+--- lib/X/Ximp/XimpEUC.c	Mon Oct 19 19:24:25 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpEUC.c,v 1.4 92/04/14 13:28:56 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpEUC.c,v 1.5 92/10/19 19:24:22 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 70,546 ****
+  
+  #include "Ximplc.h"
+  
+! static Bool euc_initialize();
+! static void euc_cnv_start(), euc_cnv_end();
+! static char euc_mbchar();
+! static int euc_mbstocs(), euc_wcstocs(), euc_cstombs(), euc_cstowcs();
+  
+! typedef struct {
+!     int max_char_length;
+! } EUCExtRec;
+! 
+! XLCdXimpMethods euc_lc_methods =
+  {
+!     euc_initialize,
+!     euc_cnv_start,
+!     euc_cnv_end,
+!     euc_mbchar,
+!     euc_mbstocs,
+!     euc_wcstocs,
+!     euc_cstombs,
+!     euc_cstowcs,
+  };
+  
+  #ifndef SS2
+! #define SS2		0x8e
+! #define SS3		0x8f
+! #endif
+  
+! #define WC_MASK		0x8080
+! #define CS1_WC_MASK	0x8080
+! #define CS2_WC_MASK	0x0080
+! #define CS3_WC_MASK	0x8000
+  #define SHIFT_BITS	8
+! #define CODE_MASK	0x7f7f
+  
+! #define WC_MASK_L	0x30000000
+! #define CS1_WC_MASK_L	0x30000000
+! #define CS2_WC_MASK_L	0x10000000
+! #define CS3_WC_MASK_L	0x20000000
+! #define SHIFT_BITS_L	7
+! #define CODE_MASK_L	0x0fffffff
+  
+! static int CS1_length, CS2_length, CS3_length, Shift_bits;
+! static wchar_t WC_mask, CS1_WC_mask, CS2_WC_mask, CS3_WC_mask, Code_mask;
+! 
+! static Bool
+! euc_initialize(lcd)
+!     Ximp_XLCd lcd;
+  {
+!     register int codeset_num;
+!     register CodeSetRec *codeset;
+!     EUCExtRec *extension;
+!     int mb_cur_max, max_char_length;
+  
+!     mb_cur_max = max_char_length = 1;
+!     codeset = lcd->ximp_lcpart->codeset;
+!     if ((codeset_num = lcd->ximp_lcpart->codeset_num) > 4)
+! 	codeset_num = lcd->ximp_lcpart->codeset_num = 4;
+  
+!     switch (codeset_num) {
+! 	case 4:
+! 	    mb_cur_max = max(mb_cur_max, codeset[3].char_length + 1);
+! 	    max_char_length = max(max_char_length, codeset[3].char_length);
+! 	case 3:
+! 	    mb_cur_max = max(mb_cur_max, codeset[2].char_length + 1);
+! 	    max_char_length = max(max_char_length, codeset[2].char_length);
+! 	case 2:
+! 	    mb_cur_max = max(mb_cur_max, codeset[1].char_length);
+! 	    max_char_length = max(max_char_length, codeset[1].char_length);
+!     }
+  
+!     lcd->ximp_lcpart->mb_cur_max = mb_cur_max;
+!     lcd->ximp_lcpart->state_dependent = False;
+! 
+!     if ((extension = (EUCExtRec *) Xmalloc(sizeof(EUCExtRec))) == NULL)
+! 	return False;
+!     extension->max_char_length = max_char_length;
+!     lcd->ximp_lcpart->extension = (XPointer) extension;
+! 
+!     return True;
+! }
+! 
+! static void
+! euc_cnv_start(lcd)
+!     Ximp_XLCd lcd;
+! {
+!     register int codeset_num;
+!     register CodeSetRec *codeset;
+!     static Ximp_XLCd last_lcd = NULL;
+!     int max_char_length;
+! 
+!     if (lcd == last_lcd)
+! 	return;
+! 
+!     codeset = lcd->ximp_lcpart->codeset;
+!     codeset_num = lcd->ximp_lcpart->codeset_num;
+! 
+! #ifdef FIX_EUC32
+!     WC_mask = WC_MASK_L;
+!     CS1_WC_mask = CS1_WC_MASK_L;
+!     CS2_WC_mask = CS2_WC_MASK_L;
+!     CS3_WC_mask = CS3_WC_MASK_L;
+!     Shift_bits = SHIFT_BITS_L;
+!     Code_mask = CODE_MASK_L;
+! #else
+!     max_char_length = 
+! 		((EUCExtRec *) lcd->ximp_lcpart->extension)->max_char_length;
+!     if (max_char_length < 3) {
+! 	WC_mask = WC_MASK;
+! 	CS1_WC_mask = CS1_WC_MASK;
+! 	CS2_WC_mask = CS2_WC_MASK;
+! 	CS3_WC_mask = CS3_WC_MASK;
+! 	Shift_bits = SHIFT_BITS;
+! 	Code_mask = CODE_MASK;
+!     } else {
+! 	WC_mask = WC_MASK_L;
+! 	CS1_WC_mask = CS1_WC_MASK_L;
+! 	CS2_WC_mask = CS2_WC_MASK_L;
+! 	CS3_WC_mask = CS3_WC_MASK_L;
+! 	Shift_bits = SHIFT_BITS_L;
+! 	Code_mask = CODE_MASK_L;
+!     }
+! #endif
+! 
+!     CS1_length = CS2_length = CS3_length = 0;
+! 
+!     switch (codeset_num) {
+! 	case 4:
+! 	    CS3_length = codeset[3].char_length;
+  	case 3:
+! 	    CS2_length = codeset[2].char_length;
+  	case 2:
+! 	    CS1_length = codeset[1].char_length;
+!     }
+! 
+!     last_lcd = lcd;
+! }
+! 
+! static void
+! euc_cnv_end(lcd)
+!     Ximp_XLCd lcd;
+! {
+! }
+! 
+! static char
+! euc_mbchar(lcd, str, lenp)
+!     Ximp_XLCd lcd;
+!     register char *str;
+!     register int *lenp;
+! {
+!     register unsigned char ch = (unsigned char) *str++;
+! 
+!     if ((ch & 0x80) == NULL) {
+! cset0:
+! 	*lenp = 1;
+! 	return (char) ch;
+!     }
+! 
+!     if (ch == SS2) {
+! 	if (CS2_length == 0)
+! 	    goto cset0;
+! 	*lenp = CS2_length + 1;
+! 	return *str;
+!     }
+! 
+!     if (ch == SS3) {
+! 	if (CS3_length == 0)
+! 	    goto cset0;
+! 	*lenp = CS3_length + 1;
+! 	return *str;
+!     }
+! 
+!     if (CS1_length == 0)
+! 	goto cset0;
+!     *lenp = CS1_length;
+!     return (char) ch;
+! }
+! 
+! 
+! static int
+! euc_mbstocs(lcd, mbstr, mbstr_len, csbuf, csbuf_len, cs_number, char_length)
+!     Ximp_XLCd lcd;
+!     unsigned char *mbstr;
+!     int mbstr_len;
+!     unsigned char *csbuf;
+!     int *csbuf_len;
+!     int *cs_number;
+!     int *char_length;
+! {
+!     register unsigned char *mbptr = mbstr;
+!     register unsigned char *bufptr = csbuf;
+!     register unsigned char ch;
+!     unsigned char *tmpptr;
+!     int buf_len;
+!     register length;
+!     int codeset_number = -1, tmp_number;
+! 
+!     if (csbuf_len)
+! 	buf_len = *csbuf_len;
+!     else
+! 	buf_len = MAXINT;
+! 
+!     while (mbstr_len > 0 && buf_len > 0) {
+! 	ch = *mbptr;
+! 	if ((ch & 0x80) == NULL) {
+! cset0:
+! 	    if (codeset_number) {
+! 		if (codeset_number != -1)
+! 		    break;
+! 		codeset_number = 0;
+! 		if (char_length)
+! 		    *char_length = 1;
+! 	    }
+! 		
+! 	    *bufptr++ = ch;
+! 	    mbptr++;
+! 	    mbstr_len--;
+! 	    buf_len--;
+! 	    continue;
+! 	}
+! 
+! 	tmpptr = mbptr;
+! 
+! 	if (ch == SS2 || ch == SS3) {
+! 	    if (ch == SS2) {
+! 		length = CS2_length;
+! 		tmp_number = 2;
+! 	    } else {
+! 		length = CS3_length;
+! 		tmp_number = 3;
+! 	    }
+! 	    if (length < 1)
+! 		goto cset0;
+! 
+! 	    if (mbstr_len < length + 1 || buf_len < length)
+! 		break;
+! 	    ++mbptr;
+! 	    mbstr_len--;
+! 	} else {
+! 	    if ((length = CS1_length) < 1)
+! 		goto cset0;
+! 
+! 	    if (mbstr_len < length || buf_len < length)
+! 		break;
+! 	    tmp_number = 1;
+! 	}
+! 
+! 	if (codeset_number != tmp_number) {
+! 	    if (codeset_number != -1) {
+! 		mbptr = tmpptr;
+! 		break;
+! 	    }
+! 	    codeset_number = tmp_number;
+! 	    if (char_length)
+! 		*char_length = length;
+! 	}
+! 
+! 	mbstr_len -= length;
+! 	buf_len -= length;
+! 
+! 	while (length--)
+! 	    *bufptr++ = *mbptr++;
+! 
+!     }
+! 
+!     if (csbuf_len)
+! 	*csbuf_len = bufptr - csbuf;
+!     if (cs_number)
+! 	*cs_number = codeset_number;
+! 
+!     return mbptr - mbstr;
+! }
+! 
+! 
+! static int
+! euc_wcstocs(lcd, wcstr, wcstr_len, csbuf, csbuf_len, cs_number, char_length)
+!     Ximp_XLCd lcd;
+!     wchar_t *wcstr;
+!     int wcstr_len;
+!     unsigned char *csbuf;
+!     int *csbuf_len;
+!     int *cs_number;
+!     int *char_length;
+! {
+!     wchar_t *wcptr = wcstr, wc_mask;
+!     register unsigned char *bufptr = csbuf;
+!     register wchar_t wch;
+!     unsigned char *tmpptr;
+!     int buf_len;
+!     register length;
+!     int codeset_number = -1, tmp_number;
+! 
+!     if (csbuf_len)
+! 	buf_len = *csbuf_len;
+!     else
+! 	buf_len = MAXINT;
+! 
+!     for ( ; wcstr_len > 0 && buf_len > 0; wcptr++, wcstr_len--) {
+! 	wch = *wcptr;
+! 	wc_mask = wch & WC_mask;
+! 	if (wc_mask == NULL) {
+! cset0:
+! 	    if (codeset_number) {
+! 		if (codeset_number != -1)
+! 		    break;
+! 		codeset_number = 0;
+! 		if (char_length)
+! 		    *char_length = 1;
+! 	    }
+! 	    *bufptr++ = (unsigned char) wch;
+! 	    buf_len--;
+! 	    continue;
+! 	} else if (wc_mask == CS1_WC_mask) {
+! 	    length = CS1_length;
+! 	    tmp_number = 1;
+! 	} else if (wc_mask == CS2_WC_mask) {
+! 	    length = CS2_length;
+! 	    tmp_number = 2;
+! 	} else {
+! 	    length = CS3_length;
+! 	    tmp_number = 3;
+! 	}
+! 
+! 	if (length < 1)
+! 	    goto cset0;
+! 	if (buf_len < length)
+  	    break;
+- 	if (codeset_number != tmp_number) {
+- 	    if (codeset_number != -1)
+- 		break;
+- 	    codeset_number = tmp_number;
+- 	    if (char_length)
+- 		*char_length = length;
+- 	}
+- 	buf_len -= length;
+- 	bufptr += length;
+- 
+- 	tmpptr = bufptr - 1;
+- 	while (length--) {
+- 	    *tmpptr-- = (unsigned char) (wch | 0x80);
+- 	    wch >>= Shift_bits;
+- 	}
+      }
+  
+!     if (csbuf_len)
+! 	*csbuf_len = bufptr - csbuf;
+!     if (cs_number)
+! 	*cs_number = codeset_number;
+  
+!     return wcptr - wcstr;
+  }
+  
+! 
+! static int
+! euc_cstombs(lcd, csstr, csstr_len, mbbuf, mbbuf_len, cs_number)
+!     Ximp_XLCd lcd;
+!     unsigned char *csstr;
+!     int csstr_len;
+!     unsigned char *mbbuf;
+!     int *mbbuf_len;
+!     int cs_number;
+  {
+!     register unsigned char *csptr = csstr;
+!     register unsigned char *bufptr = mbbuf;
+!     register buf_len;
+!     int length;
+!     unsigned char ss;
+!     int num;
+  
+  
+!     if (mbbuf_len)
+! 	buf_len = *mbbuf_len;
+!     else
+! 	buf_len = MAXINT;
+  
+!     if (cs_number == 0) {
+! cset0:
+! 	if (csstr_len < buf_len)
+! 	    buf_len = csstr_len;
+! 	while (buf_len--)
+! 	    *bufptr++ = *csptr++ & 0x7f;
+!     } else if (cs_number == 1) {
+! 	if (CS1_length < 1)
+! 	    goto cset0;
+! 	if (csstr_len < buf_len)
+! 	    buf_len = csstr_len;
+! 	buf_len -= buf_len % CS1_length;
+! 	while (buf_len--)
+! 	    *bufptr++ = *csptr++ | 0x80;
+!     } else {
+! 	if (cs_number == 2) {
+! 	    length = CS2_length;
+! 	    ss = SS2;
+! 	} else {
+! 	    length = CS3_length;
+! 	    ss = SS3;
+! 	}
+! 	csstr_len /= length;
+! 	buf_len /= (length + 1);
+! 	if (csstr_len < buf_len)
+! 	    buf_len = csstr_len;
+! 	while (buf_len--) {
+! 	    *bufptr++ = ss;
+! 	    num = length;
+! 	    while (num--)
+! 		*bufptr++ = *csptr++ | 0x80;
+! 	}
+!     }
+  
+!     if (mbbuf_len)
+! 	*mbbuf_len = bufptr - mbbuf;
+  
+!     return csptr - csstr;
+! }
+  
+  
+! static int
+! euc_cstowcs(lcd, csstr, csstr_len, wcbuf, wcbuf_len, cs_number)
+!     Ximp_XLCd lcd;
+!     unsigned char *csstr;
+!     int csstr_len;
+!     wchar_t *wcbuf;
+!     int *wcbuf_len;
+!     int cs_number;
+! {
+!     register unsigned char *csptr = csstr;
+!     wchar_t *bufptr = wcbuf, wc_mask;
+!     register wchar_t wch;
+!     register buf_len;
+!     int length;
+!     int num;
+! 
+!     if (wcbuf_len)
+! 	buf_len = *wcbuf_len;
+!     else
+! 	buf_len = MAXINT;
+! 
+!     if (cs_number == 0) {
+! cset0:
+! 	if (csstr_len < buf_len)
+! 	    buf_len = csstr_len;
+! 	while (buf_len--)
+! 	    *bufptr++ = (wchar_t) (*csptr++ & 0x7f);
+!     } else {
+! 	if (cs_number == 1) {
+! 	    length = CS1_length;
+! 	    wc_mask = CS1_WC_mask;
+! 	} else if (cs_number == 2) {
+! 	    length = CS2_length;
+! 	    wc_mask = CS2_WC_mask;
+! 	} else {
+! 	    length = CS3_length;
+! 	    wc_mask = CS3_WC_mask;
+! 	}
+!         if (length < 1)
+! 	    goto cset0;
+! 
+! 	csstr_len /= length;
+! 	if (csstr_len < buf_len)
+! 	    buf_len = csstr_len;
+! 
+! 	while (buf_len--) {
+! 	    wch = *csptr++;
+! 	    num = length - 1;
+! 	    while (num--)
+! 		wch = (wch << Shift_bits) | *csptr++;
+! 
+! 	    *bufptr++ = (wch & Code_mask) | wc_mask;
+! 	}
+!     }
+! 
+!     if (wcbuf_len)
+! 	*wcbuf_len = bufptr - wcbuf;
+! 
+!     return csptr - csstr;
+  }
+--- 70,191 ----
+  
+  #include "Ximplc.h"
+  
+! static XLCdMethodsRec lcd_methods = {
+!     _XlcDefaultMapModifiers,
+!     _XDefaultCreateFontSet,
+!     _Ximp_OpenIM,
+! };
+  
+! static LCMethodsRec lc_methods =
+  {
+!     _XlcDestroyLC,
+!     _XlcCreateState,
+!     _XlcDestroyState,
+!     _XlcCnvStart,
+!     _XlcCnvEnd,
+!     _Xlc_mbchar,
+!     _Xlc_mbstocs,
+!     _Xlc_wcstocs,
+!     _Xlc_cstombs,
+!     _Xlc_cstowcs,
+  };
+  
++ #ifdef XIMP_BC
+  #ifndef SS2
+! #define SS2	0x8e
+! #define SS3	0x8f
+! #endif	/* SS2 */
+  
+! #ifdef SVR4
+! #define WC_MASK		0x30000000
+! #define CS1_WC_MASK	0x30000000
+! #define CS2_WC_MASK	0x10000000
+! #define CS3_WC_MASK	0x20000000
+! #define SHIFT_BITS	7
+! #else	/* SVR4 */
+! #define WC_MASK		0x00008080
+! #define CS1_WC_MASK	0x00008080
+! #define CS2_WC_MASK	0x00000080
+! #define CS3_WC_MASK	0x00008000
+  #define SHIFT_BITS	8
+! #endif	/* SVR4 */
+  
+! extern _XlcAddParseList();
+  
+! Bool
+! _XimpBCSetAtr(lcd)
+!     XimpLCd lcd;
+  {
+!     Locale locale = &lcd->locale;
+!     CodeSet codeset;
+!     char tmp_str[2];
+!     int cs_num;
+  
+!     cs_num = locale->codeset_num;
+!     if (cs_num > 4)
+! 	locale->codeset_num = cs_num = 4;
+  
+!     locale->mb_cur_max = 1;
+!     locale->wc_encode_mask = WC_MASK;
+!     locale->wc_shift_bits = SHIFT_BITS;
+  
+!     switch (--cs_num) {
+  	case 3:
+! 	    codeset = locale->codeset_list[3];
+! 	    locale->mb_cur_max = max(codeset->length, locale->mb_cur_max);
+! 	    tmp_str[0] = SS3;
+! 	    tmp_str[1] = '\0';
+! 	    if (_XlcAddParseList(locale, E_SS, tmp_str, codeset) == False)
+! 		return False;
+! 	    codeset->wc_encoding = CS3_WC_MASK;
+  	case 2:
+! 	    codeset = locale->codeset_list[2];
+! 	    locale->mb_cur_max = max(codeset->length, locale->mb_cur_max);
+! 	    tmp_str[0] = SS2;
+! 	    tmp_str[1] = '\0';
+! 	    if (_XlcAddParseList(locale, E_SS, tmp_str, codeset) == False)
+! 		return False;
+! 	    codeset->wc_encoding = CS2_WC_MASK;
+! 	case 1:
+! 	    codeset = locale->codeset_list[1];
+! 	    locale->mb_cur_max = max(codeset->length, locale->mb_cur_max);
+! 	    codeset->wc_encoding = CS1_WC_MASK;
+! 	    locale->initial_state_GR = codeset;
+  	    break;
+      }
+  
+!     locale->initial_state_GL = locale->codeset_list[0];
+  
+!     return True;
+  }
++ #endif	/* XIMP_BC */
+  
+! XLCd
+! _XlcEUCLoader(name)
+!     char *name;
+  {
+!     XimpLCd lcd;
+  
++     lcd = _XlcCreateLC(name, &lcd_methods, &lc_methods);
++     if (lcd == NULL)
++ 	return (XLCd) NULL;
+  
+!     if (strcmp(lcd->locale.codeset, "EUC"))
+! 	goto error;
+  
+!     if (_XlcLoadCodeSet(lcd) == False)
+!         goto error;
+  
+! #ifdef XIMP_BC
+!     if (lcd->locale.mb_cur_max == 0)
+! 	if (_XimpBCSetAtr(lcd) == False)
+!             goto error;
+! #endif
+  
+!     return (XLCd) lcd;
+  
++ error:
++     _XlcDestroyLC(lcd);
+  
+!     return (XLCd) NULL;
+  }
+*** /tmp/d18973	Mon Oct 19 19:34:47 1992
+--- lib/X/Ximp/XimpExten.c	Mon Oct 19 19:24:30 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpExten.c,v 1.6 92/07/29 10:15:43 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+--- 1,4 ----
+! /* $XConsortium: XimpExten.c,v 1.7 92/10/19 19:24:25 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+***************
+*** 113,118 ****
+--- 113,120 ----
+  extern Ximp_XIC _Ximp_LookupXIC();
+  extern void     _Ximp_IM_SendMessage();
+  extern void 	_Ximp_ProcError();
++ extern void 	_Ximp_ConvertOn();
++ extern void 	_Ximp_ConvertOff();
+  
+  #define Private static
+  /*
+***************
+*** 184,189 ****
+--- 186,192 ----
+  Private int     ximp_ext_conversion();
+  Private int     ximp_ext_statuswindow();
+  Private int     ximp_ext_error();
++ #ifdef EXTLOOKUPCALLBACK
+  Private int     ximp_ext_lookup_begin();
+  Private int     ximp_ext_lookup_start_callback();
+  Private int     ximp_ext_lookup_draw_callback();
+***************
+*** 193,198 ****
+--- 196,202 ----
+  Private int     ximp_ext_aux_draw_callback();
+  Private int     ximp_ext_aux_process_callback();
+  Private int     ximp_ext_aux_done_callback();
++ #endif
+  Private int     ximp_ext_restart_callback();
+  Private int     ximp_ext_destroy_callback();
+  Private int	nested_list();
+***************
+*** 206,215 ****
+  
+  Private
+  icop_t icoptbl[] = {
+!     XNExtXimp_Backfront, ximp_ext_backfront,
+  	XNExtXimp_Conversion, ximp_ext_conversion,
+  	XNExtXimp_Statuswindow, ximp_ext_statuswindow,
+  	XNExtXimp_Error, ximp_ext_error,
+      	XNExtXimp_LookupAttributes, nested_list,
+  	XNExtXimp_LookupStartCallback, ximp_ext_lookup_start_callback,
+  	XNExtXimp_LookupDrawCallback, ximp_ext_lookup_draw_callback,
+--- 210,220 ----
+  
+  Private
+  icop_t icoptbl[] = {
+! 	XNExtXimp_Backfront, ximp_ext_backfront,
+  	XNExtXimp_Conversion, ximp_ext_conversion,
+  	XNExtXimp_Statuswindow, ximp_ext_statuswindow,
+  	XNExtXimp_Error, ximp_ext_error,
++ #ifdef EXTLOOKUPCALLBACK
+      	XNExtXimp_LookupAttributes, nested_list,
+  	XNExtXimp_LookupStartCallback, ximp_ext_lookup_start_callback,
+  	XNExtXimp_LookupDrawCallback, ximp_ext_lookup_draw_callback,
+***************
+*** 221,226 ****
+--- 226,232 ----
+  	XNExtXimp_AuxProcessCallback, ximp_ext_aux_process_callback,
+  	XNExtXimp_AuxDoneCallback, ximp_ext_aux_done_callback,
+  	XNExtXimp_LookupBegin, ximp_ext_lookup_begin,
++ #endif
+  	XNExtXimp_RestartCallback, ximp_ext_restart_callback,
+  	XNExtXimp_DestroyCallback, ximp_ext_destroy_callback,
+      /*
+***************
+*** 245,263 ****
+  {
+      Ximp_ExtXIMRec *ext_im = (Ximp_ExtXIMRec *)(((Ximp_XIM)ic->core.im)->ximp_impart)->imtype;
+  
+!     if (!(ext_im->extension_back_front_exist))
+! 	return (False);
+! 
+      switch (op) {
+!     case XICOpCreate:
+!     case XICOpSet:
+! 	ic->ximp_icpart->is_bep_mode = (int) value;
+! 	return (True);
+! 	break;
+!     case XICOpGet:
+! 	*((long *) value) = (long)(ic->ximp_icpart->is_bep_mode);
+! 	return (True);
+! 	break;
+      }
+      return (False);
+  }
+--- 251,291 ----
+  {
+      Ximp_ExtXIMRec *ext_im = (Ximp_ExtXIMRec *)(((Ximp_XIM)ic->core.im)->ximp_impart)->imtype;
+  
+!     /* For Backward Compatibility */
+!     if(IS_SERVER_CONNECTED(ic->core.im)) {
+! 	if(!ISXimp4(ic)) {
+! 	    if (!(ext_im->extension_back_front_exist))
+! 		return (False);
+! 	}
+!     }
+      switch (op) {
+!       case XICOpCreate:
+! 	/* For Backward Compatibility */
+! 	if(ISXimp4(ic)){
+! 	    /* This value is already set in Ximp4.0 */
+! 	    return(True);                           /* Only return(True) */
+! 	}
+! 	if(((int)value) == XIMP_FRONTEND) {
+! 	    ic->ximp_icpart->svr_mode = ((ic->ximp_icpart->svr_mode & ~(XIMP_BACKEND_BC_MASK)) | XIMP_FRONTEND_BC_MASK); 
+! 	    return (True);
+! 	} else if(((int)value) == XIMP_BACKEND) {
+! 	    ic->ximp_icpart->svr_mode = ((ic->ximp_icpart->svr_mode & ~(XIMP_FRONTEND_BC_MASK)) | XIMP_BACKEND_BC_MASK); 
+! 	    return (True);
+! 	}
+! 	break; /*XXX*/
+! 
+!       case XICOpSet:
+! 	return (False);	/* This should set at the IC creation time. */
+! 
+!       case XICOpGet:
+! 	if(ISFRONTEND(ic)) {
+! 	    *((long *) value) = (long)(XIMP_FRONTEND);
+! 	    return (True);
+! 	} else if(ISBACKEND(ic)) {
+! 	    *((long *) value) = (long)(XIMP_BACKEND);
+! 	    return (True);
+! 	}
+! 	break; /*XXX*/
+      }
+      return (False);
+  }
+***************
+*** 309,340 ****
+      Display *d,
+      XEvent *ev,
+      XPointer arg0
+!     )
+  #else
+  ximp_ext_conversionPredicate(d, ev, arg0)
+  Display *d;
+! XEvent *ev;
+  XPointer arg0;
+  #endif
+  {
+      XimpConversionPredArg arg = (XimpConversionPredArg) arg0;
+! 
+!     if( ev->type == ClientMessage ) {
+! 	if( ev->xclient.message_type == arg->message_type  &&
+! 	    ev->xclient.format == 32  &&
+  	    ev->xclient.data.l[1] == arg->icid ) {
+! 	    if( ev->xclient.data.l[0] == XIMP_ERROR )
+! 		return( True );
+! 	    else if( ev->xclient.data.l[0] == XIMP_EXTENSION  &&
+! 		     ev->xclient.data.l[2] == arg->ext_type )
+! 		return( True );
+  	}
+!     } else if( ev->type == DestroyNotify ) {
+! 	if( ev->xdestroywindow.window == arg->owner ) {
+! 	    return( True );
+  	}
+      }
+!     return( False );
+  }
+  
+  Private int
+--- 337,371 ----
+      Display *d,
+      XEvent *ev,
+      XPointer arg0
+! )
+  #else
+  ximp_ext_conversionPredicate(d, ev, arg0)
+  Display *d;
+! XEvent  *ev;
+  XPointer arg0;
+  #endif
+  {
+      XimpConversionPredArg arg = (XimpConversionPredArg) arg0;
+!     
+!     Ximp_XIC	ic;
+!     
+!     if ((ev->type == ClientMessage) && (ev->xclient.format ==32)) {
+! 	ic = _Ximp_LookupXIC(ev->xclient.data.l[1]);
+! 	if (ev->xclient.message_type == arg->message_type  &&
+  	    ev->xclient.data.l[1] == arg->icid ) {
+! 	    if(ISXIMP_ERROR(ev)) {
+! 		return(True);
+! 	    } else if(ev->xclient.data.l[0] == XIMP_EXTENSION(ic)) {
+! 		if(ev->xclient.data.l[2] == arg->ext_type)
+! 		return(True);
+! 	    }
+  	}
+!     } else if (ev->type == DestroyNotify) {
+! 	if (ev->xdestroywindow.window == arg->owner) {
+! 	    return(True);
+  	}
+      }
+!     return(False);
+  }
+  
+  Private int
+***************
+*** 353,389 ****
+      switch (op) {
+      case XICOpCreate:
+      case XICOpSet:
+! 	if(ic->ximp_icpart->icid == NULL) {
+! 		if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
+! 			return (False);
+! 		return (True);
+! 		}
+  	/*
+  	 * Set Conversion mode on/off
+  	 */
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+! 			     ext_im->extension_conversion_id,
+! 			     True,	/* SetICVelues */
+! 			     value);
+  	/*
+  	 * This call expect IM Server to report new conversion state to Ximp
+  	 * lib right after setting.
+  	 */
+  	return True;
+- 	break;
+      case XICOpGet:
+! 	if( ic->ximp_icpart->icid == NULL ) {
+! 	    if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
+! 		return( False );
+! 	    *((long *) value) = (long)(ext_im->extension_conversion);
+! 	    return (True);
+  	}
+! 	_Ximp_IM_SendMessage( ic, XIMP_EXTENSION,
+! 		     ext_im->extension_conversion_id,
+! 		     False,	/* GetICVelues */
+! 		     value );
+  	Arg.message_type = ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id;
+! 	Arg.ext_type = ext_im->extension_conversion_id;
+  	Arg.owner = ((Ximp_XIM)ic->core.im)->ximp_impart->fe_window;
+  	Arg.icid = ic->ximp_icpart->icid;
+  	if( !_XimpIfEvent( ic, &event, ximp_ext_conversionPredicate, (XPointer)&Arg ) )
+--- 384,426 ----
+      switch (op) {
+      case XICOpCreate:
+      case XICOpSet:
+! 	if(!IS_SERVER_CONNECTED(ic->core.im)) {
+! 	    if(IS_CONNECTABLE(ic->core.im))
+! 		return(True);
+! 	    return(False);
+! 	}
+  	/*
+  	 * Set Conversion mode on/off
+  	 */
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 		ext_im->extension_conversion_id,
+! 		True,	/* SetICVelues */
+! 		value);
+! 	if(ISXimp4(ic)) {
+! 	    if(value == XIMEnable) /* on */
+! 		_Ximp_ConvertOn(ic);
+! 	    else /* off */
+! 		_Ximp_ConvertOff(ic);
+! 	}
+  	/*
+  	 * This call expect IM Server to report new conversion state to Ximp
+  	 * lib right after setting.
+  	 */
+  	return True;
+      case XICOpGet:
+! 	if(!IS_SERVER_CONNECTED(ic->core.im)) {
+! 	    if(IS_CONNECTABLE(ic->core.im)) {
+! 		*((long *) value) = (long)(ext_im->extension_conversion);
+! 		return(True);
+! 		}
+! 	    return(False);
+  	}
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 		ext_im->extension_conversion_id,
+! 		False,	/* GetICVelues */
+! 		value);
+  	Arg.message_type = ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id;
+! 	Arg.ext_type     = ext_im->extension_conversion_id;
+  	Arg.owner = ((Ximp_XIM)ic->core.im)->ximp_impart->fe_window;
+  	Arg.icid = ic->ximp_icpart->icid;
+  	if( !_XimpIfEvent( ic, &event, ximp_ext_conversionPredicate, (XPointer)&Arg ) )
+***************
+*** 454,463 ****
+--- 491,549 ----
+      return (False);
+  }
+  
++ Private int
++ ximp_ext_restart_callback( ic, op, value )
++ Ximp_XIC        ic;
++ XICOp_t         op;
++ long            value;
++ {
++     switch( op ) {
++       case XICOpCreate:
++       case XICOpSet:
++ 	ic->ximp_icpart->restart.client_data = ((XIMCallback *)value)->client_data;
++ 	ic->ximp_icpart->restart.callback = ((XIMCallback *)value)->callback;
++ 	return( True );
++ 	break;
++ 
++       case XICOpGet:
++ 	if( ic->ximp_icpart->restart.callback != NULL ) {
++ 	    ((XIMCallback *)value)->callback = ic->ximp_icpart->restart.callback;
++             return( True );
++         }
++ 	break;
++     }
++     return( False );
++ }
++ 
++ Private int
++ ximp_ext_destroy_callback( ic, op, value )
++ Ximp_XIC        ic;
++ XICOp_t         op;
++ long            value;
++ {
++     switch( op ) {
++       case XICOpCreate:
++       case XICOpSet:
++ 	ic->ximp_icpart->destroy.client_data = ((XIMCallback *)value)->client_data;
++ 	ic->ximp_icpart->destroy.callback = ((XIMCallback *)value)->callback;
++ 	return( True );
++ 	break;
++ 
++       case XICOpGet:
++ 	if( ic->ximp_icpart->destroy.callback != NULL ) {
++ 	    ((XIMCallback *)value)->callback = ic->ximp_icpart->destroy.callback;
++             return( True );
++         }
++ 	break;
++     }
++     return( False );
++ }
++ 
+  /*
+   * Ximp extentions
+   *      XIMP_EXT_XIMP_LOOKUPCHOICES
+   */
++ #ifdef EXTLOOKUPCALLBACK
+  
+  Private int
+  ximp_ext_lookup_start_callback(ic, op, value)
+***************
+*** 661,673 ****
+  	ic->ximp_icpart->use_lookup_choices = True ;
+  	break ;
+      case XICOpSet:
+! 	if(ic->ximp_icpart->icid == NULL) {
+! 		if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
+! 			return (False);
+! 		return (True);
+! 		}
+  	ic->ximp_icpart->use_lookup_choices = True ;
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+  			     ext_im->extension_lookup_id,
+  			     LOOKUP_CHOICES_BEGIN,
+  			     NULL);
+--- 747,757 ----
+  	ic->ximp_icpart->use_lookup_choices = True ;
+  	break ;
+      case XICOpSet:
+! 	if(!IS_IC_CONNECTED(ic)) {
+! 	    return False;
+! 	}
+  	ic->ximp_icpart->use_lookup_choices = True ;
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+  			     ext_im->extension_lookup_id,
+  			     LOOKUP_CHOICES_BEGIN,
+  			     NULL);
+***************
+*** 682,733 ****
+      return (False);
+  }
+  
+- Private int
+- ximp_ext_restart_callback( ic, op, value )
+- Ximp_XIC        ic;
+- XICOp_t         op;
+- long            value;
+- {
+-     switch( op ) {
+-       case XICOpCreate:
+-       case XICOpSet:
+- 	ic->ximp_icpart->restart.client_data = ((XIMCallback *)value)->client_data;
+- 	ic->ximp_icpart->restart.callback = ((XIMCallback *)value)->callback;
+- 	return( True );
+- 	break;
+- 
+-       case XICOpGet:
+- 	/*
+- 	 * NOT surely implemented Yet. Need attention.
+- 	 */
+- 	break;
+-     }
+-     return( False );
+- }
+- 
+- Private int
+- ximp_ext_destroy_callback( ic, op, value )
+- Ximp_XIC        ic;
+- XICOp_t         op;
+- long            value;
+- {
+-     switch( op ) {
+-       case XICOpCreate:
+-       case XICOpSet:
+- 	ic->ximp_icpart->destroy.client_data = ((XIMCallback *)value)->client_data;
+- 	ic->ximp_icpart->destroy.callback = ((XIMCallback *)value)->callback;
+- 	return( True );
+- 	break;
+- 
+-       case XICOpGet:
+- 	/*
+- 	 * NOT surely implemented Yet. Need attention.
+- 	 */
+- 	break;
+-     }
+-     return( False );
+- }
+- 
+  static void _Ximp_Extlookupstart();
+  static void _Ximp_Extlookupdraw();
+  static void _Ximp_Extlookupprocess();
+--- 766,771 ----
+***************
+*** 846,856 ****
+  
+  	    XFlush(ic->core.im->core.display);
+  
+! 	    _Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+! 				 ext_im->extension_lookup_id,
+! 				 LOOKUP_CHOICES_START_REP,
+! 				 ext_im->extension_lookup_start_rep,
+! 				 NULL);
+  
+  	    XFlush(ic->core.im->core.display);
+  
+--- 884,894 ----
+  
+  	    XFlush(ic->core.im->core.display);
+  
+! 	    _Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 			ext_im->extension_lookup_id,
+! 			LOOKUP_CHOICES_START_REP,
+! 			ext_im->extension_lookup_start_rep,
+! 			NULL);
+  
+  	    XFlush(ic->core.im->core.display);
+  
+***************
+*** 1029,1039 ****
+  
+  	    ext_im = (Ximp_ExtXIMRec *) (((Ximp_XIMRec *) ic->core.im)->ximp_impart->imtype);
+  
+! 	    _Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+! 				 ext_im->extension_lookup_id,
+! 				 LOOKUP_CHOICES_PROCESS_REP,
+! 				 xim_proc.index_of_choice_selected,
+! 				 NULL);
+  
+  	    XFlush(ic->core.im->core.display);
+  	}
+--- 1067,1077 ----
+  
+  	    ext_im = (Ximp_ExtXIMRec *) (((Ximp_XIMRec *) ic->core.im)->ximp_impart->imtype);
+  
+! 	    _Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 			ext_im->extension_lookup_id,
+! 			LOOKUP_CHOICES_PROCESS_REP,
+! 			xim_proc.index_of_choice_selected,
+! 			NULL);
+  
+  	    XFlush(ic->core.im->core.display);
+  	}
+***************
+*** 1057,1062 ****
+--- 1095,1101 ----
+  	ic->ximp_icpart->lookup_attr.draw_data = NULL ;	
+      }
+  }
++ #endif /* EXTLOOKUPCALLBACK */
+  
+  /*
+   * Following functions are called by Core of Ximp.
+***************
+*** 1221,1229 ****
+      int             mode;
+  {
+      if(mode == XIMP_CREATE_IC)
+!         return _Ximp_ext_icop(ic, name, XICOpCreate, value);
+      else
+!         return _Ximp_ext_icop(ic, name, XICOpSet, value);
+  }
+  
+  /*
+--- 1260,1268 ----
+      int             mode;
+  {
+      if(mode == XIMP_CREATE_IC)
+! 	return _Ximp_ext_icop(ic, name, XICOpCreate, value);
+      else
+! 	return _Ximp_ext_icop(ic, name, XICOpSet, value);
+  }
+  
+  /*
+***************
+*** 1253,1272 ****
+      ext_im = (Ximp_ExtXIMRec *) (((Ximp_XIMRec *) ic->core.im)->ximp_impart->imtype);
+  
+      /* Backend / Frontend */
+!     if (ic->ximp_icpart->is_bep_mode == XIMP_BACKEND) {
+! 	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+! 			     ext_im->extension_back_front_id,
+! 			     ic->ximp_icpart->is_bep_mode,
+! 			     NULL);
+      }
+  
+      /* Lookup Choice using check */
+      if((ext_im->extension_lookup_exist)) {
+  	if ( ic->ximp_icpart->use_lookup_choices ) {
+! 	    	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+! 				     ext_im->extension_lookup_id,
+! 				     LOOKUP_CHOICES_BEGIN,
+! 				     NULL);
+  	}
+      }
+      /* Add extension here */
+--- 1292,1314 ----
+      ext_im = (Ximp_ExtXIMRec *) (((Ximp_XIMRec *) ic->core.im)->ximp_impart->imtype);
+  
+      /* Backend / Frontend */
+!     /* For Backward Compatibility */
+!     if(!ISXimp4(ic)) {
+! 	if (!ISXIMP3FE(ic)) {
+! 		_Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 		ext_im->extension_back_front_id,
+! 		ic->ximp_icpart->svr_mode,
+! 		NULL);
+! 	}
+      }
+  
+      /* Lookup Choice using check */
+      if((ext_im->extension_lookup_exist)) {
+  	if ( ic->ximp_icpart->use_lookup_choices ) {
+! 	    _Ximp_IM_SendMessage(ic, XIMP_EXTENSION(ic),
+! 					ext_im->extension_lookup_id,
+! 					LOOKUP_CHOICES_BEGIN,
+! 					NULL);
+  	}
+      }
+      /* Add extension here */
+***************
+*** 1298,1307 ****
+--- 1340,1351 ----
+      ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+  
+      if (ext_id == ext_im->extension_lookup_id) {
++ #ifdef EXTLOOKUPCALLBACK
+  	if (ext_im->extension_lookup_exist)
+  	    _Ximp_ExtLookup(d, w, ev, ic);
+  	return;
+  	/* anything to do it? */
++ #endif
+      } else;
+      /* Add extension here */
+      return;
+*** /tmp/d18992	Mon Oct 19 19:35:00 1992
+--- lib/X/Ximp/XimpICG.c	Mon Oct 19 19:24:39 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpICG.c,v 1.9 92/07/29 10:15:56 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+--- 1,4 ----
+! /* $XConsortium: XimpICG.c,v 1.10 92/10/19 19:24:35 rws Exp $ */
+  /******************************************************************
+  
+      Copyright 1991, 1992 by FUJITSU LIMITED.
+***************
+*** 28,34 ****
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+          Hideki Hiura         Sun Microsystems, Inc.
+!         Makoto Wakamatsu     Sony Corporation
+  
+  ******************************************************************/
+  
+--- 28,34 ----
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+          Hideki Hiura         Sun Microsystems, Inc.
+!         Makoto Wakamatsu     Sony Corporaion
+  
+  ******************************************************************/
+  
+***************
+*** 42,409 ****
+  
+  extern char 		*_Ximp_GetICValues();
+  extern Bool		 _Ximp_GetICExtension();
+! extern Bool		_Ximp_CMPredicate();
+  
+  static Bool 		 _Ximp_PreGetAttributes();
+  static Bool 		 _Ximp_StatusGetAttributes();
+- static XPointer		 _Ximp_GetRequestIM();
+  
+  char *
+  _Ximp_GetICValues(ic, values)
+! 	Ximp_XIC	 ic;
+! 	XIMArg		*values;
+  {
+! 	XIMArg		*p;
+! 	char		*p_char;
+! 	char		*return_name = NULL;
+! 	int		 len;
+  
+! 	for(p = values; p->name != NULL; p++) {
+! 		if(strcmp(p->name, XNInputStyle) == 0) {
+! 			if(ic->ximp_icpart->value_mask & XIMP_INPUT_STYLE) {
+! 			    *((XIMStyle *)(p->value)) = ic->core.input_style;
+! 			} else {			    
+! 			    return_name = p->name;
+! 			    break;
+! 			}
+! 		} else if(strcmp(p->name, XNClientWindow)==0) {
+! 			if(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN) {
+! 			    *((Window *)(p->value)) = ic->core.client_window;
+! 			} else {
+! 			    return_name = p->name;
+! 			    break;
+! 			}
+! 		} else if(strcmp(p->name, XNFocusWindow)==0) {
+! 			if(ic->ximp_icpart->proto_mask & XIMP_FOCUS_WIN_MASK) {
+! 			    *((Window *)(p->value)) = ic->core.focus_window;
+! 			} else if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver){
+! 			    return_name = p->name;
+! 			    break;
+! 			} else {
+! 			    XPointer tmp = _Ximp_GetRequestIM(ic,
+! 						 XIMP_FOCUS_WIN_MASK,
+! 						((Ximp_XIM)ic->core.im)->ximp_impart->focus_win_id,
+! 						XA_WINDOW);
+! 			    *((Window *)(p->value)) = *(Window *)tmp ;
+! 			    free(tmp) ;
+! 			}
+! 		} else if(strcmp(p->name, XNResourceName)==0) {
+! 			if(ic->core.im->core.res_name != (char *)NULL) {
+! 			    len = strlen(ic->core.im->core.res_name);
+! 			    if((p_char = Xmalloc(len+1)) == NULL) {
+! 				return_name = p->name;
+! 				break;
+! 			    }
+! 			    strcpy(p_char, ic->core.im->core.res_name);
+! 			    *((char **)(p->value)) = p_char;
+! 			} else {
+! 			    return_name = p->name;
+! 			    break;
+! 			}
+! 		} else if(strcmp(p->name, XNResourceClass)==0) {
+! 			if(ic->core.im->core.res_class != (char *)NULL) {
+! 			    len = strlen(ic->core.im->core.res_class);
+! 			    if((p_char = Xmalloc(len+1)) == NULL) {
+! 				return_name = p->name;
+! 				break;
+! 			    }
+! 			    strcpy(p_char, ic->core.im->core.res_name);
+! 			    *((char **)(p->value)) = p_char;
+! 			} else {
+! 			    return_name = p->name;
+! 			    break;
+! 			}
+! 		} else if(strcmp(p->name, XNGeometryCallback)==0) {
+! 			if(ic->ximp_icpart->value_mask & XIMP_GEOMETRY_CB) {
+! 			    *((XIMCallback *)(p->value)) = ic->core.geometry_callback;
+! 			} else {
+! 			    return_name = p->name;
+! 			    break;
+! 			}
+! 		} else if(strcmp(p->name, XNFilterEvents)==0) {
+! 		    *((unsigned long *)(p->value)) = ic->core.filter_events;
+! 		} else if(strcmp(p->name, XNPreeditAttributes)==0) {
+! 			if( _Ximp_PreGetAttributes(ic, p->value,
+! 						   &return_name) == False)
+! 				break;
+! 		} else if(strcmp(p->name, XNStatusAttributes)==0) {
+! 			if( _Ximp_StatusGetAttributes(ic, p->value,
+! 						   &return_name) == False)
+! 				break;
+! 		} else {
+! 			if( _Ximp_GetICExtension(ic, p->name, p->value) == False) {
+! 				return_name = p->name;
+! 				break;
+! 			}
+  		}
+  	}
+! 	return(return_name);
+  }
+  
+  static Bool
+  _Ximp_PreGetAttributes(ic, vl, return_name)
+! 	Ximp_XIC	 ic;
+! 	XIMArg		*vl;
+! 	char		**return_name;
+  {
+! 	XIMArg		*p;
+! 	XRectangle	*p_rect;
+! 	XPoint		*p_point;
+! 	unsigned long	 mask;
+! 	int		 im_preedit_flag = 0;
+! 	Ximp_PreeditPropRec	*preedit_data = NULL;
+! 	XIMCallback 	*p_callback;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->connectserver) {
+! 		for(mask = 0, p = vl; p->name != NULL; p++) {
+! 			if(strcmp(p->name, XNArea)==0)
+! 				mask |= XIMP_PRE_AREA_MASK;
+! 			else if(strcmp(p->name, XNAreaNeeded)==0)
+! 				mask |= XIMP_PRE_AREANEED_MASK;
+! 			else if(strcmp(p->name, XNSpotLocation)==0) {
+! 				if(!ic->ximp_icpart->input_mode)
+! 				    _Ximp_IM_SendMessage(ic, XIMP_MOVE,
+! 					ic->ximp_icpart->preedit_attr.SpotLocation.x,
+! 					ic->ximp_icpart->preedit_attr.SpotLocation.y,
+! 					NULL);
+! 				mask |= XIMP_PRE_SPOTL_MASK;
+! 			}
+! 			else if(strcmp(p->name, XNColormap)==0)
+! 				mask |= XIMP_PRE_COLORMAP_MASK;
+! 			else if(strcmp(p->name, XNStdColormap)==0)
+! 				mask |= XIMP_PRE_COLORMAP_MASK;
+! 			else if(strcmp(p->name, XNBackground)==0)
+! 				mask |= XIMP_PRE_BG_MASK;
+! 			else if(strcmp(p->name, XNForeground)==0)
+! 				mask |= XIMP_PRE_FG_MASK;
+! 			else if(strcmp(p->name, XNBackgroundPixmap)==0)
+! 				mask |= XIMP_PRE_BGPIXMAP_MASK;
+! 			else if(strcmp(p->name, XNLineSpace)==0)
+! 				mask |= XIMP_PRE_LINESP_MASK;
+! 			else if(strcmp(p->name, XNCursor)==0)
+! 				mask |= XIMP_PRE_CURSOR_MASK;
+  		}
+! 		if(mask) {
+! 			preedit_data = (Ximp_PreeditPropRec *)_Ximp_GetRequestIM(ic, mask,
+! 				((Ximp_XIM)ic->core.im)->ximp_impart->preedit_atr_id,
+! 				((Ximp_XIM)ic->core.im)->ximp_impart->preedit_atr_id);
+! 			if(preedit_data != (Ximp_PreeditPropRec *)NULL)
+! 				im_preedit_flag = 1;
+! 		}
+  	}
+! 	for(p = vl; p->name != NULL; p++) {
+! 		if(strcmp(p->name, XNArea)==0) {
+! 			if(im_preedit_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_rect->x       = preedit_data->Area.x;
+! 				p_rect->y       = preedit_data->Area.y;
+! 				p_rect->width   = preedit_data->Area.width;
+! 				p_rect->height  = preedit_data->Area.height;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREA_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+! 					p_rect->x       = ic->core.preedit_attr.area.x;
+! 					p_rect->y       = ic->core.preedit_attr.area.y;
+! 					p_rect->width   = ic->core.preedit_attr.area.width;
+! 					p_rect->height  = ic->core.preedit_attr.area.height;
+! 				} else {
+! 				        *return_name = p->name;
+! 				        return(False);
+! 				}
+! 			}
+! 			*((XRectangle **)(p->value)) = p_rect;
+! 		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+! 			if(im_preedit_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_rect->x  = p_rect->y  = 0;
+! 				p_rect->width   = preedit_data->AreaNeeded.width;
+! 				p_rect->height  = preedit_data->AreaNeeded.height;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREANEED_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+! 					p_rect->x  = p_rect->y  = 0;
+! 					p_rect->width   = ic->core.preedit_attr.area_needed.width;
+! 					p_rect->height  = ic->core.preedit_attr.area_needed.height;
+! 				} else {
+! 				        *return_name = p->name;
+! 				        return(False);
+! 				}
+! 			}
+! 			*((XRectangle **)(p->value)) = p_rect;
+! 		} else if(strcmp(p->name, XNSpotLocation)==0) {
+! 			if(im_preedit_flag) {
+! 				if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_point->x = preedit_data->SpotLocation.x;
+! 				p_point->y = preedit_data->SpotLocation.y;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_SPOTL_MASK) {
+! 					if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+! 					p_point->x = ic->core.preedit_attr.spot_location.x;
+! 					p_point->y = ic->core.preedit_attr.spot_location.y;
+! 				} else {
+! 				        *return_name = p->name;
+! 				        return(False);
+! 				}
+! 			}
+! 			*((XPoint **)(p->value)) = p_point;
+! 		} else if(  strcmp(p->name, XNColormap)==0
+! 		        || strcmp(p->name, XNStdColormap)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((Colormap *)(p->value)) = preedit_data->Colormap;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_COLORMAP_MASK) {
+! 				         *((Colormap *)(p->value)) = ic->core.preedit_attr.colormap;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNBackground)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((unsigned long *)(p->value)) = preedit_data->Background;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.preedit_attr.background;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNForeground)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((unsigned long *)(p->value)) = preedit_data->Foreground;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_FG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.preedit_attr.foreground;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((Pixmap *)(p->value)) = preedit_data->Bg_Pixmap;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BGPIXMAP_MASK) {
+! 				         *((Pixmap *)(p->value)) = ic->core.preedit_attr.background_pixmap;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNFontSet)==0) {
+! 			if(ic->ximp_icpart->proto_mask & XIMP_PRE_FONT_MASK) {
+! 			         *((XFontSet *)(p->value)) = ic->core.preedit_attr.fontset;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNLineSpace)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((int *)(p->value)) = preedit_data->LineSpacing;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_LINESP_MASK) {
+! 				         *((int *)(p->value)) = ic->core.preedit_attr.line_space;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNCursor)==0) {
+! 			if(im_preedit_flag) {
+! 			         *((Cursor *)(p->value)) = preedit_data->Cursor;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_PRE_CURSOR_MASK) {
+! 				         *((Cursor *)(p->value)) = ic->core.preedit_attr.cursor;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
+! 			if((int)ic->core.preedit_attr.callbacks.start.callback) {
+  
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.preedit_attr.callbacks.start.client_data;
+! 				p_callback->callback =
+! 					ic->core.preedit_attr.callbacks.start.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
+! 			if((int)ic->core.preedit_attr.callbacks.draw.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.preedit_attr.callbacks.draw.client_data;
+! 				p_callback->callback =
+! 					ic->core.preedit_attr.callbacks.draw.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
+! 			if((int)ic->core.preedit_attr.callbacks.done.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.preedit_attr.callbacks.done.client_data;
+! 				p_callback->callback =
+! 					ic->core.preedit_attr.callbacks.done.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
+! 			if((int)ic->core.preedit_attr.callbacks.caret.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.preedit_attr.callbacks.caret.client_data;
+! 				p_callback->callback =
+! 					ic->core.preedit_attr.callbacks.caret.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+  		}
+  	}
+! 	if( preedit_data )
+! 		XFree(preedit_data);
+! 	return(True);
+  }
+  
+  static Bool
+--- 42,483 ----
+  
+  extern char 		*_Ximp_GetICValues();
+  extern Bool		 _Ximp_GetICExtension();
+! extern Bool		 _Ximp_CMPredicate32();
+  
+  static Bool 		 _Ximp_PreGetAttributes();
+  static Bool 		 _Ximp_StatusGetAttributes();
+  
++ static XPointer
++ _Ximp_GetRequestIM(ic, mask, get_atom_id, atom_id)
++ Ximp_XIC	 ic;
++ unsigned long	 mask;
++ Atom		 get_atom_id, atom_id;
++ {
++     XEvent			event;
++     Atom			actual_type_ret;
++     int				actual_format_ret;
++     unsigned long		nitems_ret;
++     unsigned long		bytes_after_ret;
++     unsigned char		*data;
++     XimpCMPredicateArgRec	Arg;
++ 
++     if(!IS_IC_CONNECTED(ic))
++ 	return(NULL);
++     if(!(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN))
++ 	return(NULL);
++ 
++     _Ximp_IM_SendMessage(ic, XIMP_GETVALUE(ic), mask, NULL, NULL);
++     Arg.type = ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id;
++     Arg.owner = ((Ximp_XIM)ic->core.im)->ximp_impart->fe_window;
++     Arg.protocol = XIMP_GETVALUE_RETURN(ic);
++     Arg.icid = ic->ximp_icpart->icid;
++     if( !_XimpIfEvent( ic, &event, _Ximp_CMPredicate32, (XPointer)&Arg ) )
++ 	return( NULL );
++ 
++     XGetWindowProperty(ic->core.im->core.display,
++ 		       ic->core.client_window,
++ 		       get_atom_id, 0L, 1000000L, True, atom_id,
++ 		       &actual_type_ret, &actual_format_ret, &nitems_ret,
++ 		       &bytes_after_ret, &data);
++ 
++     if(actual_format_ret == 0 || nitems_ret == 0)
++ 	return(NULL);
++     return((XPointer)data);
++ }
++ 
+  char *
+  _Ximp_GetICValues(ic, values)
+! Ximp_XIC	 ic;
+! XIMArg		*values;
+  {
+!     XIMArg	*p;
+!     char	*p_char;
+!     char	*return_name = NULL;
+!     int		 len;
+  
+!     if(!IS_SERVER_CONNECTED(ic->core.im) && IS_RECONNECTABLE(ic->core.im))
+! 	_Ximp_ConnectServer( ic->core.im );
+!     if( IS_SERVER_CONNECTED(ic->core.im)  &&  !IS_IC_CONNECTED(ic) )
+! 	if( _Ximp_ConnectIC( ic, XIMP_START_IC ) )
+! 	    if(IS_RESTARTABLE(ic->core.im))
+! 		_Ximp_CallRestartCallbackExtension( ic );
+! 
+!     for(p = values; p->name != NULL; p++) {
+! 	if(strcmp(p->name, XNInputStyle) == 0) {
+! 	    if(ic->ximp_icpart->value_mask & XIMP_INPUT_STYLE) {
+! 		*((XIMStyle *)(p->value)) = ic->core.input_style;
+! 	    } else {			    
+! 		return_name = p->name;
+! 		break;
+! 	    }
+! 	} else if(strcmp(p->name, XNClientWindow)==0) {
+! 	    if(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN) {
+! 		*((Window *)(p->value)) = ic->core.client_window;
+! 	    } else {
+! 		return_name = p->name;
+! 		break;
+! 	    }
+! 	} else if(strcmp(p->name, XNFocusWindow)==0) {
+! 	    if(XIMP_CHK_FOCUSWINMASK(ic)) {
+! 		*((Window *)(p->value)) = ic->core.focus_window;
+! 	    } else if(IS_IC_CONNECTED(ic)) {
+! 		XPointer tmp = _Ximp_GetRequestIM(ic,
+! 			    XIMP_FOCUS_WIN_MASK(ic),
+! 			    ((Ximp_XIM)ic->core.im)->ximp_impart->focus_win_id,
+! 			    XA_WINDOW);
+! 		*((Window *)(p->value)) = *(Window *)tmp ;
+! 		free(tmp) ;
+! 	    } else {
+! 		return_name = p->name;
+! 		break;
+! 	    }
+! 	} else if(strcmp(p->name, XNResourceName)==0) {
+! 	    if(ic->core.im->core.res_name != (char *)NULL) {
+! 		len = strlen(ic->core.im->core.res_name);
+! 		if((p_char = Xmalloc(len+1)) == NULL) {
+! 		    return_name = p->name;
+! 		    break;
+  		}
++ 		strcpy(p_char, ic->core.im->core.res_name);
++ 		*((char **)(p->value)) = p_char;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNResourceClass)==0) {
++ 	    if(ic->core.im->core.res_class != (char *)NULL) {
++ 		len = strlen(ic->core.im->core.res_class);
++ 		if((p_char = Xmalloc(len+1)) == NULL) {
++ 		    return_name = p->name;
++ 		    break;
++ 		}
++ 		strcpy(p_char, ic->core.im->core.res_class);
++ 		*((char **)(p->value)) = p_char;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNGeometryCallback)==0) {
++ 	    if(ic->ximp_icpart->value_mask & XIMP_GEOMETRY_CB) {
++ 		*((XIMCallback *)(p->value)) = ic->core.geometry_callback;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNFilterEvents)==0) {
++ 	    *((unsigned long *)(p->value)) = ic->core.filter_events;
++ 	} else if(strcmp(p->name, XNPreeditAttributes)==0) {
++ 	    if( _Ximp_PreGetAttributes(ic, p->value, &return_name) == False)
++ 		break;
++ 	} else if(strcmp(p->name, XNStatusAttributes)==0) {
++ 	    if( _Ximp_StatusGetAttributes(ic, p->value, &return_name) == False)
++ 		break;
++ 	} else {
++ 	    if( _Ximp_GetICExtension(ic, p->name, p->value) == False) {
++ 		return_name = p->name;
++ 		break;
++ 	    }
+  	}
+!     }
+!     return(return_name);
+  }
+  
+  static Bool
+  _Ximp_PreGetAttributes(ic, vl, return_name)
+! Ximp_XIC	 ic;
+! XIMArg		*vl;
+! char		**return_name;
+  {
+!     XIMArg			*p;
+!     XRectangle			*p_rect;
+!     XPoint			*p_point;
+!     unsigned long		 mask;
+!     int				 im_preedit_flag = 0;
+!     Ximp_PreeditPropRec4	*preedit_data = NULL;
+!     Ximp_PreeditPropRec3	*preedit_data_bc = NULL;
+!     XIMCallback 		*p_callback;
+  
+!     if(IS_IC_CONNECTED(ic)){
+! 	for(mask = 0, p = vl; p->name != NULL; p++) {
+! 	    if(strcmp(p->name, XNArea)==0)
+! 		mask |= XIMP_PRE_AREA_MASK(ic);
+! 	    else if(strcmp(p->name, XNAreaNeeded)==0)
+! 		mask |= XIMP_PRE_AREANEED_MASK(ic);
+! 	    else if(strcmp(p->name, XNSpotLocation)==0) {
+! 		if(!IS_BEING_PREEDITED(ic))
+! 		    _Ximp_IM_SendMessage(ic, XIMP_MOVE(ic),
+! 			    ic->ximp_icpart->preedit_attr.SpotLocation.x,
+! 			    ic->ximp_icpart->preedit_attr.SpotLocation.y,
+! 			    NULL);
+! 		mask |= XIMP_PRE_SPOTL_MASK(ic);
+! 	    }
+! 	    else if(strcmp(p->name, XNColormap)==0)
+! 		mask |= XIMP_PRE_COLORMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNStdColormap)==0)
+! 		mask |= XIMP_PRE_STD_COLORMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNBackground)==0)
+! 		mask |= XIMP_PRE_BG_MASK(ic);
+! 	    else if(strcmp(p->name, XNForeground)==0)
+! 		mask |= XIMP_PRE_FG_MASK(ic);
+! 	    else if(strcmp(p->name, XNBackgroundPixmap)==0)
+! 		mask |= XIMP_PRE_BGPIXMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNLineSpace)==0)
+! 		mask |= XIMP_PRE_LINESP_MASK(ic);
+! 	    else if(strcmp(p->name, XNCursor)==0)
+! 		mask |= XIMP_PRE_CURSOR_MASK(ic);
+! 	}
+! 	if(mask) {
+! 	    preedit_data = (Ximp_PreeditPropRec4 *)_Ximp_GetRequestIM(ic,
+! 			mask,
+! 			((Ximp_XIM)ic->core.im)->ximp_impart->preedit_atr_id,
+! 			((Ximp_XIM)ic->core.im)->ximp_impart->preedit_atr_id);
+! 	    if(preedit_data != (Ximp_PreeditPropRec4 *)NULL) {
+! 		im_preedit_flag = 1;
+! 		if( !ISXimp4(ic) ) {
+! 		    preedit_data_bc = (Ximp_PreeditPropRec3 *)preedit_data;
+! 		    if( (preedit_data = (Ximp_PreeditPropRec4 *)Xmalloc(sizeof(Ximp_PreeditPropRec4))) == NULL ) {
+! 			im_preedit_flag = 0;
+! 		    }
+! 		    else {
+! 			preedit_data->Area = preedit_data_bc->Area;
+! 			preedit_data->AreaNeeded = preedit_data_bc->AreaNeeded;
+! 			preedit_data->SpotLocation = preedit_data_bc->SpotLocation;
+! 			preedit_data->Colormap = preedit_data_bc->Colormap;
+! 			preedit_data->StdColormap = preedit_data_bc->Colormap;
+! 			preedit_data->Foreground = preedit_data_bc->Foreground;
+! 			preedit_data->Background = preedit_data_bc->Background;
+! 			preedit_data->Bg_Pixmap = preedit_data_bc->Bg_Pixmap;
+! 			preedit_data->LineSpacing = preedit_data_bc->LineSpacing;
+! 			preedit_data->Cursor = preedit_data_bc->Cursor;
+! 		    }
+! 		    XFree( preedit_data_bc );
+  		}
+! 	    }
+  	}
+!     }
+  
+!     for(p = vl; p->name != NULL; p++) {
+! 	if(strcmp(p->name, XNArea)==0) {
+! 	    if(im_preedit_flag) {
+! 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 		    *return_name = p->name;
+! 		    return(False);
+  		}
++ 		p_rect->x       = preedit_data->Area.x;
++ 		p_rect->y       = preedit_data->Area.y;
++ 		p_rect->width   = preedit_data->Area.width;
++ 		p_rect->height  = preedit_data->Area.height;
++ 	    } else {
++ 		if(XIMP_CHK_PREAREAMASK(ic)) {
++ 		    if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 			*return_name = p->name;
++ 			return(False);
++ 		    }
++ 		    p_rect->x       = ic->core.preedit_attr.area.x;
++ 		    p_rect->y       = ic->core.preedit_attr.area.y;
++ 		    p_rect->width   = ic->core.preedit_attr.area.width;
++ 		    p_rect->height  = ic->core.preedit_attr.area.height;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 	    if(im_preedit_flag) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x  = p_rect->y  = 0;
++ 		p_rect->width   = preedit_data->AreaNeeded.width;
++ 		p_rect->height  = preedit_data->AreaNeeded.height;
++ 	    } else {
++ 		if(XIMP_CHK_PREAREANEEDMASK(ic)) {
++ 		    if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 			*return_name = p->name;
++ 			return(False);
++ 		    }
++ 		    p_rect->x  = p_rect->y  = 0;
++ 		    p_rect->width   = ic->core.preedit_attr.area_needed.width;
++ 		    p_rect->height  = ic->core.preedit_attr.area_needed.height;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNSpotLocation)==0) {
++ 	    if(im_preedit_flag) {
++ 		if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_point->x = preedit_data->SpotLocation.x;
++ 		p_point->y = preedit_data->SpotLocation.y;
++ 	    } else {
++ 		if(XIMP_CHK_PRESPOTLMASK(ic)) {
++ 		    if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
++ 			*return_name = p->name;
++ 			return(False);
++ 		    }
++ 		    p_point->x = ic->core.preedit_attr.spot_location.x;
++ 		    p_point->y = ic->core.preedit_attr.spot_location.y;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	    *((XPoint **)(p->value)) = p_point;
++ 	} else if(strcmp(p->name, XNColormap)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((Colormap *)(p->value)) = preedit_data->Colormap;
++ 	    } else {
++ 		if(XIMP_CHK_PRECOLORMAPMASK(ic)) {
++ 		     *((Colormap *)(p->value)) = ic->core.preedit_attr.colormap;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNStdColormap)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((Atom *)(p->value)) = preedit_data->StdColormap;
++ 	    } else {
++ 		if(XIMP_CHK_PRESTDCOLORMAPMASK(ic))
++ 		     *((Atom *)(p->value)) = ic->core.preedit_attr.std_colormap;
++ 		else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNBackground)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((unsigned long *)(p->value)) = preedit_data->Background;
++ 	    } else {
++ 		if(XIMP_CHK_PREBGMASK(ic)) {
++ 		     *((unsigned long *)(p->value)) = ic->core.preedit_attr.background;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNForeground)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((unsigned long *)(p->value)) = preedit_data->Foreground;
++ 	    } else {
++ 		if(XIMP_CHK_PREFGMASK(ic)) {
++ 		     *((unsigned long *)(p->value)) = ic->core.preedit_attr.foreground;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((Pixmap *)(p->value)) = preedit_data->Bg_Pixmap;
++ 	    } else {
++ 		if(XIMP_CHK_PREBGPIXMAPMASK(ic)) {
++ 		     *((Pixmap *)(p->value)) = ic->core.preedit_attr.background_pixmap;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNFontSet)==0) {
++ 	    if(XIMP_CHK_PREFONTMASK(ic)) {
++ 		 *((XFontSet *)(p->value)) = ic->core.preedit_attr.fontset;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNLineSpace)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((int *)(p->value)) = preedit_data->LineSpacing;
++ 	    } else {
++ 		if(XIMP_CHK_PRELINESPMASK(ic)) {
++ 		     *((int *)(p->value)) = ic->core.preedit_attr.line_space;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNCursor)==0) {
++ 	    if(im_preedit_flag) {
++ 		 *((Cursor *)(p->value)) = preedit_data->Cursor;
++ 	    } else {
++ 		if(XIMP_CHK_PRECURSORMASK(ic)) {
++ 		     *((Cursor *)(p->value)) = ic->core.preedit_attr.cursor;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.start.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.preedit_attr.callbacks.start.client_data;
++ 		p_callback->callback =
++ 			ic->core.preedit_attr.callbacks.start.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.draw.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.preedit_attr.callbacks.draw.client_data;
++ 		p_callback->callback =
++ 			ic->core.preedit_attr.callbacks.draw.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.done.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.preedit_attr.callbacks.done.client_data;
++ 		p_callback->callback =
++ 			ic->core.preedit_attr.callbacks.done.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.caret.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.preedit_attr.callbacks.caret.client_data;
++ 		p_callback->callback =
++ 			ic->core.preedit_attr.callbacks.caret.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
+  	}
+!     }
+!     if( preedit_data )
+! 	XFree(preedit_data);
+!     return(True);
+  }
+  
+  static Bool
+***************
+*** 412,665 ****
+  	XIMArg	 	*vl;
+  	char		**return_name;
+  {
+! 	XIMArg		*p;
+! 	XRectangle	*p_rect;
+! 	unsigned long	 mask;
+! 	int		 im_status_flag = 0;
+! 	Ximp_StatusPropRec	*status_data = NULL;
+! 	XIMCallback 	*p_callback;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->connectserver) {
+! 		for(mask = 0, p = vl; p->name != NULL; p++) {
+! 			if(strcmp(p->name, XNArea)==0)
+! 				mask |= XIMP_STS_AREA_MASK;
+! 			else if(strcmp(p->name, XNAreaNeeded)==0)
+! 				mask |= XIMP_STS_AREANEED_MASK;
+! 			else if(strcmp(p->name, XNColormap)==0)
+! 				mask |= XIMP_STS_COLORMAP_MASK;
+! 			else if(strcmp(p->name, XNStdColormap)==0)
+! 				mask |= XIMP_STS_COLORMAP_MASK;
+! 			else if(strcmp(p->name, XNBackground)==0)
+! 				mask |= XIMP_STS_BG_MASK;
+! 			else if(strcmp(p->name, XNForeground)==0)
+! 				mask |= XIMP_STS_FG_MASK;
+! 			else if(strcmp(p->name, XNBackgroundPixmap)==0)
+! 				mask |= XIMP_STS_BGPIXMAP_MASK;
+! 			else if(strcmp(p->name, XNLineSpace)==0)
+! 				mask |= XIMP_STS_LINESP_MASK;
+! 			else if(strcmp(p->name, XNCursor)==0)
+! 				mask |= XIMP_STS_CURSOR_MASK;
+  		}
+! 		if(mask) {
+! 			status_data = (Ximp_StatusPropRec *)_Ximp_GetRequestIM(ic, mask,
+! 				((Ximp_XIM)ic->core.im)->ximp_impart->status_atr_id,
+! 				((Ximp_XIM)ic->core.im)->ximp_impart->status_atr_id);
+! 			if(status_data != (Ximp_StatusPropRec *)NULL)
+! 				im_status_flag = 1;
+! 		}
+  	}
+  
+! 	for(p = vl; p->name != NULL; p++) {
+! 		if(strcmp(p->name, XNArea)==0) {
+! 			if(im_status_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_rect->x       = status_data->Area.x;
+! 				p_rect->y       = status_data->Area.y;
+! 				p_rect->width   = status_data->Area.width;
+! 				p_rect->height  = status_data->Area.height;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREA_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+! 					p_rect->x       = ic->core.status_attr.area.x;
+! 					p_rect->y       = ic->core.status_attr.area.y;
+! 					p_rect->width   = ic->core.status_attr.area.width;
+! 					p_rect->height  = ic->core.status_attr.area.height;
+! 				} else {
+! 				        *return_name = p->name;
+! 				        return(False);
+! 				}
+! 			}
+! 			*((XRectangle **)(p->value)) = p_rect;
+! 		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+! 			if(im_status_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_rect->x  = p_rect->y  = 0;
+! 				p_rect->width   = status_data->AreaNeeded.width;
+! 				p_rect->height  = status_data->AreaNeeded.height;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREANEED_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+! 					p_rect->x  = p_rect->y  = 0;
+! 					p_rect->width   = ic->core.status_attr.area_needed.width;
+! 					p_rect->height  = ic->core.status_attr.area_needed.height;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 			*((XRectangle **)(p->value)) = p_rect;
+! 		} else if(  strcmp(p->name, XNColormap)==0
+! 		        || strcmp(p->name, XNStdColormap)==0) {
+! 			if(im_status_flag) {
+! 			         *((Colormap *)(p->value)) = status_data->Colormap;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_COLORMAP_MASK) {
+! 				         *((Colormap *)(p->value)) = ic->core.status_attr.colormap;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNBackground)==0) {
+! 			if(im_status_flag) {
+! 			         *((unsigned long *)(p->value)) = status_data->Background;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_BG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.status_attr.background;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 			        }
+! 			}
+! 		} else if(strcmp(p->name, XNForeground)==0) {
+! 			if(im_status_flag) {
+! 			         *((unsigned long *)(p->value)) = status_data->Foreground;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_FG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.status_attr.foreground;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+! 			if(im_status_flag) {
+! 			         *((Pixmap *)(p->value)) = status_data->Bg_Pixmap;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_BGPIXMAP_MASK) {
+! 				         *((Pixmap *)(p->value)) = ic->core.status_attr.background_pixmap;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 			        }
+! 			}
+! 		} else if(strcmp(p->name, XNFontSet)==0) {
+! 			if(ic->ximp_icpart->proto_mask & XIMP_STS_FONT_MASK) {
+! 			         *((XFontSet *)(p->value)) = ic->core.status_attr.fontset;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNLineSpace)==0) {
+! 			if(im_status_flag) {
+! 			         *((int *)(p->value)) = status_data->LineSpacing;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_LINESP_MASK) {
+! 				         *((int *)(p->value)) = ic->core.status_attr.line_space;
+! 				} else {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 			}
+! 		} else if(strcmp(p->name, XNCursor)==0) {
+! 			if(im_status_flag) {
+! 			         *((Cursor *)(p->value)) = status_data->Cursor;
+! 			} else {
+! 				if(ic->ximp_icpart->proto_mask & XIMP_STS_CURSOR_MASK) {
+! 				         *((Cursor *)(p->value)) = ic->core.status_attr.cursor;
+! 				} else { 
+! 					*return_name = p->name;
+! 					return(False);
+! 			        }
+! 			}
+! 		} else if(strcmp(p->name, XNStatusStartCallback)==0) {
+! 			if((int)ic->core.status_attr.callbacks.start.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.status_attr.callbacks.start.client_data;
+! 				p_callback->callback =
+! 					ic->core.status_attr.callbacks.start.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
+! 			if((int)ic->core.status_attr.callbacks.draw.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.status_attr.callbacks.draw.client_data;
+! 				p_callback->callback =
+! 					ic->core.status_attr.callbacks.draw.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+! 		} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
+! 			if((int)ic->core.status_attr.callbacks.done.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+! 				p_callback->client_data =
+! 					ic->core.status_attr.callbacks.done.client_data;
+! 				p_callback->callback =
+! 					ic->core.status_attr.callbacks.done.callback;
+! 				*((XIMCallback **)(p->value)) = p_callback;
+! 			} else {
+! 				*return_name = p->name;
+! 				return(False);
+! 			}
+  		}
+  	}
+! 	if( status_data )
+! 		XFree(status_data);
+! 	return(True);
+! }
+! 
+! static XPointer
+! _Ximp_GetRequestIM(ic, mask, get_atom_id, atom_id)
+! 	Ximp_XIC	 ic;
+! 	unsigned long	 mask;
+! 	Atom		 get_atom_id, atom_id;
+! {
+!     XEvent		event;
+!     Atom        	actual_type_ret;
+!     int			actual_format_ret;
+!     unsigned long	nitems_ret;
+!     unsigned long	bytes_after_ret;
+!     unsigned char	*data;
+!     XimpCMPredicateArgRec	Arg;
+! 
+!     if(ic->ximp_icpart->icid == (ICID)NULL)
+! 	return(NULL);
+!     if(!(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN))
+! 	return(NULL);
+! 
+!     _Ximp_IM_SendMessage(ic, XIMP_GETVALUE, mask, NULL, NULL);
+!     Arg.type = ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id;
+!     Arg.owner = ((Ximp_XIM)ic->core.im)->ximp_impart->fe_window;
+!     Arg.protocol = XIMP_GETVALUE_RETURN;
+!     Arg.icid = ic->ximp_icpart->icid;
+!     if( !_XimpIfEvent( ic, &event, _Ximp_CMPredicate, (XPointer)&Arg ) )
+! 	return( NULL );
+! 
+!     XGetWindowProperty(ic->core.im->core.display,
+! 		       ic->core.client_window,
+! 		       get_atom_id, 0L, 1000000L, True, atom_id,
+! 		       &actual_type_ret, &actual_format_ret, &nitems_ret,
+! 		       &bytes_after_ret, &data);
+! 
+!     if(actual_format_ret == 0 || nitems_ret == 0)
+! 	return(NULL);
+!     return((XPointer)data);
+  }
+--- 486,732 ----
+  	XIMArg	 	*vl;
+  	char		**return_name;
+  {
+!     XIMArg			*p;
+!     XRectangle			*p_rect;
+!     unsigned long		 mask;
+!     int				 im_status_flag = 0;
+!     Ximp_StatusPropRec4		*status_data = NULL;
+!     Ximp_StatusPropRec3		*status_data_bc = NULL;
+!     XIMCallback 		*p_callback;
+  
+!     if(IS_IC_CONNECTED(ic)){
+! 	for(mask = 0, p = vl; p->name != NULL; p++) {
+! 	    if(strcmp(p->name, XNArea)==0)
+! 		mask |= XIMP_STS_AREA_MASK(ic);
+! 	    else if(strcmp(p->name, XNAreaNeeded)==0)
+! 		mask |= XIMP_STS_AREANEED_MASK(ic);
+! 	    else if(strcmp(p->name, XNColormap)==0)
+! 		mask |= XIMP_STS_COLORMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNStdColormap)==0)
+! 		mask |= XIMP_STS_STD_COLORMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNBackground)==0)
+! 		mask |= XIMP_STS_BG_MASK(ic);
+! 	    else if(strcmp(p->name, XNForeground)==0)
+! 		mask |= XIMP_STS_FG_MASK(ic);
+! 	    else if(strcmp(p->name, XNBackgroundPixmap)==0)
+! 		mask |= XIMP_STS_BGPIXMAP_MASK(ic);
+! 	    else if(strcmp(p->name, XNLineSpace)==0)
+! 		mask |= XIMP_STS_LINESP_MASK(ic);
+! 	    else if(strcmp(p->name, XNCursor)==0)
+! 		mask |= XIMP_STS_CURSOR_MASK(ic);
+! 	}
+! 	if(mask) {
+! 	    status_data = (Ximp_StatusPropRec4 *)_Ximp_GetRequestIM(ic, mask,
+! 			((Ximp_XIM)ic->core.im)->ximp_impart->status_atr_id,
+! 			((Ximp_XIM)ic->core.im)->ximp_impart->status_atr_id);
+! 	    if(status_data != (Ximp_StatusPropRec4 *)NULL) {
+! 		im_status_flag = 1;
+! 		if( !ISXimp4(ic) ) {
+! 		    status_data_bc = (Ximp_StatusPropRec3 *)status_data;
+! 		    if( (status_data = (Ximp_StatusPropRec4 *)Xmalloc(sizeof(Ximp_StatusPropRec4))) == NULL ) {
+! 			im_status_flag = 0;
+! 		    }
+! 		    else {
+! 			status_data->Area = status_data_bc->Area;
+! 			status_data->AreaNeeded = status_data_bc->AreaNeeded;
+! 			status_data->Colormap = status_data_bc->Colormap;
+! 			status_data->StdColormap = status_data_bc->Colormap;
+! 			status_data->Foreground = status_data_bc->Foreground;
+! 			status_data->Background = status_data_bc->Background;
+! 			status_data->Bg_Pixmap = status_data_bc->Bg_Pixmap;
+! 			status_data->LineSpacing = status_data_bc->LineSpacing;
+! 			status_data->Cursor = status_data_bc->Cursor;
+! 			status_data->window = status_data_bc->window;
+! 		    }
+! 		    XFree( status_data_bc );
+  		}
+! 	    }
+  	}
++     }
+  
+!     for(p = vl; p->name != NULL; p++) {
+! 	if(strcmp(p->name, XNArea)==0) {
+! 	    if(im_status_flag) {
+! 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 		    *return_name = p->name;
+! 		    return(False);
+  		}
++ 		p_rect->x       = status_data->Area.x;
++ 		p_rect->y       = status_data->Area.y;
++ 		p_rect->width   = status_data->Area.width;
++ 		p_rect->height  = status_data->Area.height;
++ 	    } else {
++ 		if(XIMP_CHK_STSAREAMASK(ic)) {
++ 		    if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 			*return_name = p->name;
++ 			return(False);
++ 		    }
++ 		    p_rect->x       = ic->core.status_attr.area.x;
++ 		    p_rect->y       = ic->core.status_attr.area.y;
++ 		    p_rect->width   = ic->core.status_attr.area.width;
++ 		    p_rect->height  = ic->core.status_attr.area.height;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 	    if(im_status_flag) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x  = p_rect->y  = 0;
++ 		p_rect->width   = status_data->AreaNeeded.width;
++ 		p_rect->height  = status_data->AreaNeeded.height;
++ 	    } else {
++ 		if(XIMP_CHK_STSAREANEEDMASK(ic)) {
++ 		    if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 			*return_name = p->name;
++ 			return(False);
++ 		    }
++ 		    p_rect->x  = p_rect->y  = 0;
++ 		    p_rect->width   = ic->core.status_attr.area_needed.width;
++ 		    p_rect->height  = ic->core.status_attr.area_needed.height;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNColormap)==0) {
++ 	    if(im_status_flag) {
++ 		 *((Colormap *)(p->value)) = status_data->Colormap;
++ 	    } else {
++ 		if(XIMP_CHK_STSCOLORMAPMASK(ic)) {
++ 		     *((Colormap *)(p->value)) = ic->core.status_attr.colormap;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNStdColormap)==0) {
++ 	    if(im_status_flag) {
++ 		 *((Atom *)(p->value)) = status_data->StdColormap;
++ 	    } else {
++ 		if(XIMP_STS_STD_COLORMAP_MASK(ic)) {
++ 		     *((Atom *)(p->value)) = ic->core.status_attr.std_colormap;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNBackground)==0) {
++ 	    if(im_status_flag) {
++ 		 *((unsigned long *)(p->value)) = status_data->Background;
++ 	    } else {
++ 		if(XIMP_CHK_STSBGMASK(ic)) {
++ 		     *((unsigned long *)(p->value)) = ic->core.status_attr.background;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNForeground)==0) {
++ 	    if(im_status_flag) {
++ 		 *((unsigned long *)(p->value)) = status_data->Foreground;
++ 	    } else {
++ 		if(XIMP_CHK_STSFGMASK(ic)) {
++ 		     *((unsigned long *)(p->value)) = ic->core.status_attr.foreground;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 	    if(im_status_flag) {
++ 		 *((Pixmap *)(p->value)) = status_data->Bg_Pixmap;
++ 	    } else {
++ 		if(XIMP_CHK_STSBGPIXMAPMASK(ic)) {
++ 		     *((Pixmap *)(p->value)) = ic->core.status_attr.background_pixmap;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNFontSet)==0) {
++ 	    if(XIMP_CHK_STSFONTMASK(ic)) {
++ 		 *((XFontSet *)(p->value)) = ic->core.status_attr.fontset;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNLineSpace)==0) {
++ 	    if(im_status_flag) {
++ 		 *((int *)(p->value)) = status_data->LineSpacing;
++ 	    } else {
++ 		if(XIMP_CHK_STSLINESPMASK(ic)) {
++ 		     *((int *)(p->value)) = ic->core.status_attr.line_space;
++ 		} else {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNCursor)==0) {
++ 	    if(im_status_flag) {
++ 		 *((Cursor *)(p->value)) = status_data->Cursor;
++ 	    } else {
++ 		if(XIMP_CHK_STSCURSORMASK(ic)) {
++ 		     *((Cursor *)(p->value)) = ic->core.status_attr.cursor;
++ 		} else { 
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusStartCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.start.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.status_attr.callbacks.start.client_data;
++ 		p_callback->callback =
++ 			ic->core.status_attr.callbacks.start.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.draw.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.status_attr.callbacks.draw.client_data;
++ 		p_callback->callback =
++ 			ic->core.status_attr.callbacks.draw.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.done.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 			ic->core.status_attr.callbacks.done.client_data;
++ 		p_callback->callback =
++ 			ic->core.status_attr.callbacks.done.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
+  	}
+!     }
+!     if( status_data )
+! 	XFree(status_data);
+!     return(True);
+  }

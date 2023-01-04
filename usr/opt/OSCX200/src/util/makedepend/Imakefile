@@ -1,0 +1,95 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.15 91/12/02 08:48:08 rws Exp $
+/*
+ * NOTE: CppSourcesPresent IS NO LONGER TESTED OR SUPPORTED,
+ * and is nearly guaranteed to not work.
+ */
+
+#ifndef CppSourcesPresent
+#define CppSourcesPresent	NO	/* only works with BSD sources */
+#endif
+#ifndef CppSources
+#define CppSources /usr/src/lib/cpp
+#endif
+
+#if CppSourcesPresent
+    SRCS = include.c main.c parse.c pr.c cppsetup.c cpp.c cpy.y
+    OBJS = include.o main.o parse.o pr.o cppsetup.o cpp.o cpy.o
+ CPPDEFS = -DCPP
+  CPPSRC = CppSources
+#else
+/*
+ * But if you do not have cpp source...
+ */
+    SRCS = include.c main.c parse.c pr.c cppsetup.c
+    OBJS = include.o main.o parse.o pr.o cppsetup.o
+#endif
+
+INCLUDES = -I$(CONFIGSRC)
+ DEFINES = $(CPPDEFS) '-DINCLUDEDIR="/usr/include"' $(SIGNAL_DEFINES)
+ DEPLIBS =
+
+#ifdef MacIIArchitecture
+ XBSDLIB = /**/
+#endif
+
+all:: makedepend
+
+#undef InstallManPage
+#define InstallManPage(file,dest) /* as nothing */
+ComplexProgramTarget(makedepend)
+
+InstallManPageLong(mkdepend,$(MANDIR),makedepend)
+
+
+#if CppSourcesPresent
+cpy.c: cpy.y yylex.c
+	yacc cpy.y
+	sed -e '/^# *line/d' < y.tab.c > cpy.c
+	$(RM) y.tab.c
+
+cpy.y: $(CPPSRC)/cpy.y
+	$(RM) $@
+	$(LN) $(CPPSRC)/cpy.y .
+
+yylex.c: $(CPPSRC)/yylex.c
+	$(RM) $@
+	sed -e 's/#if pdp11 | vax | mc68000/& | ns16000 | ibm032/' \
+		$(CPPSRC)/yylex.c > yylex.c
+
+cpp.c: $(CPPSRC)/cpp.c cpp.ed
+	$(RM) cpp.c
+	/lib/cpp $(CPPSRC)/cpp.c \
+		| cb \
+		| sed -e '/^$$/d' -e '/^#/d' -e 's/	/ /g' > cpp.c
+	sed -e '/^#/d' < cpp.ed | ed - cpp.c
+
+cpp.o: cpp.c
+cpy.o: cpy.c
+
+clean::
+	$(RM) cpp.c cpy.? yylex.c
+#endif

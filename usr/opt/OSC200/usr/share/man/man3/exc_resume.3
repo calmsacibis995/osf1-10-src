@@ -1,0 +1,171 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" This is the mail from himel which is the source for the exc_resume manpage.
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" The other routines in this manpage are RtlLongjmp, RtlContinue, and
+.\" RtlUnwind - as of Sept 24, the names of the routines have changed:
+.\" 
+.\" RtlLongJmp  --   exc_longjmp
+.\" RtlContinue --   exc_continue
+.\" RtlUnwind   --   exc_unwind
+.\" RtlUnwindRfp -- this function was added sep 16 by himel, no new name
+.\"
+.TH exc_resume 3
+.PP
+.SH NAME
+.PP
+\*Lexc_resume\*O, \*Lexc_longjmp\*O, \*Lexc_continue\*O, \*Lexc_unwind\*O, \*LRtlUnwindRfp\*O  - entry points that support resuming execution of user code.
+.SH LIBRARY
+.PP
+\*OException Handling Library (\*Llibexc.a\*O)
+.SH SYNOPSIS
+.PP
+.iX "exc_resume" "entry point"
+.iX "exc_longjmp" "entry point"
+.iX "exc_contine" "entry point"
+.iX "exc_unwind" "entry point"
+.iX "RtlUnwindRfp" "entry point"
+.sS
+.nL
+\*L#include\*O <\*Lexcpt.h\*O>
+.nL
+\*Lvoid exc_resume(
+                PCONTEXT         \*VcontextRecord\*L);\*O
+.nL
+\*Lvoid exc_longjmp(
+                PCONTEXT         \*VcontextRecord\*L,
+                long             \*VreturnValue\*L);\*O
+.nL
+\*Lvoid exc_continue(
+                PCONTEXT         \*VcontextRecord\*L);\*O
+.nL
+\*Lvoid exc_unwind(
+                void              \*VTargetFrame\*L,
+                void              \*VTargetIp\*L,
+                system_exrec_type \*V*exceptionRecord\*L,
+                long              \*VreturnValue\*L);\*O
+.nL
+\*Lvoid RtlUnwindRfp(
+                void              \*V*TargetRealFrame\*L,
+                void              \*V*TargetIp\*L,
+                system_exrec_type \*V*exceptionRecord\*L,
+                long              \*VreturnValue\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*VcontextRecord"
+\*OPointer to a \*Lstruct sigcontext\*O (see \*Lsignal\*O(2)) used to represent
+a procedure's context.
+.LI "\*VreturnValue"
+\*OValue to be passed to the continuing code at the completion of the unwind.
+.LI "\*VTargetFrame"
+\*OIf nonzero, virtual frame pointer of the target procedure invocation to which
+the unwind is to be done; if zero, specifies that an exit unwind is to be
+initiated and causes the \*LEXCEPTION_EXIT_UNWIND\*O flag to be set in the exception
+record.
+.LI "\*VTargetIP"
+\*OIf \*VTargetRealFrame\*O is nonzero, address within the target invocation
+at which to continue execution; otherwise this parameter is ignored.
+.LI "\*VexceptionRecord"
+\*OAddress of primary exception record.
+.LI "\*VTargetRealFrame"
+\*OIf nonzero, real frame pointer of the target procedure invocation to which the
+unwind is to be done; if zero, specifies that an exit unwind is to be
+initiated and causes the \*LEXCEPTION_EXIT_UNWIND\*O flag to be set in the exception
+record.
+.LE
+.SH DESCRIPTION
+.PP
+\*Lexc_resume\*O and \*Lexc_continue\*O perform essentially
+the same operation as \*Llongjmp\*O(3). The \*Lexc_resume\*O function
+is a \*Llibexc\*O entry point.
+.PP
+\*Lexc_longjmp\*O calls \*Lexc_unwind\*O, setting up its arguments from
+information taken from the \*VcontextRecord\*O
+argument. If the \*VreturnValue\*O argument is a zero, it is set to one
+before the call.
+.PP
+\*Lexc_unwind\*O initiates an unwind of procedure call frames. It
+sets the \*LEXCEPTION_UNWINDING\*O flag in the exception flags
+of the exception record, which describes the machine state at the time of the \*Lexc_unwind\*O call. If the \*VTargetFrame\*O argument
+is zero, then \*Lexc_unwind\*O also sets the \*LEXCEPTION_EXIT_UNWIND\*O flag.
+It then scans the procedure call frames towards the base of the call
+stack to find the target of the unwind operation.
+.PP
+\*LRtlUnwindRfp\*O is similar to \*Lexc_unwind\*O except
+that its first argument is a real frame pointer instead of a virtual
+frame pointer. Real frame pointers point to the bottom of the
+statically allocated portion of a stack frame. Virtual frame pointers
+point to the top of the stack frame.
+.PP
+As it encounters each frame, the unwind code determines
+the program counter where control left the
+corresponding function by looking at exception handler information in the runtime
+function table built by the linker. If the respective
+routine has an exception handler, then the unwind code calls it. This
+handler should perform cleanup code required for that
+activation.  Programs written in the C programming language, which supports
+structured exception handling, usually contain a
+\*Ltry...finally\*O block that implements a termination handler that performs these
+chores (see \*Lc_excpt\*O(4)).  The unwind code also calls a handler
+when it reaches the \*VTargetFrame\*O so that any scope-oriented cleanup
+code or termination handler can execute.
+In this case, it sets the \*LEXCEPTION_TARGET_FRAME\*O flag in the
+\*LExceptionFlags\*O field of the exception record.
+.PP
+Once it finds the \*VTargetFrame\*O (if specified) and calls its
+handler (if available), \*Lexc_unwind\*O:
+.ML
+.LI
+sets the PC to the \*VTargetIp\*O
+.LI
+sets the return value to be the \*VreturnValue\*O argument,
+if the \*VreturnValue\*O argument is non-zero,
+.LI
+sets the return value to be the \*LExceptionCode\*O of the
+exception record if the \*VreturnValue\*O argument is zero
+.LI
+calls \*Lexc_continue\*O
+.LE
+.PP
+.SH FILES
+.PP
+\*L\/usr/ccs/lib/cmplrs/cc/libexc.a\*O - exception handling library
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/pdsc.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.PP
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lexception_intro\*O(3), \*Lexception_dispatcher\*O(3),
+\*Lexc_lookup_function_entry\*O(3),
+\*Lsignal\*O(2), \*Lsigaction\*O(2), \*Lsetjmp\*O(3),
+\*L_\|_exc_last_chance\*O(3), \*Lieee\*O(3).
+.PP
+Files: \*Lexcpt\*O(4), \*Lc_excpt\*O(4), \*Lsignal\*O(4), \*Lpdsc\*O(4).
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.EQ
+delim off
+.EN

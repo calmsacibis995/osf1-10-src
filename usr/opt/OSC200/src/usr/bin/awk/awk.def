@@ -1,0 +1,227 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/* 
+ * HISTORY
+ */
+/* 
+ * (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ * ALL RIGHTS RESERVED
+ */
+/* 
+ * OSF/1 Release 1.0
+ */
+/* 	awk.def	4.3	83/12/09	*/
+
+#define hack		long
+#define	AWKFLOAT	double
+#define	xfree(a)	{ if(a!=NULL) { yfree(a); a=NULL;} }
+#define	strfree(a)	{ if(a!=NULL && a!=EMPTY) { yfree(a);} a=EMPTY; }
+#define yfree free
+#define	isnull(x)	((x) == EMPTY || (x) == NULL)
+
+#ifdef	DEBUG
+#	define	dprintf	if(dbg)printf
+#else
+#	define	dprintf(x1, x2, x3, x4)
+#endif
+typedef	AWKFLOAT	awkfloat;
+
+extern char	**FS;
+extern char	**RS;
+extern char	**ORS;
+extern char	**OFS;
+extern char	**OFMT;
+extern awkfloat *NR;
+extern awkfloat *NF;
+extern char	**FILENAME;
+
+extern char	record[];
+extern char	EMPTY[];
+extern int	dbg;
+extern int	lineno;
+extern int	errorflag;
+extern int	donefld;	/* 1 if record broken into fields */
+extern int	donerec;	/* 1 if record is valid (no fld has changed */
+
+typedef struct val {	/* general value during processing */
+	char	*nval;	/* name, for variables only */
+	char	*sval;	/* string value */
+	awkfloat	fval;	/* value as number */
+	unsigned	tval;	/* type info */
+	char		field_num;	/* if cell is a field this is the # */
+	struct val	*nextval;	/* ptr to next if chained */
+} cell;
+extern cell *symtab[];
+
+extern cell	*recloc;	/* location of input record */
+extern cell	*nrloc;		/* NR */
+extern cell	*nfloc;		/* NF */
+
+#define	STR	01	/* string value is valid */
+#define	NUM	02	/* number value is valid */
+#define FLD	04	/* FLD means don't free string space */
+#define	CON	010	/* this is a constant */
+#define	ARR	020	/* this is an array */
+
+/* function types */
+#define	FLENGTH	1
+#define	FSQRT	2
+#define	FEXP	3
+#define	FLOG	4
+#define	FINT	5
+
+typedef struct {
+	char otype;
+	char osub;
+	cell *optr;
+} obj;
+
+#define BOTCH	1
+struct nd {
+	char ntype;
+	char subtype;
+	struct nd *nnext;
+	long nobj;
+	struct nd *narg[BOTCH];	/* C won't take a zero length array */
+};
+typedef struct nd node;
+extern node	*winner;
+extern node	*nullstat;
+
+/* otypes */
+#define OCELL	0
+#define OEXPR	1
+#define OBOOL	2
+#define OJUMP	3
+
+/* cell subtypes */
+#define CTEMP	4
+#define CNAME	3 
+#define CVAR	2
+#define CFLD	1
+#define CCON	0
+
+/* bool subtypes */
+#define BTRUE	1
+#define BFALSE	2
+
+/* jump subtypes */
+#define JEXIT	1
+#define JNEXT	2
+#define	JBREAK	3
+#define	JCONT	4
+
+/* node types */
+#define NVALUE	1
+#define NSTAT	2
+#define NEXPR	3
+#define NPA2	4
+
+extern obj	(*proctab[])();
+extern obj	true, false;
+extern int	pairstack[], paircnt;
+
+#define cantexec(n)	(n->ntype == NVALUE)
+#define notlegal(n)	(n <= FIRSTTOKEN || n >= LASTTOKEN || proctab[n-FIRSTTOKEN]== nullproc)
+#define isexpr(n)	(n->ntype == NEXPR)
+#define isjump(n)	(n.otype == OJUMP)
+#define isexit(n)	(n.otype == OJUMP && n.osub == JEXIT)
+#define	isbreak(n)	(n.otype == OJUMP && n.osub == JBREAK)
+#define	iscont(n)	(n.otype == OJUMP && n.osub == JCONT)
+#define	isnext(n)	(n.otype == OJUMP && n.osub == JNEXT)
+#define isstr(n)	(n.optr->tval & STR)
+#define istrue(n)	(n.otype == OBOOL && n.osub == BTRUE)
+#define istemp(n)	(n.otype == OCELL && n.osub == CTEMP)
+#define isfld(n)	(!donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval==EMPTY)
+#define isrec(n)	(donefld && n.osub==CFLD && n.otype==OCELL && n.optr->nval!=EMPTY)
+obj	nullproc();
+obj	relop();
+
+#define MAXSYM	50
+#define	HAT	0177	/* matches ^ in regular expr */
+			/* watch out for mach dep */
+
+#if defined(_NO_PROTO)
+
+extern awkfloat setfval(), getfval();
+extern char *setsval(), *getsval();
+extern char *tostring(), *tokname();
+extern double log(), sqrt(), exp(), atof();
+extern cell *lookup();
+extern char *cclenter();
+extern struct fa *makedfa();
+extern cell **makesymtab();
+extern cell *setsymtab();
+extern node *ALLOC();
+extern node *exptostat();
+extern node *node0();
+extern node *node1();
+extern node *node2();
+extern node *node3();
+extern node *node4();
+extern node *stat3();
+extern node *op2();
+extern node *op1();
+extern node *stat1();
+extern node *op3();
+extern node *stat2();
+extern node *stat4();
+extern node *valtonode();
+extern node *pa2stat();
+extern node *linkum();
+extern node *genprint();
+
+#else /* !defined(NO_PROTO) */
+
+extern awkfloat setfval(cell *vp, awkfloat f);
+extern awkfloat getfval(cell *vp);
+extern char *setsval(cell *vp, char *s);
+extern char *getsval(cell *vp);
+extern char *tostring(char *s);
+extern double log(), sqrt(), exp(), atof();
+extern cell *lookup(char *s, cell **tab, int flag);
+extern char *cclenter(char *p);
+extern struct fa *makedfa(node *p);
+extern cell **makesymtab();
+extern cell *setsymtab(char *n, char *s, awkfloat f, unsigned t, cell **tab);
+extern node *ALLOC(int n);
+extern node *exptostat(node *a);
+extern node *node0(obj *a);
+extern node *node1(obj *a, node *b);
+extern node *node2(obj *a, node *b, node *c);
+extern node *node3(obj *a, node *b, node *c, node *d);
+extern node *node4(obj *a, node *b, node *c, node *d, node *e);
+extern node *stat3(obj *a, node *b, node *c, node *d);
+extern node *op2(obj *a, node *b, node *c);
+extern node *op1(obj *a, node *b);
+extern node *stat1(obj *a, node *b);
+extern node *op3(obj *a, node *b, node *c, node *d);
+extern node *stat2(obj *a, node *b, node *c);
+extern node *stat4(obj *a, node *b, node *c, node *d, node *e);
+extern node *valtonode(obj *a, int b);
+extern node *pa2stat(node *a, node *b, node *c);
+extern node *linkum(node *a, node *b);
+extern node *genprint();
+
+#endif /* defined(_NO_PROTO) */
+

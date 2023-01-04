@@ -1,0 +1,9 @@
+DisplayManager.errorLogFile:	XDMDIR/xdm-errors
+DisplayManager.pidFile:		XDMDIR/xdm-pid
+DisplayManager.keyFile:		XDMDIR/xdm-keys
+DisplayManager.servers:		XDMDIR/Xservers.fs
+DisplayManager.accessFile:	XDMDIR/Xaccess
+DisplayManager.greeterLib:	XDMDIR/libXdmDecGreet.so
+DisplayManager*resources:	XDMDIR/Xresources
+DisplayManager*session:		XDMDIR/Xsession
+DisplayManager*authComplain:	false

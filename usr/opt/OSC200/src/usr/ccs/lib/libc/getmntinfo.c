@@ -1,0 +1,120 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+#ifndef lint
+static char	*sccsid = "@(#)$RCSfile: getmntinfo.c,v $ $Revision: 4.2.5.2 $ (DEC) $Date: 1993/06/07 22:59:12 $";
+#endif 
+/*
+ * (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+ * ALL RIGHTS RESERVED 
+ */
+/*
+ * OSF/1 1.2
+ */
+#if !defined(lint) && !defined(_NOIDENT)
+#endif
+/*
+ * Copyright (c) 1989 The Regents of the University of California.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that the above copyright notice and this paragraph are
+ * duplicated in all such forms and that any documentation,
+ * advertising materials, and other materials related to such
+ * distribution and use acknowledge that the software was developed
+ * by the University of California, Berkeley.  The name of the
+ * University may not be used to endorse or promote products derived
+ * from this software without specific prior written permission.
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * getmntinfo.c	6.1 (Berkeley) 10/17/89
+ */
+
+
+/* name space pollution clean up */
+#ifdef _NAME_SPACE_WEAK_STRONG
+#include "pollution.h"
+#if defined(_THREAD_SAFE)
+#pragma weak getmntinfo_r = __getmntinfo_r
+#endif
+#if !defined(_THREAD_SAFE)
+#pragma weak getmntinfo = __getmntinfo
+#endif
+#endif
+#include <sys/types.h>
+#include <sys/mount.h>
+
+#ifdef _THREAD_SAFE
+#define RET_SUCCESS	0
+#define RET_FAILURE	(-1)
+#define Mntbuf		(*mntbufp)
+#define Mntsize		(*mntsizep)
+#define Bufsize		(*bufsizep)
+
+#else /* _THREAD_SAFE */
+
+#define RET_SUCCESS	mntsize
+#define RET_FAILURE	0
+#define Mntbuf		mntbuf
+#define Mntsize		mntsize
+#define Bufsize		bufsize
+#endif /* _THREAD_SAFE */
+
+/*
+ * Return information about mounted filesystems.
+ */
+
+#ifdef _THREAD_SAFE
+int
+getmntinfo_r(struct statfs **mntbufp, int flags, int *mntsizep, int *bufsizep)
+{
+#else /* _THREAD_SAFE */
+int
+getmntinfo(struct statfs **mntbufp, int flags)
+{
+	static struct statfs *mntbuf;
+	static int mntsize, bufsize;
+#endif /* _THREAD_SAFE */
+
+	if (Mntsize <= 0 && (Mntsize = getfsstat(0, 0, MNT_NOWAIT)) < 0
+	    || Bufsize > 0 && (Mntsize = getfsstat(Mntbuf, Bufsize, flags)) < 0)
+		return (RET_FAILURE);
+
+	while (Bufsize <= Mntsize * sizeof(struct statfs)) {
+
+		Bufsize = (Mntsize + 1) * sizeof(struct statfs);
+
+		if ((Mntbuf = (struct statfs *)realloc(Mntbuf, Bufsize)) == 0
+		    || (Mntsize = getfsstat(Mntbuf, Bufsize, flags)) < 0)
+			return (RET_FAILURE);
+	}
+#ifndef _THREAD_SAFE
+	*mntbufp = Mntbuf;
+#endif /* _THREAD_SAFE */
+
+	return (RET_SUCCESS);
+}

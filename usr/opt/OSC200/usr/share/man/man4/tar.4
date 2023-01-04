@@ -1,0 +1,185 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: tar.4,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/21 11:19:39 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Copyright (c) 1983 Regents of the University of California.
+.\" All rights reserved.  The Berkeley software License Agreement
+.\" specifies the terms and conditions for redistribution.
+.\" 
+.\" @(#)tar.5	6.2 (Berkeley) 11/7/85
+.\" 
+.TH tar 4
+.SH NAME
+\*Ltar\*O \- Tape archive file format
+.SH DESCRIPTION
+The
+\*Ltar\*O
+command
+dumps several files into one, in a medium suitable for transportation.
+.PP 
+A tar tape or tar file is a series of blocks, with each block of size TBLOCK.
+A file on the tape is represented by a header block which describes
+the file, followed by zero or more blocks which give the contents of the
+file.  At the end of the tape are two blocks filled with binary
+zeros, as an end-of-file indicator.
+.PP 
+The blocks are grouped for physical I/O operations.  Each group of
+\*Vn\*O
+blocks (where
+\*Vn\*O
+is set by the
+\*Lb\*O
+keyletter on the
+\*Ltar\*O
+command line, with a default of 20 blocks) is written with a single system
+call.  On nine-track tapes, the result of this write is a single tape
+record.  The last group is always written at the full size, so blocks after
+the two zero blocks contain random data.  On reading, the specified or
+default group size is used for the
+first read, but if that read returns less than a full tape block, the reduced
+block size is used for further reads.
+.PP 
+The header block looks like:
+.PP 
+.rS
+\*L#define TBLOCK	512
+.nL
+\*L#define NAMSIZ	100
+.sp .4v
+\*Lunion hblock {
+.nL
+	char dummy[TBLOCK];
+.nL
+	struct header {
+.nL
+		char name[NAMSIZ];
+.nL
+		char mode[8];
+.nL
+		char uid[8];
+.nL
+		char gid[8];
+.nL
+		char size[12];
+.nL
+		char mtime[12];
+.nL
+		char chksum[8];
+.nL
+		char linkflag;
+.nL
+		char linkname[NAMSIZ];
+.nL
+	} dbuf;
+.nL
+};
+.rE
+.PP
+The
+\*Lname\*O
+field
+is a null-terminated string.
+The other fields are zero-filled octal numbers in ASCII
+format.  If the width of each field is given as
+\*Vw\*O,
+each field
+contains
+\*Vw\*O-2
+digits, a space, and a null, with the exception of the
+\*Lsize\*O
+and
+\*Lmtime\*O
+fields,
+which do not contain the trailing null, and the
+\*Lchksum\*O
+field,
+which has a null followed by a space.
+.PP
+The
+\*Lname\*O
+field
+is the name of the file, as specified on the
+\*Ltar\*O
+command line.  Files dumped because they were in a directory that
+was named in the command line have the directory name as prefix and
+\*L/filename\*O
+as suffix.
+.PP
+The
+\*Lmode\*O
+field
+is the file mode, with the top bit masked off.
+The
+\*Luid\*O
+and
+\*Lgid\*O
+fields
+are the user and group numbers that own the file.
+The
+\*Lsize\*O
+field
+is the size of the file in bytes.  Links and symbolic links are dumped
+with this field specified as zero.
+.PP
+The
+\*Lmtime\*O
+field
+is the modification time of the file at the time it was dumped.
+.PP
+The
+\*Lchksum\*O
+field
+is an octal ASCII value which represents the sum of all the bytes in the
+header block.  When calculating the checksum, the
+\*Lchksum\*O
+field is treated as if it were all blanks.
+.PP
+The
+\*Llinkflag\*O
+field
+is null if the file is a regular or special file, ASCII 1
+if it is an hard link, and ASCII 2
+if it is a symbolic link.  The name that the
+file is linked to, if any, is in the
+\*Llinkname\*O
+field,
+with a trailing null.
+Unused fields of the header are binary zeros (and are included in the
+checksum).
+.PP 
+The first time a given i-node number is dumped, it is dumped as a regular
+file.  Subsequently, it is dumped as a link instead.
+Upon retrieval, if a link entry is retrieved but the file it was
+linked to is not, an error message is printed and the tape must be manually
+rescanned to retrieve the file that it is linked to.
+.PP 
+The encoding of the header is designed to be portable across machines.
+.SH RELATED INFORMATION
+.PP 
+Commands:
+\*Ltar\*O(1)
+.EQ
+delim off
+.EN

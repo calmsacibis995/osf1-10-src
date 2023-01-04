@@ -1,0 +1,505 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: read.2,v $ $Revision: 3.5.7.6 $ (DEC) $Date: 1994/01/11 22:14:02 $
+.\" 
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 Release 1.0.4
+.\"
+.TH read 2
+.SH NAME
+.PP
+\*Lread\*O, \*Lreadv\*O \- Reads from a file.
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <unistd.h>
+.nL
+\*Lssize_t read(
+.nL
+	\*Lint \*Vfiledes\*L,
+.nL
+	char *\*Vbuffer\*L,
+.nL
+	\*Lsize_t \*Vnbytes \*L);
+.sp
+\*L#include <sys/types.h>
+.nL
+#include <sys/uio.h>\*O
+.sp 0.4v
+\*Lssize_t readv(
+.nL
+	int \*Vfiledes\*L,
+.nL
+	struct iovec *\*Viov\*L,
+.nL
+	int \*Viov_count \*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfiledes\*O"
+Identifies the file from which data is read.
+.\" Begin Digital-specific information CORRECTION
+.LI "\*Vbuffer\*O"
+Points to the buffer to receive data read.
+.\" End Digital-specific information CORRECTION
+.LI "\*Vnbytes\*O"
+Specifies the number of bytes to read from the file
+associated with the\*V filedes\*O parameter\*V.
+.LI "\*Viov\*O"
+Points to an array of \*Liovec\*O structures which
+identifies the buffers into which the data is to be placed.
+The \*Liovec\*O structure is defined in the \*Lsys/uio.h\*O header file
+and contains the following members:
+.RS
+.iS
+\*Lcaddr_t  iov_base;
+.nL
+int      iov_len;\*O
+.iE
+.RE
+.LI "\*Viov_count\*O"
+Specifies the number of \*Liovec\*O structures
+pointed to by the \*Viov\*O parameter.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "read function"
+.iX "readv function"
+.iX "file" "reading to"
+.iX "process" "suspending"
+.iX "file" "reading from"
+The \*Lread\*O(\|) function attempts to read \*Vnbytes\*O
+of data from the file associated with the \*Vfiledes\*O
+.\" Begin Digital-specific information CORRECTION
+.\" Removed extra 'the' per QAR 6887.
+parameter into the buffer pointed to by the \*Vbuffer\*O parameter.
+.\" End Digital-specific information CORRECTION
+The \*Lreadv\*O(\|) function performs the same action as the
+\*Lread\*O(\|)
+function, but scatters
+the input data into the buffers specified by the
+array of \*Liovec\*O structures pointed to by the \*Viov\*O parameter.
+.PP
+On regular files and devices capable of seeking, the \*Lread\*O(\|) function
+starts at a position in the file given by the file pointer associated
+with the \*Vfiledes\*O parameter. Upon return from the \*Lread\*O(\|)
+function, the file pointer is incremented by the number of
+bytes actually read.
+.PP
+Devices that are incapable of seeking always read from the current
+position. The value of a file pointer associated with such a file
+is undefined.
+.PP
+The
+\*Lread\*O(\|)
+and
+\*Lreadv\*O(\|)
+functions, which suspend the calling process until the request is
+completed, are redefined so that only the calling thread is
+suspended.
+.PP
+Upon successful completion, the
+\*Lread\*O(\|)
+function
+returns the number of bytes actually read and placed in the buffer.
+This number will never be greater than
+\*Vnbytes\*O.
+The value returned may be less than
+\*Vnbytes\*O
+if the number of bytes left in the file is less than
+\*Vnbytes\*O,
+if the
+\*Lread\*O(\|)
+request was interrupted by a signal, or if the file
+is a pipe or FIFO or special file and has fewer than
+\*Vnbytes\*O
+bytes immediately available for reading.
+For example, a
+\*Lread\*O(\|)
+from a file associated with a terminal may return
+one typed line of data.
+.PP
+No data transfer will occur past the current End-of-File.
+If the starting position is at or after the End-of-File, 0 (zero) is
+returned.
+.PP
+If the value of
+\*Vnbytes\*O
+is 0 (zero),
+the
+\*Lread\*O(\|)
+function will return 0 and have no other results.
+.PP
+When attempting to read from an empty pipe (or FIFO):
+.ML
+.LI
+If no process has the pipe open for writing, the \*Lread\*O(\|) function
+returns 0 (zero) to indicate End-of-File.
+.LI
+If some process has the pipe open for writing:
+.RS 10
+.VL 5
+.LI "\-"
+If neither O_NONBLOCK nor O_NDELAY is set,
+the \*Lread\*O(\|) function will block until some data is written or the pipe
+is closed by all processes that had opened the pipe for writing.
+.LI "\-"
+If O_NDELAY is set, the \*Lread\*O(\|) function returns 0.
+.LI "\-"
+If O_NONBLOCK is set, the \*Lread\*O(\|) function returns
+a value of -1 and sets \*Lerrno\*O to [EAGAIN].
+.LE
+.RE
+.LE
+.PP
+When attempting to read from a character special file that supports
+nonblocking reads, such as a terminal, and no data is currently available:
+.ML
+.LI
+If neither O_NONBLOCK nor O_NDELAY is set,
+the \*Lread\*O(\|) function will block until data becomes
+available.
+.LI
+If O_NDELAY is set, the \*Lread\*O(\|) function returns 0.
+.LI
+If O_NONBLOCK is set, the \*Lread\*O(\|) functions
+return -1 and sets \*Lerrno\*O to [EAGAIN]
+if no data is available.  The use of the O_NONBLOCK flag has no
+effect if there is some data available.
+.LE
+.PP
+When attempting to read from a regular file with enforcement
+mode record locking
+enabled, and all or part of the region to be read is currently
+locked by another process (a write lock or exclusive lock):
+.ML
+.LI
+If O_NDELAY and O_NONBLOCK are clear, the \*Lread\*O(\|) function
+blocks the calling process until the lock is released, or
+\*Lread\*O(\|)
+is terminated by a signal.
+.LI
+If O_NDELAY or O_NONBLOCK  is set, the \*Lread\*O(\|) function
+returns -1 and sets \*Lerrno\*O to [EAGAIN].
+.LE
+.PP
+If a
+\*Lread\*O(\|) function
+is interrupted by a signal before it reads any data,
+it will return \-1 with
+\*Lerrno\*O
+set to [EINTR].
+If a
+\*Lread\*O(\|) function
+is interrupted by a signal after it has successfully read
+some data,
+the behavior depends
+on how the handler for the arriving signal was installed.
+.PP
+If the handler was installed with an indication that functions
+should not be restarted, the\*L read\*O(\|) function returns a value
+of -1 and \*Lerrno\*O is set to [EINTR]
+(even if some data was already consumed).
+If the handler was installed with an indication that functions
+should be restarted,
+and data had been read when the interrupt was handled, the \*Lread\*O(\|)
+function returns the amount of data consumed.
+.PP
+A
+\*Lread\*O(\|)
+from a pipe or FIFO will never return with
+\*Lerrno\*O
+set to
+[EINTR]
+if it has transferred any data.
+.PP
+For any portion of an ordinary file prior to the End-of-File that has
+not been written, the
+\*Lread\*O(\|)
+function returns bytes with value 0 (zero).
+If the file is a character special device that has been the target of
+a
+\*Lstopio\*O(\|) function, subsequent reads from the device will
+terminate with an [EBADF] error and the process
+delivers a
+SIGHUP signal.
+.PP
+Upon successful completion, the
+\*Lread\*O(\|)
+function marks the
+\*Lst_atime\*O
+field of the file for update.
+.PP
+The \*Lreadv\*O(\|) function performs the same action as the
+\*Lread\*O(\|)
+function, but scatters
+the input data into the buffers specified by the
+array of \*Liovec\*O structures pointed to by the \*Viov\*O parameter.
+The
+\*Viov_count\*O
+parameter specifies the number of buffers pointed to by the
+\*Viov\*O
+parameter.
+Each \*Liovec\*O entry specifies the base address and length of
+an area in memory where data should be placed.
+.\" Begin Digital-specific information CORRECTION
+The
+\*Viovcount\*O
+parameter is valid if greater than 0 (zero) and less than or equal to
+UIO_MAXIOV, which is defined in the \*Lsys/uio.h\*O header file.
+.\" End Digital-specific information
+The \*Lreadv\*O(\|) function always
+fills an area completely before proceeding to the next.
+.PP
+A
+\*Lread(\|)\*O
+from a STREAMS file can operate in three different modes: "byte-stream" mode,
+"message-nondiscard" mode, and "message-discard" mode.
+The default is byte-stream mode.
+This can be changed using the I_SRDOPT
+\*Lioctl(\|)\*O
+request [see
+\*Lstreamio(\|)\*O],
+and can be tested with the I_GRDOPT
+\*Lioctl(\|)\*O.
+In byte-stream mode,
+\*Lread(\|)\*O
+retrieves data from the
+\*LStream\*O until it has retrieved \*Lnbyte\*O bytes, or
+until there is no more data to be retrieved.
+Byte-stream mode ignores message boundaries.
+.PP
+In STREAMS message-nondiscard mode,
+\*Lread(\|)\*O
+retrieves data until it has read
+\*Lnbyte\*O bytes, or until it reaches a message boundary.
+If the
+\*Lread(\|)\*O
+does not retrieve all the data in a message,
+the remaining data are replaced on the \*LStream\*O, and can be retrieved
+by the next
+\*Lread(\|)\*O
+or
+\*Lgetmsg(\|)\*O
+call.
+Message-discard mode also retrieves data until it has retrieved
+\*Lnbyte\*O bytes, or it reaches a message boundary.
+However, unread data remaining in a message after the
+\*Lread(\|)\*O
+returns are discarded, and are not available for a
+subsequent
+\*Lread(\|)\*O
+or
+\*Lgetmsg(\|)\*O.
+.PP
+When reading from a STREAMS file, handling of zero-byte messages is
+determined by the current read mode setting.
+In byte-stream mode,
+\*Lread(\|)\*O
+accepts data until it has read
+\*Lnbyte\*O bytes, or until there is no more data
+to read, or until a zero-byte message block is encountered.
+\*Lread(\|)\*O
+then returns the number of bytes read, and places the zero-byte
+message back on the \*LStream\*O to be retrieved by the
+next
+\*Lread(\|)\*O
+or
+\*Lgetmsg(\|)\*O.
+In the two other modes, a zero-byte message returns a value of 0 and the message is removed from the \*LStream\*O.
+When a zero-byte message is read as the first message on a \*LStream\*O, a value of 0 is returned regardless of the read mode.
+.PP
+A
+\*Lread(\|)\*O
+from a STREAMS file can only process data messages.
+It cannot process any type of protocol message and fails if
+a protocol message is encountered at the \*LStream head\*O.
+.SH NOTES
+.PP
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Full use (\*Lread\*O(\|))
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion,
+the \*Lread\*O(\|) and \*Lreadv\*O(\|)
+functions return the number of bytes actually
+read and placed into buffers.  The system guarantees to read the number
+of bytes requested only if the descriptor references a regular file that
+has the same number of bytes left before the End-of-File.
+.\" Begin Digital-specific information CORRECTION
+If the \*Lread\*O(\|) and \*Lreadv\*O(\|) functions fail,
+.\" End Digital-specific information CORRECTION
+a value of -1 is returned, \*Lerrno\*O
+is set to indicate the error, and the content of the buffer pointed to by the
+\*Vbuffer\*O parameter is indeterminate.
+.\" Begin Digital-specific information 
+.SS End-of-Media Handling for Tapes
+If reading goes beyond the "early warning" EOT indicator while this
+indicator is disabled,
+the \*Lread\*O(\|) and \*Lreadv\*O(\|) functions
+will return the number of
+bytes actually read and placed into the buffer.
+The \*Lread\*O(\|) and \*Lreadv\*O(\|)
+functions return a value of -1, if:
+.ML
+.LI
+Attempting to read past the "real EOT".
+.LI
+Attempting to read past
+"early warning" EOT indicator while this indicator is enabled.
+.LE
+.PP
+Refer to \*Lmtio\*O(7) for information on enabling and disabling "early
+warning" EOT.
+.SS End-of-Media Handling for Disks
+Disk End-of-Media handling is POSIX-conformant.  Attempting to read at or beyond
+the end of a partition returns a value of 0.  A partial read returns the
+number of bytes actually read.
+.sp
+Note:  A partial read is a request which spans the end of a partition.
+.\" End Digital-specific information  
+.SH ERRORS
+.PP
+If the \*Lread\*O(\|) or \*Lreadv\*O(\|)
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL 1i
+.LI "[EAGAIN]"
+No message waiting to be read on a \*LStream\*O and O_NDELAY or
+O_NONBLOCK flag is set.
+.IP
+The O_NONBLOCK flag is set on this file
+and the process would be delayed in the read operation.
+.IP
+An enforcement mode record lock is outstanding
+in the portion of the file that is to be read.
+.LI "[EBADF]"
+The \*Vfiledes\*O parameter is not a
+valid file descriptor open for reading.
+.\".LI "[EBADF]"
+.IP
+The \*Lread\*O(\|) addresses a file descriptor that references a character
+device that has previously been the subject of a successful
+\*Lstopio\*O(\|)
+call.
+.LI "[EBADMSG]"
+Message waiting to be read on a \*LStream\*O is not a data message
+system call.
+.IP
+The message that is waiting to be read is not a data message.
+.LI "[EDEADLK]"
+Enforcement mode file locking is enabled, O_NDELAY and O_NONBLOCK are
+clear, and a deadlock condition is detected.
+.LI "[EFAULT]"
+The \*Vbuffer\*O or part of  the \*Viov\*O
+points to a location outside of the allocated address space of the
+process.
+.LI "[EINTR]"
+A \*Lread\*O(\|) was interrupted by a signal before
+any data arrived, and the signal handler was installed with an indication
+that functions are not to be restarted.
+.LI "[EINVAL]"
+The file position pointer associated with the
+\*Vfiledes\*O parameter was negative.
+.IP
+The sum of the \*Liov_len\*O values in the
+\*Viov\*O array was negative or overflowed a 32-bit integer.
+.IP
+.\" Begin Digital-specific information CORRECTION
+The value of the \*Viovcount\*O parameter
+was less than or equal to 0, or greater than UIO_MAXIOV.
+.\" End Digital-specific information
+.IP
+The requested operation attempted to read from a \*LStream\*O linked to a
+multiplexer.
+.\" .LI "[EAGAIN]" 
+.\" The O_NONBLOCK flag is set for the file descriptor and the process would be
+.\" delayed in the read operation.
+.\" .PP
+.\" The O_NONBLOCK flag is set, and the pipe (or FIFO) to be read from
+.\" was empty.
+.\" .PP
+.\" Enforced record locking is enabled, O_NDELAY or O_NONBLOCK is set, and
+.\" there is a write lock owned by another process.
+.\" .PP
+.\" The O_NONBLOCK flag is set and no data was available.
+.\" COMBINE WITH (2) ABOVE?
+.LI "[EIO]"
+The process is a member
+of a background process attempting to read from its controlling
+terminal, the process is ignoring or blocking the SIGTTIN signal,
+or the process group is orphaned.
+A physical I/O error has occurred.
+.\" Begin Digital-specific information 
+.LI "[ENOLCK]"
+.\"Change per Diane Lebel in answer to QAR 13822
+.\"The file has mandatory enforcement mode file locking set and LOCK_MAX
+.\"regions are already locked in the system.
+The file has enforcement mode file locking set and allocating another locked
+region would exceed the configurable system limit of NLOCK_RECORD.
+.LI "[ENOSPC]"
+Attempted to read past the "early warning" EOT while
+this indicator was enabled.
+.\" End Digital-specific information 
+.LI "[ENXIO]"
+The device specified by the file descriptor parameter \*Vfildes\*O is
+a block special character or a character special file, and the file pointer
+value is out of range.
+.LE
+.PP
+A \*Lread\*O from a STREAMS file also fails if an error message is received
+at the \*LStream head\*O.
+In this case, \*Lerrno\*O is set to the value returned in the
+error message.
+If a hang up occurs on the \*LStream\*O being read,
+\*Lread\*O continues to operate normally until the \*LStream head\*O
+read queue is empty.
+Thereafter, it returns 0.
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lfcntl\*O(2),
+\*Lcreat\*O(2),
+\*Ldup\*O(2),
+\*Lioctl\*O(2),
+.\"\*Lintro\*O(2),
+\*Lgetmsg\*O(2),
+\*Llockf\*O(3),
+\*Llseek\*O(2),
+.\" Begin Digital-specific information
+\*Lmtio\*O(7),
+.\" End Digital-specific information
+\*Lopen\*O(2),
+\*Lpipe\*O(2),
+\*Lpoll\*O(2),
+\*Lsocket\*O(2),
+\*Lsocketpair\*O(2),
+\*Ltermios\*O(4),
+\*Lstreamio\*O(7),
+\*Lstopio\*O(3),
+\*Lopendir\*O(3)
+\*Llockf\*O(3),
+.iX "read function"
+.iX "readv function"
+.EQ
+delim off
+.EN

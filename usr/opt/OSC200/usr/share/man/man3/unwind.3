@@ -1,0 +1,178 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: unwind.3,v $ $Revision: 1.1.8.7 $ (DEC) $Date: 1993/11/30 21:33:51 $
+.\"
+.\" This is the source file from himel for the routines listed below. On Sept 24, 1992, several of the routine names changed:
+.\" 
+.\" unwind		  --   name stays the same 
+.\" virtual_unwind    --   exc_virtual_unwind
+.\" RtlVirtualUnwind  --   ?? we had virtual_unwind on another manpage, but
+.\"                        there is no RtlVirtualUnwind on ken lesniak's list
+.\" find_framePtr     --   exc_find_frame_ptr
+.\" 
+.\" *****************  unwind.m
+.\" 
+.TH unwind 3
+.PP
+.SH NAME
+.PP
+\*Lunwind\*O, \*Lexc_virtual_unwind\*O, \*LRtlVirtualUnwind\*O, \*Lexc_find_frame_ptr\*O - Routines to unwind a context.
+.SH LIBRARY
+.PP
+\*OException Handling Library (\*Llibexc.a\*O)
+.SH SYNOPSIS
+.PP
+.iX "unwind" "routine to unwind a context"
+.iX "exc_virtual_unwind" "routine to unwind a context"
+.iX "exc_find_frame_ptr" "routine to unwind a context"
+.\" .iX "RtlVirtualUnwind" "routine to unwind a context"
+\*L#include <excpt.h>\*O
+.PP
+.sS
+\*Lvoid unwind(
+                PCONTEXT               \*Vpcontext\*L,
+.nL
+                PRUNTIME_FUNCTION      \*Vprf\*L);
+.nL
+void exc_virtual_unwind(
+.nL
+                PRUNTIME_FUNCTION      \*Vprf\*L,
+.nL
+                PCONTEXT               \*Vpcontext\*L);
+.nL
+exc_address RtlVirtualUnwind(
+.nL
+                exc_address            \*Vcontrolpc\*L,
+.nL
+                PRUNTIME_FUNCTION      \*Vprf\*L,
+.nL
+                PCONTEXT               \*Vpcontext\*L,
+.nL
+                PCONTEXT_POINTERS      \*Vppointers\*L);
+.nL
+exc_address  exc_find_frame_ptr(
+.nL
+                PRUNTIME_FUNCTION      \*Vprf\*L,
+.nL
+                PCONTEXT               \*Vpcontext\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vpcontext"
+\*OPointer to a \*Lstruct sigcontext\*O (see \*Lsignal\*O(2)) used to represent
+a procedure's context.
+.LI "\*Vprf"
+\*OPointer to runtime function (code range descriptor) for the PC
+stored in the \*Lsc_pc\*O field of the activation context record; a call to
+\*Lexc_lookup_function_entry\*O(3) returns this value. Although this
+argument can be zero, by providing this argument,
+a caller already having this information would save an extra call (and
+possible search) for the runtime function.
+.LI "\*Vcontrolpc"
+\*OCopy of the \*Lsc_pc\*O field of the activation context record.
+.LI "\*Vppointers"
+\*OPointer to structure containing addresses corresponding to the locations
+which were used to restore registers; if zero, this argument is ignored.
+.LE
+.SH DESCRIPTION
+.PP
+These routines all perform a virtual unwind. Unlike the routines described
+in \*Lexc_resume\*O(3), these routines do not actually unwind a procedure call
+by modifying the real registers and other machine state.
+Instead, these routines modify the structure pointed to by the \*Vpcontext\*O
+argument so that it represents the current procedure's caller's context. The routines
+use procedure information supplied in the structure pointed to by
+the \*Vprf\*O argument to decide how to virtually unwind the context
+(for instance, how to modify the registers and other machine state). This
+information is placed in the object by the assembler and linker and conforms
+to the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.PP
+\*Lexc_find_frame_ptr\*O calls \*Lexc_virtual_unwind\*O, thus generating
+a copy of the \*Lpcontext\*O argument that is used in the virtual unwind
+operation to obtain the stack pointer of the caller: that is, the frame pointer,
+or static link, of the \*Vpcontext\*O supplied as input. The original
+copy of the context is not modified.
+.PP
+The other routines modify the structure pointed to by the
+\*Lpcontext\*O argument to represent the context of the caller.
+.PP
+\*Lunwind\*O originated in the ULTRIX \*Llibexc\*O and
+has an interface compatible with the original one, as
+long as the ULTRIX caller treated the \*Vprf\*O argument as an opaque pointer.
+The \*Vprf\*O structure has been changed to conform to the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+and any caller that explicitly access its fields will
+encounter incompatibilities.
+.PP
+\*Lexc_virtual_unwind\*O originated in \*Llibexcpt\*O.
+.PP
+\*LRtlVirtualUnwind\*O is a Microsoft Windows NT runtime library interface.
+It returns a copy of the updated
+\*Lsc_pc\*O field of the \*Lsigcontext\*O when leaving the routine.
+The routine also updates the structure pointed to by the
+\*Vppointers\*O argument.
+.PP
+These routines typically use masks and stack offsets found
+in procedure related data structures (described in the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O)
+to restore registers. Those data structures also can contain enough
+information for these routines to adequately deal with prologues,
+epilogues, and signal frames.
+.PP
+Users writing assembly language routines should consult the
+\*EAssembly Language Programmer's Guide\*O
+to determine which directives
+are required to provide enough information for these routines
+to correctly unwind through them.
+.PP
+.\" [Note to jeff:
+.\" [	it has not been decided yet whether after any unwind the sigcontext
+.\" [	will contain an up-to-date 'gp' register or whether a call to
+.\" [	RtlLookupGp is required. We would avoid this if possible because
+.\" [	there is little use in updating the gp as we unwind since it
+.\" [	is not used along the way and unlike the registers will always
+.\" [	be overwritten.
+.\" 
+.SH FILES
+.PP
+\*L\/usr/ccs/lib/cmplrs/cc/libexc.a\*O - exception handling library
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/pdsc.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.PP
+.SH RELATED INFORMATION
+.PP
+Functions:\*Lexception_intro\*O(3), \*Lexception_dispatcher\*O(3),
+\*Lexc_lookup_function_entry\*O(3),
+\*Lsignal\*O(2), \*Lsigaction\*O(2), \*Lsetjmp\*O(3), \*Lexc_unwind\*O(3),
+\*L_\|_exc_last_chance\*O(3), \*Lieee\*O(3).
+.PP
+Files: \*Lexcpt\*O(4), \*Lc_excpt\*O(4), \*Lsignal\*O(4), \*Lpdsc\*O(4).
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.EQ
+delim off
+.EN

@@ -1,0 +1,406 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: monitor.3,v $ $Revision: 1.1.7.6 $ (DEC) $Date: 1994/01/15 00:01:05 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.1
+.\" 
+.\" Copyright (c) 1980 Regents of the University of California.
+.\" All rights reserved.  The Berkeley software License Agreement
+.\" specifies the terms and conditions for redistribution.
+.\" 
+.TH monitor 3
+.SH NAME
+.PP
+\*Lmonitor\*O, \*Lmonstartup\*O, \*Lmoncontrol\*O \- Prepare execution profile
+.SH LIBRARY
+.PP
+.iX "monitor function"
+.iX "monstartup function"
+.iX "moncontrol function"
+.iX "profiles" "execution"
+.\" no longer true 8/30/93 as per lsw Standard C Library (\*Llibc.a\*O)
+\*Llibprof1.a\*O
+.SH SYNOPSIS
+.PP
+.sS
+\*Lint monitor(
+.nL
+	caddr_t \*Vlowpc\*L,
+.nL
+	caddr_t \*Vhighpc\*L,
+.nL
+	char * \*Vbuffer\*L,
+.nL
+	size_t \*Vbufsiz\*L,
+.nL
+	size_t \*Vnfunc\*O);
+.PP
+\*Lint monstartup(
+.nL
+	caddr_t \*Vlowpc\*L,
+.nL
+	caddr_t \*Vhighpc\*L);
+.PP
+\*Lint moncontrol(
+.nL
+	int \*Vmode\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vlowpc\*O"
+Specifies the lower address boundary of a function address range.
+.LI "\*Vhighpc\*O"
+Specifies the upper address boundary of a function address range.
+.LI "\*Vbuffer\*O"
+Specifies the address of a (user-supplied) array of \*Vbufsiz\*O
+short integers. This is
+defined only if the \*Vlowpc\*O argument to the \*Lmonitor(\|)\*O
+function is not 0 (zero).
+.LI "\*Vbufsiz\*O"
+Specifies the size of \*Vbuffer\*O in bytes. This parameter is defined
+only if the \*Vlowpc\*O argument to the \*Lmonitor(\|)\*O function is not
+zero.
+.LI "\*Vnfunc\*O"
+This field is not used and should be set to zero.
+.\" Begin Digital-specific information
+.\" No gprof in DEC OSF/1
+.\" For \*Lgprof\*O profiling, this
+.\" specifies the maximum number of bytes of storage to use for call
+.\" counters.  
+.\" End Digital-specific information
+.LI "\*Vmode\*O"
+Specifies an operation mode for the collection of histogram ticks.
+Use a value of 0 (zero) to stop the collection of histogram ticks.
+Use a value of 1 to resume the collection of histogram ticks.
+.LE
+.SH DESCRIPTION
+.PP
+The \*Lmonitor(\|)\*O function is a low level interface to the
+\*Lprofil(\|)\*O system call. The \*Vlowpc\*O and
+\*Vhighpc\*O parameters
+are the addresses of two functions.
+If the \*Vlowpc\*O parameter is 0 (zero),
+the \*Lmonitor(\|)\*O function stops profiling and writes out the data
+output file \*Lmon.out\*O.
+The buffer allocated must be one-half the size of the text range to be
+sampled.
+.PP
+To stop execution monitoring and to have the results written to the file
+\*Lmon.out,\*O use the following function:
+.oS
+   monitor(0);
+.oE
+The
+\*Lprof\*O command can then be used to examine the results.
+.PP
+The \*Lmonstartup(\|)\*O function is a high level interface to the
+\*Lprofil(\|)\*O system call.  The \*Vlowpc\*O and \*Vhighpc\*O parameters
+specify the address range that is to be sampled; the lowest address sampled
+is that of \*Vlowpc\*O and the highest is just below \*Vhighpc\*O.
+The \*Lmonstartup(\|)\*O function allocates space by using the
+\*Lsbrk(\|)\*O function and passes it to the
+\*Lmonitor(\|)\*O function to record a histogram of periodically
+sampled values of the program counter.
+.PP
+The \*Lmoncontrol(\|)\*O function
+is used in conjunction with the \*Lmonstartup(\|)\*O and \*Lmonitor(\|)\*O
+routines to turn sampling on and off during program execution.
+.\" Begin Digital-specific information
+.\" No gprof support in DEC OSF/1
+.\" This works with either the
+.\" \*Lprof\*O
+.\" or
+.\" \*Lgprof\*O
+.\" type profiling.
+When a program that has been compiled and linked with the
+\*L\-p\*O flag starts executing, profiling begins.
+To stop the collection of histogram ticks, use the following function:
+.oS
+   moncontrol(0);
+.oE
+To resume the collection of histogram ticks, use the following function:
+.oS
+   moncontrol(1);
+.oE
+This method allows the cost of particular operations to be measured.
+Note that an output file will be produced upon program exit regardless
+of the state of the
+\*Lmoncontrol(\|)\*O function.
+.PP
+When an executable program is compiled for profiling by using the
+\*L\-p\*O flag to the \*Lcc\*O command, the program automatically
+includes an initial call to the startup routine \*Lmonstartup(\|)\*O
+using default parameters.
+In addition, you get a default
+buffer allocation automatically from the profiling library routines in
+\*Llibprof1.a\*O. The default parameters cause
+the entire text segment to be profiled.
+For large programs, this may be more than you need. The size of the
+buffer allocated, and the portion of the program profiled, can be
+controlled by calling either the \*Lmonstartup(\|)\*O or \*Lmonitor(\|)\*O
+routine directly from the program.
+.PP
+To gain control over buffer allocation, compile
+without using the \*L\-p\*O flag and use the \*Lmonitor(\|)\*O and
+\*Lmonstartup(\|)\*O routines within your source code, or use the
+\*LPROFDIR\*O environment variable.
+.PP
+The routines in \*Llibprof1.a\*O cannot be used to profile shared
+libraries. Only the call_shared part of a program can be profiled.
+You can build your program call_shared, but
+profiling information will not be generated for any of the shared
+libraries the program uses.
+.PP
+When a program is compiled with the \*L\-p\*O flag, the entire program
+text segment is profiled for programs that have been built non_shared.
+The \*Lmoncontrol(\|)\*O function can be used
+to turn profiling on and off for specific sections.
+The \*Lmonitor(\|)\*O and \*Lmonstartup(\|)\*O routines contain an
+implicit \*Lmoncontrol(1)\*O call to turn profiling on. A
+\*Lmoncontrol(0)\*O call can be used to turn off sampling, providing
+user control over when a section of code is sampled.
+.PP
+You can also use the \*LPROFDIR\*O environment variable to control
+buffer allocation.
+.PP
+The \*LPROFDIR\*O environment variable allows you to run
+a program multiple times and collect profiling data in multiple files,
+rather than overwriting the \*Lmon.out\*O file generated by default.
+The \*LPROFDIR\*O environment
+variable specifies a directory in which to write profiling data files.
+You set the variable as follows:
+.sp
+.iS
+	setenv PROFDIR \*Vpath\*O                 (for C shell)
+.sp
+	PROFDIR = \*Vpath\*O;  export  PROFDIR    (for Bourne Shell)
+.iE
+When you have set the \*LPROFDIR\*O environment variable, profiling
+data is collected in the file \*Vpath/pid.progname\*O, where \*Vpath\*O
+is the directory path specified with \*LPROFDIR\*O, \*Vpid\*O is the
+process ID of the executing program, and \*Vprogname\*O is the program
+name as it appears in \*Largv[0]\*O.
+.PP
+Setting \*LPROFDIR\*O to null before running the program to be profiled
+disables default buffer allocation and the initial call to the
+\*Lmoncontrol(\|)\*O routine which starts profiling.
+To use \*LPROFDIR\*O to disable the default profiling support,
+set it to null before you execute the program.
+.sp
+.iS
+	setenv PROFDIR ""
+.iE
+To enable profiling and generation of data,
+control the size of the buffer, or to sample a
+specific section of code, you must set \*LPROFDIR\*O to a non-null value
+in the program. You then can use the \*Lmonstartup(\|)\*O or \*Lmonitor(\|)\*O
+routines to start profiling. The following example illustrates the use
+of \*LPROFDIR\*O and profiling routines.
+.sp
+.iS
+.sp
+   /*  Profile the domath(\|) routine using monstartup.
+    *  This example allocates a buffer for the entire program.
+    *  Compile command: cc -p foo.c -o foo -lm
+    *  Before running foo, do 'setenv PROFDIR ""' from the
+    *  command line to disable default profiling support.
+    */
+.sp
+   #include <stdio.h>
+   #include <sys/syslimits.h>
+.sp
+   char dir[PATH_MAX];
+   extern void setenv(\|);
+   extern char *getcwd(\|);
+.sp
+   extern void __start(\|);
+   extern unsigned long _etext;
+.sp
+   main(\|)
+   {
+      	int i;
+        int a = 1;
+.sp
+	/* Set PROFDIR environment variable so that profiling
+	 * will start when the monstartup call is executed.
+        */
+.sp
+        setenv("PROFDIR",getcwd(dir,PATH_MAX-2));
+	/* Start profiling between __start (beginning of text
+	 * and _etext (end of text).  The profiling library
+	 * routines will allocate the buffer.
+        */
+.sp
+	monstartup(__start,&_etext);
+	for(i=0;i<10;i++)
+        	domath(\|);
+        /* Stop profiling and write the profiling output file. */
+.sp
+        monitor(0);
+   }
+   domath(\|)
+   {
+       int i;
+       double d1, d2;
+.sp
+       d2 = 3.1415;
+       for (i=0;  i<1000000;  i++)
+           d1 = sqrt(d2)*sqrt(d2);
+   }
+.iE
+.PP
+An alternative method of profiling is to allocate buffers within a program
+and use the \*Lmonitor(\|)\*O routine to begin and end profiling, as shown
+in the following example:
+.sp
+.iS
+   /*  Profile the domath routine using monitor().
+    *  Compile command: cc -p foo.c -o foo -lm
+    *  Before running this program, execute 'setenv PROFDIR ""'
+    *  from the command line.  This disables the default
+    *  profiling support in the library routines.
+    */
+.sp
+   #include <sys/types.h>
+   #include <sys/syslimits.h>
+.sp
+   extern char *calloc(\|);
+.sp
+   void domath(void);
+   void nextproc(void);
+.sp
+   #define INST_SIZE 4		/* Instruction size on Alpha */
+   char dir[PATH_MAX];
+.sp
+   main(\|)
+   {
+       	int i;
+	char *buffer;
+	size_t bufsize;
+.sp
+	/*  Allocate one counter for each instruction to
+	 *  be sampled. Each counter is an unsigned short.
+        */
+.sp
+	bufsize = (((char *)nextproc - (char *)domath)/INST_SIZE)
+		  * sizeof(unsigned short);
+.sp
+	/*  Use calloc(\|) to insure the buffer is clean
+	 *  before sampling begins.
+        */
+.sp
+	buffer = calloc(bufsize,1);
+.sp
+	/*  Initialize PROFDIR env. variable so that profiling
+	 *  will begin when the monitor call is made.
+        */
+.sp
+        setenv("PROFDIR",getcwd(dir,PATH_MAX-2));
+.sp
+	/*  Start sampling.  */
+	monitor(domath,nextproc,buffer,bufsize,0);
+	for(i=0;i<10;i++)
+        	domath(\|);
+.sp
+	/* Stop sampling and write out profiling buffer.  */
+        monitor(0);
+   }
+   void domath(void)
+   {
+       int i;
+       double d1, d2;
+.sp
+       d2 = 3.1415;
+       for (i=0;  i<1000000;  i++)
+           d1 = sqrt(d2)*sqrt(d2);
+   }
+   void nextproc(void)
+   {}
+.iE
+For the previous example, the profiling output file will have the
+name \*Vpid.programname\*O because the \*LPROFDIR\*O environment
+variable is set within the program.
+.\" commented out for sterling release as per lsw
+.\"  and of counts of calls of certain functions, in
+.\" the buffer.
+.\" Begin Digital-specific information.
+.\" Only calls of functions compiled for the \*Lprof\*O command,
+.\" compiled with the profiling option \*L\-p\*O of the \*Vcc\*O command,
+.\" are recorded.
+.PP
+The external name \*L_etext\*O
+lies just above all the program text (refer to the
+\*Lend(3)\*O reference page).
+.SH RETURN VALUES
+.PP
+Upon successful completion, when profiling is started, the
+\*Lmonitor(\|)\*O and \*Lmonstartup(\|)\*O functions return a value of
+0 (zero).  Otherwise,
+they return a value of -1, and \*Lerrno\*O is set.  Upon successful
+completion, the
+\*Lmoncontrol(\|)\*O function returns the previous value of the mode.
+Otherwise,
+it returns a value of -1, and \*Lerrno\*O is set.
+.SH ERRORS
+.PP
+If the following condition occurs, the \*Lmonitor(\|)\*O and
+\*Lmonstartup(\|)\*O functions set \*Lerrno\*O to the corresponding value:
+.VL
+.LI "[EINVAL]"
+Either the \*Vbufsiz\*O parameter, or the \*Lhighpc\*O-\*Llowpc\*O parameters,
+are negative or uneven.
+.LE
+.PP
+In addition, the \*Lmonitor(0)\*O function can set \*Lerrno\*O to
+values resulting from manipulations in the file system, the
+\*Lmonstartup(\|)\*O
+function can get
+\*Lerrno\*O values from calls to the \*Lsbrk(\|)\*O function.
+.SH FILES
+.PP
+.VL
+.LI "\*Lmon.out\*O"
+Default profile when linked for \*Lprof\*O.
+.LI "\*VPROFDIR/pid.program"
+Location and name of the profiling data file when the
+\*LPROFDIR\*O environment variable has been set.
+.\" Begin Digital-specific information
+.\" No gprof support in DEC OSF/1
+.\" .LI "\*Lgmon.out\*O"
+.\" Default profile when linked for \*Lgprof\*O.
+.\" End Digital-specific information
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands:
+.\" #ifdef LICENSEE
+\*Lcc\*O(1),
+.\" #endif /* LICENSEE */
+.\" Begin Digital-specific information
+.\" No gprof support in DEC OSF/1
+.\" \*Lprof\*O(1), \*Lgprof\*O(1)
+\*Lprof\*O(1).
+.PP
+Functions:
+\*Lprofil\*O(2), \*Lsbrk\*O(3), \*Lend\*O(3)
+.PP
+\*EProgrammer's Guide\*O
+.EQ
+delim off
+.EN

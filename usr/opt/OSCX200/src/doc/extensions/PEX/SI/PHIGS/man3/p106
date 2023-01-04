@@ -1,0 +1,205 @@
+.\"
+.\" $XConsortium: p106,v 5.2 91/08/16 16:24:15 hersh Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.ds f \s-2INQUIRE DEFAULT CHOICE DEVICE DATA\s+2
+.TH "INQUIRE DEFAULT CHOICE DEVICE DATA" 3P "15 August 1991"
+.SH NAME
+INQUIRE DEFAULT CHOICE DEVICE DATA \- inquire the predefined choice data
+.IX "Choice Input Devices" "INQUIRE DEFAULT CHOICE DEVICE DATA"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pinq_def_choice_data ( type, device, store, error_ind, max_choices, pets, 
+	echo_area, choice_data )
+Pint	type;	\fIworkstation type\fP
+Pint	device;	\fIlogical input device number\fP
+Pstore	store;	\fIhandle to Store object\fP
+Pint	*error_ind;	\fIOUT error indicator\fP
+Pint	*max_choices;	\fIOUT max. number of choices\fP
+Pint_list	**pets;	\fIOUT list of prompt and echo types\fP
+Plimit	*echo_area;	\fIOUT default echo area\fP
+Pchoice_data	**choice_data;	\fIOUT pointer to default data record\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+Use \*f to determine the following information for a \s-2CHOICE\s+2 input
+device associated with a given workstation type:
+.RS
+.sp .3
+\(bu   Number and list of available prompt/echo types
+.sp .2
+\(bu   Default echo area
+.sp .2
+\(bu   Default input data record
+.sp .2
+\(bu   Maximum number of available choices
+.RE
+.LP
+Since the default prompt/echo type for all input devices is 1, the default
+input data record is for that prompt/echo type.  There are no default input
+data records for prompt/echo types other than 1.
+.SS C Input Parameters
+.LP
+Applications using the \s-2C\s+2 binding must create a buffer to be used by this
+function as memory space for storing portions of the device data.
+This buffer is passed as the \fIstore\fP argument.
+.LP 
+The store buffer is a data area managed by \s-2PHIGS\s+2. While the 
+application is responsible for creating the initial buffer through a call to 
+\s-2CREATE STORE\s+2, \s-2PHIGS\s+2 manages this area such that there is
+sufficient memory for the specific inquiry. The choice device data record
+within the store buffer is accessed via the pointer returned in \fIchoice_data\fP.
+.IP \fItype\fP
+The workstation type with which the device is associated.
+.IP \fIdevice\fP
+The device number of the choice device.
+See the \fIAvailable Devices\fP section of \s-2INITIALIZE CHOICE\s+2
+for a description of the available devices.
+.IP \fIstore\fP
+The memory buffer \s-2PHIGS\s+2 is to use for storing the information
+returned for the Pchoice_data structure.  This memory is not used for the data
+returned in the Pint_list structure.
+This buffer must exist prior to calling this function (see
+\s-2CREATE STORE (3P)\s+2).
+.SS C Output Parameters
+.IP \fIerror_ind\fP
+The error indicator.  See the \fIExecution\fP section below for a
+description of its use.  See the \fIErrors\fP section below for the
+possible values it may return.
+.IP \fImax_choices\fP
+Maximum number of choices.
+.IP \fIpets\fP
+A pointer to a list of the available prompt/echo types.
+Pint_list is defined in phigs.h as follows:
+.nf
+.ta .5i +1i +1.25i
+.sp .4
+typedef struct {
+.sp .2
+	Pint	num_ints;	/* number of Pints in list */
+	Pint	*ints;	/* list of integers        */
+.sp .2
+} Pint_list;
+.fi
+.IP
+The \fInum_ints\fR component specifies the number of elements in the list.
+The \fIints\fR component is a pointer to a list \fInum_ints\fR long.
+.IP
+The application must allocate memory for \fIlen\fR elements in the
+list of \fIints\fR.
+.IP\fIecho_area\fP
+A pointer a Plimit structure to contain the default echo area.
+Plimit is defined in phigs.h as follows:
+.sp .4
+.nf
+.ta .5i  +1i  +1i
+.sp .2
+typedef struct {
+.sp .2
+	Pfloat	x_min;	/* x min */
+	Pfloat	x_max;	/* x max */
+	Pfloat	y_min;	/* y min */
+	Pfloat	y_max;	/* y max */
+.sp .2
+} Plimit;
+.IP
+.fi
+.IP \fIchoice_data\fP
+A pointer to a Pchoice_data pointer.
+PHIGS assigns this pointer to the location in the Pstore structure that
+contains the data record contents.
+Pchoice_data is defined in phigs.h as follows:
+.sp
+.ta .5i +.5i +1i +1i
+.nf
+typedef struct {
+.sp .2
+      union {
+	struct {
+   		Pint	unused;
+	} pet_r1;
+	struct {
+		Pint	num_prompts;	/* number of alternatives */
+		Ppr_switch	*prompts;	/* array of prompts */
+	} pet_r2;
+	struct {
+		Pint	num_strings;	/* number of choice strings */
+		char	**strings;	/* array of choice strings */
+	} pet_r3;
+	struct {
+		Pint	num_strings;	/* number of alternatives */
+		char	**strings;	/* array of strings */
+	} pet_r4;
+	struct {
+		Pint	struct_id;	/* struct identifier */
+		Pint	num_pick_ids;	/* number of alternatives */
+		Pint	*pick_ids;	/* array of pick identifiers */
+	} pet_r5;
+      } pets;
+.sp .2
+} Pchoice_data;
+.fi
+.SS Execution
+\*f returns the default data of the specified choice device.  This data is
+stored in the workstation description table associated with the workstation
+type.
+See \s-2INITIALIZE CHOICE\s+2 for a description of the prompt/echo types,
+echo area, and data record contents and how to set these values.
+.LP
+In the event of an error, the \fIerror indicator\fP 
+indicates the error number of the error detected, and no other output data
+is returned.  If no error is detected, the \fIerror indicator\fP is
+set to zero, and the inquired information will be available in the output
+parameters.  Since this is an inquiry function, \s-2ERROR HANDLING\s+2 is not
+invoked when an error is detected by this function.
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state (\s-2PHOP, *, *, *\s+2)
+.IP 052
+Ignoring function, workstation type not recognized by the implementation
+.IP 051
+Ignoring function, this information is not yet available
+for this workstation type; open a workstation of this type
+and use the specific workstation type
+.IP 061
+Ignoring function, specified workstation is neither of category \s-2INPUT\s+2
+nor of category \s-2OUTIN\s+2
+.IP 250
+Ignoring function, the specified device is not available
+on the specified workstation
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INITIALIZE CHOICE (3P)"
+.SM "INQUIRE DEFAULT CHOICE DEVICE DATA 3 (3P)"
+.SM "CREATE STORE (3P)"
+.SM "DELETE STORE (3P)"
+.fi

@@ -1,0 +1,703 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: curses_intro.3,v $ $Revision: 3.2.5.5 $ (DEC) $Date: 1993/11/16 20:30:22 $
+.\"
+.TH curses_intro 3
+.SH NAME
+.PP
+\*Lcurses_intro\*O \- Introduction to the curses routines that optimize terminal screen handling and updating
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <curses.h>\*O
+.br
+\*L#include <term.h>\*O
+.br
+\*Lcc\*O [ \*Voptions\*O ] \*Vfiles\*O \*L\-lcurses\*O [ \*Vlibraries\*O ]
+.sE
+.SH DESCRIPTION
+.PP
+.iX "curses package"
+.iX "cursor" "optimizing movement"
+.iX "curses library"
+.iX "curses package" "main routines"
+.iX "screen" "updating"
+.iX "window" "defined"
+.iX "terminal" "updating screen"
+The \*Lcurses\*O (cursor optimization) package is a set of library routines
+that you can use to write screen-management programs.
+Cursor optimization minimizes the number of times the cursor has to be moved
+around the screen in order to update it.
+Screen-management programs are used for tasks such as moving
+the cursor, printing a menu, dividing a terminal
+screen into windows, or drawing a display on a screen for data entry and
+retrieval.
+.PP
+The \*Lcurses\*O package is split into three parts: screen updating,
+screen updating with user input, and cursor motion optimization.
+Use the screen-updating routines (with or without user input)
+when parts of the screen need to be
+changed but the overall image remains the same.
+Use the cursor motion routines for
+tasks such as defining how the cursor moves in response to tabs
+and newline characters.
+.PP
+The \*Lcurses\*O routines do not write directly to the
+terminal screen (the physical screen); instead, they write to a
+window, a two-dimensional array of characters that
+represents all or part of the terminal screen. A window can
+be as big as the terminal screen or any smaller size down to
+a single character.
+.PP
+The \*L<curses.h>\*O header file supplies two default windows,
+\*Lstdscr\*O (standard screen) and \*Lcurscr\*O
+(current screen) for all programs using \*Lcurses\*O routines.
+The \*Lstdscr\*O window is the size of the current terminal screen.
+Usually, you do not directly access the \*Lcurscr\*O window with
+your screen-management program;
+your program makes changes to the appropriate window and then calls
+the \*Lrefresh\*O routine.
+The screen program keeps track of what is on the physical screen
+and what is on \*Lstdscr\*O.
+When your program calls the \*Lrefresh\*O(\|) routine, the
+screen program compares the two screen images and then sends a stream
+of characters to the terminal to make the physical screen look like
+\*Lstdscr\*O.
+.PP
+The header file \*L<curses.h>\*O defines \*Lstdscr\*O to be of
+the type \*LWINDOW*\*O. This type is a pointer to a C structure
+that includes the starting position of the window on the
+screen and the window size.
+.PP
+Some \*Lcurses\*O routines are designed to work with a \*Lpad\*O.
+A pad is a type of window whose size is not restricted by the
+size of the screen.
+Use a pad when you need only part of a window on the
+screen at any one time,
+for example, when running a spreadsheet application.
+.PP
+Your program may need to maintain several different screen images,
+for example, use one window to control input/output and
+another to display error messages.
+In this case, you can create
+windows with the \*Lnewwin\*O routine
+and use those windows instead of
+\*Lstdscr\*O.
+Use the \*Lsubwin\*O routine to create subwindows within windows.
+When windows overlap, the contents of the current screen show the most
+recently refreshed window.
+.PP
+Among the most basic routines are \*Lmove\*O and \*Laddch\*O.
+Use these routines to move the cursor around
+and to add characters to the default window, \*Lstdscr\*O.
+.PP
+The \*Lcurses\*O library also provides
+additional routines, based on the specification of "Unix System V Release 4
+Multi-National Language Supplement (SVR4 MNLS),"
+to process Asian language characters encoded in wchar_t format.
+.PP
+Use only the routines provided by the \*Lcurses\*O library to
+manipulate data in a \*Lcurses\*O program.
+Using routines from other libraries to manipulate
+data that is also used by the \*Lcurses\*O routines
+may cause undesirable results when your program runs.
+.SS Using Curses
+.if n .PP
+The \*Lcurses\*O library has two types of routines:
+Main routines and \*Lterminfo\*O routines.
+.PP
+The \*Lterminfo\*O routines are a group of routines within the
+\*Lcurses\*O library. They provide a database containing
+descriptions of many terminals that you can use with
+\*Lcurses\*O programs.
+To use the terminfo level routines in your program:
+.ML
+.LI
+Include the \*L<curses.h>\*O
+and \*L<term.h>\*O files, in that order.
+.LI
+Call the
+\*Lsetupterm()\*O function.
+.LE
+.PP
+Use the Main routines for most screen handling.
+Follow these guidelines to use screen-handling routines
+correctly:
+.ML
+.LI
+Include the \*L<curses.h>\*O header file whenever you use
+\*Lcurses\*O functions in a program.
+.IP
+The header file defines global variables and data structures and
+defines several of the routines as macros.  The integer variables
+\*LLINES\*O and \*LCOLS\*O are defined so that when a \*Lcurses\*O
+program is run on a particular terminal, \*Linitscr\*O assigns
+the vertical and horizontal dimensions of the terminal screen
+to these variables.
+.LI
+Start your \*Lcurses\*O program by calling the routine \*Linitscr\*O
+to allocate memory space for the windows.
+.IP
+Call \*Linitscr\*O only once in a program because the routine can overflow
+core memory if it is called repeatedly.
+.LI
+Use the routine \*Lendwin\*O to exit from the screen-handling
+routines.
+.LI
+Most interactive screen-oriented programs need character-at-a-time
+input without echoing.
+To meet this need, call the following routines immediately
+after calling \*Linitscr\*O:
+.if n .IP
+.oS
+nonl();
+cbreak();
+noecho();
+.oE
+.LI
+All \*Lcurses\*O
+routines that move the cursor, move it relative to the home
+position in the upper left corner of the screen. The
+(\*LLINES\*O, \*LCOLS\*O) coordinate at this position is (1,1).
+.IP
+When specifying cursor position (\*Vy\*O, \*Vx\*O)
+to routines that move the
+cursor, specify the vertical coordinate \*Vy\*O
+first and the horizontal coordinate \*Vx\*O
+second.
+.LE
+.SS Sample Program 1
+.if n .PP
+The following program displays the text "MIDSCREEN" on the center
+line of the terminal screen.
+The \-1 in the program takes the home position into account
+to place the cursor on the center line of the terminal screen.
+The program uses the \*Lrefresh\*O
+routine after changing a screen to make the terminal screen look like
+\*Lstdscr\*O.
+.PP
+.oS
+#include <curses.h>
+main ()
+{
+
+initscr();	/*initialize terminal settings, data
+		** structures and variables*/
+move(LINES/2 \-1, COLS/2 \-4);
+addstr("MID");
+refresh();	/* send output to update terminal
+		**  screen */
+addstr("SCREEN");
+refresh();	/* send more output to terminal
+		**  screen */
+endwin();      /*restore all terminal settings */
+
+}
+.oE
+.SS Sample Program 2
+.if n .PP
+The following program also displays text
+on the center line of the terminal screen but contains routines
+that can handle text in different languages.
+.PP
+.oS
+/* sample program using SVR4 MNLS routines */
+#include <stdlib.h>
+#include <locale.h>
+#include <curses.h>
+main ()
+{
+
+wchar_t wcs[20];
+
+setlocale(LC_ALL, "");	/* set locale from environment variable */
+mbstowcs(wcs, "SCREEN", 6); /* convert char string to wchar_t string */
+initscr();	/*initialize terminal settings, data
+		** structures and variables*/
+move(LINES/2 \-1, COLS/2 \-4);
+addwstr(wcs);
+refresh();	/* send output to update terminal
+                **  screen */
+endwin();	/*restore all terminal settings */
+
+}
+.oE
+.SS The Main Routines
+.if n .PP
+The following list summarizes routines in the Main subset of
+the \*Lcurses\*O library.
+Routines whose names begin with \*Lw\*O affect a specified window.
+Specify a window by using a numeric argument, for example:
+\*Lwinch\*O (\*Vwin\*O) where \*Vwin\*O is a number that
+identifies the window.
+The \*Lpnoutrefresh\*O and \*Lprefresh\*O routines affect a
+specified pad.
+All other routines affect the default window \*Lstdscr\*O.
+.PP
+.VL
+.LI "\*Laddch(\*Vch\*L)\*O"
+Adds a character to \*Lstdscr\*O (like \*Lputchar\*O, wraps to next
+line at end of line).
+.LI "\*Laddnwstr(\*Vwstr\*L, \*Vn\*L)\*O"
+Calls \*Laddwch\*O with the first \*Vn\*O wchar_t characters in
+string \*Vwstr\*O.
+.LI "\*Laddwch(\*Vwch\*L)\*O"
+Adds a wchar_t character to \*Lstdscr\*O (like \*Lputwchar\*O, wraps to
+next line at end of line).
+.LI "\*Laddstr(\*Vstr\*L)\*O"
+Calls \*Laddch\*O with each character in \*Vstr\*O.
+.LI "\*Laddwchnstr(\*Vwchstr\*L, \*Vn\*L)\*O"
+Adds a string of wchar_t characters (and attributes) to \*Lstdscr\*O.
+.LI "\*Laddwchstr(\*Vwchstr\*L)\*O"
+Adds a string of wchar_t characters (and attributes) to \*Lstdscr\*O.
+.LI "\*Laddwstr(\*Vwstr\*L)\*O"
+Calls \*Laddwch\*O with each wchar_t character in string \*Vwstr\*O.
+.LI "\*Lattroff(\*Vattrs\*L)\*O"
+Turns off named attributes.
+.LI "\*Lattron(\*Vattrs\*L)\*O"
+Turns on named attributes.
+.LI "\*Lattrset(\*Vattrs\*L)\*O"
+Sets current attributes to \*Vattrs\*O.
+.LI "\*Lbaudrate(\|)\*O"
+Displays current terminal speed.
+.LI "\*Lbeep(\|)\*O"
+Sounds beep on terminal.
+.LI "\*Lbox(\*Vwin\*L, \*Vvert\*L, \*Vhor\*L)\*O"
+Draws a box around edges of \*Vwin\*O;
+\*Vvert\*O and \*Vhor\*O are the characters to use for the vertical
+and horizontal edges of the box.
+.LI "\*Lclear(\|)\*O"
+Clears \*Lstdscr\*O.
+.LI "\*Lclearok(\*Vwin\*L, \*Vbf\*L)\*O"
+Clears screen before next redrawing of \*Vwin\*O.
+.LI "\*Lclrtobot(\|)\*O"
+Clears to bottom of \*Lstdscr\*O.
+.LI "\*Lclrtoeol(\|)\*O"
+Clears to end of line on \*Lstdscr\*O.
+.LI "\*Lcbreak(\|)\*O"
+Sets cbreak mode.
+.LI "\*Ldelay_output(\*Vms\*L)\*O"
+Inserts an \*Vms\*O millisecond pause in output.
+.LI "\*Ldelch(\|)\*O"
+Deletes a character.
+.LI "\*Ldeleteln(\|)\*O"
+Deletes a line.
+.LI "\*Ldelwin(\*Vwin\*L)\*O"
+Deletes \*Vwin\*O.
+.LI "\*Ldoupdate(\|)\*O"
+Updates screen from all \*Lwnoutrefresh\*O.
+.LI "\*Lecho(\|)\*O"
+Sets echo mode.
+.LI "\*Lechowchar(\*Vwch\*L)\*O"
+Adds a wchar_t character to \*Lstdscr\*O and refreshes the screen.
+.LI "\*Lendwin(\|)\*O"
+Ends window modes.
+.LI "\*Lerase(\|)\*O"
+Erases \*Lstdscr\*O.
+.LI "\*Lerasechar(\|)\*O"
+Returns user's erase character.
+.LI "\*Lfixterm(\|)\*O"
+Restores tty to in ``curses'' state.
+.LI "\*Lflash(\|)\*O"
+Flashes screen or beeps.
+.LI "\*Lflushinp(\|)\*O"
+Throws away any typeahead characters.
+.LI "\*Lgetch(\|)\*O"
+Gets a character from tty.
+.LI "\*Lgetnwstr(\*Vwstr\*L, \*Vn\*L)\*O"
+Gets \*Vn\*O wchar_t characters in string \*Vwstr\*O through \*Lstdscr\*O.
+.LI "\*Lgetstr(\*Vstr\*L)\*O"
+Gets a string through \*Lstdscr\*O.
+.LI "\*Lgettmode(\|)\*O"
+Establishes current tty modes.
+.LI "\*Lgetwch(\|)\*O"
+Gets a wchar_t character from tty.
+.LI "\*Lgetwstr(\*Vwstr\*L)\*O"
+Gets a wchar_t character string through \*Lstdscr\*O.
+.LI "\*Lgetyx(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+Gets coordinates (\*Vy\*O, \*Vx\*O).
+.LI "\*Lhas_ic(\|)\*O"
+True if terminal can do insert character.
+.LI "\*Lhas_il(\|)\*O"
+True if terminal can do insert line.
+.LI "\*Lidlok(\*Vwin\*L, \*Vbf\*L)\*O"
+Uses the terminal's insert/delete line if \*Vbf\*L != 0\*O.
+.LI "\*Linch(\|)\*O"
+Gets the character at current (\*Vy\*O, \*Vx\*O) coordinates.
+.LI "\*Linitscr(\|)\*O"
+Initializes screens.
+.LI "\*Linnwstr(\*Vwstr\*L, \*Vn\*L)\*O"
+Gets at most \*Vn\*O wchar_t characters in the string \*Vwstr\*O from \*Lstdscr\*O.
+.LI "\*Linsch(\*Vc\*L)\*O"
+Inserts a character.
+.LI "\*Linsertln(\|)\*O"
+Inserts a line.
+.LI "\*Linsnwstr(\*Vwstr\*L, \*Vn\*L)\*O"
+Inserts the first \*Vn\*O wchar_t characters in string \*Vwstr\*O into \*Lstdscr\*O.
+.LI "\*Linswch(\*Vwch\*L)\*O"
+Inserts a wchar_t character.
+.LI "\*Linswstr(\*Vwstr\*L)\*O"
+Inserts a wchar_t character string.
+.LI "\*Linwch(\|)\*O"
+Gets a wchar_t character and its attribute from \*Lstdscr\*O.
+.LI "\*Linwchnstr(\*Vwchstr\*L, \*Vn\*L)\*O"
+Gets at most \*Vn\*O wchar_t characters (with attributes) in
+string \*Vwchstr\*O from \*Lstdscr\*O.
+.LI "\*Linwchstr(\*Vwchstr\*L)\*O"
+Gets a string of wchar_t characters (with attributes) from \*Lstdscr\*O.
+.LI "\*Linwstr(\*Vwstr\*L)\*O"
+Gets a wchar_t character string from \*Lstdscr\*O.
+.LI "\*Lintrflush(\*Vwin\*L, \*Vbf\*L)\*O"
+Interrupts flush output if \*Vbf\*O is TRUE.
+.LI "\*Lkeypad(\*Vwin\*L, \*Vbf\*L)\*O"
+Enables keypad input.
+.LI "\*Lkillchar(\|)\*O"
+Returns the current user's kill character.
+.LI "\*Lleaveok(\*Vwin\*L, \*Vflag\*L)\*O"
+Leaves cursor anywhere after refresh if
+\*Vflag\*L!=0\*O for \*Vwin\*O; otherwise, leaves cursor
+at current position.
+.LI "\*Llongname(\|)\*O"
+Returns verbose name of terminal.
+.LI "\*Lmeta(\*Vwin\*L, \*Vflag\*L)\*O"
+Allows meta characters on input if \*Vflag\*L!=0\*O.
+.LI "\*Lmove(\*Vy\*L, \*Vx\*L)\*O"
+Moves to (\*Vy\*O, \*Vx\*O) coordinates on \*Lstdscr\*O.
+.LE
+.PP
+\*LNOTE\*O:
+The following routines, prefixed with \*Lmv\*O, require \*Vy\*O
+and \*Vx\*O coordinates to move to before performing the
+same functions as the standard routines discussed in the
+preceding list. For example,
+\*Lmvaddch\*O performs the same function as \*Laddch\*O, but
+\*Vy\*O and \*Vx\*O coordinates must be supplied first.
+The routines prefixed with \*Lmvw\*O also require a window or pad argument.
+.PP
+.VL
+.LI "\*Lmvaddch(\*Vy\*L, \*Vx\*L, \*Vch\*L)\*O"
+.LI "\*Lmvaddnwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvaddstr(\*Vy\*L, \*Vx\*L, \*Vstr\*L)\*O"
+.LI "\*Lmvaddwch(\*Vy\*L, \*Vx\*L, \*Vwch\*L)\*O"
+.LI "\*Lmvaddwchnstr(\*Vy\*L, \*Vx\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvaddwchstr(\*Vy\*L, \*Vx\*L, \*Vwchstr\*L)\*O"
+.LI "\*Lmvaddwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvcur(\*Voldrow\*L, \*Voldcol\*L, \*Vnewrow\*L, \*Vnewcol\*L)\*O"
+Controls cursor motion directly (low-level cursor control).
+.LI "\*Lmvdelch(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvgetch(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvgetnstr(\*Vy\*L, \*Vx\*L, \*Vn\*L)\*O"
+.LI "\*Lmvgetnwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvgetstr(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvgetwch(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvgetwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvinch(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvinnwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvinsch(\*Vy\*L, \*Vx\*L, \*Vc\*L)\*O"
+.LI "\*Lmvinsnwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvinswch(\*Vy\*L, \*Vx\*L, \*Vwch\*L)\*O"
+.LI "\*Lmvinswstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvinwch(\*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvinwchnstr(\*Vy\*L, \*Vx\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvinwchstr(\*Vy\*L, \*Vx\*L, \*Vwchstr\*L)\*O"
+.LI "\*Lmvinwstr(\*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvprintw(\*Vy\*L, \*Vx\*L, \*Vfmt\*L, \*Vargs\*L)\*O"
+.LI "\*Lmvscanw(\*Vy\*L, \*Vx\*L, \*Vfmt\*L, \*Vargs\*L)\*O"
+.LI "\*Lmvwaddch(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vch\*L)\*O"
+.LI "\*Lmvwaddnwstr(\*Vwin, \*Vy, \*Vx, \*Vwstr, \*Vn)\*O"
+.LI "\*Lmvwaddstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vstr\*L)\*O"
+.LI "\*Lmvwaddwch(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwch\*L)\*O"
+.LI "\*Lmvwaddwchnstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwaddwchstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwchstr\*L)\*O"
+.LI "\*Lmvwaddwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvwdelch(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwgetch(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwgetnstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwgetnwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwgetstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwgetwch(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwgetwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvwin(\*Vwin\*L, \*Vby\*L, \*Vbx\*L)\*O"
+.LI "\*Lmvwinch(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwinnwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwinsch(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vc\*L)\*O"
+.LI "\*Lmvwinsnwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwinswch(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwch\*L)\*O"
+.LI "\*Lmvwinswstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvwinwch(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+.LI "\*Lmvwinwchnstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+.LI "\*Lmvwinwchstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwchstr\*L)\*O"
+.LI "\*Lmvwinwstr(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vwstr\*L)\*O"
+.LI "\*Lmvwprintw(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vfmt\*L, \*Vargs\*L)\*O"
+.LI "\*Lmvwscanw(\*Vwin\*L, \*Vy\*L, \*Vx\*L, \*Vfmt\*L, \*Vargs\*L)\*O"
+.LI "\*Lnewpad(\*Vnlines\*L, \*Vncols\*L)\*O"
+Creates a new pad with given dimensions.
+.LI "\*Lnewterm(\*Vtype\*L, \*Vfd\*L)\*O"
+Sets up a new terminal of given type to output on \*Vfd\*O.
+.LI "\*Lnewwin(\*Vlines\*L, \*Vcols\*L, \*Vbegin_y\*L, \*Vbegin_x\*L)\*O"
+Creates a new window.
+.LI "\*Lnl(\|)\*O"
+Sets newline mapping.
+.LI "\*Lnocbreak(\|)\*O"
+Unsets cbreak mode.
+.LI "\*Lnodelay(\*Vwin\*L, \*Vbf\*L)\*O"
+Enables nodelay input mode through \*Lgetch\*O.
+.LI "\*Lnoecho(\|)\*O"
+Unsets echo mode.
+.LI "\*Lnonl(\|)\*O"
+Unsets newline mapping.
+.LI "\*Lnoraw(\|)\*O"
+Unsets raw mode.
+.LI "\*Loverlay(\*Vwin1\*L, \*Vwin2\*L)\*O"
+Overlays \*Vwin1\*O on \*Vwin2\*O.
+.LI "\*Loverwrite(\*Vwin1\*L, \*Vwin2\*L)\*O"
+Overwrites \*Vwin1\*O on top of \*Vwin2\*O.
+.LI "\*Lpnoutrefresh(\*Vpad\*L, \*Vpminrow\*L, \*Vpmincol\*L,\*O"
+\*Vsminrow\*L, \*Vsmincol\*L, \*Vsmaxrow\*L, \*Vsmaxcol\*L)\*O
+.IP
+Like \*Lprefresh\*O but with no output until \*Ldoupdate\*O called.
+.LI "\*Lprefresh(\*Vpad\*L, \*Vpminrow\*L, \*Vpmincol\*L, \*Vsminrow\*L, \*O"
+\*Vsmincol\*L, \*Vsmaxrow\*L, \*Vsmaxcol\*L)\*O
+.IP
+Refreshes from pad starting with given upper
+left corner of pad with output to given portion of screen.
+.LI "\*Lprintw(\*Vfmt\*L, \*Varg1\*L, \*Varg2\*L, \*O...\*L)\*O"
+Executes \*Lprintf\*O on \*Lstdscr\*O.
+.LI "\*Lraw(\|)\*O"
+Sets raw mode.
+.LI "\*Lrefresh(\|)\*O"
+Makes current screen look like \*Lstdscr\*O.
+.LI "\*Lresetterm(\|)\*O"
+Sets tty modes to ``out of curses'' state.
+.LI "\*Lresetty(\|)\*O"
+Resets tty flags to stored value.
+.LI "\*Lsaveterm(\|)\*O"
+Saves current modes as ``in curses'' state.
+.LI "\*Lsavetty(\|)\*O"
+Stores current tty flags.
+.LI "\*Lscanw(\*Vfmt\*L, \*Varg1\*L, \*Varg2\*L, \*O...\*L)\*O"
+Executes \*Lscanf\*O using \*Lstdscr\*O.
+.LI "\*Lscroll(\*Vwin\*L)\*O"
+Scrolls \*Vwin\*O one line.
+.LI "\*Lscrollok(\*Vwin\*L, \*Vflag\*L)\*O"
+Allows terminal to scroll if \*Vflag\*L != 0\*O.
+.LI "\*Lset_term(\*Vnew\*L)\*O"
+Switches between different terminals.
+.LI "\*Lsetscrreg(\*Vt\*L, \*Vb\*L)\*O"
+Sets user scrolling region to lines \*Vt\*O through \*Vb\*O.
+.LI "\*Lsetupterm(\*Vterm\*L, \*Vfilenum\*L, \*Verrret\*L)"
+Sets up terminal at low level.
+.LI "\*Lstandend(\|)\*O"
+Clears \*Lstandout\*O mode attribute.
+.LI "\*Lstandout(\|)\*O"
+Sets \*Lstandout\*O mode attribute.
+.LI "\*Lsubwin(\*Vwin\*L, \*Vlines\*L, \*Vcols\*L, \*Vbegin_y\*L, \*Vbegin_x\*L)\*O"
+Creates a subwindow.
+.LI "\*Ltouchwin(\*Vwin\*L)\*O"
+``Changes'' all of \*Vwin\*O.
+.LI "\*Ltraceoff(\|)\*O"
+Turns off debugging trace output.
+.LI "\*Ltraceon(\|)\*O"
+Turns on debugging trace output.
+.LI "\*Ltypeahead(\*Vfd\*L)\*O"
+Uses file descriptor \*Vfd\*O to check typeahead.
+.LI "\*Lunctrl(\*Vch\*L)\*O"
+Produces printable version of control character \*Lch\*O.
+.LI "\*Lungetwch(\*Vwch\*L)\*O"
+Places a wchar_t character back on the input queue.
+.LI "\*Lvwscanw(\*Vwin\*L, \*Vfmt\*L, \*Vvarglist\*L)\*O"
+Reads input from \*Vwin\*O by calling \*Lwscanw\*O.
+.LI "\*Lvwprintw(\*Vwin\*L, \*Vfmt\*L, \*Vvarglist\*L)\*O"
+Executes \*Lvprintf\*O on \*Vwin\*O.
+.LI "\*Lwaddch(\*Vwin\*L, \*Vch\*L)\*O"
+Adds a character to \*Vwin\*O.
+.LI "\*Lwaddnwstr(\*Vwin\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+Adds at most \*Vn\*O wchar_t characters to string \*Vwstr\*O to \*Vwin\*O.
+.LI "\*Lwaddwchnstr(\*Vwin\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+Adds the first \*Vn\*O wchar_t characters (and
+attributes) in string \*Vwchstr\*O to \*Vwin\*O.
+.LI "\*Lwaddwchstr(\*Vwin\*L, \*Vwchstr\*L)\*O"
+Adds a string of wchar_t characters (and attributes) to \*Vwin\*O.
+.LI "\*Lwaddstr(\*Vwin\*L, \*Vstr\*L)\*O"
+Adds a string to \*Vwin\*O.
+.LI "\*Lwaddwch(\*Vwin\*L, \*Vwch\*L)\*O"
+Adds a wchar_t character to \*Vwin\*O.
+.LI "\*Lwaddwstr(\*Vwin\*L, \*Vwstr\*L)\*O"
+Adds a wchar_t character string to \*Vwin\*O.
+.LI "\*Lwattroff(\*Vwin\*L, \*Vattrs\*L)\*O"
+Turns off attributes \*Vattrs\*O in \*Vwin\*O.
+.LI "\*Lwattron(\*Vwin\*L, \*Vattrs\*L)\*O"
+Turns on attributes \*Vattrs\*O in \*Vwin\*O.
+.LI "\*Lwattrset(\*Vwin\*L, \*Vattrs\*L)\*O"
+Sets attributes in \*Vwin\*O to \*Vattrs\*O.
+.LI "\*Lwclear(\*Vwin\*L)\*O"
+Clears \*Vwin\*O.
+.LI "\*Lwclrtobot(\*Vwin\*L)\*O"
+Clears to bottom of \*Vwin\*O.
+.LI "\*Lwclrtoeol(\*Vwin\*L)\*O"
+Clears to end of line on \*Vwin\*O.
+.LI "\*Lwdelch(\*Vwin\*L, \*Vc\*L)\*O"
+Deletes character \*Vc\*O from \*Vwin\*O.
+.LI "\*Lwdeleteln(\*Vwin\*L)\*O"
+Deletes line from \*Vwin\*O.
+.LI "\*Lwechowchar(\*Vwin\*L, \*Vwch\*L)\*O"
+Adds a wchar_t character to \*Vwin\*O and refreshes \*Vwin\*O.
+.LI "\*Lwerase(\*Vwin\*L)\*O"
+Erases \*Vwin\*O.
+.LI "\*Lwgetch(\*Vwin\*L)\*O"
+Gets a character through \*Vwin\*O.
+.LI "\*Lwgetnstr(\*Vwin\*L, \*Vstr\*O, \*Vn\*L)\*O"
+Gets up to \*Vn\*O characters in string \*Vstr\*O through \*Vwin\*O.
+.LI "\*Lwgetnwstr(\*Vwin\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+Gets \*Vn\*O wchar_t characters in string \*Vwstr\*O through \*Vwin\*O.
+.LI "\*Lwgetstr(\*Vwin\*L, \*Vstr\*L)\*O"
+Gets a string through \*Vwin\*O.
+.LI "\*Lwgetwch(\*Vwin\*L)\*O"
+Gets a wchar_t character through \*Vwin\*O.
+.LI "\*Lwgetwstr(\*Vwin\*L, \*Vwstr\*L)\*O"
+Gets a wchar_t character string through \*Vwin\*O.
+.LI "\*Lwinch(\*Vwin\*L)\*O"
+Gets character at current (\*Vy\*O,\*Vx\*O) coordinates in \*Vwin\*O.
+.LI "\*Lwinnwstr(\*Vwin\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+Gets at most \*Vn\*O wchar_t characters in string \*Vwstr\*O from \*Vwin\*O.
+.LI "\*Lwinsch(\*Vwin\*L, \*Vc\*L)\*O"
+Inserts character \*Vc\*O into \*Vwin\*O.
+.LI "\*Lwinsertln(\*Vwin\*L)\*O"
+Inserts line into \*Vwin\*O.
+.LI "\*Lwinsnwstr(\*Vwin\*L, \*Vwstr\*L, \*Vn\*L)\*O"
+Inserts the first \*Vn\*O wchar_t characters in
+string \*Vwstr\*O into \*Vwin\*O.
+.LI "\*Lwinswch(\*Vwin\*L, \*Vwch\*L)\*O"
+Inserts a wchar_t character into \*Vwin\*O.
+.LI "\*Lwinswstr(\*Vwin\*L, \*Vwstr\*L)\*O"
+Inserts a wchar_t character string into \*Vwin\*O.
+.LI "\*Lwinwch(\*Vwin\*L)\*O"
+Gets a wchar_t character and its attribute from \*Vwin\*O.
+.LI "\*Lwinwchnstr(\*Vwin\*L, \*Vwchstr\*L, \*Vn\*L)\*O"
+Gets at most \*Vn\*O wchar_t characters (with attributes) in
+string \*Vwchstr\*O from \*Vwin\*O.
+.LI "\*Lwinwchstr(\*Vwin\*L, \*Vwchstr\*L)\*O"
+Gets a string of wchar_t characters (with attributes) from \*Vwin\*O.
+.LI "\*Lwinwstr(\*Vwin\*L, \*Vwstr\*L)\*O"
+Gets a wchar_t character string from \*Vwin\*O.
+.LI "\*Lwmove(\*Vwin\*L, \*Vy\*L, \*Vx\*L)\*O"
+Sets current (\*Vy\*O, \*Vx\*O) coordinates on \*Vwin\*O.
+.LI "\*Lwnoutrefresh(\*Vwin\*L)\*O"
+Refreshes screen but does not execute screen output.
+.LI "\*Lwprintw(\*Vwin\*L, \*Vfmt\*L, \*Varg1\*L, \*Varg2\*L, \*O...\*L)\*O"
+Executes \*Lprintf\*O on \*Vwin\*O.
+.LI "\*Lwrefresh(\*Vwin\*L)\*O"
+Makes screen look like \*Vwin\*O.
+.LI "\*Lwscanw(\*Vwin\*L, \*Vfmt\*L, \*Varg1\*L, \*Varg2\*L, \*O...\*L)\*O"
+Executes \*Lscanf\*O on \*Vwin\*O.
+.LI "\*Lwsetscrreg(\*Vwin\*L, \*Vt\*L, \*Vb\*L)\*O"
+Sets scrolling region of \*Vwin\*O.
+.LI "\*Lwstandend(\*Vwin\*L)\*O"
+Clears \*Lstandout\*O attribute in \*Vwin\*O.
+.LI "\*Lwstandout(\*Vwin\*L)\*O"
+Sets \*Lstandout\*O attribute in \*Vwin\*O.
+.LE
+.SS The terminfo Level Routines
+.if n .PP
+This section lists and describes the \*Lterminfo\*O subset of routines
+in the \*Lcurses\*O library.
+Use the \*Lterminfo\*O routines when your program needs to deal
+directly with the \*Lterminfo\*O database. Note, however,
+that this interface is low level and its use is not
+recommended.
+.PP
+If the environment variable \*LTERMINFO\*O is defined, any program
+using \*Lcurses\*O checks for a local terminal definition before
+checking in the standard libraries.
+For example, if the standard location is \*L/usr/lib/terminfo\*O,
+and \*LTERM\*O is set to \*Lvt100\*O, the compiled file
+is usually found in \*L/usr/lib/terminfo/v/vt100\*O.
+The \*Lv\*O is copied from the first letter of \*Lvt100\*O
+to avoid creating huge directories.
+However, if \*LTERMINFO\*O is set to \*L/usr/mark/myterms\*O,
+\*Lcurses\*O first checks \*L/usr/mark/myterms/v/vt100\*O;
+if that fails, \*Lcurses\*O then checks \*L/usr/lib/terminfo/v/vt100\*O.
+Setting the \*LTERMINFO\*O variable is useful for
+developing experimental definitions when you do not have
+write permission for the \*L/usr/lib/terminfo\*O directory.
+.PP
+At the beginning of your program, include the files \*L<curses.h>\*O and
+\*L<term.h>\*O to get the definitions
+for strings, numbers, and flags used by the \*Lterminfo\*O routines.
+Call the routine \*Lsetupterm\*O first.
+This routine defines the set of terminal-dependent variables specified in
+the \*Lterminfo\*O(4) reference page.
+Instantiate parameterized strings by passing them through \*Ltparm(\|)\*O.
+Use \*Ltputs(\|)\*O or \*Lputp(\|)\*O to print all terminfo strings
+(including the output of \*Ltparm(\|)\*O).
+Before your program exits, it should call
+\*Lresetterm(\)\*O to restore the tty modes.
+.PP
+If you want to use shell escapes or \*LCtrl/Z\*O suspending in your
+program, you can call
+\*Lresetterm(\|)\*O before calling the shell and \*Lfixterm(\|)\*O
+after returning from the shell.
+.PP
+.VL
+.LI "\*Lfixterm(\|)\*O"
+Restores tty modes for terminfo use (called by \*Lsetupterm\*O).
+.LI "\*Lresetterm(\|)\*O"
+Resets tty modes to the state they were in before program entry.
+.LI "\*Lsetupterm(\*Vterm\*L, \*Vfd\*L, \*Vrc\*L)\*O"
+Reads in the database.  Terminal type is the character string \*Vterm\*O;
+all output is to the system file descriptor \*Lfd\*O.  A status
+value is returned in the integer pointed to by \*Lrc\*O.  A status value
+of 1 is normal.  The simplest call is \*Lsetupterm(0, 1, 0)\*O, which
+uses all defaults.
+.LI "\*Ltparm(\*Vstr\*L, \*Vp1\*L, \*Vp2\*L, \*O...\*L, \*Vp9\*L)\*O"
+Instantiates string \*Vstr\*O with parms p sub i.
+.LI "\*Ltputs(\*Vstr\*L, \*Vaffcnt\*L, \*Vputc\*L)\*O"
+Applies padding info to string \*Vstr\*O. The \*Vaffcnt\*O variable
+is the number of lines affected, or 1 if padding is not applicable.
+The \*Vputc\*O argument is a function (like
+\*Lputchar\*O) to which the characters are passed,
+one at a time.
+.LI "\*Lputp(\*Vstr\*L)\*O"
+A function that calls \*Ltputs(\*Vstr\*L, \*V1\*L, \*Vputchar\*L)\*O.
+.LI "\*Lvidputs(\*Vattrs\*L, \*Vputc\*L)\*O"
+Outputs the string to put terminal in video
+attribute mode \*Vattrs\*O.
+.\" which is any combination of the attributes listed below.
+Characters are passed to the function \*Vputc\*O, which is
+similar to \*Lputchar\*O.
+.LI "\*Lvidattr(\*Vattrs\*L)\*O"
+Performs operation similar to the \*Lvidputs\*O function, but
+produces output using the \*Lputchar\*O function.
+.LE
+.SH RETURN VALUES
+.PP
+Most \*Lcurses\*O routines return \*LOK\*O
+on successful completion and \*LERR\*O when an error occurs.
+.SH ERRORS
+.PP
+No errors are defined for the \*Lcurses\*O functions.
+.SH RELATED INFORMATION
+.PP
+Commands: \*Ltic\*O(1).
+.PP
+Functions: \*Lioctl\*O(2), \*Lcurses\*O(3), \*Lgetenv\*O(3),
+\*Lprintf\*O(3), \*Lputchar\*O(3), \*Lscanf\*O(3), \*Lvprintf\*O(3).
+.PP
+Files: \*Lterminfo\*O(4).
+.EQ
+delim off
+.EN

@@ -1,0 +1,553 @@
+#!/sbin/sh
+#
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: buildroot.osf,v $ $Revision: 4.3.19.10 $ (DEC) $Date: 1993/06/30 21:38:42 $ 
+# 
+#
+#	buildroot.osf - run on ULTRIX to produce ROOT for X1.0 systems
+#
+#	buildroot.osf <build-dir> <dev> <devtype>
+#
+#	@digital_copyright@
+#
+#	000	24-apr-1991	ccb
+#		added this comment. 
+#
+#	001	30-may-1991	ccb
+#		close code review and test, extensive rework
+#
+#	002	03-jun-1991	ccb
+#		move statically linked version of utils from /isl
+#		rather than from previous locations.
+#
+#	003	21-jun-1991	ccb
+#		shared library integration, integration with
+#		environment on LASTOUT
+#
+#	004	02-jul-1991	ccb
+#		add finder and sizer to the ROOT
+#
+#	005	12-jul-1991	ccb
+#		stop carrying a private disklabel
+#		pick up swapon, rzboot, bootrz
+#		strip vmunix.sas before loading
+#		display df of root before dismounting
+#
+#	006	14-jul-1991	ccb
+#		Pick up Error shell lib package for use by subset
+#		control programs
+#
+#	007	18-jul-1991	ccb
+#		Clean up BRO_DIRS list. Add capacity key support.
+#
+#	008	24-jul-1991	ccb
+#		install 'dd' in isl rather than in sbin
+#
+#	009	08-oct-1991	ccb
+#		remove tic, package.dat from /isl
+#		move date to /isl to avoid ETXBUSY during setld
+
+PATH=".:/bin:/sbin:/etc:/etc/stl:/usr/ucb:/usr/bin:/usr/lbin:/usr/sbin:/usr/etc"
+export PATH
+
+
+:	-CopyFromCopylist
+#		copy files from pack sources that do not match
+#		root targets
+#
+#	given:	a copy descriptor see comment above BRO_COPYLIST
+#	does:	performs the copies described in the descriptor
+#	return:	1 on error, 0 otherwise
+#
+
+CopyFromCopylist()
+{
+	set - $BRO_COPYLIST
+	while [ $# -ne 0 ]
+	do
+		echo "$1... \c"
+		cp -p $BRO_BUILD/$1 $BRO_MNT/$2
+
+		# make local isl copies
+		case "$2" in
+		isl*)
+			cp -p $BRO_BUILD/$1 $2
+			;;
+		esac
+
+		echo "done."
+		shift 2
+	done
+}
+
+
+
+:	-CreateDirs
+#		Create needed directories on the root
+#
+#	given:	nil
+#	does:	reads inventory records from stdin
+#	return:	nil
+
+CreateDirs()
+{
+	REC=0
+	while read LINE
+	do
+		REC=`expr $REC + 1`
+		set -- $LINE
+		DUID=$4
+		DGID=$5
+		DMODE=$6
+		shift
+		DPATH=$9
+
+		CHECKSTRING="DPATH=$DPATH~
+DUID=$DUID~
+DGID=$DGID~
+DMODE=$DMODE~"
+
+		case "$CHECKSTRING" in
+		*=~*)
+			Error "$PROG: CreateDirs(): field error, rec $REC
+$CHECKSTRING"
+			continue
+		esac
+
+		[ -d $DPATH ] ||
+		{
+			rm -f $DPATH 2> /dev/null
+			mkdir $DPATH ||
+			{
+				Error "$PROG: CreateDirs: Cannot mkdir $DPATH"
+			}
+		}
+		chown $DUID $DPATH
+		chgrp $DGID $DPATH
+		chmod $DMODE $DPATH
+	done
+}
+
+
+
+:	-Error
+#		Print args on stderr
+#
+
+Error()
+{
+	1>&2 echo $*
+}
+
+
+
+:	-Exit
+#		Exit the program
+#
+#	given:	$1 - exit status
+#	does:	clean up (may dismount disk, remove mount dir) and exit
+#	return:	not at all
+
+Exit()
+{
+	BRO_STATUS=$1
+
+	[ "$BRO_ISMOUNT" -eq 1 ] &&
+	{
+		umount $BRO_MNT ||
+			Error "Warning: cannot dismount $BRO_DISKBLK"
+
+		exit $BRO_STATUS
+	}
+	rmdir $BRO_MNT 2> /dev/null
+	exit $BRO_STATUS
+}
+
+
+
+:	-GetRISParts
+#		get the pieces needed for RIS
+
+GetRISParts()
+{
+	# - SAS Kernel
+
+	set - $RISKERNELS
+	while [ $# -gt 0 ]
+	do
+		if [ -f $BRO_BUILD/$1 ]
+		then
+			echo "	*** Copying $1 to $2 ***"
+			cp $BRO_BUILD/$1 $BRO_MNT/$2
+			#strip $BRO_MNT/$2
+		else
+			Error "Cannot find: $BRO_BUILD/$1"
+		fi
+		shift 2
+	done
+
+	# - netload
+#	if [ -f $BRO_BUILD/usr/mdec/u_netload ]; then
+#	{
+#		cp $BRO_BUILD/usr/mdec/u_netload $BRO_MNT/netload
+#	}
+#	else
+#	{
+#		Error "Cannot find $BRO_BUILD/usr/mdec/netload"
+#		Exit 1
+#	}; fi
+}
+
+
+
+:	-Main
+#		main program
+#
+#	given:	input command line
+#	does:	parse the command line, verifiy arguments, make assignments
+#		build the ROOT dump image.
+#
+
+Main()
+{
+	COUNT=
+	DEVICE=
+	INVENTORY=
+	TYPE=
+	VAL=
+
+	BRO_CLEANUP="$BRO_MNT"
+	BRO_DEVFILES="std"
+	BRO_DISKBLK=
+	BRO_DISKTYPE=
+	BRO_DISKRAW=
+	BRO_IMAGENAME=OSF.image
+	BRO_ISMOUNT=0
+	BRO_MNT=/tmp/BRO$$
+	BRO_ROOTNAME=ROOT
+	BRO_PREV=002
+
+
+	set -- `getopt d:f:h: $*`
+	[ $? != 0 ] && 
+	{
+		echo "getopt failure"
+		Exit 1
+	}
+
+	[ $# = 1 ] && Usage
+
+	for ARGS in $*
+	{
+		case $1 in
+		-d)	DEVICE=$2
+			[ -b /dev/$DEVICE ] ||
+			{
+				Error "  No such (block) device: /dev/$DEVICE"
+				Exit 1
+			}
+			[ -c /dev/r$DEVICE ] ||
+			{
+				Error "  No such (character) device: /dev/r$DEVICE"
+				Exit 1
+		  	}
+			BRO_DISKBLK=/dev/$DEVICE
+			BRO_DISKRAW=/dev/r$DEVICE
+			VAL=`file $BRO_DISKRAW`
+
+			COUNT=0
+			for I in $VAL
+			{
+				COUNT=`expr $COUNT + 1`
+				[ $COUNT = 7 ] && BRO_DISKTYPE=$I
+		  	}
+			shift
+			;;
+
+	 	-f)	INVENTORY=$2
+			[ -r $INVENTORY ] ||
+			{
+				Error "  No such file: $INVENTORY"
+				Exit 1
+			}
+			. $INVENTORY
+			shift
+			[ "$BRO_IREV" = "$BRO_PREV" ] ||
+			{
+				Error "
+mismatch: prog rev $BRO_PREV != inv rev $BRO_IREV"
+				exit 1
+			}
+			;;
+
+	 	-h)	BRO_BUILD=`(cd $2;/bin/pwd)`
+			[ -d "$BRO_BUILD" ] ||
+			{
+				Error "$BRO_BUILD: no such directory"
+				Exit 1
+			}
+ 			shift
+ 			;;
+
+	 	--)	shift
+ 			break
+ 			;;
+		esac
+		shift
+	}
+
+	[ "$DEVICE" ] ||
+	{
+		echo "  ERROR: device and partition must be specified."
+		Usage
+		Exit 1
+	}
+	[ "$INVENTORY" ] ||
+	{
+		echo "  ERROR: inventory file must be specified."
+		Usage
+		Exit 1
+	}
+	[ "$BRO_BUILD" ] ||
+	{
+		echo "  ERROR: output/ hierarchy must be specified."
+		Usage
+		Exit 1
+	}
+
+	echo "\n*** Creating new filesystem on $BRO_DISKRAW ($BRO_DISKTYPE)\n"
+	umount $BRO_DISKBLK 2> /dev/null
+	newfs $BRO_DISKRAW $BRO_DISKTYPE ||
+	{
+		Error "Cannot 'newfs' $BRO_DISKRAW"
+		Exit 1
+	}
+
+	echo "\n*** Mounting $BRO_DISKBLK in $BRO_MNT\n"
+
+	mkdir $BRO_MNT 2> /dev/null
+	mount $BRO_DISKBLK $BRO_MNT ||
+	{
+		Error "cannot mount $BRO_DISKBLK on $BRO_MNT"
+		Exit 1
+	}
+	BRO_ISMOUNT=1
+
+	set - $BRO_DIRS
+	[ "$BRO_DIRS" ] &&
+	{
+		echo "\n*** Creating directory structure on $BRO_DISKBLK\n"
+		(
+			cd $BRO_MNT; rm -rf lost+found
+			(cd $BRO_BUILD; ils $BRO_DIRS) | CreateDirs
+			mkdir isl/mdec
+		)
+	}
+	[ -d isl ] &&
+	{
+		echo " Removing old ./isl directory"
+		rm -rf isl
+	}
+
+	[ "$BRO_LOCALDIRS" ] &&
+	{
+		set - $BRO_LOCALDIRS
+		for DIR in $*
+		{
+			mkdir $DIR
+		}
+	}	
+
+	# copy files
+	echo "\n*** Copying files to $BRO_DISKBLK"
+
+	GetRISParts
+
+	CopyFromCopylist
+	echo
+
+	# create device files
+	[ "$BRO_DEVFILES" ] &&
+	{
+		(cd $BRO_MNT/dev
+			/kits/bin/sh MAKEDEV $BRO_DEVFILES
+			rm -rf ptm
+		)
+	}
+
+
+	# take care of the links
+
+	(cd $BRO_MNT;
+
+		[ -d etc ] && (cd etc;MoveNew)
+
+		[ "$BRO_HARDLINKS" ] &&
+		{
+			set - $BRO_HARDLINKS
+		 	while [ $# -gt 0 ]
+		 	do
+				ln $1 $2
+				shift 2
+		 	done
+		}
+		[ "$BRO_SOFTLINKS" ] &&
+		{
+			set - $BRO_SOFTLINKS
+		 	while [ $# -gt 0 ]
+		 	do
+				ln -s $1 $2
+				shift 2
+		 	done
+		}
+		[ "$BRO_STOWAWAYS" ] &&
+		{
+			set - $BRO_STOWAWAYS
+		 	while [ $# -gt 0 ]
+			do
+				cp $1 $2
+				shift 2
+			done
+		}
+
+		# move the upgrade file
+		set - $BRO_DEFUPGRADE
+		[ "$BRO_DEFUPGRADE" ] && cp $BRO_BUILD/$BRO_DEFUPGRADE upgrade
+	)
+
+	# create updpinfo
+	OSFVER=`strings $BRO_BUILD/vmunix | grep 'DEC OSF/1 '`
+	OSFVER=`expr "$OSFVER" : '\(.*\);.*'`
+
+	echo "OSFVER='$OSFVER'" >> isl/updpinfo
+	echo "OSFVER='$OSFVER'" >> $BRO_MNT/isl/updpinfo
+	
+
+	sync; sync; sync
+	(cd $BRO_MNT;df .;echo)
+
+	if umount $BRO_DISKBLK; then
+	{
+		BRO_ISMOUNT=0
+	}
+	else
+	{
+		Error "Warning - cannot dismount $DISKBLK"
+	}; fi
+
+	fsck $BRO_DISKRAW ||
+	{
+		Error "Error running 'fsck' on $BRO_DISKRAW"
+		Exit 1
+	}
+
+	echo
+	dump 0f $BRO_ROOTNAME $BRO_DISKRAW 
+
+	rmdir $BRO_MNT
+
+	# set up an image file and instctrl
+	mkdir instctrl 2> /dev/null
+	Sum $BRO_ROOTNAME > instctrl/$BRO_IMAGENAME
+	(cd instctrl; tar cf ../INSTCTRL $BRO_IMAGENAME)
+
+	Exit 0
+}
+
+
+:	-MoveNew
+#		promote any ".new." files
+#
+#	given:	nothing
+#	does:	move all .new. files in the current directory
+#		to configured level
+#	return:	NIL
+#
+
+MoveNew()
+{
+	for K in .new..*
+	{
+		NAME=`expr $K : '\.new\.\.\(.*\)'`
+
+		[ "$NAME" = '*' ] && break
+
+		mv $K $NAME
+	}
+}
+
+
+:	-Sum
+#		get checksum, hides OSF1 <-> ULTRIX differences
+#
+#	given:  a list of files to checksum
+#	does:	generate checksums. If on ULTRIX and only one file is
+#		specified, adds the filename to the output.
+#	reutrn: exit status of the sum command
+#
+
+Sum()
+{ (
+	OS=`uname`
+	case "$OS" in
+	OSF1)	;;
+	ULTRIX)
+		case "$#" in
+		1)
+			SUM=`sum $1` || exit $?
+			echo "$SUM $1"
+			return 0
+			;;
+		 esac
+		 ;;
+	esac
+
+	sum $*
+) }
+
+
+:	-Usage
+#		generate command usage message
+#
+#	given:	nothing
+#	does:	display usage message
+#	return	exit the application
+#
+
+Usage()
+{
+	[ $# = 0 ] &&
+	{
+		echo "  Usage: buildroot.osf -d <device> -f <inventory> -h <hierarchy>"
+		echo ""
+		echo "  e.g.  buildroot.osf -d rz4b -f inv_file -h /kits/release/output"
+		echo ""
+		Exit 1
+	}
+}
+
+[ "$CHECK_SYNTAX" ] || Main "$@"	# does not return, program exits.
+

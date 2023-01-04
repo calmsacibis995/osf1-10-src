@@ -1,0 +1,563 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" OSF/1 1.1
+.\" Begin Digital-specific information
+.\" Changes per rmiller
+.\" Font macro coding completely reworked by fontclean command to use
+.\" SML literals instead of man macros - rfb 9302.24
+.\" End Digital-specific information
+.TH cmdedit 1
+.SH NAME
+.PP
+\*Lcmdedit\*O \- C shell with command line editing
+.SH SYNOPSIS
+.PP
+.iX "csh command" "command line editing in"
+.iX "commands" "interpreting"
+.iX "interpreting" "commands"
+.iX "shell" "C" "command line editing"
+.iX "command line editing in C shell"
+\*L/usr/bin/csh\*O [ \*Voptions\*O ] [ \*Vargs ...\*O ]
+.SH DESCRIPTION
+.PP
+\*Lcsh\*O
+is a version of the C-shell with intra-command line editing.
+Other features include a kill buffer, multi-line named keyboard
+macros which can be automatically saved and restored, convenient access to
+the history list, and user settable key bindings.
+A summary of the currently available functions and their default
+key bindings is given in the
+\*LBINDINGS\*O
+section below.  In most cases the
+functionality will be apparent from the names of the routines in the list.
+.PP
+The shell's editing mode is determined by the value of the shell
+\*Leditmode\*O
+variable which users should set to
+\*Lemacs\*O
+or
+\*Lvi\*O
+in their
+\*L\&.cshrc\*O
+files.
+If
+\*Leditmode\*O
+is not set, then the shell will run
+in "dumb" mode.
+It is possible to set the mode after the shell starts up; so if you find
+yourself in "dumb" mode, you can alter the situation without having to
+logout and login again.  Setting the
+\*Leditmode\*O
+variable has two important
+side effects:  (1) it causes the key bindings to be reevaluated, and (2) it
+sets the
+\*LEDITMODE\*O
+environment variable.  The latter has
+no effect within the shell; so users should
+\*Lnot\*O
+set the environment variable
+directly in hopes of altering the editing mode.
+.PP
+Terminal control capabilities are extracted from the user's
+termcap
+file (usually
+\*L/etc/termcap\*O),
+using the value of the shell variable
+\*Lterm\*O,
+not the environment variable
+\*LTERM\*O,
+as the terminal type.  If
+\*Lterm\*O
+is undefined,
+\*Lunknown\*O,
+or if the associated
+termcap
+definition is inadequate, a warning will be displayed and most, or all, of
+the editing features of the shell will be disabled.  It is the user's
+responsibility to make sure that
+\*Lterm\*O
+is set to an appropriate value before the shell editor is initialized.
+Usually this should be done in the
+\*L\&.login\*O
+file.  If editing is disabled because
+\*Lterm\*O
+is not properly set when the shell starts up, simply setting
+\*Lterm\*O
+to the proper value will normally cause the shell editor to be re-enabled.
+NB: Setting the shell variable
+\*Lterm\*O
+causes the environment variable
+\*LTERM\*O
+to be set to the same value.
+For information on controlling the bell, see the
+\*LERRORS\*O
+section.
+.PP
+There is a new command in this shell,
+\*Lbind-to-key\*O,
+which allows the functions listed in the
+\*LBINDINGS\*O
+section below, and also
+user defined keyboard macros, to be bound to keys.  The form of the command
+is
+.PP
+.RS
+\*Lbind-to-key\*O \*Vfunction key ...\*O
+.RE
+.PP
+where
+\*Vfunction\*O
+is one of the function names from the list or else the
+single character name of a keyboard macro and where
+\*Vkey\*O
+is a
+quoted
+string designating a key sequence.  Control characters in the
+\*Vkey\*O
+designation
+should not be entered
+literally, but should be indicated by the prefix "\e^", e.g. "\e^X".
+Similarly, escape is indicated by "\ee".  A literal backslash is "\e\e".
+Escape and control-X are the only
+legitimate "prefix" characters.  For
+\*Lvi\*O
+mode, bindings prefixed with control-X are
+for insert mode.  Otherwise, the bindings are only in effect in command mode.
+The following mnemonics should be used:
+.PP
+.RS
+.TS
+tab(@);
+lfB  lfR .
+\e^?@delete (rubout)
+\e^\*Vc\*O@control character
+\en@line feed (new line)
+\eb@back space
+\et@horizontal tab
+\ev@vertical tab
+\ef@form feed
+\er@carriage return
+\ee@escape
+\e\*Vnnn\*O@character code in octal
+.TE
+.RE
+.PP
+Since the shell converts returns to newlines it is probably unwise to alter
+the binding of newline.  A common binding is to bind \%KillRegion to Ctrl/U,
+which would be accomplished using the following command:
+.iS
+bind-to-key KillRegion "\e^U"
+.iE
+During editor initialization the shell will read a file named
+\*L\&.bindings\*O
+in
+the user's home
+directory.  If you regularly want certain non-default key
+bindings to be effective, put the appropriate bind-to-key commands in your
+\*L~/.bindings\*O
+file.  NB: The
+\*Lbind-to-key\*O
+commands would work if placed in your
+\*L~/.cshrc\*O
+file, but they will be more useful (in the future) if they are in
+the
+\*L~/.bindings\*O
+file.
+.PP
+Invocation of the history mechanism with "!" either causes the matched
+command to be inserted on the command line for editing before execution or
+immediatedly executes the command.  This is controlled by the shell variable
+\*Ledithist\*O,
+which is automatically
+\*Vset\*O,
+when the shell variable
+\*Leditmode\*O
+is
+\*Vset\*O,
+thereby allowing editing of previous commands invoked by the history
+mechanism.  This feature may be turned off with the command "unset
+edithist", which may be placed in the user's
+\*L\&.cshrc\*O
+file.
+.PP
+.SH BINDINGS
+.PP
+The following functions and default key bindings are currently implemented.
+.sp
+.nf
+.ta 1n 15n 40n
+\*V	Emacs	Function Name	Remark\*O
+.PP
+	\*L^B\*O	Backspace
+	\*LESC\-b\*O	BackwardWord
+	\*L^A\*O	BeginningOfLine
+	\*L^L\*O	ClearScreen
+		DefaultBinding
+	\*LESC\-n\*O	DefineNamedMacro	name macro
+	\*L^D\*O	DeleteCurrentChar
+	\*L^H\*O	DeletePreviousChar
+	\*LESC\-d\*O	DeleteWord		after cursor
+		EndOfFile		exit shell
+	^E	EndOfLine
+		EraseLine		kills whole line
+	\*LESC\-h\*O	EraseWord		before cursor
+		ExecuteMacro
+	\*LESC\-e\*O	ExecuteNamedMacro
+	\*LESC\-x\*O	ExecuteNamedMacro
+	\*L^X\-e\*O	ExecuteUnNamedMacro
+	\*LESC\-ESC\*O	FilenameExpansion
+	\*LESC\-l\*O	FilenameList
+	\*L^F\*O	ForwardChar
+	\*LESC\-f\*O	ForwardWord
+		GnuTransposeChars		like gnu-emacs
+		IncrementalSearchForward
+		IncrementalSearchReverse
+		InsertChar	self insert
+	\*L^V\*O	InsertLiteralChar
+	\*L^W\*O	KillRegion	to kill buffer
+	\*L^K\*O	KillToEOL	to kill buffer
+	\*L^X^R\*O	LoadMacroFile
+	\*L^N\*O	NextHistEntry	wraps around
+	\*L^P\*O	PreviousHistEntry	wraps around
+	\*L^R\*O	Redisplay	redraws line
+	\*L^U\*O	Repetition	greater than 0
+	\*L^M,^J\*O	Return
+	\*L^X^S\*O	SaveMacroFile
+	\*L^@\*O	SetMark	default mark at BOL
+		SearchReverse	look for next char
+		SearchForward	look for next char
+	\*L^Q\*O	StartFlow	(see FLOW CONTROL)
+	\*L^X\-(\*O	StartRemembering	begin a macro
+	\*L^S\*O	StopFlow	(see FLOW CONTROL)
+	\*L^X\-)\*O	StopRemembering	end a macro
+	\*L^I\*O	Tab	inserts 8 spaces
+	\*L^T\*O	TransposeChars	before cursor
+		WipeLine		kill line without saving
+	\*L^Y\*O	YankKillBuffer	no kill ring
+.sp
+\*V	Vi	Function Name	Remark\*O
+.PP
+	\*LA\*O	AppendToEOL	can't use with
+			\*Vbind-to-key\*O
+	\*L^H\*O	BackSpace
+	\*Lh\*O	BackSpace
+	\*LB\*O	BackwardWord
+	\*Lb\*O	BackwardWord
+	\*L0\*O	BeginningOfLine
+	\*L^\*O	BeginningOfLine
+	\*Ls\*O	ChangeChar	can't use with
+			\*Vbind-to-key\*O
+	\*Lc\*O	ChangeFollowingObject	can't use with
+			\*Vbind-to-key\*O
+	\*LC\*O	ChangeToEOL	can't use with
+			\*Vbind-to-key\*O
+	\*LS\*O	ChangeWholeLine	can't use with
+			\*Vbind-to-key\*O
+	\*Lx\*O	DeleteCurrentChar
+	\*Ld\*O	DeleteFollowingObject	can't use with
+			\*Vbind-to-key\*O
+	\*LX\*O	DeletePreviousChar	can't use with
+			\*Vbind-to-key\*O
+	\*L$\*O	EndOfLine
+	\*LESC\*O	FilenameExpansion
+	\*L^D\*O	FilenameListOrEof
+	\*Ll\*O	ForwardChar
+	\*LSPACE\*O	ForwardChar
+	\*Lw\*O	ForwardWord
+	\*LW\*O	ForwardWord
+	\*Le\*O	ForwardWord
+	\*LI\*O	InsertAtBOL	can't use with
+			\*Vbind-to-key\*O
+	\*LD\*O	KillToEOL
+	\*L@\*O	ExecuteNamedMacro
+	\*L+\*O	NextHistEntry
+	\*Lj\*O	NextHistEntry
+	\*L^N\*O	NextHistEntry
+	\*L-\*O	PreviousHistEntry
+	\*Lk\*O	PreviousHistEntry
+	\*L^P\*O	PreviousHistEntry
+	\*L^L\*O	Redisplay
+	\*L^R\*O	Redisplay
+	\*Lz\*O	Redisplay
+	\*L1-9\*O	Repetition
+	\*Lr\*O	ReplaceChar	can't use with
+			\*Vbind-to-key\*O
+	\*LLINEFEED\*O	Return
+	\*LRETURN\*O	Return
+	\*L/\*O	IncrementalSearchForward
+	\*L?\*O	IncrementalSearchReverse
+	\*Lf\*O	SearchForward
+	\*LF\*O	SearchReverse
+	\*Lm\*O	SetMark
+	\*La\*O	EnterViAppend	can't use with
+			\*Vbind-to-key\*O
+	\*Li\*O	EnterViInsert	can't use with
+			\*Vbind-to-key\*O
+	\*Lp\*O	ViYankKillBuffer	can't use with
+			\*Vbind-to-key\*O
+	\*LP\*O	ViYankKillBuffer	can't use with
+			\*Vbind-to-key\*O
+.sp
+\*V	Vi insert mode\*O
+.PP
+	\*L^H\*O	DeletePreviousChar
+	\*LEraseChar\*O	DeletePreviousChar
+	\*L^W\*O	EraseWord
+	\*LESC\*O	ExitViInsert	can't use with
+			\*Vbind-to-key\*O
+	\*L^D\*O	FilenameListOrEof
+	\*L^Q\*O	InsertLiteralChar
+	\*L^V\*O	InsertLiteralChar
+	\*L^U\*O	KillRegion
+	\*L^N\*O	NextHistEntry
+	\*L^P\*O	PreviousHistEntry
+	\*L^L\*O	Redisplay
+	\*L^R\*O	Redisplay
+	\*LLINEFEED\*O	Return
+	\*LRETURN\*O	Return
+	\*LTAB\*O	Tab
+.fi
+.PP
+Users may change the bindings of functions to keys by means of the shell
+\*Lbind-to-key\*O
+command.  These commands may be stored in a file named
+\*L\&.bindings\*O
+in the
+users home directory and will then be read by the shell when the editor is
+initialized.
+.PP
+NB:  The shell variable
+\*Lbindings\*O
+is no longer being supported and will
+become ineffective in a future release.  Before that happens users should
+convert to using the
+\*L~/.bindings\*O
+file.
+.SH "FLOW CONTROL"
+.PP
+Flow control is handled by the terminal driver, not by the shell.  The
+terminal driver normally interprets ^S and ^Q as a signal to respectively
+stop and restart output to the terminal.  By default, the shell does not
+override these "bindings", but the user may override them by rebinding ^S or
+^Q to functions other than StopFlow and StartFlow.
+.PP
+The functions StopFlow and StartFlow can only be usefully bound to the keys
+that the terminal driver interprets as performing the corresponding flow
+control functions.  In other words, you cannot simply bind these functions
+to other keys in order to have them perform the flow control operations
+normally provided by ^S and ^Q.
+.SH "KEYBOARD MACROS"
+.PP
+Keyboard macros can be used to simplify repetitive operations and reduce
+typing lengthy commands.  For example, the following lines illustrate how to
+create a macro to startup Emacs and have it run the shell inside a buffer:
+.PP
+.iS
+% ^X(emacs -eshell
+.br
+% ^X)
+.iE
+.PP
+Notice that this is a multi-line macro, since it contains an embedded
+newline.  The user can give this macro a single character name, e.g. "e",
+as follows:
+.PP
+.iS
+% \eene   (escape-n-e).
+.iE
+.PP
+The macro may then be executed by typing "\eexe".  It can also
+be bound to a key using the
+\*Lbind-to-key\*O
+command.
+Macros can be saved in
+files and can be reloaded automatically when the shell starts up.
+.TP
+Macro Creation
+To create a new unnamed macro, use the
+\*LStartRemembering\*O
+function which
+is bound by default to
+\*L^X(\*O.
+Subsequent keystrokes, until the
+\*LStopRemembering\*O, ^X ),
+function is executed, are remembered as an "unnamed"
+keyboard macro.  It can contain at most 1024 characters.  You are not
+allowed to begin creating another macro during macro creation, but it is
+okay to execute other macros, provided loops aren't created.
+The unnamed macro can be executed using the
+\*LExecuteUnNamedMacro\*O
+function, bound to
+\*L^Xe\*O.
+There is only one unnamed macro.
+.\" .i0
+.DT
+.PP
+.TP
+Named Macros
+Users can have up to 128 named macros.  To define such a macro, first
+create an unnamed macro as above and then give it a name by executing the
+\*LDefineNamedMacro\*O
+function, bound to \een
+(escape-n).  The function takes a
+single character argument which will be the name of the macro.  Any previous
+macro with that same name will be destroyed.
+.\" .i0
+.DT
+.PP
+.TP
+Macro Execution
+To execute a named macro simply use the
+\*LExecuteNamedMacro\*O
+function,
+bound to \eex, and give it the name of the macro to be executed.
+Named macros can also be bound to keys using the builtin cshell command
+\*Lbind-to-key\*O.
+.\" .i0
+.DT
+.PP
+.TP
+Macro Files
+Named keyboard macros can be saved in files and loaded from files.  To save
+the named macros in a file simply type the filename on the command line (by
+itself) and then execute the
+\*LSaveMacroFile\*O
+function bound to
+\*L^X^S\*O.
+To
+read a file of previously saved macros type the filename on the command line
+and execute the
+\*LLoadMacroFile\*O
+function bound to
+\*L^X^R\*O.
+Success in each case is indicated by the erasure of the filename.  It is
+okay to store macros in several different macro files.
+NB:  It is not advisable to try to edit saved macros!
+.\" .i0
+.DT
+.PP
+.TP
+Autoloading and AutoSaving Macros
+If the shell variable
+\*Lmacrofiles\*O
+is assigned (in the user's
+\*L\&.cshrc\*O
+file) the
+names of one or more files of saved keyboard macros, then those macro files
+will be automatically loaded when the shell starts up.
+Similarly, the variable
+\*Lsavemacros\*O
+can be assigned the name of a (single) file in which all named macros will
+be saved when the user logs out.
+.\" .i0
+.DT
+.PP
+.SH SEARCHING
+.PP
+NB: The names of the incremental search functions have changed since earlier
+releases of this shell.
+.PP
+Four search functions are available to the user, but are not bound (by
+default) to keys.  If you want to use them, use the cshell
+\*Lbind-to-key\*O
+command to bind them to keys.
+.TP
+IncrementalSearchForward
+When the user executes this function he is placed
+in a read/search loop in which the string to be found is built up character
+by character.  As each new character is added to the search string the cursor
+is placed at the end of the first match on the command line following the
+position of the cursor when the function was executed.  You can reexecute
+the search function while in the loop to cause the cursor to move to
+subsequent matches.  Type ESC to exit the loop.
+.\" .i0
+.DT
+.PP
+.TP
+IncrementalSearchReverse
+This function is similar to IncrementalSearchForward except that the
+cursor is placed at the beginning of the first match on the command line
+preceding the position of the cursor when the function was executed.
+.\" .i0
+.DT
+.PP
+.TP
+SearchForward
+This function grabs the next character you type and searches for that
+character from the position of the cursor to the end of the command line,
+leaving the cursor following the first instance of the character if one is
+found.
+.\" .i0
+.DT
+.PP
+.TP
+SearchReverse
+This function is like SearchForward except that it searches from where the
+cursor is to the beginning of the command line.
+.SH MISCELLANEOUS
+.PP
+If the shell variable
+\*Lbreakchars\*O
+is assigned a string, then the
+characters in that string are used to determine word boundaries.
+The default break characters are
+" ", ",", ^I, /, \\, (, ), [, ], {, }, ., ;, >, <, !, ^, &, and |.
+The user defined break characters
+are used instead of, not in addition to, the default list.
+.SH RESTRICTIONS
+.PP
+The display update functions take no advantage of the capabilities of smart
+terminals.  This will be fixed in the future.
+.PP
+The command line cannot exceed 1024 characters if characters are being
+inserted in the middle of the line; it can be longer if characters are being
+inserted at the end, but once the 1K boundary is passed the previous
+characters can no longer be edited or redisplayed.
+.PP
+The interactive input routine performs some initialization the first
+time it is called.  As a result some things are not interactively alterable.
+It is also not possible for the user to turn off echoing of
+regular characters or to take the tty out of CBREAK mode by means of the
+stty command, for example, and have it affect the function of the shell.
+.SH ERRORS
+.PP
+Error conditions within the editor functions are usually indicated by
+an audible bell.  If you prefer a visual signal and your terminal has a
+visible bell capability, then you should set the variable
+\*Lvisiblebell\*O
+in
+your
+\*L\&.cshrc\*O
+file.  If you want an audible bell also, then set both
+\*Lvisiblebell\*O
+and
+\*Laudiblebell\*O.
+If you don't want to be told about your
+mistakes, you can set the
+\*Lnobell\*O
+variable.
+.SH RELATED INFORMATION
+.PP
+Commands:
+\*Lcsh\*O(1)
+.EQ
+delim off
+.EN

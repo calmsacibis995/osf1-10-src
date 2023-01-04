@@ -1,0 +1,140 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9208061516.AA00272@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2641) close XBUG #5384: xdm: $HOME not reset if directory nonexistent
+Date: Thu, 06 Aug 92 11:16:47 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xdm: $HOME not reset if directory nonexistent
+        ### bug number:   5384
+        ### area:         xdm
+        ### severity:     low
+
+*** /tmp/da00158	Thu Aug  6 11:09:53 1992
+--- clients/xdm/session.c	Thu Aug  6 11:07:55 1992
+***************
+*** 1,7 ****
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: session.c,v 1.55 91/09/19 16:25:56 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: session.c,v 1.57 92/08/06 11:02:28 gildea Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 35,41 ****
+--- 35,44 ----
+  #endif
+  
+  extern int  errno;
++ extern char **setEnv();
+  
++ static Bool StartClient();
++ 
+  static int			clientPid;
+  static struct greet_info	greet;
+  static struct verify_info	verify;
+***************
+*** 357,367 ****
+      exit (status);
+  }
+  
+  StartClient (verify, d, pidp, passwd)
+! struct verify_info	*verify;
+! struct display		*d;
+! int			*pidp;
+! char			*passwd;
+  {
+      char	**f, *home, *getEnv ();
+      char	*failsafeArgv[2];
+--- 360,371 ----
+      exit (status);
+  }
+  
++ static Bool
+  StartClient (verify, d, pidp, passwd)
+!     struct verify_info	*verify;
+!     struct display	*d;
+!     int			*pidp;
+!     char		*passwd;
+  {
+      char	**f, *home, *getEnv ();
+      char	*failsafeArgv[2];
+***************
+*** 411,421 ****
+  	SetUserAuthorization (d, verify);
+  	home = getEnv (verify->userEnviron, "HOME");
+  	if (home)
+! 		if (chdir (home) == -1) {
+! 			LogError ("No home directory %s for user %s, using /\n",
+! 				  home, getEnv (verify->userEnviron, "USER"));
+! 			chdir ("/");
+! 		}
+  	if (verify->argv) {
+  		Debug ("executing session %s\n", verify->argv[0]);
+  		execute (verify->argv, verify->userEnviron);
+--- 415,426 ----
+  	SetUserAuthorization (d, verify);
+  	home = getEnv (verify->userEnviron, "HOME");
+  	if (home)
+! 	    if (chdir (home) == -1) {
+! 		LogError ("user \"%s\": no home directory \"%s\", using \"/\"\n",
+! 			  getEnv (verify->userEnviron, "USER"), home);
+! 		chdir ("/");
+! 		verify->userEnviron = setEnv(verify->userEnviron, "HOME", "/");
+! 	    }
+  	if (verify->argv) {
+  		Debug ("executing session %s\n", verify->argv[0]);
+  		execute (verify->argv, verify->userEnviron);
+***************
+*** 545,550 ****
+--- 550,558 ----
+  char	**argv;
+  char	**environ;
+  {
++     /* give /dev/null as stdin */
++     (void) close (0);
++     open ("/dev/null", 0);
+      /* make stdout follow stderr to the log file */
+      dup2 (2,1);
+      execve (argv[0], argv, environ);
+*** /tmp/da00181	Thu Aug  6 11:09:55 1992
+--- clients/xdm/config/Xsession	Thu Aug  6 11:09:20 1992
+***************
+*** 1,6 ****
+  #!/bin/sh
+  
+! exec > $HOME/.xsession-errors 2>&1
+  
+  case $# in
+  1)
+--- 1,16 ----
+  #!/bin/sh
++ # $XConsortium: Xsession,v 1.7 92/08/06 11:08:14 gildea Exp $
+  
+! # redirect errors to a file in user's home directory if we can
+! for errfile in "$HOME/.xsession-errors" "/tmp/xses-$USER"
+! do
+! 	if ( cp /dev/null "$errfile" 2> /dev/null )
+! 	then
+! 		chmod 600 "$errfile"
+! 		exec > "$errfile" 2>&1
+! 		break
+! 	fi
+! done
+  
+  case $# in
+  1)

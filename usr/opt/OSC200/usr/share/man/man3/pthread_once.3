@@ -1,0 +1,168 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: pthread_once.3,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/27 11:12:01 $
+.\"
+...\" Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED.
+.wH ********************************************************************
+.wH                                                                    *
+.wH COPYRIGHT (c) 1990 BY DIGITAL EQUIPMENT CORPORATION,               *
+.wH Maynard, Mass.                                                     *
+.wH                                                                    *
+.wH This document is furnished under a license and may be used and     *
+.wH copied only in accordance with the terms of such license and with  *
+.wH the inclusion of the above copyright notice. This document or any  *
+.wH other copies thereof may not be provided or otherwise made         *
+.wH available to any other person. No title to or ownership of the     *
+.wH document is hereby transferred.                                    *
+.wH                                                                    *
+.wH The information in this document is subject to change without      *
+.wH notice and should not be construed as a commitment by DIGITAL      *
+.wH Equipment Corporation.                                             *
+.wH                                                                    *
+.wH ********************************************************************
+.wH "<routine_section>"
+.TH pthread_once 3
+.SH NAME
+\*Lpthread_once\*O \- Calls an initialization routine executed by one thread, a single time.
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <pthread.h>
+.fS "int pthread_once"
+.dS "pthread_once_t"
+\*V*once_block\*L
+.dE
+.dS "pthread_initroutine_t"
+\*Vinit_routine\*O
+.dE
+.fE
+.sE
+.wH "<endformat>"
+.SH PARAMETERS
+.PP
+.VL 6m
+.LI "\*Vonce_block\*O"
+Address of a record that defines the one-time initialization code. Each
+one-time initialization routine must have its own unique
+\*Lpthread_once_t\*O.
+.LI "\*Vinit_routine\*O"
+Address of a procedure that performs the initialization. This routine is
+called only once, regardless of the number of times it and its associated
+\*Vonce_block\*O are passed to \*Lpthread_once\*O.
+.LE
+.wH "<endparameters>"
+.SH DESCRIPTION
+.iX "Initialization" "one-time"
+.iX "Data structure" "pthread_once_t"
+.iX "pthread_once_t data structure"
+.PP
+This routine calls an initialization routine executed by one thread, a
+single time. This routine allows you to create your own initialization code
+that is guaranteed to be run only once, even if called simultaneously by
+multiple threads or
+.wH "<mark>"
+multiple times in the same thread.
+.wH "<endmark>"
+.PP
+For example, a mutex or a per-thread context key must be created exactly
+once. Calling \*Lpthread_once\*O prevents the code that creates a mutex
+or per-thread context from being called by multiple threads. Without this
+routine, the execution must be serialized so that only one thread performs
+the initialization. Other threads that reach the same point in the code
+would be delayed until the first thread is finished.
+.PP
+This routine initializes the control record if it has not been initialized
+and then determines if the client one-time initialization routine has
+executed once. If it has not executed, this routine calls the initialization
+routine specified in \*Vinit_routine\*O. If the client one-time
+initialization code has executed once, this routine returns.
+.PP
+The \*Lpthread_once_t\*O data structure is a record that allows client
+initialization operations to guarantee mutual exclusion of access to the
+initialization routine, and that each initialization routine is executed
+exactly once.
+.PP
+The client code must declare a variable of type \*Lpthread_once_t\*O to
+use the client initialization operations. In a language such as Ada, which
+allows the pthread interface bindings to define the initial value of such a
+structure type, the variable is declared as follows:
+.PP
+.oS
+once_block  :  pthread_once_t;
+.oE
+.PP
+In other languages, such as C, the client source code must specify the
+initial value of the structure fields. This cannot be done portably.
+Therefore, the interface bindings for such languages must provide a portable
+mechanism for properly initializing the structure when the program is
+compiled. In the C language binding, for example, this is done by defining a
+macro in the \*Lcma.h\*O include file, as follows:
+.PP
+.oS
+#define pthread_once_init {0, 0, 0}
+.oE
+.wH "<endmark>"
+.PP
+Client code written in C must use this macro to declare
+\*Lpthread_once_t\*O variables, as follows:
+.PP
+.oS
+static pthread_once_t myOnceBlock = pthread_once_init;
+.oE
+.PP
+This can be displayed anywhere a static declaration is made.
+.wH "<mark>"
+Each language interface should provide an equivalent mechanism, if possible.
+When using languages that lack both a type-based initialization capability
+and any macro capabilities, the programmer must explicitly initialize the
+\*Lpthread_once_t\*O structure to the appropriate values at compile or
+link time. The \*Lpthread_once_t\*O fields, and their required values,
+must be documented by each implementation.
+.wH "<endmark>"
+.SH RETURN VALUES
+.PP
+If an error occurs, this routine returns \-1. No error values
+have been specified. Possible return values are as follows:
+.sp
+.TS
+center, tab(@);
+l l l.
+\*LReturn@Error@Description\*O
+_
+\00@@Successful completion.
+\&\-1@[\*LEINVAL\*O]@Invalid parameter.
+.TE
+.wH "<endnas_return>"
+.cS
+.SH EXAMPLES
+.PP
+.oS
+#include <pthread.h>
+.wH "<tag>"(pthread.h)
+static pthread_once_t make_my_mutex = pthread_once_init;
+static pthread_mutex_t my_mutex;
+void initialize_mutex () {
+     pthread_mutex_init (&my_mutex, &pthread_mutexattr_default);
+}
+pthread_once (&make_my_mutex, initialize_mutex);
+.oE
+.cE
+.wH "<endnas_examples>"
+.wH "<endroutine_section>"
+.EQ
+delim off
+.EN

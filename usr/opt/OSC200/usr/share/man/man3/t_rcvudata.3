@@ -1,0 +1,290 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_rcvudata.3,v $ $Revision: 3.2.6.2 $ (DEC) $Date: 1993/07/27 13:31:26 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.TH t_rcvudata 3
+.SH NAME
+.PP
+t_rcvudata \- Receives a data unit
+.SH LIBRARY
+.PP
+XTI Library (\*Llibxti.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <xti.h>\*O
+.sp 4p
+\*Lint t_rcvudata(\*O
+    \*Lint \*Vfd\*L,\*O
+    \*Lstruct t_unitdata *\*Vunitdata\*L,\*O
+    \*Lint *\*Vflags\*L) ;\*O
+.sE
+.SH "PARAMETERS"
+.PP
+The
+\*Lt_rcvudata\*O(\|)
+function can only be called in the
+T_IDLE transport provider state. The following table summarizes
+the relevance of input and output parameter data before and after
+\*Lt_rcvudata\*O(\|)
+is called:
+.PP
+.TS
+center, tab(@);
+lb  lb lb
+l  c  c.
+Parameters@Before Call@After Call
+_
+\*Vfd\*O@y@n
+\*Vunitdata\*O->\*Laddr.maxlen\*O@y@n
+\*Vunitdata\*O->\*Laddr.len\*O@n@y
+\*Vunitdata\*O->\*Laddr.buf\*O@y@(y)
+\*Vunitdata\*O->\*Lopt.maxlen\*O@y@n
+\*Vunitdata\*O->\*Lopt.len\*O@n@y
+\*Vunitdata\*O->\*Lopt.buf\*O@y@(y)
+\*Vunitdata\*O->\*Ludata.maxlen\*O@y@n
+\*Vunitdata\*O->\*Ludata.len\*O@n@y
+\*Vunitdata\*O->\*Ludata.buf\*O@y@(y)
+\*Vflags\*O@n@y\*O
+.TE
+\*LNotes to Table:\*O
+.RS
+.nf
+.ta 5
+y	This is a meaningful parameter.
+n	This is not a meaningful parameter.
+(y)	The content of the object pointed to by \*Vy\*O is meaningful.
+.RE
+.fi
+.TP
+\*Vfd\*O
+Specifies a file descriptor returned by the
+\*Lt_open\*O(\|)
+function that
+identifies the transport endpoint.
+.sp
+.ne 3i
+.TP
+\*Vunitdata\*O
+Points to a type
+\*Lt_unitdata\*O
+structure used to specify
+information required by the transport provider user to receive a data
+unit through the transport endpoint specified by the
+\*Vfd\*O
+parameter.
+The
+\*Lt_unitdata\*O
+structure has the following members:
+.RS
+.TP 0.5i
+\*Lstruct netbuf   addr\*O
+References a buffer for protocol address information
+required from the transport endpoint specified by the
+\*Vfd\*O
+parameter. The type
+\*Lnetbuf\*O
+structure referenced by this member is defined in the
+\*Lxti.h\*O
+include file and has the following members:
+.RS 0.5i
+.TP 0.5i
+\*Lunsigned int   maxlen\*O
+Specifies the maximum byte length of the data buffer.
+.TP
+\*Lunsigned int   len\*O
+Specifies the actual byte length of the data written to the buffer.
+.TP
+\*Lchar   *buf
+Points to the buffer location.
+.RE
+.TP 0.5i
+\*Lstruct netbuf   opt\*O
+Specifies a buffer for protocol-specific
+parameters associated with the data unit.
+.TP
+\*Lstruct netbuf   udata\*O
+Specifies parameters for any user data unit that may be
+returned to the caller.
+.RE
+.TP
+\0
+Before the
+\*Lt_rcvudata\*O(\|)
+function is called the
+\%\*Vunitdata\*O->\*Laddr.maxlen\*O,
+\%\*Vunitdata\*O->\*Lopt.maxlen\*O,
+and
+\%\*Vunitdata\*O->\*Ludata.maxlen\*O
+parameters must be set to specify
+the maximum
+byte length of of the protocol address buffer, the protocol options buffer,
+and the user data buffer, respectively.
+.TP
+\*Vflags\*O
+Points to a flag integer that indicates that the complete data unit
+was not received. Corresponding values and symbolic
+names for flags are defined in the
+\*Lxti.h\*O
+include
+file (see the
+\*Lt_optmgmt\*O(\|)
+and
+\*Lt_rcv\*O(\|)
+functions). The flag
+specified by this function is:
+.RS
+.TP 0.5i
+T_MORE.
+When the data buffer specified by the
+\%\*Vunitdata\*O->\*Ludata.buf\*O
+parameter is not large enough to
+hold the current
+user data unit, the buffer is filled and this bit is set to indicate that
+another
+\*Lt_rcvudata\*O(\|)
+function should be called to retrieve the rest of
+the data unit.
+.sp .4v
+.ne 3i
+The set state of this bit notifies the local transport user that the
+received data unit is a fragment and that another data unit is
+available. When this bit is set on return of this function, another
+data unit must also be fetched with another
+\*Lt_rcvudata\*O(\|)
+call.
+Each time this flag is set on return, another
+\*Lt_rcvudata\*O(\|)
+call must immediately be made to receive
+additional current data units.  When the final data unit is received,
+this flag bit has a value of 0 (zero) on return.
+.sp .4v
+Subsequent calls to the
+\*Lt_rcvudata\*O(\|)
+function return 0 (zero)
+as the length
+of the address specified by the \%\*Vunitdata\*O->\*Laddr.len\*O
+and
+\%\*Vunitdata\*O->\*Lopt.len\*O
+parameters until the full data unit
+has been received.
+.RE
+.\".SH "EXAMPLES"
+.\".P
+.\".SH "NOTES"
+.\".P
+.\".sp
+.SH "DESCRIPTION"
+.PP
+.iX "t_rcvudata function"
+.iX "XTI" "t_rcvudata function"
+The
+\*Lt_rcvudata\*O(|) function is an XTI connectionless service
+function that is used to receive
+a data unit from a remote transport provider user. By default,
+\*Lt_rcvudata\*O(\|)
+executes in the synchronous operating mode. The
+\*Lt_rcvudata\*O(\|)
+function waits for data to arrive at the
+transport endpoint specified by
+\*Vfd\*O
+before returning
+control to the transport user who called this function.
+.PP
+However, when the transport endpoint, specified by the
+\*Vfd\*O
+parameter, has been previously opened with the O_NONBLOCK
+flag set in the
+\*Lt_open\*O(\|)
+or
+\*Lfcntl\*O(\|)
+function, the
+\*Lt_rcvudata\*O(\|)
+function executes in asynchronous mode. In asynchronous mode, when a data
+unit is unavailable, control is immediately returned to the caller.
+S.SH "RETURN VALUES"
+.PP
+Upon successful completion, a value of 0 (zero) is returned. Otherwise, a
+value of -1 is returned and
+\*Lt_errno\*O
+is set to indicate the error.
+.SH "ERRORS"
+.PP
+If the
+\*Lt_rcvudata\*O(\|)
+function fails,
+\*Lt_errno\*O
+may be set to
+one of the following values:
+.TP 1i
+[TBADF]
+The specified file descriptor does not refer to a transport endpoint.
+.TP
+[TNODATA]
+Asynchronous mode is indicated because O_NONBLOCK was set, but no
+data is currently available from the transport provider.
+.TP
+[TBUFOVFLW]
+The number of bytes allocated for the incoming protocol address or
+protocol options is not sufficient to store the information.  The unit
+data information normally returned to the
+\*Vunitdata\*O
+parameter
+is discarded.
+.sp
+.ne 3i
+.TP
+[TLOOK]
+An asynchronous event that requires immediate attention has occurred at
+the transport endpoint specified by the
+\*Vfd\*O
+parameter.
+.TP
+[TOUTSTATE]
+The
+\*Lt_rcvudata\*O(\|)
+function was issued in the wrong sequence at the
+transport endpoint referenced by the
+\*Vfd\*O
+parameter.
+.TP
+[TSYSERR]
+A system error occurred during execution of this function.
+.TP
+[TNOTSUPPORT]
+This function is not supported by the underlying transport provider.
+.SH "RELATED INFORMATION"
+.PP
+Functions:
+\*Lfcntl\*O(2),
+\*Lt_alloc\*O(3),
+\*Lt_open\*O(3),
+\*Lt_optmgmt\*O(3),
+\*Lt_rcv\*O(3),
+\*Lt_rcvuderr\*O(3),
+\*Lt_sndudata\*O(3)
+.EQ
+delim off
+.EN

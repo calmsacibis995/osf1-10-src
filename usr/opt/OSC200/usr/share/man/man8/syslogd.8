@@ -1,0 +1,257 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: syslogd.8,v $ $Revision: 3.3.5.3 $ (DEC) $Date: 1993/11/29 16:44:32 $
+.\"
+.\"
+.\"  THIS OSF SOURCE FILE HAS BEEN MODIFIED BY DLIBRARY IN OSP
+.\"  If you need information about the changes, send mail 
+.\"  to dlibrary@ravine at Digital Equipment Corp.
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\" Copyright (c) 1983,1986 Regents of the University of California.
+.\" All rights reserved.  The Berkeley software License Agreement
+.\" specifies the terms and conditions for redistribution.
+.\" 
+.\" @(#)syslogd.8	6.5 (Berkeley) 5/26/86
+.TH syslogd 8
+.SH NAME
+\*Lsyslogd\*O \- Logs system messages
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/syslogd\*O [\*L-f\*O \*Vconfig_file\*O] [\*L-m\*O \*Vmark_interval\*O] [\*L-d\*O]
+.sE
+.PP
+The \*Lsyslogd\*O daemon reads and logs messages to a set of files
+described in the \*L/etc/syslog.conf\*O configuration file.
+.SH DESCRIPTION
+.iX "syslogd"
+.PP
+Each message logged consists of one line.
+A message can contain a priority code,
+marked by a number in angle braces at the beginning of the line.
+Priorities are defined in the \*L/usr/include/sys/syslog.h\*O file.  The
+\*Lsyslogd\*O daemon reads from the domain socket \*L/dev/log\*O,
+from an Internet domain socket specified in \*L/etc/services\*O,
+and from the special device \*L/dev/klog\*O, which reads kernel messages.
+The \*Lsyslogd\*O daemon configures when it starts up and
+when it receives a hangup signal.
+.PP
+The \*L/etc/syslog.conf\*O file
+contains entries that specify the facility (the part of
+the system that generated the error), the error message severity
+level, and the destination to which the syslogd
+daemon sends the messages.  Each line of the
+\*L/etc/syslog.conf\*O file contains an entry.
+.PP
+The following is an example of an \*L/etc/syslog.conf\*O file:
+.oS
+#
+# syslogd config file
+#
+# facilities: kern user mail daemon auth syslog lpr binary
+# priorities: emerg alert crit err warning notice info debug
+kern.debug              /var/adm/syslog/kern.log
+user.debug              /var/adm/syslog/user.log
+daemon.debug            /var/adm/syslog/daemon.log
+auth.debug              /var/adm/syslog/auth.log
+syslog.debug            /var/adm/syslog/syslog.log
+mail,lpr.debug          /var/adm/syslog/misc.log
+binary.err              /var/adm/binary.errlog
+msgbuf.err              /var/adm/crash/msgbuf.savecore
+kern.debug              /var/adm/messages
+kern.debug              /dev/console
+*.emerg                 *
+.oE
+.PP
+The facility and the severity level is separated by a period (.).
+You can specify more than one facility
+by separating them with commas.   You can specify more than one
+facility and its level by separating them with semicolons.
+The facility and level are separated from the destination
+by one or more tabs.
+.PP
+If you specify an asterisk (*) for a facility, messages generated
+by all parts of the system are logged.
+All messages of the specified level and of a greated severity
+are logged.
+Blank lines and lines beginning with \*L#\*O (number sign) are ignored.
+.PP
+For example:
+.oS
+*.emerg;mail,daemon.crit          /var/adm/syslog/misc.log
+.oE
+This line logs all facilities at the \*Lemerg\*O
+level (and higher) and the \*Lmail\*O and \*Ldaemon\*O
+facilities at the \*Lcrit\*O (or higher) level to the
+\*L/var/adm/syslog/misc.log\*O destination file.
+.PP
+Known facilities and levels recognized by the \*Lsyslogd\*O
+daemon are those listed in
+\*Lsyslog\*O without the leading \*LLOG_\*O.  The additional facility
+\*Lmark\*O has a message at priority \*LLOG_INFO\*O sent to it every
+20 minutes (this may be changed with the \*L-m\*O flag).
+The \*Lmark\*O facility is not enabled by a facility field
+containing an \*L*\*O (asterisk).
+The level \*Lnone\*O may be used to disable a particular facility.
+For example:
+.oS
+*.debug;mail.none              /var/adm/syslog/misc.log
+.oE
+The previous entry sends all messages except mail messages to the
+\*L/var/adm/syslog/misc.log\*O file.
+.PP
+There are four possibilities for the message destination:
+.ML
+.LI
+A filename that begins with a leading \*L/\*O (slash).
+The \*Lsyslogd\*O daemon will open the file in append mode.
+.LI
+A hostname preceded by an \*L@\*O (at sign).
+Selected messages are forwarded to the
+\*Lsyslogd\*O daemon on the named host.
+.LI
+A comma separated list of users.  Selected messages are written to those users
+if they are logged in.
+.LI
+An \*L*\*O (asterisk).
+Selected messages are written to all users who are logged in.
+.LE
+.PP
+For example:
+.oS
+kern,mark.debug	/dev/console
+*.notice;mail.info	/var/adm/syslog/mail
+*.crit	/var/adm/syslog/critical
+kern.err	@ucbarpa
+*.emerg	*
+*.alert	eric,kridle
+*.alert;auth.warning	ralph
+.oE
+The preceding configuration file logs messages as follows:
+.ML
+.LI
+Logs all kernel messages
+and 20 minute marks onto the system console
+.LI
+Logs all notice (or higher) level messages and all mail system messages
+except debug messages
+into the file \*L/var/adm/syslog/mail\*O
+.LI
+Logs all critical messages into the \*L/var/adm/syslog/critical\*O file
+.LI
+Forwards kernel messages of error severity or higher to \*Lucbarpa\*O.
+.LI
+Informs all users of any emergency messages,
+informs users \*Leric\*O and \*Lkridle\*O
+of any alert messages, and informs user \*Lralph\*O
+of any alert message or any warning message (or higher) from
+the authorization system.
+.LE
+.PP
+Destinations for logged messages can be specified with
+full pathnames that begin with a leading \*L/\*O (slash).  The
+\*Lsyslogd\*O daemon then opens the specified file(s) in append mode.
+If the pathname to a \*Lsyslogd\*O daemon
+log file that is specified in the \*Lsyslog.conf\*O file
+as a \*L/var/adm/syslog.dated/\*Vfile\*O, the
+\*Lsyslogd\*O daemon inserts a \*Vdate\*O
+directory, and thus produces a day-by-day account of the
+messages received, directly above \*Vfile\*O
+in the directory structure.  Typically, you will want
+to divert messages separately, according to facility, into files such as
+kern.log, mail.log, lpr.log, and debug.log.
+.PP
+If some pathname other than \*L/var/adm/syslog.dated/\*Vfile\*O
+is specified as the pathname to the logfile, the
+\*Lsyslogd\*O daemon does not create the daily \*Vdate\*O
+directory.  For example, if you specify \*L/var/adm/syslog/mail.log\*O
+(without the \*L\&.dated\*O suffix after \*Lsyslog)\*O, the
+\*Lsyslogd\*O daemon simply logs messages to the \*Lmail.log\*O
+file and allows this file to grow indefinitely.
+.\" Begin Digital-specific information
+.\" Adding Environment Note.
+.PP
+The \*Lsyslogd\*O daemon can recover the messages in the kernel
+syslog buffer that were not logged to the files specified in the
+\*L/etc/syslog.conf\*O file because a system crash occurred.
+The savecore command copies the buffer recovered from the dump to
+the file specified in the "msgbuf.err" entry in the \*L/etc/syslog.conf\*O
+file.  When the syslogd daemon starts up, it looks for this file and,
+if it exists, processes and then deletes the file.
+.\" End Digital-specific information
+.SS "Examining the Error Log Files"
+The \*Lsyslogd\*O
+daemon acts as a central routing facility for messages whose
+formats are determined by the programs that produce them.
+.PP
+The \*Lsyslogd\*O
+daemon creates the \*L/var/run/syslog.pid\*O file if possible. The file
+contains a single line with its process ID.
+This can be used to kill or reconfigure the
+\*Lsyslogd\*O daemon.
+.PP
+To bring the \*Lsyslogd\*O daemon down, send it a terminate signal
+(for example: \*Lkill `cat /var/run/syslog.pid\`\*O).
+.PP
+If a \*Lsyslog.conf\*O configuration file does not exist, the \*Lsyslogd\*O
+daemon uses the following defaults:
+.oS
+*.ERR		/dev/console
+*.PANIC		*
+.oE
+The defaults log all error messages to the console and
+all panic messages (from the kernel) to all logged-in users.
+No files are written.
+.SH FLAGS
+.PP
+.VL
+.LI "\*L\-d\*O"
+Turns on debugging.
+.LI "\*L-f\*O \*Vconfig_file\*O"
+Specifies an alternate configuration file.
+.LI "\*L-m\*O \*Vmark_interval\*O"
+Selects the number of minutes between mark messages.
+.LE
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/sbin/syslogd\*O"
+Specifies the command path
+.LI "\*L/etc/syslog.conf\*O"
+Configuration file.
+.LI "\*L/var/run/syslog.pid\*O"
+Process ID.
+.LI "\*L/dev/log\*O"
+The name of the domain datagram log socket.
+.LI "\*L/dev/klog\*O"
+Kernel log device.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lsavecore\*O(8)
+.PP
+Functions:  \*Lsyslog\*O(3)
+.PP
+.\" "Error Logging" in the %\&%\&NOMAP_DNOSysAdminGde_DNOSysNetSetupConfigGde%\&%\&.
+\*ENetwork Configuration\*O
+.EQ
+delim off
+.EN

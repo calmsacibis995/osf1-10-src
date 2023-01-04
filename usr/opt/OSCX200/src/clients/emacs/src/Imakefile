@@ -1,0 +1,91 @@
+/*
+ * HISTORY
+ * $Log:	Imakefile,v $
+ * Revision 1.1.2.6  92/11/18  12:07:36  Pete_Snider
+ * 	added oldXMenu library
+ * 	[92/11/18  08:21:55  Pete_Snider]
+ * 
+ * Revision 1.1.2.5  92/11/10  14:44:57  Pete_Snider
+ * 	Changes to build a shared emacs
+ * 	[92/11/10  14:35:00  Pete_Snider]
+ * 
+ * Revision 1.1.2.4  92/10/30  14:42:34  Dave_Hill
+ * 	fixing improper bin/emacs link
+ * 	[92/10/30  14:29:36  Dave_Hill]
+ * 
+ * Revision 1.1.2.3  92/09/21  16:35:35  Pete_Snider
+ * 	Changed install rule for emacs
+ * 	[92/09/21  16:34:56  Pete_Snider]
+ * 
+ * Revision 1.1.2.2  92/09/04  12:32:27  Pete_Snider
+ * 	modifications to use build libraries and not installed libraries.
+ * 	[92/09/04  12:31:34  Pete_Snider]
+ * 
+ * Revision 1.1.2.1  92/08/25  17:32:30  devrcs
+ * 	Initial load into Alpha pool
+ * 
+ * Revision 1.1  90/01/01  00:00:00  devrcs
+ * 	*** Initial Trunk Revision ***
+ * 
+ * $EndLog$
+ */
+XCOMM
+XCOMM This is a Imakefile for DEC OSF1 and doesn't try to emulate
+XCOMM the original Makefile and ymakefile.
+
+
+         DEFINES = -Demacs -D_BSD
+            SRCS = 
+         DEPLIBS = $(DEPXLIB)
+ LOCAL_LIBRARIES = ../oldXMenu/libXMenu11.a $(XLIB)
+   SYS_LIBRARIES = -lbsd
+          UNEXEC = unexmips.o
+            XOBJ = x11term.o x11fns.o xmenu.o
+       OTHEROBJS = termcap.o tparam.o lastfile.o
+            OBJS = dispnew.o scroll.o xdisp.o window.o \
+                   term.o cm.o $(XOBJ) \
+                   emacs.o keyboard.o macros.o keymap.o sysdep.o \
+                   buffer.o filelock.o insdel.o marker.o \
+                   minibuf.o fileio.o dired.o filemode.o \
+                   cmds.o casefiddle.o indent.o search.o regex.o undo.o \
+                   alloc.o data.o doc.o editfns.o callint.o \
+                   eval.o fns.o print.o lread.o \
+                   abbrev.o syntax.o $(UNEXEC) mocklisp.o bytecode.o \
+                   process.o callproc.o $(ENVIRONOBJ) doprnt.o $(OTHEROBJS)
+
+            lispdir = ../lisp/
+               LISP = ${lispdir}simple.elc ${lispdir}help.elc \
+                      ${lispdir}files.elc ${lispdir}window.elc \
+                      ${lispdir}indent.elc ${lispdir}loaddefs.el \
+                      ${lispdir}paths.el \
+                      ${lispdir}startup.elc ${lispdir}lisp.elc \
+                      ${lispdir}page.elc ${lispdir}register.elc \
+                      ${lispdir}paragraphs.elc ${lispdir}lisp-mode.elc \
+                      ${lispdir}text-mode.elc ${lispdir}fill.elc \
+                      ${lispdir}c-mode.elc ${lispdir}isearch.elc \
+                      ${lispdir}replace.elc ${lispdir}abbrev.elc \
+                      ${lispdir}buff-menu.elc ${lispdir}subr.elc
+
+
+LocalSharedComplexProgTarget(temacs)
+
+
+all::temacs
+        /* next three lines to work around src control system constaints */
+	cd ../etc ; make make-docfile.local
+	rm -f ../etc/DOC*
+	/*LD_LIBRARY_PATH=/usr/shlib/:$(SOURCEDIR)/../install/usr/shlib/ ; \
+	export LD_LIBRARY_PATH ; \ */
+	../etc/make-docfile.local $(OBJS) $(LISP) $(lispdir)/version.el > ../etc/DOC ; \
+	rm -f ../lisp/version.el.old ; \
+	mv ../lisp/version.el ../lisp/version.el.old ; \
+	cp ../lisp/version.el.old ../lisp/version.el ; \
+	chmod u+w  ../lisp/version.el ; \
+	./temacs -batch -l inc-vers ; \
+	./temacs -batch -l loadup.el dump 
+
+install::
+	rm -f $(DESTDIR)$(BINDIR)/temacs
+	MakeDir($(DESTDIR)/usr/bin/X11)
+	$(INSTALL) -c xemacs $(DESTDIR)/usr/bin/X11
+	$(LN) -s X11/xemacs $(DESTDIR)/usr/bin/emacs

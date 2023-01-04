@@ -1,0 +1,208 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: binlogd.8,v $ $Revision: 3.2.4.3 $ (DEC) $Date: 1993/12/01 16:34:43 $
+.\"
+.\"
+.TH binlogd 8
+.SH NAME
+\*Lbinlogd\*O \- Binary event log daemon
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/binlogd\*O [\*L-d\*O]  [\*L-f\*O \*Vconfig_file\*O]
+.sE
+.\"
+.SH DESCRIPTION
+.iX "binlogd daemon"
+.iX "binary event log daemon"
+.PP
+The \*Lbinlogd\*O daemon logs binary event records
+to the files
+specified in the \*L/etc/binlog.conf\*O configuration file.  You must
+use the \*Luerf\*O command to examine the files.
+.PP
+Each binary event record includes an event class and priority
+code, which are described in \*L/usr/sys/include/dec/binlog.h\*O.
+The \*Lbinlogd\*O
+reads from the \*L/bin/kbinlog\*O special device and from the Internet
+domain socket specified in the \*L/etc/services\*O file.
+The \*Lbinlogd\*O daemon configures when it starts up and when it
+receives a hangup signal.
+.PP
+The \*L/etc/binlog.conf\*O file
+contains entries that specify the event class, the severity
+level, and the destination to which the \*Lbinlogd\*O
+daemon sends the messages.  Each line of the
+\*L/etc/binlog.conf\*O file contains an entry.
+.PP
+The event class and the severity level are separated by a period (.).
+The event class and severity level are separated from the destination
+by one or more tabs.
+Blank lines and lines beginning with a \*L#\*O (number sign) are ignored.
+.PP
+If you specify an asterisk (*) for an event class or severity level,
+all event classes or all severity levels are selected.  The event class
+is specified as a decimal number.  The available class codes are
+specified in \*L/usr/sys/include/dec/binlogd.h\*O and are as follows:
+.PD 0
+.sp
+.RS 14
+.IP "Hardware-Related Events" 6
+.sp
+.IP 100
+CPU machine checks and exceptions
+.IP 101
+Memory
+.IP 102
+Disks
+.IP 103
+Tapes
+.IP 104
+Device controllers
+.IP 105
+Adapters
+.IP 106
+Buses
+.IP 107
+Stray interrupts
+.IP 108
+Console events
+.IP 109
+Stack dumps
+.IP 199
+SCSI CAM events
+.sp
+.IP "Software-Detected Events"
+.sp
+.IP 201
+CI port-to-port driver events
+.IP 202
+System communications services events
+.sp
+.IP "Informational ASCII Messages"
+.sp
+.IP 250
+Generic ASCII informational messages
+.sp
+.IP "Operational Events"
+.sp
+.IP 300
+ASCII startup messages
+.IP 301
+ASCII shutdown messages
+.IP 302
+Panic messages
+.IP 310
+Time-stamp
+.IP 350
+Diagnostic status messages
+.IP 351
+Repair and maintenance messages
+.PD
+.RE
+.PP
+You can specify the following severity levels:
+.IP \*Lsevere\*O
+Specifies events that cannot be recovered and that are usually fatal to
+system operation.
+.IP \*Lhigh\*O
+Specifies events that either can be recovered or cannot be recovered
+but are not fatal to system operation.
+.IP \*Llow\*O
+Specifies informational messages.
+.PP
+The destination for the messages can be either the full pathname of a
+local file or the name of a remote system.
+The remote host must be known to the system.  You specify a remote system as
+follows:
+.sS
+\*L@\*O\*Vhost\*O
+.sE
+.PP
+You can specify \*Ldumpfile\*O instead of an event class and severity
+level to identify the pathname of the file that will contain the kernel
+binary event log buffer, which the \*Lsavecore\*O command recovers from
+a system dump.
+.PP
+The default \*L/etc/binlog.conf\*O file causes the \*Lbinlogd\*O daemon
+to create a binary event log file for all event classes and severity
+levels and specifies the binary crash dump file.
+The following is an example of the default \*L/etc/binlog.conf\*O file:
+.oS
+*.* /usr/adm/binary.errlog
+dumpfile /usr/adm/crash/binlogdumpfile
+.oE
+The \*Lbinlogd\*O daemon also creates the \*L/var/run/binlogd.pid\*O, if
+possible.  The file contains a line that specifies the \*Lbinlogd\*O
+daemon's process identification number.   Use this number to disable or
+reconfigure the \*Lbinlogd\*O daemon.  To disable the \*Lbinlogd\*O
+daemon, send the process a SIGTERM signal.  For example:
+.oS
+kill -TERM `cat /var/run/binlogd.pid`
+.oE
+To reconfigure the \*Lbinlogd\*O daemon, send the process a SIGHUP
+signal to cause it to read the configuration file again.  For example:
+.oS
+kill -HUP `cat /var/run/binlogd.pid`
+.oE
+Processes on the local system also can connect to the \*Lbinlogd\*O
+daemon by using a local known socket (\*L/dev/binlogdmb\*O); this is
+referred to as a "mailbox."  When the "mailbox" connection is
+established, the connected process receives the binary event records
+that the \*Lbinlogd\*O processes.  The \*Llibbinlog.a\*O library
+provides a set of routines that make using the "mailbox" easy.  Refer
+to the descriptions in \*L/usr/sys/include/dec/binlog.h\*O for
+information on using the
+"mailbox" programming interface.  The \*Luerf\*O command with the
+\*L-n\*O option utilizes the \*Lbinlogd\*O "mailbox."
+.SS "Examining the Error Log Files"
+Use the \*Luerf\*O command to translate the binary event log file to
+ASCII text.  The \*Luerf\*O command uses the file name destination
+for the \*L*.*\*O entry in the \*L/etc/binlog.conf\*O as the default
+binary event log file.  If there is no \*L*.*\*O entry or if you do not
+want to use the default file, use the \*Luerf\*O command with the
+\*L-f\*O \*Vfilename\*O option to specify the binary event log file.
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L-d\*O"
+Enables debugging.
+.LI "\*L-f\*O \*Vconfig_file\*O"
+Specifies the alternate binary configuration file.
+.LE
+.SH FILES
+.PP
+.VL 11m
+.LI "\*L/usr/sbin/binlogd\*O"
+Command path
+.LI "\*L/etc/binlog.conf\*O"
+Binary configuration file
+.LI "\*L/var/run/binlogd.pid\*O"
+Process identification number
+.LI "\*L/dev/binlogdmb\*O"
+Name of the "mailbox" socket
+.LI "\*L/dev/kbinlog\*O"
+Kernel log device
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Llogger\*O(1), \*Lsavecore\*O(8), \*Luerf\*O(8)
+.PP
+\*ESystem Administration\*O
+.EQ
+delim off
+.EN

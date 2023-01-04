@@ -1,0 +1,215 @@
+.\"##
+.\" $XConsortium: p304,v 5.1 91/02/16 09:42:50 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.ds f \s-2SET DEPTH CUE REPRESENTATION\s+2
+.TH "SET DEPTH CUE REPRESENTATION" 3P+ "29 February 1991"
+.SH NAME
+SET DEPTH CUE REPRESENTATION \- define a depth cue representation entry in the workstation table of defined depth cue representations
+.IX "PHIGS Extension Functions" "SET DEPTH CUE REPRESENTATION"
+.IX "Special Attributes" "SET DEPTH CUE REPRESENTATION"
+.IX "Attributes, Special Attributes" "SET DEPTH CUE REPRESENTATION"
+.IX "Attribute Representations" "SET DEPTH CUE REPRESENTATION"
+.IX "Depth Cueing" "SET DEPTH CUE REPRESENTATION"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void 
+pset_dcue_rep ( ws, index, rep )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	index;	\fIdepth cue bundle index\fP
+Pdcue_bundle	*rep;	\fIdepth cue representation pointer\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET DEPTH CUE REPRESENTATION\s+2
+assigns parameter values defining a depth cue operation to a 
+specified index number in the workstation table of defined depth
+cue representations.  Each entry in this table contains a value
+for depth cue mode, reference planes, scaling, and colour.  When 
+enabled, depth cueing is applied to all output primitives 
+subsequently displayed.  
+.LP
+Depth cueing mixes a scaled portion of the depth cue colour with 
+the primitive colour as a function of the \fIz\fP coordinate in 
+\s-2NPC\s+2 space.  Using the background colour as the depth cue colour,
+this operation allows you to fade the colour of the parts 
+of the primitives that are further from the viewer in the display.  
+.SS C Input Parameters
+.IP \fIws\fP
+The workstation identifier specifies the workstation for which
+the depth cue representation is to be defined.  The workstation 
+must have been opened with the \s-2OPEN WORKSTATION\s+2
+subroutine before calling
+\s-2SET DEPTH CUE REPRESENTATION\s+2.  
+.IP \fIindex\fP
+The index to the workstation depth cue bundle table.  
+.IP
+The index number corresponds to an entry in the table of defined depth cue
+operations in the workstation state list.  Up to 20 depth cue table
+entries can be defined.  Entry zero is predefined to a depth cue mode of 
+\s-2PSUPPRESSED\s+2 and cannot be changed.  Entries other than zero can be 
+changed with the 
+\s-2SET DEPTH CUE REPRESENTATION\s+2
+subroutine.  
+.IP \fIrep\fP
+A pointer to a Pdcue_bundle data structure containing attribute
+values defining a depth cue representation.  A Pdcue_bundle structure
+is defined in phigs.h as follows:  
+.nf
+.ta .5i +1.25i  +1i   +1.25i
+.sp .4
+typedef struct {
+.sp .2
+	Pdcue_mode	mode;	/* depth cue mode */
+	Pfloat	ref_planes[2];	/* depth cue reference planes */
+	Pfloat	scaling[2];	/* depth cue scaling */
+	Pgcolr	colr;	/* depth cue colour */
+.sp .2
+} Pdcue_bundle;
+.fi
+.IP
+Pdcue_mode is defined as:
+.ta .5i
+.nf
+.sp .4
+typedef enum {
+.sp .2
+	PSUPPRESSED,
+	PALLOWED
+.sp .2
+} Pdcue_mode;
+.fi
+.IP
+Refplanes and scaling entries of 0 are back reference plane and
+corresponding scaling factors.  Refplanes and scaling entries of 1 
+are front reference plane and corresponding scaling factors.  These
+scaling factors define the portion of the primitive colour that should
+be combined with the depth cue colour, as a function of \fIz\fP
+in \s-2NPC\s+2.  
+.IP
+Pgcolr is defined as:
+.ta .5i +1.5i   +1i  +2i
+.nf
+.sp .4
+typedef struct {
+.sp .2
+	Pint	type;	/* indirect, RGB, CIE, HSV, HLS */
+	union {
+	     Pint	ind;	/* index in workstation colour bundle table */
+	     struct {
+	          Pfloat	x;	/* red, hue, etc. */
+	          Pfloat	y;	/* green, saturation, lightness, etc. */
+	          Pfloat	z;	/* blue, value, saturation, etc. */
+	     } general;
+	} val;
+} Pgcolr;
+.fi
+.IP
+Constants defined for colour type are:  
+.sp .2
+.nf
+.ta .5i +\w'0     'u +\w'PMODEL_CIELUV      'u
+0       PINDIRECT	\fIIndirect\fP
+1       PMODEL_RGB		\fIRed, Green, Blue\fP
+2       PMODEL_CIELUV		\fICIE\fP
+3       PMODEL_HSV		\fIHue, Saturation, Value\fP
+4       PMODEL_HLS		\fIHue, Lightness, Saturation\fP
+.fi
+.SS Execution
+When a 
+\s-2SET DEPTH CUE REPRESENTATION\s+2
+is called, the entry
+index in the table of defined depth cue representations
+on the workstation identifier is set to the values in \fIrep\fP.  
+.LP
+During structure traversal, the current depth cue representation
+is selected from the workstation table by a structure element
+created by the \s-2SET DEPTH CUE INDEX\s+2
+subroutine.  While the
+depth cue mode of the current representation is \s-2ALLOWED\s+2,
+the depth cue operation defined by the other representation 
+parameters is applied to all the following primitives in the 
+structure network.  
+.LP
+The depth cueing operation changes the primitive colours in the
+display as a function of their \fIz\fP coordinate in \s-2NPC\s+2 space.  
+The first number in scaling specifies the portion of the
+primitive colour that is combined with the depth cue colour at,
+or in front of, the front reference plane.  The second scaling
+value specifies the portion of primitive colour applied at, or
+behind, the back reference plane.  The portion of depth cue colour
+applied to primitives between the two planes is scaled by a value
+linearly interpolated between the two scaling values.  
+.\".RE
+.LP
+When a workstation is opened, entries zero and one are initialized 
+with the following representation:  
+.sp .5
+.nf
+.ta .5i +.5i +.5i +1i +1.5i
+				\fIEntry 0		Entry 1\fP
+.sp .2
+	depth cue mode		SUPPRESSED	ALLOWED
+	depth cue reference planes	0.0, 1.0	0.0, 1.0
+	depth cue scaling		1.0, 1.0	0.0, 1.0
+	depth cue colour		(INDIRECT, 0)	(INDIRECT, 0)
+.fi
+.sp .5
+.LP
+For depth cue reference planes and depth cue scaling, the first
+value is the back reference plane and scaling.  
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 059
+Ignoring function, the specified workstation does not have output
+capability (that is, the workstation category is neither \s-2OUTPUT\s+2,
+\s-2OUTIN\s+2, nor \s-2MO\s+2)
+.IP 103
+Ignoring function, setting this bundle table entry would exceed
+the maximum number of entries allowed in the workstation bundle
+table
+.IP 110
+Ignoring function, the specified colour model is not available
+on the workstation
+.IP 603
+Ignoring function, the depth cue index is less than zero
+.IP 616
+Ignoring function, invalid reference planes;
+.I "\s-2DQMIN > DQMAX\s+2"
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET DEPTH CUE INDEX (3P+)"
+.SM "INQUIRE DEPTH CUE REPRESENTATION (3P+)"
+.fi

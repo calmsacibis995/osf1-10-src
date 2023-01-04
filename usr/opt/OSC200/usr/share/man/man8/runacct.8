@@ -1,0 +1,256 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: runacct.8,v $ $Revision: 3.2.5.3 $ (DEC) $Date: 1993/12/20 22:14:50 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\" runact1.man
+.\" nm_31.07.90
+.\" hah_26.07.90
+.TH runacct 8
+.SH NAME
+\*Lrunacct \*O \- Runs daily accounting
+.SH SYNOPSIS 
+.sS
+\*Lrunacct [\*Vmmdd\*O] [\*VState\*O \&...]
+.sE 
+.SH "DESCRIPTION"
+The \*Lrunacct\*O command is the daily accounting shell procedure.
+This shell procedure is normally invoked from the \*Lcron\*O daemon
+to process connection, fee, disk
+usage, queueing (printer), and process accounting database files for the
+current day. The \*Lrunacct\*O shell procedure produces a
+\*L/var/adm/acct/nite/dayacct\*O binary daily accounting file and also
+produces summary files, which the \*Lprdaily\*O shell procedure uses to
+generate ASCII daily file \*L/var/adm/acct/sum/rprt\*Vmmdd\*O or to
+generate files used for billing for the use of various system resources.
+The \*L/var/adm/acct/nite/dayacct\*O binary daily accounting file is used by
+the \*Lacctmerg\*O command.
+.PP 
+The \*Lacctmerg \*Ocommand adds records from the \*Ldayacct\*O file to the
+\*L/var/adm/acct/sumtacct\*O file. The \*L/var/adm/acct/sumtacct\*O file is a
+cumulative summary of system resources used during the accounting period.
+The \*Lsumtacct\*O file is used by the \*Lmonacct\*O command to produce the
+monthly accounting summary file, \*L/var/adm/acct/fiscal\*O.
+.PP 
+The \*Lrunacct\*O command has two parameters that you may enter from
+the keyboard whenever you must restart the \*Lrunacct\*O shell procedure.
+The date parameter, \*Vmmdd\*O, is used to specify the day and month for
+which you want to rerun the accounting shell procedure. The \*VState\*O
+parameter is used to restart the \*Lrunacct\*O shell procedure from any of
+its 13 states. Recovery from a run failure and the \*Lrunacct\*O shell
+procedure restart is described under the \*LRestarting Runacct\*O
+heading on the next page.
+.PP 
+The \*Lrunacct\*O command protects active accounting and summary files
+whenever a run-time error occurs. During execution, the state-to-state
+progress of the \*Lrunacct\*O shell process is recorded by writing
+descriptive messages to the \*L/var/adm/acct/nite/active\*O file.
+Whenever the \*Lrunacct\*O shell process detects a run-time error, a
+\*Lmail\*O message is sent to the superuser (root) and to the user
+named \*Ladm\*O when environment variable MAILCOM is set to \*Lmail
+root adm\*O. After writing the mail message the \*Lrunacct\*O shell procedure
+aborts.
+.PP 
+The \*Lrunacct\*O shell procedure also creates the temporary file
+named \*Llock\*O in subdirectory \*L/var/adm/acct/nite\*O. This file
+is used to prevent simultaneous calls to the \*Lrunacct\*O shell
+procedure. The \*Lrunacct\*O shell procedure also uses the \*Llastdate\*O
+file, in the same subdirectory, to prevent more than one invocation of
+the \*Lrunacct\*O command per day.
+.SS "The \*Lrunacct\*O States"
+.PP 
+The \*Lrunacct\*O shell procedure is processed in 13 separate
+restartable states. When the \*Lrunacct\*O process completes each
+.\" Begin Digital-specific information CORRECTION
+.\" Removed extra 'the' per QAR 6887.
+state, the name of the next state to undergo execution is written
+.\" End Digital-specific information CORRECTION
+to the \%\*L/var/adm/acct/nite/state\*O file.  The \*Lrunacct\*O
+procedure processes the various states named in the leftmost column below,
+in the order given.
+.VL
+.LI "\*LSETUP\*O"
+Moves the active accounting files to working files and restarts the active
+files.
+.LI "\*LWTMPFIX\*O"
+Verifies the integrity of the \*L/var/adm/wtmp\*O file and corrects
+date changes when necessary.
+.LI "\*LCONNECT1\*O"
+Calls the \*Lacctcon1\*O command to write connect session records.
+.LI "\*LCONNECT2\*O"
+Converts connect session records from the \*L/var/adm/wtmp\*O file to
+total accounting records in total format defined by \*Ltacct\*O
+structure members in the private \*Ltacct.h\*O header file.
+.LI "\*LPROCESS\*O"
+Converts process accounting records from the \*L/var/adm/pacct*\*O file(s)
+into total accounting records (see \*LCONNECT2\*O above).
+.LI "\*LMERGE\*O"
+Merges the connect and process total accounting records.
+.LI "\*LFEES\*O"
+Converts the output obtained with the \*Lchargefee\*O command
+into total accounting records (see \*LCONNECT2\*O above) and merges
+them with other total accounting records.
+.LI "\*LDISK\*O"
+Merges disk accounting records with connect, process, and fee total
+accounting records.
+.LI "\*LQUEUEACCT\*O"
+Sorts queue (printer) accounting records, converts them into total
+accounting records (see \*LCONNECT2\*O above), and merges them with other
+total accounting records.
+.LI "\*LMERGETACCT\*O"
+Merges the daily total accounting records in the
+\*L/var/adm/acct/nite/dayacct\*O file with summary total
+accounting records in the \*L/var/adm/acct/sum/tacct\*O file.
+.LI "\*LCMS\*O"
+Produces command summaries in the file \*L/var/adm/acct/sum/cms\*O.
+.LI "\*LUSEREXIT\*O"
+When the shell procedure \*L/var/adm/siteacct\*O exists, and the
+\*Lrunacct\*O shell procedure enters this state, the
+\*L/var/adm/siteacct\*O is called to perform site-dependent account
+record processing.
+.LI "\*LCLEANUP\*O"
+Deletes all temporary files and exits.
+.LE 
+.SS "Restarting \*Lrunacct\*O"
+To restart the \*Lrunacct\*O shell process after it fails, do the following:
+.AL
+.LI
+Check the \*L/var/adm/acct/nite/active\*O file for diagnostic messages.
+.LI
+Repair records in any damaged database files, such as \*L/var/adm/pacct\*O
+or \*L/var/adm/wtmp\*O.
+.LI
+Remove the \*L/var/adm/acct/nite/lock\*O and \*L/var/adm/acct/nite/lastdate\*O
+files.
+.LI
+Before restarting the\*L runacct\*O shell procedure, you must specify
+the \*Vmmdd\*O parameter of the \*Lrunacct\*O command. This parameter
+specifies the month and day for which the \*Lrunacct\*O command is to
+rerun the accounting shell process. The \*Lrunacct\*O shell procedure
+determines the entry point for processing by reading the
+\*L/var/adm/acct/nite/statefile\*O file. To override this default
+action, specify a \*Vstate\*O listed above on the \*Lrunacct\*O command line.
+.PP
+It is not a good idea to restart the \*Lrunacct\*O command in the
+\*LSETUP\*O state. Instead, perform set-up actions manually and restart
+accounting in the \*LWTMPFIX\*O state by entering the following
+command:
+.iS
+runacct mmdd WTMPFIX
+.iE
+.LE 
+.PP 
+Should the \*Lrunacct\*O process fail during its \*LPROCESS\*O state,
+remove the last \*L/var/adm/acct/nite/ptacct*.\*Vmmdd\*O file before
+restarting the \*Lrunacct\*O shell process because the file does not complete
+until the next state is entered.
+.SH "EXAMPLES"
+.AL
+.LI
+To start daily accounting procedures for the use of various system resources,
+add the following command line to a \*Lcrontabs\*O file so that the
+\*Lrunacct\*O shell procedure is automatically called by the \*Lcron\*O
+daemon.
+.iS
+.ps -1
+0 4 * * 1-6 /usr/sbin/acct/runacct 2 > /var/adm/acct/nite/accterr
+.ps +1
+.iE
+This example shows the instructions that the \*Lcron\*O daemon reads
+and then executes.  The \*Lrunacct\*O shell procedure runs at 4:00 a.m. (\*L0
+4\*O) every Monday through Saturday (\*L1-6\*O) and redirects errors from the
+standard error output (\*L2 >\*O) to the \*L/var/adm/acct/nite/accterr\*O
+file.  This command typifies accounting instructions normally passed
+to the \*Lcron\*O daemon from the \*Lrunacct\*O shell procedure. (See
+the \*ESystem Administration\*O.)
+.LI
+To start daily accounting procedures for system
+resources from the command line (start the \*Lrunacct\*O command),
+enter:
+.iS
+nohup  /usr/sbin/acct/runacct  2>  /var/adm/acct/nite/accterr&
+.iE
+Although it is preferable to have the \*Lcron\*O daemon start the
+\*Lrunacct\*O procedure automatically (see the first example), you may enter
+the command from the keyboard. The \*Lrunacct\*O command will run in
+the background, ignoring all \*LINTERRUPT\*O and \*LQUIT\*O
+signals (\*Lnohup\*O), and write all standard error output (\*L2>\*O) to the
+\*L/var/adm/acct/nite/accterr\*O file.
+.LI 
+To restart the system accounting procedures for
+a specific date, enter a command similar to the following:
+.iS
+.ps -1
+nohup  /usr/sbin/acct/runacct  0601  2>>  /var/adm/acct/nite/accterr&
+.ps +1
+.iE
+In this example, the \*Lrunacct\*O command is executed on the first
+day of June (\*L0601\*O). The \*Lrunacct\*O process reads the
+\*L/var/adm/acct/nite/statefile\*O file to find the state from which
+to start. The \*Lrunacct\*O process runs in the background and
+ignores all \*LINTERRUPT\*O and \*LQUIT\*O signals (\*Lnohup\*O).
+The standard error output (\*L2\*O) is appended (\*L>>\*O) to the end
+of the file named \*L/var/adm/acct/nite/accterr\*O.
+.LE 
+.SH "FILES"
+.VL
+.LI "\*L/usr/sbin/acct/runnact\*O"
+Specifies the command path
+.LI "\*L/var/adm/wtmp\*O"
+The active login/logout database file.
+.LI "\*L/var/adm/pacct\*O"
+The active process accounting database file.
+.LI "\*L/var/adm/acct/nite/daytacct\*O"
+The active disk-usage accounting database file.
+.LI "\*L/var/adm/qacct\*O"
+The active queue (printer) accounting file.
+.LI "\*L/var/adm/fee\*O"
+The file containing records of fees charged to users.
+.LI "\*L/var/adm/acct/sum/*\*O"
+The command and total accounting summary files.
+.LI "\*L/var/adm/acct/nite/ptacct*.\*O\*Vmmdd\*O"
+The concatenated version of the \*Lpacct\*O files.
+.br
+.ne 9P
+.LI "\*L/var/adm/acct/nite/active\*O"
+The \*Lrunacct\*O error message file.
+.LI "\*L/var/adm/acct/nite/lock\*O"
+Prevents more than one invocation of the \*Lrunacct\*O shell procedure.
+.LI "\*L/var/adm/acct/nite/lastdate\*O"
+Contains the last date the \*Lrunacct\*O shell procedure was run.
+.LI "\*L/var/adm/acct/nite/statefile\*O"
+Contains the next state to process.
+.LI "\*L/var/adm/siteacct\*O"
+A shell procedure containing site-dependent accounting commands.
+.LI "\*L/usr/include/sys/acct.h\*O"
+Accounting header file that defines formats for writing accounting files.
+.LE 
+.SH "RELATED INFORMATION"
+.PP 
+Commands:  \*Lacct\*O(8), \*Lacctcms\*O(8), \*Lacctcom\*O(8), \*Lacctcon\*O(8), \*Lacctmerg\*O(8), \*Lacctprc\*O(8), \*Lfwtmp\*O(8)
+.PP 
+Daemons: \*Lcron\*O
+.PP 
+Functions:  \*Lacct\*O(2)
+.PP
+\*ESystem Administration\*O
+.EQ
+delim off
+.EN

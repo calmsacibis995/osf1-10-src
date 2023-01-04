@@ -1,0 +1,78 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210261658.AA14493@excon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2710) close XBUG #5592: PEXlib : PEXCopyBytesToOC and numBytes % 4 != 0
+Date: Mon, 26 Oct 92 11:58:39 EDT
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEXlib : PEXCopyBytesToOC and numBytes % 4 != 0
+        ### bug number:   5592
+        ### area:         PEXlib
+        ### severity:     high
+        ### comments:     
+
+*** /tmp/da8135	Mon Oct 26 12:07:33 1992
+--- extensions/lib/PEXlib/pl_oc_util.c	Mon Oct 26 12:04:14 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_util.c,v 1.9 92/08/26 13:06:16 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+--- 1,4 ----
+! /* $XConsortium: pl_oc_util.c,v 1.10 92/10/26 11:03:19 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+***************
+*** 122,127 ****
+--- 122,128 ----
+  
+  {
+      PEXDisplayInfo 	*pexDisplayInfo;
++     int			mod4bytes;
+  
+  
+      if (numBytes <= BytesLeftInXBuffer (display))
+***************
+*** 138,146 ****
+  	/*
+  	 * Copying this OC will overflow the transport buffer.  Using
+  	 * _XSend will take care of splitting the buffer into chunks
+! 	 * small enough to fit in the transport buffer.
+  	 */
+  	
+  	_XSend (display, data, numBytes);
+  
+  
+--- 139,161 ----
+  	/*
+  	 * Copying this OC will overflow the transport buffer.  Using
+  	 * _XSend will take care of splitting the buffer into chunks
+! 	 * small enough to fit in the transport buffer.  _XSend will
+! 	 * only copy a multiple of 4 bytes, so we must do some extra
+! 	 * work if numBytes % 4 != 0.
+  	 */
+  	
++ 	if (mod4bytes = numBytes % 4)
++ 	{
++ 	    if (mod4bytes > BytesLeftInXBuffer (display))
++ 		_XFlush (display);
++ 
++ 	    COPY_SMALL_AREA (data, display->bufptr, mod4bytes);
++ 	    display->bufptr += mod4bytes;
++ 
++ 	    data += mod4bytes;
++ 	    numBytes -= mod4bytes;
++ 	}
++ 
+  	_XSend (display, data, numBytes);
+  
+  

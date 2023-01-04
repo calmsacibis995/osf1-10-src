@@ -1,0 +1,226 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.59 92/04/15 10:44:36 rws Exp $
+#define IHaveSubdirs
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+
+#define BuildChooser !SystemV
+
+#if HasXdmAuth
+XDMAUTH_DEFINES = -DHASXDMAUTH
+XDMAUTHOBJS = xdmauth.o
+XDMAUTHSRCS = xdmauth.c
+#endif
+
+#if HasSecureRPC
+RPC_DEFINES = -DSECURE_RPC
+RPCOBJS = rpcauth.o
+RPCSRCS = rpcauth.c
+RPCLIB = -lrpcsvc
+#endif
+
+#if HasSia
+/* Temporary until we can get the athena version of the forms package 
+ * working -- Make sure motif interface is used
+ */
+#if !XdmUseMotif
+#define XdmUseMotif
+#endif
+SIASRCS  = sia_wind.c sia_wind_xdm.c
+SIAOBJS  = sia_wind.o sia_wind_xdm.o
+SIAFLAGS = -DUSE_SIA
+#endif
+
+#if XdmUseMotif
+DECSRCS  = logo.c gpi.c
+DECOBJS  = logo.o gpi.o
+DECFLAGS = -DUSE_LOGO -DCAPACITY_LIMIT -DMORE_CORRECT -DUSE_MOTIF 
+#else
+DECSRCS  = logo.c 
+DECOBJS  = logo.o 
+DECFLAGS = -DUSE_LOGO -DCAPACITY_LIMIT -DMORE_CORRECT 
+#endif
+
+/* DECGREETOBJS = dec_greet.o dec_verify.o sia_wind.o sia_wind_xdm.o gpi.o logo.o */
+DECGREETSRC = dec_greet.c dec_verify.c $(SIASRCS) $(DECSRCS)
+DECGREETOBJS = dec_greet.o dec_verify.o $(SIAOBJS) $(DECOBJS)
+
+/* GREETOBJS = greet.o verify.o Login.o */
+GREETSRC = greet.c verify.c Login.c
+GREETOBJS = greet.o verify.o Login.o
+
+SYS_LIBRARIES = -ldnet_stub
+
+#if SystemV4 || HasShadowPasswd
+PWD_DEFINES = -DUSESHADOW
+#if SystemV
+SYS_LIBRARIES = -lsec -ldnet_stub
+#endif
+#endif
+
+   XDMCONFIGDIR = XdmConfigurationSubdirectory
+        SUBDIRS = $(XDMCONFIGDIR)
+
+DEPLIBS = $(DEPXLIB) $(DEPXMULIB) $(DEPXAUTHLIB) $(DEPXDMCPLIB) 
+LOCAL_LIBRARIES = $(XLIB) $(XMULIB) $(XAUTHLIB) $(XDMCPLIB) $(RPCLIB)
+
+          SRCS1 = auth.c daemon.c server.c dpylist.c dm.c error.c file.c \
+		  netaddr.c reset.c resource.c protodpy.c policy.c \
+		  session.c socket.c streams.c util.c xdmcp.c \
+		  mitauth.c \
+		  genauth.c access.c choose.c $(XDMAUTHSRCS) $(RPCSRCS)
+          OBJS1 = auth.o daemon.o server.o dpylist.o dm.o error.o file.o \
+		  netaddr.o reset.o resource.o protodpy.o policy.o \
+		  session.o socket.o streams.o util.o xdmcp.o \
+		  mitauth.o \
+		  genauth.o access.o choose.o $(XDMAUTHOBJS) $(RPCOBJS)
+          SRCS2 = xdmshell.c 
+          OBJS2 = xdmshell.o 
+#if BuildChooser
+          SRCS3 = chooser.c
+          OBJS3 = chooser.o
+#endif
+       DEPLIBS3 = XawClientDepLibs $(DEPXDMCPLIB)
+          LIBS3 = XawClientLibs $(XDMCPLIB)
+       
+          SRCS4 = sessreg.c
+          OBJS4 = sessreg.o
+#if BuildChooser
+       PROGRAMS = xdm xdmshell sessreg chooser
+#else
+       PROGRAMS = xdm xdmshell sessreg
+#endif
+
+ OSMAJORVERSION = OSMajorVersion
+ OSMINORVERSION = OSMinorVersion
+        DEFINES = -DBINDIR=\"$(BINDIR)\" -DXDMDIR=\"$(XDMDIR)\" \
+		$(SIGNAL_DEFINES) $(XDMAUTH_DEFINES) $(RPC_DEFINES) \
+		$(PWD_DEFINES) \
+		$(DECFLAGS) $(SIAFLAGS) \
+		ConnectionFlags \
+		-DOSMAJORVERSION=$(OSMAJORVERSION) \
+		-DOSMINORVERSION=$(OSMINORVERSION)
+
+XCOMM
+XCOMM Special definitions for compiling default resources; these parameters
+XCOMM should be set in util/imake.includes/site.def or the appropriate .macros
+XCOMM file in that directory.  The lack of initial spaces is to prevent imake
+XCOMM from accidently turning the lines into rules by putting a leading tab.
+XCOMM
+XCOMM Do NOT change these lines!
+XCOMM
+DEF_SERVER = $(BINDIR)/X
+DEF_USER_PATH = DefaultUserPath		/* no leading spaces or imake will */
+DEF_SYSTEM_PATH = DefaultSystemPath	/* indent as rule */
+BOURNE_SHELL = DefaultSystemShell
+RES_DEFINES = '-DDEF_SERVER_LINE=":0 secure $(DEF_SERVER) :0"' \
+		  '-DXRDB_PROGRAM="$(BINDIR)/xrdb"' \
+		  '-DDEF_SESSION="$(BINDIR)/xterm -ls"' \
+		  '-DDEF_USER_PATH="$(DEF_USER_PATH)"' \
+		  '-DDEF_SYSTEM_PATH="$(DEF_SYSTEM_PATH)"' \
+		  '-DDEF_SYSTEM_SHELL="$(BOURNE_SHELL)"' \
+		  '-DDEF_FAILSAFE_CLIENT="$(BINDIR)/xterm"' \
+		  '-DDEF_XDM_CONFIG="$(XDMDIR)/xdm-config"' \
+		  '-DDEF_CHOOSER="$(XDMDIR)/chooser"' \
+		  '-DDEF_AUTH_DIR="$(XDMDIR)"'
+
+ComplexProgramTarget_1(xdm,$(LOCAL_LIBRARIES),NullParameter)
+SingleProgramTarget(xdmshell,$(OBJS2),NullParameter,NullParameter)
+SingleProgramTarget(sessreg,$(OBJS4),NullParameter,NullParameter)
+#if XdmUseMotif
+MSimpleUidTarget(gpiforms)
+#endif
+
+#if BuildChooser
+NormalProgramTarget(chooser,$(OBJS3),$(DEPLIBS3),$(LIBS3),NullParameter)
+SaberProgramTarget(chooser,$(SRCS3),$(OBJS3),$(LIBS3),NullParameter)
+InstallProgram(chooser,$(XDMDIR))
+InstallAppDefaults(Chooser)
+#endif
+
+SpecialObjectRule(resource.o, $(ICONFIGFILES), $(RES_DEFINES))
+
+XCOMM these files depend on HASXDMAUTH
+auth.o policy.o: $(ICONFIGFILES)
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+#endif
+
+/*
+ * Don't install; let people read the instructions about putting in the
+ * abort-display() resource:
+ */
+#ifdef comment
+InstallProgramWithFlags(xdmshell,$(BINDIR),NullParameter)
+#endif
+
+
+all:: libXdmDecGreet.so
+
+/* DEPLIBS = $(DEPXMLIB) MrmClientDepLibs \
+	XawClientDepLibs $(DEPXAUTHLIB) $(DEPXDMCPLIB) 
+ */
+SO_REQLIBS = $(DEPXMLIB) MrmClientDepLibs $(XMULIB) -lc
+/* SharedLibraryTarget(XdmDecGreet,,$(DECGREETOBJS),shared,..) */
+
+libXdmDecGreet.so:: $(DECGREETOBJS)
+	$(RM) $@
+	$(LD) $(SHLIBFLAGS) -shared -all \
+		-o $@ $(DECGREETOBJS) \
+		-none $(SO_REQLIBS) > libXdmDecGreet_unresolved 2>&1
+
+clean::
+	$(RM) libXdmDecGreet.so
+
+install:: libXdmDecGreet.so
+	@if [ -d $(DESTDIR)$(XDMDIR) ]; then set +x; \
+		else (set -x; $(MKDIRHIER) $(DESTDIR)$(XDMDIR)); fi
+	$(INSTALL) -c $(INSTLIBFLAGS) libXdmDecGreet.so $(DESTDIR)$(XDMDIR)
+
+all:: libXdmGreet.so
+
+/* SO_REQLIBS2 = XawClientDepLibs $(DEPXAUTHLIB) $(DEPXDMCPLIB) -lc */
+SO_REQLIBS2 = XawClientDepLibs -lc
+/* SharedLibraryTarget(XdmGreet,,$(GREETOBJS),shared,..) */
+
+libXdmGreet.so:: $(GREETOBJS)
+	$(RM) $@
+	$(LD) $(SHLIBFLAGS) -shared -all \
+		-o $@ $(GREETOBJS) \
+		-none $(SO_REQLIBS2) > libXdmGreet_unresolved 2>&1
+
+clean::
+	$(RM) libXdmGreet.so
+
+install:: libXdmGreet.so
+	@if [ -d $(DESTDIR)$(XDMDIR) ]; then set +x; \
+		else (set -x; $(MKDIRHIER) $(DESTDIR)$(XDMDIR)); fi
+	$(INSTALL) -c $(INSTLIBFLAGS) libXdmGreet.so $(DESTDIR)$(XDMDIR)
+
+
+
+InstallNamedNonExec(dm_example.h,dm.h,/usr/examples/xdm)
+

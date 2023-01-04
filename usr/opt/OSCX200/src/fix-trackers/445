@@ -1,0 +1,1295 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9209142305.AA01160@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2673) close XBUG #5505, #5525: xrdb -merge fails, and -D enhancements
+Date: Mon, 14 Sep 92 19:05:28 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Subject: xrdb: `xrdb -merge -all' trashes existing SCREEN_RESOURCES
+### bug number:   5505
+### area:         xrdb
+### severity:     low
+### comments:     
+
+Subject: xrdb: enhancement request for more -D's
+### bug number:   5525
+### area:         xrdb
+### severity:     enhancement
+### comments:     
+
+*** /tmp/d01065	Mon Sep 14 18:59:45 1992
+--- clients/xrdb/Imakefile	Mon Sep 14 18:53:18 1992
+***************
+*** 1,5 ****
+! XCOMM $XConsortium: Imakefile,v 1.7 91/07/17 00:46:42 gildea Exp $
+!         DEFINES = -DCPP="\"$(CPP)\""
+          DEPLIBS = $(DEPXMULIB) $(DEPXLIB)
+  LOCAL_LIBRARIES = $(XMULIB) $(XLIB)
+  
+--- 1,8 ----
+! XCOMM $XConsortium: Imakefile,v 1.8 92/09/14 18:53:12 rws Exp $
+! #if PatheticCpp
+!         CPPDEFS = -DPATHETICCPP
+! #endif
+!         DEFINES = -DCPP="\"$(CPP)\"" $(CPPDEFS)
+          DEPLIBS = $(DEPXMULIB) $(DEPXLIB)
+  LOCAL_LIBRARIES = $(XMULIB) $(XLIB)
+  
+*** /tmp/d01084	Mon Sep 14 18:59:56 1992
+--- clients/xrdb/xrdb.c	Mon Sep 14 18:55:10 1992
+***************
+*** 1,7 ****
+  /*
+   * xrdb - X resource manager database utility
+   *
+!  * $XConsortium: xrdb.c,v 11.51 92/03/10 12:10:34 keith Exp $
+   */
+  
+  /*
+--- 1,7 ----
+  /*
+   * xrdb - X resource manager database utility
+   *
+!  * $XConsortium: xrdb.c,v 11.62 92/09/14 18:54:49 rws Exp $
+   */
+  
+  /*
+***************
+*** 41,46 ****
+--- 41,47 ----
+   */
+  
+  #include <X11/Xlib.h>
++ #include <X11/Xutil.h>
+  #include <X11/Xatom.h>
+  #include <X11/Xos.h>
+  #include <stdio.h>
+***************
+*** 53,68 ****
+  #define CPP "/usr/lib/cpp"
+  #endif /* CPP */
+  
+! char *ProgramName;
+! static Bool quiet = False;
+  
+  #define RESOURCE_PROPERTY_NAME "RESOURCE_MANAGER"
+  #define BACKUP_SUFFIX ".bak"		/* for editting */
+  
+- #ifndef sgi
+- extern FILE *popen();
+- #endif
+- 
+  typedef struct _Entry {
+      char *tag, *value;
+      int lineno;
+--- 54,78 ----
+  #define CPP "/usr/lib/cpp"
+  #endif /* CPP */
+  
+! #define INIT_BUFFER_SIZE 10000
+! #define INIT_ENTRY_SIZE 500
+  
++ #define RALL 0
++ #define RGLOBAL 1
++ #define RSCREEN 2
++ #define RSCREENS 3
++ 
++ #define OPSYMBOLS 0
++ #define OPQUERY 1
++ #define OPREMOVE 2
++ #define OPEDIT 3
++ #define OPLOAD 4
++ #define OPMERGE 5
++ #define OPOVERRIDE 6
++ 
+  #define RESOURCE_PROPERTY_NAME "RESOURCE_MANAGER"
+  #define BACKUP_SUFFIX ".bak"		/* for editting */
+  
+  typedef struct _Entry {
+      char *tag, *value;
+      int lineno;
+***************
+*** 77,85 ****
+      int   room, used;
+  } Entries;
+  
+! #define INIT_BUFFER_SIZE 10000
+! #define INIT_ENTRY_SIZE 500
+  
+  #if defined(USG) && !defined(CRAY) && !defined(MOTOROLA)
+  int rename (from, to)
+      char *from, *to;
+--- 87,115 ----
+      int   room, used;
+  } Entries;
+  
+! char *ProgramName;
+! Bool quiet = False;
+! char tmpname[32];
+! char *filename = NULL;
+! #ifdef PATHETICCPP
+! Bool need_real_defines = False;
+! char tmpname2[32];
+! #endif
+! int oper = OPLOAD;
+! char *editFile = NULL;
+! char *cpp_program = CPP;
+! char *backup_suffix = BACKUP_SUFFIX;
+! Bool dont_execute = False;
+! char defines[4096];
+! int defines_base;
+! Display *dpy;
+! Buffer buffer;
+! Entries newDB;
+  
++ #ifndef sgi
++ extern FILE *popen();
++ #endif
++ 
+  #if defined(USG) && !defined(CRAY) && !defined(MOTOROLA)
+  int rename (from, to)
+      char *from, *to;
+***************
+*** 152,165 ****
+      for (n = 0; n < e->used; n++) {
+  	if (!strcmp(e->entry[n].tag, entry->tag)) {
+  	    /* overwrite old entry */
+! 	    if (!quiet) {
+  		fprintf (stderr, 
+  			 "%s:  \"%s\" on line %d overrides entry on line %d\n",
+  			 ProgramName, entry->tag, entry->lineno, 
+  			 e->entry[n].lineno);
+  	    }
+  	    e->entry[n] = *entry;
+! 	    return ;  /* ok to leave, now there's only one of each tag in db */
+  	}
+      }
+  
+--- 182,198 ----
+      for (n = 0; n < e->used; n++) {
+  	if (!strcmp(e->entry[n].tag, entry->tag)) {
+  	    /* overwrite old entry */
+! 	    if (e->entry[n].lineno && !quiet) {
+  		fprintf (stderr, 
+  			 "%s:  \"%s\" on line %d overrides entry on line %d\n",
+  			 ProgramName, entry->tag, entry->lineno, 
+  			 e->entry[n].lineno);
+  	    }
++ 	    free(e->entry[n].tag);
++ 	    free(e->entry[n].value);
++ 	    entry->usable = True;
+  	    e->entry[n] = *entry;
+! 	    return;  /* ok to leave, now there's only one of each tag in db */
+  	}
+      }
+  
+***************
+*** 214,223 ****
+      }
+  }
+  
+! void GetEntries(entries, buff, dosort)
+      register Entries *entries;
+      Buffer *buff;
+!     int dosort;
+  {
+      register char *line, *colon, *temp, *str;
+      Entry entry;
+--- 247,256 ----
+      }
+  }
+  
+! void GetEntries(entries, buff, bequiet)
+      register Entries *entries;
+      Buffer *buff;
+!     int bequiet;
+  {
+      register char *line, *colon, *temp, *str;
+      Entry entry;
+***************
+*** 237,245 ****
+  	    continue;
+  	if (*str == '\n')
+  	    continue;
+! 	if (*str == '#') {
+  	    int dummy;
+! 	    if (sscanf (str, "# %d", &dummy) == 1) lineno = dummy - 1;
+  	    continue;
+  	}
+  	for (temp = str; 
+--- 270,280 ----
+  	    continue;
+  	if (*str == '\n')
+  	    continue;
+! 	if (!bequiet && *str == '#') {
+  	    int dummy;
+! 	    if (sscanf (str, "# %d", &dummy) == 1 ||
+! 		sscanf (str, "# line %d", &dummy) == 1)
+! 		lineno = dummy - 1;
+  	    continue;
+  	}
+  	for (temp = str; 
+***************
+*** 248,260 ****
+  	if (!*temp || *temp == '\n') continue;
+  
+  	colon = FindFirst(str, ':', NULL);
+! 	if (!colon)
+! 	    break;
+! 	if (colon > line) {
+! 	    line[0] = '\0';
+! 	    fprintf (stderr, 
+! 		     "%s:  colon missing on line %d, ignoring entry \"%s\"\n",
+! 		     ProgramName, lineno, str);
+  	    continue;
+  	}
+  
+--- 283,293 ----
+  	if (!*temp || *temp == '\n') continue;
+  
+  	colon = FindFirst(str, ':', NULL);
+! 	if (!colon || colon > line) {
+! 	    if (!bequiet && !quiet)
+! 		fprintf (stderr, 
+! 			 "%s: colon missing on line %d, ignoring line\n",
+! 			 ProgramName, lineno);
+  	    continue;
+  	}
+  
+***************
+*** 278,313 ****
+  	strncpy(temp, colon, length);
+  	temp[length] = '\0';
+  	entry.value = temp;
+! 	entry.lineno = lineno;
+  
+  	AddEntry(entries, &entry);
+      }
+-     if (dosort && (entries->used > 0))
+- 	qsort(entries->entry, entries->used, sizeof(Entry), CompareEntries);
+  }
+  
+! int MergeEntries(buffer, new, old)
+!     Entries *new, *old;
+!     Buffer *buffer;
+  {
+!     int n, o, cmp;
+  
+!     n = o = 0;
+!     while ((n < new->used) && (o < old->used)) {
+! 	cmp = strcmp(new->entry[n].tag, old->entry[o].tag);
+! 	if (cmp > 0)
+! 	    AppendEntryToBuffer(buffer, &old->entry[o++]);
+! 	else {
+! 	    AppendEntryToBuffer(buffer, &new->entry[n++]);
+! 	    if (cmp == 0)
+! 		o++;
+! 	}
+      }
+-     while (n < new->used)
+- 	AppendEntryToBuffer(buffer, &new->entry[n++]);
+-     while (o < old->used)
+- 	AppendEntryToBuffer(buffer, &old->entry[o++]);
+-     AppendToBuffer(buffer, "", 1);
+  }
+  
+  void ReadFile(buffer, input)
+--- 311,333 ----
+  	strncpy(temp, colon, length);
+  	temp[length] = '\0';
+  	entry.value = temp;
+! 	entry.lineno = bequiet ? 0 : lineno;
+  
+  	AddEntry(entries, &entry);
+      }
+  }
+  
+! GetEntriesString(entries, str)
+!     register Entries *entries;
+!     char *str;
+  {
+!     Buffer buff;
+  
+!     if (str && *str) {
+! 	buff.buff = str;
+! 	buff.used = strlen(str);
+! 	GetEntries(entries, &buff, 1);
+      }
+  }
+  
+  void ReadFile(buffer, input)
+***************
+*** 327,332 ****
+--- 347,363 ----
+  AddDef(buff, title, value)
+      char *buff, *title, *value;
+  {
++ #ifdef PATHETICCPP
++     if (need_real_defines) {
++ 	strcat(buff, "\n#define ");
++ 	strcat(buff, title);
++ 	if (value && (value[0] != '\0')) {
++ 	    strcat(buff, " ");
++ 	    strcat(buff, value);
++ 	}
++ 	return;
++     }
++ #endif
+      strcat(buff, " -D");
+      strcat(buff, title);
+      if (value && (value[0] != '\0')) {
+***************
+*** 338,343 ****
+--- 369,386 ----
+  AddDefQ(buff, title, value)
+      char *buff, *title, *value;
+  {
++ #ifdef PATHETICCPP
++     if (need_real_defines) {
++ 	strcat(buff, "\n#define ");
++ 	strcat(buff, title);
++ 	if (value && (value[0] != '\0')) {
++ 	    strcat(buff, " \"");
++ 	    strcat(buff, value);
++ 	    strcat(buff, "\"");
++ 	}
++ 	return;
++     }
++ #endif
+      strcat(buff, " -D");
+      strcat(buff, title);
+      if (value && (value[0] != '\0')) {
+***************
+*** 359,368 ****
+  AddSimpleDef(buff, title)
+      char *buff, *title;
+  {
+!     strcat(buff, " -D");
+!     strcat(buff, title);
+  }
+  
+  int Resolution(pixels, mm)
+      int pixels, mm;
+  {
+--- 402,426 ----
+  AddSimpleDef(buff, title)
+      char *buff, *title;
+  {
+!     AddDef(buff, title, (char *)NULL);
+  }
+  
++ AddDefTok(buff, prefix, title)
++     char *buff, *prefix, *title;
++ {
++     char *s;
++     char name[512];
++     char c;
++ 
++     strcpy(name, prefix);
++     strcat(name, title);
++     for (s = name; c = *s; s++) {
++ 	if (!isalpha(c) && !isdigit(c) && c != '_')
++ 	    *s = '_';
++     }
++     AddSimpleDef(buff, name);
++ }
++ 
+  int Resolution(pixels, mm)
+      int pixels, mm;
+  {
+***************
+*** 378,405 ****
+  {
+  #define MAXHOSTNAME 255
+      char client[MAXHOSTNAME], server[MAXHOSTNAME], *colon;
+      
+      XmuGetHostname(client, MAXHOSTNAME);
+      strcpy(server, XDisplayName(host));
+      colon = index(server, ':');
+!     if (colon)
+! 	*colon = '\0';
+!     if (server[0] == '\0')	/* must be connected to :0 */
+  	strcpy(server, client);
+      AddDef(defs, "HOST", server); /* R3 compatibility */
+      AddDef(defs, "SERVERHOST", server);
+      AddDef(defs, "CLIENTHOST", client);
+      AddNum(defs, "VERSION", ProtocolVersion(display));
+      AddNum(defs, "REVISION", ProtocolRevision(display));
+      AddDefQ(defs, "VENDOR", ServerVendor(display));
+      AddNum(defs, "RELEASE", VendorRelease(display));
+  }
+  
+! /*
+!  * It would probably be best to enumerate all of the screens/visuals
+!  * rather than just using the defaults. However, most of the current
+!  * servers only have one screen/visual.
+!  */
+  void
+  DoScreenDefines(display, scrno, defs)
+      Display *display;
+--- 436,482 ----
+  {
+  #define MAXHOSTNAME 255
+      char client[MAXHOSTNAME], server[MAXHOSTNAME], *colon;
++     char **extnames;
++     int n;
+      
+      XmuGetHostname(client, MAXHOSTNAME);
+      strcpy(server, XDisplayName(host));
+      colon = index(server, ':');
+!     n = 0;
+!     if (colon) {
+! 	*colon++ = '\0';
+! 	if (*colon == ':')
+! 	    colon++;
+! 	sscanf(colon, "%d", &n);
+!     }
+!     if (!*server || !strcmp(server, "unix") || !strcmp(server, "localhost"))
+  	strcpy(server, client);
+      AddDef(defs, "HOST", server); /* R3 compatibility */
+      AddDef(defs, "SERVERHOST", server);
++     AddDefTok(defs, "SRVR_", server);
++     AddNum(defs, "DISPLAY_NUM", n);
+      AddDef(defs, "CLIENTHOST", client);
++     AddDefTok(defs, "CLNT_", client);
+      AddNum(defs, "VERSION", ProtocolVersion(display));
+      AddNum(defs, "REVISION", ProtocolRevision(display));
+      AddDefQ(defs, "VENDOR", ServerVendor(display));
++     AddDefTok(defs, "VNDR_", ServerVendor(display));
+      AddNum(defs, "RELEASE", VendorRelease(display));
++     AddNum(defs, "NUM_SCREENS", ScreenCount(display));
++     extnames = XListExtensions(display, &n);
++     while (--n >= 0)
++ 	AddDefTok(defs, "EXT_", extnames[n]);
+  }
+  
+! char *ClassNames[] = {
+!     "StaticGray",
+!     "GrayScale",
+!     "StaticColor",
+!     "PseudoColor",
+!     "TrueColor",
+!     "DirectColor"
+! };
+! 
+  void
+  DoScreenDefines(display, scrno, defs)
+      Display *display;
+***************
+*** 408,416 ****
+--- 485,499 ----
+  {
+      Screen *screen;
+      Visual *visual;
++     XVisualInfo vinfo, *vinfos;
++     int nv;
++     char name[50];
+      
+      screen = ScreenOfDisplay(display, scrno);
+      visual = DefaultVisualOfScreen(screen);
++     vinfo.screen = scrno;
++     vinfos = XGetVisualInfo(display, VisualScreenMask, &vinfo, &nv);
++     AddNum(defs, "SCREEN_NUM", scrno);
+      AddNum(defs, "WIDTH", screen->width);
+      AddNum(defs, "HEIGHT", screen->height);
+      AddNum(defs, "X_RESOLUTION", Resolution(screen->width,screen->mwidth));
+***************
+*** 417,449 ****
+      AddNum(defs, "Y_RESOLUTION", Resolution(screen->height,screen->mheight));
+      AddNum(defs, "PLANES", DisplayPlanes(display, scrno));
+      AddNum(defs, "BITS_PER_RGB", visual->bits_per_rgb);
+      switch(visual->class) {
+- 	case StaticGray:
+- 	    AddDef(defs, "CLASS", "StaticGray");
+- 	    break;
+- 	case GrayScale:
+- 	    AddDef(defs, "CLASS", "GrayScale");
+- 	    break;
+  	case StaticColor:
+- 	    AddDef(defs, "CLASS", "StaticColor");
+- 	    AddSimpleDef(defs, "COLOR");
+- 	    break;
+  	case PseudoColor:
+- 	    AddDef(defs, "CLASS", "PseudoColor");
+- 	    AddSimpleDef(defs, "COLOR");
+- 	    break;
+  	case TrueColor:
+- 	    AddDef(defs, "CLASS", "TrueColor");
+- 	    AddSimpleDef(defs, "COLOR");
+- 	    break;
+  	case DirectColor:
+- 	    AddDef(defs, "CLASS", "DirectColor");
+  	    AddSimpleDef(defs, "COLOR");
+  	    break;
+- 	default:
+- 	    fatal("%s: unexpected visual class=%d\n",
+- 		  ProgramName, visual->class);
+      }
+  }
+  
+  Entry *FindEntry(db, b)
+--- 500,522 ----
+      AddNum(defs, "Y_RESOLUTION", Resolution(screen->height,screen->mheight));
+      AddNum(defs, "PLANES", DisplayPlanes(display, scrno));
+      AddNum(defs, "BITS_PER_RGB", visual->bits_per_rgb);
++     AddDef(defs, "CLASS", ClassNames[visual->class]);
++     sprintf(name, "CLASS_%s", ClassNames[visual->class]);
++     AddNum(defs, name, visual->visualid);
+      switch(visual->class) {
+  	case StaticColor:
+  	case PseudoColor:
+  	case TrueColor:
+  	case DirectColor:
+  	    AddSimpleDef(defs, "COLOR");
+  	    break;
+      }
++     while (--nv >= 0) {
++ 	sprintf(name, "CLASS_%s_%d",
++ 		ClassNames[vinfos[nv].class], vinfos[nv].depth);
++ 	AddNum(defs, name, vinfos[nv].visualid);
++     }
++     XFree((char *)vinfos);
+  }
+  
+  Entry *FindEntry(db, b)
+***************
+*** 461,467 ****
+      phoney.used = 0;
+      phoney.room = 1;
+      phoney.entry = &entry;
+!     GetEntries(&phoney, b, 0);
+      if (phoney.used < 1)
+  	return NULL;
+      for (i = 0; i < db->used; i++) {
+--- 534,540 ----
+      phoney.used = 0;
+      phoney.room = 1;
+      phoney.entry = &entry;
+!     GetEntries(&phoney, b, 1);
+      if (phoney.used < 1)
+  	return NULL;
+      for (i = 0; i < db->used; i++) {
+***************
+*** 541,548 ****
+  	     " -query              query resources\n");
+      fprintf (stderr,
+  	     " -load               load resources from file [default]\n");
+      fprintf (stderr, 
+! 	     " -merge              merge resources from file\n");
+      fprintf (stderr, 
+  	     " -edit filename      edit resources into file\n");
+      fprintf (stderr, 
+--- 614,623 ----
+  	     " -query              query resources\n");
+      fprintf (stderr,
+  	     " -load               load resources from file [default]\n");
++     fprintf (stderr,
++ 	     " -override           add in resources from file\n");
+      fprintf (stderr, 
+! 	     " -merge              merge resources from file & sort\n");
+      fprintf (stderr, 
+  	     " -edit filename      edit resources into file\n");
+      fprintf (stderr, 
+***************
+*** 571,577 ****
+   * whether or not the given string is an abbreviation of the arg.
+   */
+  
+! static Bool isabbreviation (arg, s, minslen)
+      char *arg;
+      char *s;
+      int minslen;
+--- 646,652 ----
+   * whether or not the given string is an abbreviation of the arg.
+   */
+  
+! Bool isabbreviation (arg, s, minslen)
+      char *arg;
+      char *s;
+      int minslen;
+***************
+*** 595,625 ****
+      return (False);
+  }
+  
+- #define RALL 0
+- #define RGLOBAL 1
+- #define RSCREEN 2
+- #define RSCREENS 3
+- 
+- #define OPSYMBOLS 0
+- #define OPQUERY 1
+- #define OPREMOVE 2
+- #define OPEDIT 3
+- #define OPLOAD 4
+- #define OPMERGE 5
+- 
+- char tmpname[32];
+- char *filename = NULL;
+- int oper = OPLOAD;
+- char *editFile = NULL;
+- char *cpp_program = CPP;
+- char *backup_suffix = BACKUP_SUFFIX;
+- Bool dont_execute = False;
+- char defines[BUFSIZ];
+- int defines_base;
+- Display *dpy;
+- Buffer buffer;
+- Entries newDB;
+- 
+  main (argc, argv)
+      int argc;
+      char **argv;
+--- 670,675 ----
+***************
+*** 674,679 ****
+--- 724,732 ----
+  	    } else if (isabbreviation ("-merge", arg, 2)) {
+  		oper = OPMERGE;
+  		continue;
++ 	    } else if (isabbreviation ("-override", arg, 2)) {
++ 		oper = OPOVERRIDE;
++ 		continue;
+  	    } else if (isabbreviation ("-symbols", arg, 3)) {
+  		oper = OPSYMBOLS;
+  		continue;
+***************
+*** 720,725 ****
+--- 773,781 ----
+  	    filename = arg;
+      }							/* end for */
+  
++     while ((i = open("/dev/null", 0)) < 3)
++ 	; /* make sure later freopen won't clobber things */
++     (void) close(i);
+      /* Open display  */
+      if (!(dpy = XOpenDisplay (displayname)))
+  	fatal("%s: Can't open display '%s'\n", ProgramName,
+***************
+*** 727,738 ****
+  
+      if (whichResources == RALL && ScreenCount(dpy) == 1)
+  	whichResources = RGLOBAL;
+-     DoDisplayDefines(dpy, defines, displayname);
+-     defines_base = strlen(defines);
+  
+      if (!filename &&
+! 	(oper == OPLOAD || oper == OPMERGE) &&
+! 	(whichResources == RALL || whichResources == RSCREENS)) {
+  	strcpy(tmpname, "/tmp/xrdb_XXXXXX");
+  	(void) mktemp(tmpname);
+  	filename = tmpname;
+--- 783,806 ----
+  
+      if (whichResources == RALL && ScreenCount(dpy) == 1)
+  	whichResources = RGLOBAL;
+  
++ #ifdef PATHETICCPP
++     if (cpp_program &&
++ 	(oper == OPLOAD || oper == OPMERGE || oper == OPOVERRIDE)) {
++ 	need_real_defines = True;
++ 	strcpy(tmpname2, "/tmp/xrdbD_XXXXXX");
++ 	(void) mktemp(tmpname);
++     }
++ #endif
++ 
+      if (!filename &&
+! #ifdef PATHETICCPP
+! 	need_real_defines
+! #else
+! 	(oper == OPLOAD || oper == OPMERGE || oper == OPOVERRIDE) &&
+! 	(whichResources == RALL || whichResources == RSCREENS)
+! #endif
+! 	) {
+  	strcpy(tmpname, "/tmp/xrdb_XXXXXX");
+  	(void) mktemp(tmpname);
+  	filename = tmpname;
+***************
+*** 745,750 ****
+--- 813,820 ----
+  	fclose(fp);
+      }
+  	
++     DoDisplayDefines(dpy, defines, displayname);
++     defines_base = strlen(defines);
+      need_newline = (oper == OPQUERY || oper == OPSYMBOLS ||
+  		    (dont_execute && oper != OPREMOVE));
+      InitBuffer(&buffer);
+***************
+*** 753,759 ****
+      else if (whichResources == RSCREEN)
+  	Process(DefaultScreen(dpy), True, True);
+      else if (whichResources == RSCREENS ||
+! 	     (oper != OPLOAD && oper != OPMERGE)) {
+  	if (whichResources == RALL && oper != OPSYMBOLS) {
+  	    if (need_newline)
+  		printf("! screen-independent resources\n");
+--- 823,829 ----
+      else if (whichResources == RSCREEN)
+  	Process(DefaultScreen(dpy), True, True);
+      else if (whichResources == RSCREENS ||
+! 	     (oper != OPLOAD && oper != OPMERGE && oper != OPOVERRIDE)) {
+  	if (whichResources == RALL && oper != OPSYMBOLS) {
+  	    if (need_newline)
+  		printf("! screen-independent resources\n");
+***************
+*** 765,776 ****
+  	    if (need_newline) {
+  		if (oper == OPSYMBOLS)
+  		    printf("# screen %d symbols\n", i);
+! 		else
+  		    printf("! screen %d resources\n", i);
+  	    }
+  	    Process(i, True, True);
+! 	    if (need_newline && i+1 != ScreenCount(dpy))
+! 		printf("\n");
+  	}
+      }
+      else {
+--- 835,852 ----
+  	    if (need_newline) {
+  		if (oper == OPSYMBOLS)
+  		    printf("# screen %d symbols\n", i);
+! 		else {
+  		    printf("! screen %d resources\n", i);
++ 		    printf("#if SCREEN_NUM == %d\n", i);
++ 		}
+  	    }
+  	    Process(i, True, True);
+! 	    if (need_newline) {
+! 		if (oper != OPSYMBOLS)
+! 		    printf("#endif\n");
+! 		if (i+1 != ScreenCount(dpy))
+! 		    printf("\n");
+! 	    }
+  	}
+      }
+      else {
+***************
+*** 782,787 ****
+--- 858,865 ----
+  	    dbs[i] = newDB;
+  	}
+  	InitEntries(&newDB);
++ 	if (oper == OPMERGE || oper == OPOVERRIDE)
++ 	    GetEntriesString(&newDB, XResourceManagerString(dpy));
+  	ShuffleEntries(&newDB, dbs, ScreenCount(dpy));
+  	if (need_newline)
+  	    printf("! screen-independent resources\n");
+***************
+*** 790,800 ****
+  	    printf("\n");
+  	for (i = 0; i < ScreenCount(dpy); i++) {
+  	    newDB = dbs[i];
+! 	    if (need_newline)
+  		printf("! screen %d resources\n", i);
+  	    ReProcess(i, True);
+! 	    if (need_newline && i+1 != ScreenCount(dpy))
+! 		printf("\n");
+  	}
+      }
+  
+--- 868,883 ----
+  	    printf("\n");
+  	for (i = 0; i < ScreenCount(dpy); i++) {
+  	    newDB = dbs[i];
+! 	    if (need_newline) {
+  		printf("! screen %d resources\n", i);
++ 		printf("#if SCREEN_NUM == %d\n", i);
++ 	    }
+  	    ReProcess(i, True);
+! 	    if (need_newline) {
+! 		printf("#endif\n");
+! 		if (i+1 != ScreenCount(dpy))
+! 		    printf("\n");
+! 	    }
+  	}
+      }
+  
+***************
+*** 806,811 ****
+--- 889,911 ----
+      exit (0);
+  }
+  
++ void FormatEntries(buffer, entries)
++     register Buffer *buffer;
++     register Entries *entries;
++ {
++     register int i;
++ 
++     buffer->used = 0;
++     if (!entries->used)
++ 	return;
++     if (oper == OPMERGE)
++ 	qsort(entries->entry, entries->used, sizeof(Entry), CompareEntries);
++     for (i = 0; i < entries->used; i++) {
++ 	if (entries->entry[i].usable)
++ 	    AppendEntryToBuffer(buffer, &entries->entry[i]);
++     }
++ }
++ 
+  StoreProperty(dpy, root, res_prop)
+      Display *dpy;
+      Window root;
+***************
+*** 840,851 ****
+      Atom res_prop;
+      FILE *input, *output;
+      char cmd[BUFSIZ];
+-     Entries oldDB;
+  
+      defines[defines_base] = '\0';
+      buffer.used = 0;
+      InitEntries(&newDB);
+-     InitEntries(&oldDB);
+      DoScreenDefines(dpy, scrno, defines);
+      if (doScreen) {
+  	xdefs = XScreenResourceString (ScreenOfDisplay(dpy, scrno));
+--- 940,949 ----
+***************
+*** 866,872 ****
+  	    XDeleteProperty(dpy, root, res_prop);
+      } else if (oper == OPEDIT) {
+  	char template[100], old[100];
+- 	char *saveBuff;
+  
+  	input = fopen(editFile, "r");
+  	if (!input) {
+--- 964,969 ----
+***************
+*** 890,901 ****
+  	output = fopen(template, "w");
+  	if (!output)
+  	    fatal("%s: can't open temporary file '%s'\n", ProgramName, template);
+! 	saveBuff = buffer.buff;
+! 	buffer.used = (xdefs ? strlen(xdefs) : 0);
+! 	buffer.buff = xdefs;
+! 	buffer.room = buffer.used;
+! 	GetEntries(&newDB, &buffer, 0);
+! 	buffer.buff = saveBuff;
+  	EditFile(&newDB, input, output);
+  	fclose(input);
+  	fclose(output);
+--- 987,993 ----
+  	output = fopen(template, "w");
+  	if (!output)
+  	    fatal("%s: can't open temporary file '%s'\n", ProgramName, template);
+! 	GetEntriesString(&newDB, xdefs);
+  	EditFile(&newDB, input, output);
+  	fclose(input);
+  	fclose(output);
+***************
+*** 918,923 ****
+--- 1010,1030 ----
+  	    rename (template, editFile);
+  	}
+      } else {
++ 	if (oper == OPMERGE || oper == OPOVERRIDE)
++ 	    GetEntriesString(&newDB, xdefs);
++ #ifdef PATHETICCPP
++ 	if (need_real_defines) {
++ 	    if (!freopen(tmpname2, "w+", stdin))
++ 		fatal("%s: can't open file '%s'\n", ProgramName, tmpname2);
++ 	    fputs(defines, stdin);
++ 	    fprintf(stdin, "\n#include \"%s\"\n", filename);
++ 	    fflush(stdin);
++ 	    fseek(stdin, 0, 0);
++ 	    sprintf(cmd, "%s", cpp_program);
++ 	    if (!(input = popen(cmd, "r")))
++ 		fatal("%s: cannot run '%s'\n", ProgramName, cmd);
++ 	} else {
++ #endif
+  	if (filename) {
+  	    if (!freopen (filename, "r", stdin))
+  		fatal("%s: can't open file '%s'\n", ProgramName, filename);
+***************
+*** 929,955 ****
+  	} else {
+  	    input = stdin;
+  	}
+  	ReadFile(&buffer, input);
+  	if (cpp_program)
+  	    pclose(input);
+! 	GetEntries(&newDB, &buffer, oper == OPMERGE);
+! 	if (oper == OPMERGE && xdefs) {
+! 	    char *saveBuff = buffer.buff;
+! 	    buffer.used = strlen(xdefs);
+! 	    buffer.buff = xdefs;
+! 	    GetEntries(&oldDB, &buffer, 1);
+! 	    buffer.buff = saveBuff;
+! 	} else
+! 	    oldDB.used = 0;
+! 	buffer.used = 0;
+! 	MergeEntries(&buffer, &newDB, &oldDB);
+! 	if (dont_execute && execute) {
+! 	    if (buffer.used > 0) {
+! 		fwrite (buffer.buff, 1, buffer.used, stdout);
+! 		if (buffer.buff[buffer.used - 1] != '\n') putchar ('\n');
+! 	    }
+! 	} else if (execute) {
+! 	    if (buffer.used > 1 || !doScreen)
+  		StoreProperty (dpy, root, res_prop);
+  	    else
+  		XDeleteProperty (dpy, root, res_prop);
+--- 1036,1060 ----
+  	} else {
+  	    input = stdin;
+  	}
++ #ifdef PATHETICCPP
++ 	}
++ #endif
+  	ReadFile(&buffer, input);
+  	if (cpp_program)
+  	    pclose(input);
+! #ifdef PATHETICCPP
+! 	if (need_real_defines)
+! 	    unlink(tmpname2);
+! #endif
+! 	GetEntries(&newDB, &buffer, 0);
+! 	if (execute) {
+! 	    FormatEntries(&buffer, &newDB);
+! 	    if (dont_execute) {
+! 		if (buffer.used > 0) {
+! 		    fwrite (buffer.buff, 1, buffer.used, stdout);
+! 		    if (buffer.buff[buffer.used - 1] != '\n') putchar ('\n');
+! 		}
+! 	    } else if (buffer.used > 1 || !doScreen)
+  		StoreProperty (dpy, root, res_prop);
+  	    else
+  		XDeleteProperty (dpy, root, res_prop);
+***************
+*** 957,963 ****
+      }
+      if (execute)
+  	FreeEntries(&newDB);
+-     FreeEntries(&oldDB);
+      if (doScreen && xdefs)
+  	XFree(xdefs);
+  }
+--- 1062,1067 ----
+***************
+*** 1009,1032 ****
+      Atom res_prop;
+      register int i;
+  
+!     if (!doScreen && oper == OPMERGE && XResourceManagerString(dpy)) {
+! 	char *saveBuff = buffer.buff;
+! 	Entries oldDB;
+! 	InitEntries(&oldDB);
+! 	buffer.buff = XResourceManagerString(dpy);
+! 	buffer.used = strlen(buffer.buff);
+! 	GetEntries(&oldDB, &buffer, 1);
+! 	buffer.buff = saveBuff;
+! 	buffer.used = 0;
+! 	MergeEntries(&buffer, &newDB, &oldDB);
+! 	FreeEntries(&oldDB);
+!     } else {
+! 	buffer.used = 0;
+! 	for (i = 0; i < newDB.used; i++) {
+! 	    if (newDB.entry[i].usable)
+! 		AppendEntryToBuffer(&buffer, &newDB.entry[i]);
+! 	}
+!     }
+      if (doScreen) {
+  	root = RootWindow(dpy, scrno);
+  	res_prop = XInternAtom(dpy, SCREEN_RESOURCES, False);
+--- 1113,1119 ----
+      Atom res_prop;
+      register int i;
+  
+!     FormatEntries(&buffer, &newDB);
+      if (doScreen) {
+  	root = RootWindow(dpy, scrno);
+  	res_prop = XInternAtom(dpy, SCREEN_RESOURCES, False);
+*** /tmp/d01105	Mon Sep 14 19:00:08 1992
+--- clients/xrdb/xrdb.man	Mon Sep 14 18:59:27 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: xrdb.man,v 11.33 92/09/14 18:59:22 rws Exp $
+  .TH XRDB 1 "Release 5" "X Version 11"
+  .SH NAME
+  xrdb - X server resource database utility
+***************
+*** 32,91 ****
+  following symbols defined, based on the capabilities of the server
+  being used:
+  .TP 8
+! .B BITS_PER_RGB=num
+! the number of significant bits in an RGB color specification.  This is the
+! log base 2 of the number of distinct shades of each primary that the hardware
+! can generate.  Note that it usually is not related to PLANES.
+! .TP 8
+! .B CLASS=visualclass
+! one of StaticGray, GrayScale, StaticColor, PseudoColor, TrueColor,
+! DirectColor.  This is the visual class of the root window of the
+! default screen.
+! .TP 8
+! .B COLOR
+! defined only if CLASS is one of StaticColor, PseudoColor, TrueColor, or
+! DirectColor.
+! .TP 8
+! .B HEIGHT=num
+! the height of the default screen in pixels.
+! .TP 8
+! .B SERVERHOST=hostname
+  the hostname portion of the display to which you are connected.
+  .TP 8
+! .B HOST=hostname
+  the same as
+  .BR SERVERHOST .
+  .TP 8
+! .B CLIENTHOST=hostname
+  the name of the host on which
+  .I xrdb
+  is running.
+  .TP 8
+! .B PLANES=num
+! the number of bit planes (the depth) of the root window of the default screen.
+  .TP 8
+! .B RELEASE=num
+  the vendor release number for the server.  The interpretation of this
+  number will vary depending on VENDOR.
+  .TP 8
+! .B REVISION=num
+  the X protocol minor version supported by this server (currently 0).
+  .TP 8
+! .B VERSION=num
+  the X protocol major version supported by this server (should always be 11).
+  .TP 8
+! .B VENDOR=vendor
+! a string specifying the vendor of the server.
+  .TP 8
+! .B WIDTH=num
+! the width of the default screen in pixels.
+  .TP 8
+! .B X_RESOLUTION=num
+! the x resolution of the default screen in pixels per meter.
+  .TP 8
+! .B Y_RESOLUTION=num
+! the y resolution of the default screen in pixels per meter.
+  .LP
+  Lines that begin with an exclamation mark (!) are ignored and may
+  be used as comments.
+  .LP
+--- 33,130 ----
+  following symbols defined, based on the capabilities of the server
+  being used:
+  .TP 8
+! .B SERVERHOST=\fIhostname\fP
+  the hostname portion of the display to which you are connected.
+  .TP 8
+! .B SRVR_\fIname\fB
+! the SERVERHOST hostname string turned into a legal identifier.
+! For example, "my-dpy.lcs.mit.edu" becomes SRVR_my_dpy_lcs_mit_edu.
+! .TP 8
+! .B HOST=\fIhostname\fP
+  the same as
+  .BR SERVERHOST .
+  .TP 8
+! .B DISPLAY_NUM=\fInum\fP
+! the number of the display on the server host.
+! .TP 8
+! .B CLIENTHOST=\fIhostname\fP
+  the name of the host on which
+  .I xrdb
+  is running.
+  .TP 8
+! .B CLNT_\fIname\fB
+! the CLIENTHOST hostname string turned into a legal identifier.
+! For example, "expo.lcs.mit.edu" becomes CLNT_expo_lcs_mit_edu.
+  .TP 8
+! .B RELEASE=\fInum\fP
+  the vendor release number for the server.  The interpretation of this
+  number will vary depending on VENDOR.
+  .TP 8
+! .B REVISION=\fInum\fP
+  the X protocol minor version supported by this server (currently 0).
+  .TP 8
+! .B VERSION=\fInum\fP
+  the X protocol major version supported by this server (should always be 11).
+  .TP 8
+! .B VENDOR="\fIvendor\fP"
+! a string literal specifying the vendor of the server.
+  .TP 8
+! .B VNDR_\fIname\fP
+! the VENDOR name string turned into a legal identifier.
+! For example, "MIT X Consortium" becomes VNDR_MIT_X_Consortium.
+  .TP 8
+! .B EXT_\fIname\fP
+! A symbol is defined for each protocol extension supported by the server.
+! Each extension string name is turned into a legal identifier.
+! For example, "X3D-PEX" becomes EXT_X3D_PEX.
+  .TP 8
+! .B NUM_SCREENS=\fInum\fP
+! the total number of screens.
+! .TP 8
+! .B SCREEN_NUM=\fInum\fP
+! the number of the current screen (from zero).
+! .TP 8
+! .B BITS_PER_RGB=\fInum\fP
+! the number of significant bits in an RGB color specification.  This is the
+! log base 2 of the number of distinct shades of each primary that the hardware
+! can generate.  Note that it usually is not related to PLANES.
+! .TP 8
+! .B CLASS=\fIvisualclass\fP
+! one of StaticGray, GrayScale, StaticColor, PseudoColor, TrueColor,
+! DirectColor.  This is the visual class of the root window.
+! .TP 8
+! .B CLASS_\fIvisualclass\fP=\fIvisualid\fP
+! the visual class of the root window in a form you can \fI#ifdef\fP on.
+! The value is the numeric id of the visual.
+! .TP 8
+! .B COLOR
+! defined only if CLASS is one of StaticColor, PseudoColor, TrueColor, or
+! DirectColor.
+! .TP 8
+! .B CLASS_\fIvisualclass\fP_\fIdepth\fP=\fInum\fP
+! A symbol is defined for each visual supported for the screen.
+! The symbol includes the class of the visual and its depth;
+! the value is the numeric id of the visual.
+! .TP 8
+! .B HEIGHT=\fInum\fP
+! the height of the root window in pixels.
+! .TP 8
+! .B WIDTH=\fInum\fP
+! the width of the root window in pixels.
+! .TP 8
+! .B PLANES=\fInum\fP
+! the number of bit planes (the depth) of the root window.
+! .TP 8
+! .B X_RESOLUTION=\fInum\fP
+! the x resolution of the screen in pixels per meter.
+! .TP 8
+! .B Y_RESOLUTION=\fInum\fP
+! the y resolution of the screen in pixels per meter.
+  .LP
++ SRVR_\fIname\fP, CLNT_\fIname\fP, VNDR_\fIname\fP, and EXT_\fIname\fP
++ identifiers are formed by changing all characters other than letters
++ and digits into underscores (_).
++ .LP
+  Lines that begin with an exclamation mark (!) are ignored and may
+  be used as comments.
+  .LP
+***************
+*** 114,120 ****
+  screen-independent resource property (RESOURCE_MANAGER), as well as
+  the screen-specific property (SCREEN_RESOURCES) on every screen of the
+  display.  For example, when used in conjunction with \fI-query\fP,
+! the contents of all properties are output.  For \fI-load\fP and \fI-merge\fP,
+  the input file is processed once for each screen.  The resources which occur
+  in common in the output for every screen are collected, and these are applied
+  as the screen-independent resources.  The remaining resources are applied
+--- 153,160 ----
+  screen-independent resource property (RESOURCE_MANAGER), as well as
+  the screen-specific property (SCREEN_RESOURCES) on every screen of the
+  display.  For example, when used in conjunction with \fI-query\fP,
+! the contents of all properties are output.  For \fI-load\fP, \fI-override\fP
+! and \fI-merge\fP,
+  the input file is processed once for each screen.  The resources which occur
+  in common in the output for every screen are collected, and these are applied
+  as the screen-independent resources.  The remaining resources are applied
+***************
+*** 131,142 ****
+  .B \-screens
+  This option indicates that the operation should be performed on
+  the SCREEN_RESOURCES property of each screen of the display.
+! For \fI-load\fP and \fI-merge\fP, the input file is processed for
+! each screen.
+  .TP 8
+  .B \-n
+  This option indicates that changes to the specified properties (when used with
+! \fI-load\fP or \fI-merge\fP)
+  or to the resource file (when used with \fI-edit\fP) should be shown on the
+  standard output, but should not be performed.
+  .TP 8
+--- 171,182 ----
+  .B \-screens
+  This option indicates that the operation should be performed on
+  the SCREEN_RESOURCES property of each screen of the display.
+! For \fI-load\fP, \fI-override\fP and \fI-merge\fP, the input file is
+! processed for each screen.
+  .TP 8
+  .B \-n
+  This option indicates that changes to the specified properties (when used with
+! \fI-load\fP, \fI-override\fP or \fI-merge\fP)
+  or to the resource file (when used with \fI-edit\fP) should be shown on the
+  standard output, but should not be performed.
+  .TP 8
+***************
+*** 176,187 ****
+  of the specified properties, replacing whatever was there (i.e.
+  the old contents are removed).  This is the default action.
+  .TP 8
+  .B \-merge
+! This option indicates that the input should be merged with, instead of
+! replacing, the current contents of the specified properties.  
+! Note that this option does a
+! lexicographic sorted merge of the two inputs, which is almost certainly
+! not what you want, but remains for backward compatibility.
+  .TP 8
+  .B \-remove
+  This option indicates that the specified properties should be removed
+--- 216,230 ----
+  of the specified properties, replacing whatever was there (i.e.
+  the old contents are removed).  This is the default action.
+  .TP 8
++ .B \-override
++ This option indicates that the input should be added to, instead of
++ replacing, the current contents of the specified properties.
++ New entries override previous entries.
++ .TP 8
+  .B \-merge
+! This option indicates that the input should be merged and lexicographically
+! sorted with, instead of replacing, the current contents of the specified
+! properties.  
+  .TP 8
+  .B \-remove
+  This option indicates that the specified properties should be removed
+***************
+*** 206,212 ****
+  .B \-D\fIname\[=value\]\fP
+  This option is passed through to the preprocessor and is used to define 
+  symbols for use with conditionals such as
+! .I #ifdef.
+  .TP 8
+  .B \-U\fIname\fP
+  This option is passed through to the preprocessor and is used to remove
+--- 249,255 ----
+  .B \-D\fIname\[=value\]\fP
+  This option is passed through to the preprocessor and is used to define 
+  symbols for use with conditionals such as
+! .I# ifdef.
+  .TP 8
+  .B \-U\fIname\fP
+  This option is passed through to the preprocessor and is used to remove
+*** /tmp/d01126	Mon Sep 14 19:00:36 1992
+--- config/att.cf	Mon Sep 14 18:52:59 1992
+***************
+*** 1,4 ****
+! XCOMM platform:  $XConsortium: att.cf,v 1.15 91/07/29 10:43:44 rws Exp $
+  
+  #define OSName			AT&T Unix System V Release 4.2
+  XCOMM operating system:  OSName
+--- 1,4 ----
+! XCOMM platform:  $XConsortium: att.cf,v 1.16 92/09/14 18:52:50 rws Exp $
+  
+  #define OSName			AT&T Unix System V Release 4.2
+  XCOMM operating system:  OSName
+***************
+*** 13,18 ****
+--- 13,19 ----
+  #define ExtraLibraries		-lsocket -lnsl
+  #define BootstrapCFlags		-Datt
+  #define NeedWidePrototypes	NO	/* experimental */
++ #define PatheticCpp		YES
+  #define DefaultCCOptions	-Xc
+  #define ServerOSDefines		-DSYSV386 -DATT
+  #define X386Server		YES

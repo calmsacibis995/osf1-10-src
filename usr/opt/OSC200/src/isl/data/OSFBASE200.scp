@@ -1,0 +1,394 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+# HISTORY
+# 
+# @(#)$RCSfile: OSFBASE200.scp,v $ $Revision: 1.1.6.14 $ (DEC) $Date: 1994/01/28 21:23:28 $
+#
+#   This software is furnished under a license and may be used and
+#   copied  only  in accordance with the terms of such license and
+#   with the  inclusion  of  the  above  copyright  notice.   This
+#   software  or  any  other copies thereof may not be provided or
+#   otherwise made available to any other person.  No title to and
+#   ownership of the software is hereby transferred.
+#
+#   The information in this software is subject to change  without
+#   notice  and should not be construed as a commitment by Digital
+#   Equipment Corporation.
+#
+#   Digital assumes no responsibility for the use  or  reliability
+#   of its software on equipment which is not supplied by Digital.
+#
+#	000	15-jun-1991	tomt, grant
+#	001	02-jul-1991	ccb
+#		turn on shared libs
+#	002	11-oct-1991	ccb
+#		modify shared library support to use lib_admin.dir
+
+LOADERDIR=var/adm/loader
+CONFDIR=etc/lib_admin.dir
+TICDIR=usr/share/lib/terminfo
+TICFILES="header special.ti print.ti virtual.ti
+	pmcons.ti dec.ti xterm.ti trailer"
+
+TMPCONF=/tmp/$$conf
+ZICDIR=etc/zoneinfo/sources
+
+:	-Catalogs
+#		Merge message catalogs
+#
+
+Catalogs()
+{(
+	MSGDIR=./usr/lib/nls/msg
+	OLDDIR=en_US.88591
+	NEWDIR=en_US.ISO8859-1
+	NEW=$MSGDIR/$NEWDIR
+	OLD=$MSGDIR/$OLDDIR
+	ORPHANS="ctab.cat egrep.cat fgrep.cat ic.cat"	# hello, hans!
+	ORPTMP=./var/adm/smlogs/orp.tmp
+	ORPFILE=./var/adm/smlogs/upd_obsolete_files
+
+	# make sure we haven't already done this in an earlier update
+	LSINFO=`ls -ld $OLD 2> /dev/null` ||
+	{
+		# no link. make sure it's there for layered products that
+		#  install later.
+
+		cd $MSGDIR
+		ln -s $NEWDIR $OLDDIR
+		return 0
+	}
+
+	case "$LSINFO" in
+	l*)	# already a symbolic link
+
+		# clean up the orphan table....
+		egrep -v $OLDDIR $ORPFILE > $ORPTMP
+		mv $ORPTMP $ORPFILE
+
+		# and leave....
+		return 0
+		;;
+	esac
+
+	# clobber the old name space
+	(cd $NEW;tar cf - .)|(cd $OLD;tar xpf -)
+
+	# transfer all catalogs to new location
+	(cd $OLD;tar cf - .)|(cd $NEW;tar xpf -)
+
+	# remove old & make link
+	(
+		cd $MSGDIR
+		rm -rf $OLDDIR
+		ln -s $NEWDIR $OLDDIR
+	)
+
+	# remove known orphans
+	(
+		cd $NEW
+		rm -rf $ORPHANS
+	)
+
+	egrep -v $OLDDIR $ORPFILE > $ORPTMP
+	mv $ORPTMP $ORPFILE
+)}
+
+
+: CommandCheck -
+#
+#	Given:	Nothing
+#
+#	Does:	Checks to ensure that the correct command is used
+#		for installing subsets.  Specifically, blocks users
+#		from using 'setld -l' to perform update installs.
+#
+#	Return: 0 - Yes, I want to proceed.
+#		1 - No, I don't want to proceed.
+#
+CommandCheck()
+{
+	while :
+	do
+		Error "
+--------------------------------------------------------------------
+Caution:
+
+Use the \"setld -l\" command only to load optional subsets.  To upgrade
+the operating system or any of the mandatory subsets you must use the
+/sbin/installupdate command.    See the Installation Guide for a list
+of mandatory subsets and more information about upgrading your system.
+--------------------------------------------------------------------
+
+Do you want to continue? (y/n) [n]: \c"
+
+		read ANS
+		ANS=`echo $ANS`
+		case $ANS in
+		[yY]* ) return 0 ;;
+		[nN]* | "" ) return 1 ;;
+		esac
+	done
+}
+
+
+: PreLoadCleanup -
+#
+#	Given:	Nothing
+#
+#	Does:	Performs actions on files that were saved or moved
+#		out of the way for installation purposes.
+#
+#	Return: Nothing
+#
+PreLoadCleanup()
+{
+	rm -f	./sbin/init.PreLOAD \
+		./sbin/sh.PreLOAD \
+		./sbin/installupdate.PreLOAD \
+		./usr/sbin/portmap.PreLOAD \
+		./usr/sbin/routed.PreLOAD \
+		./usr/sbin/ypbind.PreLOAD 
+}
+
+
+:	-TermInfo
+#		compile the terminfo database
+#
+
+TermInfo()
+{ (
+
+	cd $TICDIR
+	cat $TICFILES > tmp.ti
+
+	2>&1 tic tmp.ti > /dev/null
+	rm -f tmp.ti
+) }
+
+
+:	-ZoneInfo
+#		run the zoneinfo compiler
+#
+
+ZoneInfo()
+{ (
+	cd $ZICDIR
+	zic *
+) }
+
+
+Main()
+{
+	case $ACT in
+	PRE_L)
+		#
+		# This section blocks a user from using setld -l to
+		# install subsets, if an operating system is already
+		# installed on the system.  This is needed because
+		# some customers confused MUP installs with our new
+		# update install.  This is a safety check.
+		#
+		[ "$ADVFLAG$ISL_ADVFLAG$UPDFLAG" ] ||
+		{
+			SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+			. $SHELL_LIB/Error
+			. $SHELL_LIB/libscp
+
+			STL_DepInit
+			STL_DepEval 'OSFBASE*' &&
+			{
+				CommandCheck || exit 1
+			}
+		}
+	
+
+		#
+		# This gets executed for all installations
+		# move init and sh to prevent on-disk corruption
+		#
+		./sbin/mv ./sbin/init ./sbin/init.PreLOAD
+		./sbin/cp ./sbin/init.PreLOAD ./sbin/init
+		./sbin/mv ./sbin/sh ./sbin/sh.PreLOAD
+		./sbin/cp ./sbin/sh.PreLOAD ./sbin/sh
+
+
+		#
+		# Perform the following if this is an update
+		# installation.
+		#
+		[ "$UPDFLAG" ] &&
+		{
+			#
+			# Protect potential running files.  Move the
+			# original out of the way. 
+			#
+			for K in ./sbin/installupdate \
+				 ./usr/sbin/portmap \
+				 ./usr/sbin/routed \
+				 ./usr/sbin/ypbind
+			do
+				./sbin/mv $K ${K}.PreLOAD
+				./sbin/cp ${K}.PreLOAD $K
+			done
+
+			#
+			# remove earlier version mrg and data files
+			#
+			for i in ./usr/sys/conf/*.mrg..config \
+				./usr/sys/conf/*.mrg..files \
+				./usr/sys/conf/*.mrg..files.dat \
+				./usr/sys/conf/alpha/*.mrg..files \
+				./usr/sys/conf/alpha/*.mrg..files.dat \
+				./sbin/it.d/data/cinst.data
+			do
+				rm -f $i
+			done
+
+			#
+			# move selected files out of the way prior to
+			# starting the installation and remove the 
+			# .proto.. versions
+			#
+			# This code can be removed in POST_STERLING
+			# products.
+			#
+			for i in ./usr/sys/io/common/conf.c \
+				./usr/sys/streams/str_config.c
+			do
+				[ -f $i ] && mv $i $i.PreUPD
+			done
+
+			for i in ./usr/sys/io/common/.proto..conf.c \
+				./usr/sys/streams/.proto..str_config.c
+			do
+				rm -f $i
+			done
+		}
+		;;
+	POST_L)
+		#
+		# Perform the following if this is NOT an update
+		# installation.  The files below need to be pro-
+		# pogated to their configured state prior to the
+		# system booting.
+		#
+		[ "$UPDFLAG" ] ||
+		{
+			for K in bcheckrc rc0 rc2 rc3
+			do
+				mv ./sbin/.proto..$K ./sbin/$K
+				chmod 755 ./sbin/$K
+			done
+		}
+		
+		# Perform the following if this is an update installation.
+		#
+		[ "$UPDFLAG" ] &&
+		{
+			# The links were moved to ensure correct startup of the
+			# nfs and sia daemons.
+			#
+			rm -rf ./sbin/rc3.d/S35nfs > /dev/null 2>&1
+			rm -rf ./sbin/rc3.d/S26sia > /dev/null 2>&1
+			#
+			# Change the permissions of sendmail.st on an Update
+			#
+			for File in ./usr/var/adm/sendmail/.proto..sendmail.st \
+				./usr/var/adm/sendmail/sendmail.st
+			do
+				if [ -f $File ]
+				then
+					chmod 644 $File
+				fi	
+			done
+			#
+			# Remove ./etc/.{new,proto}..svid[23]* files.  
+			# Customer changes in these files are not supported.   
+			#   
+			for File in ./etc/.proto..svid2_login	./etc/.new..svid2_login \
+				./etc/.proto..svid2_path	./etc/.new..svid2_path \
+				./etc/.proto..svid2_profile	./etc/.new..svid2_profile \
+				./etc/.proto..svid3_login	./etc/.new..svid3_login \
+				./etc/.proto..svid3_path	./etc/.new..svid3_path \
+				./etc/.proto..svid3_profile	./etc/.new..svid3_profile
+			do
+				if [ -f $File ]
+				then
+					rm $File
+				fi
+			done
+			#
+			#  Change the permissions on /dev/cam to 600 
+			#
+			if [ -c ./dev/cam ]; then
+				chmod 600 ./dev/cam
+			fi
+		}
+
+
+		#
+		#  Turn on shared libraries for only systems running OSF Shared Libraries
+		#  assume .proto..
+		MACHINE=`bin/machine`
+		if [ "$MACHINE" = "mips" ]
+			then
+			D=`pwd`
+			case "$D" in
+			/)	# disklessproofing
+				mkdir $LOADERDIR 2> $NUL
+	
+				[ -f $CONFDIR/.proto..*.conf ] &&
+				(
+					cd $CONFDIR
+					for K in .proto..*.conf
+					{
+						echo
+						cat $K
+						echo
+					} > $TMPCONF
+					lib_admin $TMPCONF
+				)
+				;;
+			esac
+		fi
+		(
+			cd dev
+			chgrp mem mem
+			chgrp kmem kmem
+		)
+		;;
+	C)	case "$1" in
+		INSTALL)
+			TermInfo
+			ZoneInfo
+			Catalogs
+			PreLoadCleanup
+			;;
+		esac
+	esac
+	return 0
+}
+
+[ "$CHECK_SYNTAX" ] || Main $*
+

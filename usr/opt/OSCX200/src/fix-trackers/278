@@ -1,0 +1,183 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204231538.AA23698@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2504) close XBUG #4534: xdm: chooser fails to recognize some hostnames
+Date: Thu, 23 Apr 92 11:38:00 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xdm : chooser fails to recognise crane.doc.ic.ac.uk
+        ### bug number:   4534
+        ### area:         xdm
+        ### severity:     low
+
+Problem was careless parsing of hex strings.  Since hex strings cannot
+reliably be distinguished from host names, also changed xdm to use
+dotted decimal format for addresses in the chooser command line.
+
+*** /tmp/da15445	Tue Apr 21 18:46:00 1992
+--- clients/xdm/chooser.c	Tue Apr 21 18:44:19 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: chooser.c,v 1.12 91/10/31 09:55:18 rws Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: chooser.c,v 1.13 92/04/21 18:42:13 gildea Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 74,79 ****
+--- 74,83 ----
+  
+  #define BROADCAST_HOSTNAME  "BROADCAST"
+  
++ #ifndef ishexdigit
++ #define ishexdigit(c)	(isdigit(c) || 'a' <= (c) && (c) <= 'f')
++ #endif
++ 
+  #ifdef hpux
+  # include <sys/utsname.h>
+  # ifdef HAS_IFREQ
+***************
+*** 505,524 ****
+      }
+      else
+      {
+- #ifndef ishexdigit
+- #define ishexdigit(c)	(isdigit(c) || 'a' <= (c) && (c) <= 'f')
+- #endif
+  
+! 	if (isascii (name[0]) && ishexdigit (name[0]))
+  	{
+- 	    if (!index (name, '.'))
+- 		FromHex (name, &in_addr.sin_addr.s_addr, strlen (name));
+- 	    else
+- 		in_addr.sin_addr.s_addr = inet_addr (name);
+- 	    if (in_addr.sin_addr.s_addr == -1)
+- 		return;
+  	    in_addr.sin_family = AF_INET;
+  	}
+  	else
+  	{
+  	    hostent = gethostbyname (name);
+--- 509,524 ----
+      }
+      else
+      {
+  
+! 	/* address as hex string, e.g., "12180022" (depreciated) */
+! 	if (strlen(name) == 8 &&
+! 	    FromHex(name, &in_addr.sin_addr.s_addr, strlen(name)) == 0)
+  	{
+  	    in_addr.sin_family = AF_INET;
+  	}
++ 	/* Per RFC 1123, check first for IP address in dotted-decimal form */
++ 	else if ((in_addr.sin_addr.s_addr = inet_addr(name)) != -1)
++ 	    in_addr.sin_family = AF_INET;
+  	else
+  	{
+  	    hostent = gethostbyname (name);
+***************
+*** 776,796 ****
+--- 776,807 ----
+      /*NOTREACHED*/
+  }
+  
++ /* Converts the hex string s of length len into the byte array d.
++    Returns 0 if s was a legal hex string, 1 otherwise.
++    */
++ int
+  FromHex (s, d, len)
+      char    *s, *d;
+      int	    len;
+  {
+      int	t;
++     int ret = len&1;		/* odd-length hex strings are illegal */
+      while (len >= 2)
+      {
+  #define HexChar(c)  ('0' <= (c) && (c) <= '9' ? (c) - '0' : (c) - 'a' + 10)
++ 
++ 	if (!ishexdigit(*s))
++ 	    ret = 1;
+  	t = HexChar (*s) << 4;
+  	s++;
++ 	if (!ishexdigit(*s))
++ 	    ret = 1;
+  	t += HexChar (*s);
+  	s++;
+  	*d++ = t;
+  	len -= 2;
+      }
++     return ret;
+  }
+  
+  /*ARGSUSED*/
+*** /tmp/da15464	Tue Apr 21 18:46:01 1992
+--- clients/xdm/choose.c	Tue Apr 21 18:45:57 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: choose.c,v 1.9 91/08/25 10:48:43 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: choose.c,v 1.10 92/04/21 18:45:38 gildea Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 70,75 ****
+--- 70,94 ----
+      return FormatBytes (a->data, a->length, buf, buflen);
+  }
+  
++ /* Converts an Internet address in ARRAY8 format to a string in
++    familiar dotted address notation, e.g., "18.24.0.11"
++    Returns 1 if successful, 0 if not.
++    */
++ static int
++ ARRAY8ToDottedDecimal (a, buf, buflen)
++     ARRAY8Ptr	a;
++     char	*buf;
++     int		buflen;
++ {
++     int i;
++ 
++     if (a->length != 4  ||  buflen < 20)
++ 	return 0;
++     sprintf(buf, "%d.%d.%d.%d",
++ 	    a->data[0], a->data[1], a->data[2], a->data[3]);
++     return 1;
++ }
++ 
+  typedef struct _IndirectUsers {
+      struct _IndirectUsers   *next;
+      ARRAY8	client;
+***************
+*** 321,327 ****
+      {
+  	*argp = parseArgs (*argp, "BROADCAST");
+      }
+!     else if (FormatARRAY8 (addr, hostbuf, sizeof (hostbuf)))
+      {
+  	*argp = parseArgs (*argp, hostbuf);
+      }
+--- 340,346 ----
+      {
+  	*argp = parseArgs (*argp, "BROADCAST");
+      }
+!     else if (ARRAY8ToDottedDecimal (addr, hostbuf, sizeof (hostbuf)))
+      {
+  	*argp = parseArgs (*argp, hostbuf);
+      }

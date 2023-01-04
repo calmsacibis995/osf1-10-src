@@ -1,0 +1,2647 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210200009.AA19711@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2701) close XBUG #5571: Xlib: (Ximp) keyEvent dropping/dis-order problem (7 of 7)
+Date: Mon, 19 Oct 92 20:09:38 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5571
+### area:         Xlib
+### severity:     low
+### comments:     part 7 of 7
+
+*** /tmp/d19175	Mon Oct 19 19:37:09 1992
+--- lib/X/Ximp/XimpTxtExt.c	Mon Oct 19 19:26:31 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpTxtExt.c,v 1.4 92/04/14 13:30:06 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpTxtExt.c,v 1.5 92/10/19 19:26:28 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 71,92 ****
+   */
+  
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char xchar_buf[BUFSIZE];
+      XChar2b xchar2b_buf[BUFSIZE];
+-     FontSetRec *fontset;
+      XFontStruct *font;
+      int (*cnv_func)();
+-     int cset_num, char_length;
+      int count, length, tmp_len;
+      int direction, logical_ascent, logical_descent, tmp_ascent, tmp_descent;
+      XCharStruct overall, tmp_overall;
+      Bool first = True;
+  
+!     cnv_func = lcd->ximp_lcpart->methods->CNV_FUNC;
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      bzero(&overall, sizeof(XCharStruct));
+      logical_ascent = logical_descent = 0;
+--- 71,93 ----
+   */
+  
+  {
+!     XLCd lcd = xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char xchar_buf[BUFSIZE];
+      XChar2b xchar2b_buf[BUFSIZE];
+      XFontStruct *font;
+      int (*cnv_func)();
+      int count, length, tmp_len;
+      int direction, logical_ascent, logical_descent, tmp_ascent, tmp_descent;
+      XCharStruct overall, tmp_overall;
+      Bool first = True;
++     LCMethods methods = LC_METHODS(lcd);
++     State state;
+  
+!     cnv_func = methods->CNV_FUNC;
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      bzero(&overall, sizeof(XCharStruct));
+      logical_ascent = logical_descent = 0;
+***************
+*** 93,100 ****
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(lcd, text, text_length, strbuf, &length,
+! 			    &cset_num, &char_length);
+  	if (count <= 0)
+  	    break;
+  
+--- 94,100 ----
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(state, text, text_length, strbuf, &length);
+  	if (count <= 0)
+  	    break;
+  
+***************
+*** 102,122 ****
+  	text_length -= count;
+  
+  	strptr = strbuf;
+- 	fontset = ((Ximp_XFontSet) xfont_set)->ximp_fspart->fontset + cset_num;
+- 	if (fontset == NULL)
+- 	    continue;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (char_length < 2)
+! 	    	count = _Ximp_cstoxchar(fontset, strptr, length,
+! 					xchar_buf, &tmp_len, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(fontset, strptr, length,
+! 					  xchar2b_buf, &tmp_len, &font);
+  	    if (count <= 0)
+  		break;
+  
+! 	    if (char_length < 2)
+  		XTextExtents(font, (char *)xchar_buf, tmp_len, &direction,
+  			     &tmp_ascent, &tmp_descent, &tmp_overall);
+              else
+--- 102,119 ----
+  	text_length -= count;
+  
+  	strptr = strbuf;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (state->codeset->length  < 2)
+! 	    	count = _Ximp_cstoxchar(xfont_set, strptr, length, xchar_buf,
+! 					&tmp_len, state->codeset, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(xfont_set, strptr, length, xchar2b_buf,
+! 					  &tmp_len, state->codeset, &font);
+  	    if (count <= 0)
+  		break;
+  
+! 	    if (state->codeset->length < 2)
+  		XTextExtents(font, (char *)xchar_buf, tmp_len, &direction,
+  			     &tmp_ascent, &tmp_descent, &tmp_overall);
+              else
+***************
+*** 145,151 ****
+  	}
+      }
+  
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      if (overall_ink) {
+  	overall_ink->x = overall.lbearing;
+--- 142,149 ----
+  	}
+      }
+  
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      if (overall_ink) {
+  	overall_ink->x = overall.lbearing;
+*** /tmp/d19207	Mon Oct 19 19:37:38 1992
+--- lib/X/Ximp/XimpTxtPer.c	Mon Oct 19 19:26:35 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpTxtPer.c,v 1.4 92/04/14 13:30:08 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpTxtPer.c,v 1.5 92/10/19 19:26:31 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 71,92 ****
+   */
+  
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char *xchar_ptr, xchar_buf[BUFSIZE];
+      XChar2b *xchar2b_ptr, xchar2b_buf[BUFSIZE];
+-     FontSetRec *fontset;
+      XFontStruct *font;
+      XCharStruct *def, *cs, overall;
+      int (*cnv_func)();
+-     int cset_num, char_length;
+      int count, length, tmp_len, require_num;
+      int logical_ascent, logical_descent;
+      Bool first = True;
+  
+!     cnv_func = lcd->ximp_lcpart->methods->CNV_FUNC;
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      bzero(&overall, sizeof(XCharStruct));
+      logical_ascent = logical_descent = require_num = *num_chars = 0;
+--- 71,93 ----
+   */
+  
+  {
+!     XLCd lcd = xfont_set->core.lcd;
+      unsigned char *strptr, strbuf[BUFSIZE];
+      unsigned char *xchar_ptr, xchar_buf[BUFSIZE];
+      XChar2b *xchar2b_ptr, xchar2b_buf[BUFSIZE];
+      XFontStruct *font;
+      XCharStruct *def, *cs, overall;
+      int (*cnv_func)();
+      int count, length, tmp_len, require_num;
+      int logical_ascent, logical_descent;
+      Bool first = True;
++     LCMethods methods = LC_METHODS(lcd);
++     State state;
+  
+!     cnv_func = methods->CNV_FUNC;
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      bzero(&overall, sizeof(XCharStruct));
+      logical_ascent = logical_descent = require_num = *num_chars = 0;
+***************
+*** 93,100 ****
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(lcd, text, text_length, strbuf, &length,
+! 			    &cset_num, &char_length);
+  	if (count <= 0)
+  	    break;
+  
+--- 94,100 ----
+  
+      while (text_length > 0) {
+          length = BUFSIZE;
+! 	count = (*cnv_func)(state, text, text_length, strbuf, &length);
+  	if (count <= 0)
+  	    break;
+  
+***************
+*** 102,118 ****
+  	text_length -= count;
+  
+  	strptr = strbuf;
+- 	fontset = ((Ximp_XFontSet) xfont_set)->ximp_fspart->fontset + cset_num;
+- 	if (fontset == NULL)
+- 	    continue;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (char_length < 2)
+! 		count = _Ximp_cstoxchar(fontset, strptr, length,
+! 					xchar_buf, &tmp_len, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(fontset, strptr, length,
+! 					xchar2b_buf, &tmp_len, &font);
+  	    if (count <= 0)
+  		break;
+  
+--- 102,115 ----
+  	text_length -= count;
+  
+  	strptr = strbuf;
+  	while (length > 0) {
+  	    tmp_len = BUFSIZE;
+! 	    if (state->codeset->length < 2)
+! 		count = _Ximp_cstoxchar(xfont_set, strptr, length, xchar_buf,
+! 					&tmp_len, state->codeset, &font);
+  	    else
+! 		count = _Ximp_cstoxchar2b(xfont_set, strptr, length, xchar2b_buf,
+! 					  &tmp_len, state->codeset, &font);
+  	    if (count <= 0)
+  		break;
+  
+***************
+*** 120,132 ****
+  	    length -= count;
+  
+  	    if (require_num) {
+! 		require_num += count;
+  		continue;
+  	    }
+  	    if (buf_size < tmp_len) {
+! 		require_num = *num_chars + count;
+  		continue;
+  	    }
+  
+  	    if (first) {
+  		logical_ascent = font->ascent;
+--- 117,130 ----
+  	    length -= count;
+  
+  	    if (require_num) {
+! 		require_num += tmp_len;
+  		continue;
+  	    }
+  	    if (buf_size < tmp_len) {
+! 		require_num = *num_chars + tmp_len;
+  		continue;
+  	    }
++ 	    buf_size -= tmp_len;
+  
+  	    if (first) {
+  		logical_ascent = font->ascent;
+***************
+*** 136,142 ****
+  		logical_descent = max(logical_descent, font->descent);
+  	    }
+  
+! 	    if (char_length < 2) {
+  		CI_GET_DEFAULT_INFO_1D (font, def)
+  		xchar_ptr = xchar_buf;
+  	    } else {
+--- 134,140 ----
+  		logical_descent = max(logical_descent, font->descent);
+  	    }
+  
+! 	    if (state->codeset->length < 2) {
+  		CI_GET_DEFAULT_INFO_1D (font, def)
+  		xchar_ptr = xchar_buf;
+  	    } else {
+***************
+*** 145,151 ****
+  	    }
+  
+  	    while (tmp_len-- > 0) {
+! 		if (char_length < 2) {
+  		    CI_GET_CHAR_INFO_1D (font, *xchar_ptr, def, cs)
+  		    xchar_ptr++;
+  		} else {
+--- 143,149 ----
+  	    }
+  
+  	    while (tmp_len-- > 0) {
+! 		if (state->codeset->length < 2) {
+  		    CI_GET_CHAR_INFO_1D (font, *xchar_ptr, def, cs)
+  		    xchar_ptr++;
+  		} else {
+***************
+*** 186,192 ****
+  	}
+      }
+  
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      if (require_num) {
+  	*num_chars = require_num;
+--- 184,191 ----
+  	}
+      }
+  
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      if (require_num) {
+  	*num_chars = require_num;
+*** /tmp/d19230	Mon Oct 19 19:37:53 1992
+--- lib/X/Ximp/XimpTxtPr.c	Mon Oct 19 19:26:38 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpTxtPr.c,v 1.3 92/04/14 13:30:11 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpTxtPr.c,v 1.4 92/10/19 19:26:35 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 70,76 ****
+   */
+  
+  {
+!     Ximp_XLCd lcd;
+      unsigned char *value, *buf, *buf_ptr;
+      Atom encoding;
+      int nitems, unconv_num;
+--- 70,76 ----
+   */
+  
+  {
+!     XLCd lcd;
+      unsigned char *value, *buf, *buf_ptr;
+      Atom encoding;
+      int nitems, unconv_num;
+***************
+*** 77,83 ****
+      int tmp_len, tmp_num;
+      int (*cnv_func)();
+  
+!     if ((lcd = (Ximp_XLCd) _XlcCurrentLC()) == NULL)
+  	return XLocaleNotSupported;
+  
+      switch (style) {
+--- 77,83 ----
+      int tmp_len, tmp_num;
+      int (*cnv_func)();
+  
+!     if ((lcd = _XlcCurrentLC()) == NULL)
+  	return XLocaleNotSupported;
+  
+      switch (style) {
+*** /tmp/d19250	Mon Oct 19 19:38:06 1992
+--- lib/X/Ximp/XimpWPer.c	Mon Oct 19 19:26:55 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWPer.c,v 1.2 92/04/14 13:30:27 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWPer.c,v 1.3 92/10/19 19:26:52 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 73,79 ****
+  _Ximp_wc_extents_per_char(xfont_set, text, text_length, ink_buf, logical_buf,
+  			  buf_size, num_chars, overall_ink, overall_logical)
+      XFontSet	xfont_set;
+!     char	*text;
+      int		text_length;
+      XRectangle	*ink_buf;
+      XRectangle	*logical_buf;
+--- 73,79 ----
+  _Ximp_wc_extents_per_char(xfont_set, text, text_length, ink_buf, logical_buf,
+  			  buf_size, num_chars, overall_ink, overall_logical)
+      XFontSet	xfont_set;
+!     wchar_t	*text;
+      int		text_length;
+      XRectangle	*ink_buf;
+      XRectangle	*logical_buf;
+*** /tmp/d19269	Mon Oct 19 19:38:18 1992
+--- lib/X/Ximp/XimpWPrTxt.c	Mon Oct 19 19:26:59 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWPrTxt.c,v 1.3 92/04/14 13:30:30 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWPrTxt.c,v 1.4 92/10/19 19:26:56 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 70,80 ****
+  #include <X11/Xutil.h>
+  #include <X11/Xatom.h>
+  
+! extern int _Ximp_mbstowcs(), _Ximp_cttowcs();
+  extern wchar_t *_Xwcscpy();
+  
+  int
+  XwcTextPropertyToTextList(dpy, text_prop, list_ret, count_ret)
+      Display *dpy;
+      XTextProperty *text_prop;
+      wchar_t ***list_ret;
+--- 70,85 ----
+  #include <X11/Xutil.h>
+  #include <X11/Xatom.h>
+  
+! extern int _Xlc_mbstowcs(), _Ximp_cttowcs();
+  extern wchar_t *_Xwcscpy();
+  
+  int
++ #ifndef DYNAMICLIB
+  XwcTextPropertyToTextList(dpy, text_prop, list_ret, count_ret)
++ #else
++ _XimpwcTextPropertyToTextList(lcd, dpy, text_prop, list_ret, count_ret)
++     XLCd     lcd;
++ #endif
+      Display *dpy;
+      XTextProperty *text_prop;
+      wchar_t ***list_ret;
+***************
+*** 84,92 ****
+      wchar_t *buf, *buf_ptr;
+      unsigned char *str_ptr;
+      int i, count, unconv_num, tmp_len, buf_len;
+! #define CNV_STR_FUNC	_Ximp_mbstowcs
+  #define CNV_CTEXT_FUNC	_Ximp_cttowcs
+! #define CNV_TEXT_FUNC	_Ximp_mbstowcs
+  
+      /* XXX */
+      buf_len = text_prop->nitems + 1;
+--- 89,97 ----
+      wchar_t *buf, *buf_ptr;
+      unsigned char *str_ptr;
+      int i, count, unconv_num, tmp_len, buf_len;
+! #define CNV_STR_FUNC	_Xlc_mbstowcs
+  #define CNV_CTEXT_FUNC	_Ximp_cttowcs
+! #define CNV_TEXT_FUNC	_Xlc_mbstowcs
+  
+      /* XXX */
+      buf_len = text_prop->nitems + 1;
+***************
+*** 124,130 ****
+      return unconv_num;
+  }
+  
+! void XwcFreeStringList(list)
+      wchar_t **list;
+  {
+      if (list) {
+--- 129,141 ----
+      return unconv_num;
+  }
+  
+! void
+! #ifndef DYNAMICLIB
+! XwcFreeStringList(list)
+! #else
+! _XimpwcFreeStringList(lcd, list)
+!     XLCd      lcd ;
+! #endif
+      wchar_t **list;
+  {
+      if (list) {
+*** /tmp/d19289	Mon Oct 19 19:38:30 1992
+--- lib/X/Ximp/XimpWTxtPr.c	Mon Oct 19 19:27:02 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWTxtPr.c,v 1.3 92/04/14 13:30:33 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWTxtPr.c,v 1.4 92/10/19 19:26:59 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 70,80 ****
+  #include <X11/Xutil.h>
+  #include <X11/Xatom.h>
+  
+! extern int _Ximp_wcstostring(), _Ximp_wcstoct(), _Ximp_wcstombs();
+  extern int _Xwcslen();
+  
+  int
+  XwcTextListToTextProperty(dpy, list, count, style, text_prop)
+      Display *dpy;
+      wchar_t **list;
+      int count;
+--- 70,85 ----
+  #include <X11/Xutil.h>
+  #include <X11/Xatom.h>
+  
+! extern int _Ximp_wcstostring(), _Ximp_wcstoct(), _Xlc_wcstombs();
+  extern int _Xwcslen();
+  
+  int
++ #ifndef DYNAMICLIB
+  XwcTextListToTextProperty(dpy, list, count, style, text_prop)
++ #else
++ _XimpwcTextListToTextProperty(lcd, dpy, list, count, style, text_prop)
++     XLCd     lcd;
++ #endif
+      Display *dpy;
+      wchar_t **list;
+      int count;
+***************
+*** 86,92 ****
+  
+  #define CNV_STR_FUNC	_Ximp_wcstostring
+  #define CNV_CTEXT_FUNC	_Ximp_wcstoct
+! #define CNV_TEXT_FUNC	_Ximp_wcstombs
+  #define STRLEN_FUNC	_Xwcslen
+  
+      /* XXX */
+--- 91,97 ----
+  
+  #define CNV_STR_FUNC	_Ximp_wcstostring
+  #define CNV_CTEXT_FUNC	_Ximp_wcstoct
+! #define CNV_TEXT_FUNC	_Xlc_wcstombs
+  #define STRLEN_FUNC	_Xwcslen
+  
+      /* XXX */
+*** /tmp/d19308	Mon Oct 19 19:38:41 1992
+--- lib/X/Ximp/XimpXConv.c	Mon Oct 19 19:27:06 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpXConv.c,v 1.3 92/04/14 13:30:36 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpXConv.c,v 1.4 92/10/19 19:27:02 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 69,145 ****
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! static XFontStruct *
+! getFont(fontset, str, xstr)
+!     FontSetRec *fontset;
+!     unsigned char *str;
+!     unsigned char *xstr;
+  {
+!     register ExtFontRec *ext_font = fontset->ext_font_list;
+!     int ext_font_num = fontset->ext_font_num;
+!     register unsigned char ch;
+!     unsigned char ch_L, ch_R;
+  
+!     ch_L = *str & 0x7f;
+!     ch_R = ch_L | 0x80;
+  
+!     while (ext_font_num--) {
+! 	ch = ext_font->msb_mask ? ch_R : ch_L;
+! 	if (ch > ext_font->min_char && ch < ext_font->max_char) {
+! 	    *xstr = ch;
+! 	    return ext_font->font;
+! 	}
+! 	ext_font++;
+!     }
+! 
+!     *xstr = fontset->msb_mask ? ch_R : ch_L;
+! 
+!     return fontset->font;
+  }
+  
+- static XFontStruct *
+- getFont16(fontset, str, xstr)
+-     FontSetRec *fontset;
+-     unsigned char *str;
+-     XChar2b *xstr;
+- {
+-     register ExtFontRec *ext_font = fontset->ext_font_list;
+-     int ext_font_num = fontset->ext_font_num;
+-     register unsigned xchar;
+-     unsigned xchar_L, xchar_R;
+- 
+-     xchar_L = ((unsigned) *str << 8 | *(str+1)) & 0x7f7f;
+-     xchar_R = xchar_L | 0x8080;
+- 
+-     while (ext_font_num--) {
+- 	xchar = ext_font->msb_mask ? xchar_R : xchar_L;
+- 	if (xchar > ext_font->min_char && xchar < ext_font->max_char)
+- 	    goto done;
+- 	ext_font++;
+-     }
+- 
+-     xchar = ext_font->msb_mask ? xchar_R : xchar_L;
+- done:
+-     xstr->byte1 = xchar >> 8;
+-     xstr->byte2 = (unsigned char) xchar;
+- 
+-     return fontset->font;
+- }
+- 
+  int
+! _Ximp_cstoxchar(fontset, string, length, ret_buf, ret_len, ret_font)
+!     FontSetRec *fontset;
+      unsigned char *string;
+      register int length;
+      unsigned char *ret_buf;
+      int *ret_len;
+      XFontStruct **ret_font;
+  {
+      register unsigned char mask, *strptr = string;
+      register unsigned char *bufptr = ret_buf;
+      XFontStruct *font;
+  
+!     if (fontset->font == NULL)
+  	return -1;
+      
+      if (length > *ret_len)
+--- 69,106 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! static FontSetRec *
+! GetFontSetFromCodeSet(xfont_set, codeset)
+!     XimpFontSet xfont_set;
+!     CodeSet codeset;
+  {
+!     FontSetRec *fontset = xfont_set->ximp_fspart.fontset;
+!     int num = xfont_set->ximp_fspart.fontset_num;
+  
+!     for ( ; num-- > 0; fontset++)
+! 	if (fontset->codeset == codeset)
+! 	    return fontset;
+  
+!     return (FontSetRec *) NULL;
+  }
+  
+  int
+! _Ximp_cstoxchar(xfont_set, string, length, ret_buf, ret_len, codeset, ret_font)
+!     XFontSet xfont_set;
+      unsigned char *string;
+      register int length;
+      unsigned char *ret_buf;
+      int *ret_len;
++     CodeSet codeset;
+      XFontStruct **ret_font;
+  {
+      register unsigned char mask, *strptr = string;
+      register unsigned char *bufptr = ret_buf;
++     FontSetRec *fontset;
+      XFontStruct *font;
+  
+!     fontset = GetFontSetFromCodeSet(xfont_set, codeset);
+!     if (fontset == NULL || fontset->font == NULL)
+  	return -1;
+      
+      if (length > *ret_len)
+***************
+*** 147,170 ****
+      if (length < 1)
+  	return 0;
+  
+!     if (fontset->ext_font_num == 0) {
+! 	font = fontset->font;
+! 	mask = fontset->msb_mask;
+! 	while (length--)
+! 	    *bufptr++ = (*strptr++ & 0x7f) | mask;
+! 	goto done;
+!     }
+  
+-     font = getFont(fontset, strptr, bufptr);
+-     strptr++;
+-     bufptr++;
+-     length--;
+- 
+-     for ( ; length > 0; length--, strptr++, bufptr++)
+- 	if (font != getFont(fontset, strptr, bufptr))
+- 	    break;
+- 
+- done:
+      *ret_len = bufptr - ret_buf;
+      *ret_font = font;
+  
+--- 108,118 ----
+      if (length < 1)
+  	return 0;
+  
+!     font = fontset->font;
+!     mask = fontset->side;
+!     while (length--)
+! 	*bufptr++ = (*strptr++ & 0x7f) | mask;
+  
+      *ret_len = bufptr - ret_buf;
+      *ret_font = font;
+  
+***************
+*** 172,190 ****
+  }
+  
+  int
+! _Ximp_cstoxchar2b(fontset, string, length, ret_buf, ret_len, ret_font)
+!     FontSetRec *fontset;
+      unsigned char *string;
+      register int length;
+      XChar2b *ret_buf;
+      int *ret_len;
+      XFontStruct **ret_font;
+  {
+      register unsigned char mask, *strptr = string;
+      register XChar2b *bufptr = ret_buf;
+      XFontStruct *font;
+  
+!     if (fontset->font == NULL)
+  	return -1;
+      
+      length >>= 1;
+--- 120,141 ----
+  }
+  
+  int
+! _Ximp_cstoxchar2b(xfont_set, string, length, ret_buf, ret_len, codeset, ret_font)
+!     XFontSet xfont_set;
+      unsigned char *string;
+      register int length;
+      XChar2b *ret_buf;
+      int *ret_len;
++     CodeSet codeset;
+      XFontStruct **ret_font;
+  {
+      register unsigned char mask, *strptr = string;
+      register XChar2b *bufptr = ret_buf;
++     FontSetRec *fontset;
+      XFontStruct *font;
+  
+!     fontset = GetFontSetFromCodeSet(xfont_set, codeset);
+!     if (fontset == NULL || fontset->font == NULL)
+  	return -1;
+      
+      length >>= 1;
+***************
+*** 193,219 ****
+      if (length < 1)
+  	return 0;
+  
+!     if (fontset->ext_font_num == 0) {
+! 	font = fontset->font;
+! 	mask = fontset->msb_mask;
+! 	while (length--) {
+! 	    bufptr->byte1 = (*strptr++ & 0x7f) | mask;
+! 	    bufptr->byte2 = (*strptr++ & 0x7f) | mask;
+! 	    bufptr++;
+! 	}
+! 	goto done;
+      }
+  
+-     font = getFont16(fontset, strptr, bufptr);
+-     strptr += 2;
+-     bufptr++;
+-     length--;
+- 
+-     for ( ; length > 0; length--, strptr += 2, bufptr++)
+- 	if (font != getFont16(fontset, strptr, bufptr))
+- 	    break;
+- 
+- done:
+      *ret_len = bufptr - ret_buf;
+      *ret_font = font;
+  
+--- 144,157 ----
+      if (length < 1)
+  	return 0;
+  
+!     font = fontset->font;
+!     mask = fontset->side;
+!     while (length--) {
+! 	bufptr->byte1 = (*strptr++ & 0x7f) | mask;
+! 	bufptr->byte2 = (*strptr++ & 0x7f) | mask;
+! 	bufptr++;
+      }
+  
+      *ret_len = bufptr - ret_buf;
+      *ret_font = font;
+  
+*** /tmp/d19327	Mon Oct 19 19:38:51 1992
+--- lib/X/Ximp/Ximpint.c	Mon Oct 19 19:27:09 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Ximpint.c,v 1.4 92/04/14 13:30:39 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by Fuji Xerox Co.,Ltd.
+--- 1,4 ----
+! /* $XConsortium: Ximpint.c,v 1.5 92/10/19 19:27:06 rws Exp $ */
+  /******************************************************************
+  
+                Copyright 1991, 1992 by Fuji Xerox Co.,Ltd.
+***************
+*** 133,139 ****
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, buffer, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);
+--- 133,139 ----
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, (char *)buffer, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);
+***************
+*** 159,166 ****
+  }
+  
+  #define BUF_SIZE (20)
+! static char local_buf[BUF_SIZE];
+! static unsigned char look[BUF_SIZE];
+  
+  int
+  _Ximp_LookupMBText(ic, event, buffer, nbytes, keysym, status)
+--- 159,166 ----
+  }
+  
+  #define BUF_SIZE (20)
+! static char local_buf[BUF_SIZE] = {0};	/* Clean up bss */
+! static unsigned char look[BUF_SIZE] = {0};	/* Clean up bss */
+  
+  int
+  _Ximp_LookupMBText(ic, event, buffer, nbytes, keysym, status)
+***************
+*** 203,208 ****
+--- 203,215 ----
+  		count = 0;
+  	    }
+  	}
++     } else if ((count != 1) || (buffer[0] >= 0x80)) { /* not ASCII Encoding */
++ 	bcopy(buffer, look, count);
++ 	if (_Ximp_cttombs(ic->core.im->core.lcd,
++ 			  look, count,
++ 			  buffer, &count, NULL) < 0) {
++ 	    count = 0;
++ 	}
+      }
+      return(count);
+  }
+***************
+*** 242,250 ****
+  	    local_buf[local_count] = c;
+  	    local_count++;
+  	    count = BUF_SIZE;
+! 	    _Ximp_cttowcs(ic->core.im->core.lcd,
+  			local_buf, local_count,
+! 			buffer, &count, NULL);
+  	}
+      } else if ((count == 1) && (look[0] < 0x80)) { /* ASCII Encoding */
+  	buffer[0] = look[0];
+--- 249,259 ----
+  	    local_buf[local_count] = c;
+  	    local_count++;
+  	    count = BUF_SIZE;
+! 	    if (_Ximp_cttowcs(ic->core.im->core.lcd,
+  			local_buf, local_count,
+! 			buffer, &count, NULL) < 0) {
+! 		count = 0;
+! 	    }
+  	}
+      } else if ((count == 1) && (look[0] < 0x80)) { /* ASCII Encoding */
+  	buffer[0] = look[0];
+*** /dev/null	Mon Oct 19 19:38:52 1992
+--- lib/X/Ximp/XimpLocal.c	Mon Oct 19 19:28:21 1992
+***************
+*** 0 ****
+--- 1,1224 ----
++ /* $XConsortium: XimpLocal.c,v 1.1 92/10/19 19:25:03 rws Exp $ */
++ /******************************************************************
++ 
++               Copyright 1992 by Fuji Xerox Co., Ltd.
++ 
++ Permission to use, copy, modify, distribute, and sell this software
++ and its documentation for any purpose is hereby granted without fee,
++ provided that the above copyright notice appear in all copies and
++ that both that copyright notice and this permission notice appear
++ in supporting documentation, and that the name of Fuji Xerox
++ not be used in advertising or publicity pertaining to distribution
++ of the software without specific, written prior permission.
++ Fuji Xerox make no representations about the suitability of this
++ software for any purpose.  It is provided
++ "as is" without express or implied warranty.
++ 
++ FUJI XEROX DISCLAIM ALL WARRANTIES WITH
++ REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
++ MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJI XEROX BE LIABLE
++ FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ WHATSOEVER RESULTING FROM LOSS OF USE, DATA
++ OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
++ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++ PERFORMANCE OF THIS SOFTWARE.
++ 
++   Author: Kazunori Nishihara	Fuji Xerox
++ 
++ ******************************************************************/
++ 
++ #include <stdio.h>
++ #include <X11/Xatom.h>
++ #include <X11/Xos.h>
++ #include <X11/Xlib.h>
++ #include <X11/keysym.h>
++ #include <X11/Xutil.h>
++ #include "Xlibint.h"
++ #include "Xlcint.h"
++ 
++ #include "Ximplc.h"
++ 
++ static Status _Ximp_Local_CloseIM();
++ static char * _Ximp_Local_GetIMValues();
++ static XIC _Ximp_Local_CreateIC();
++ static void _Ximp_Local_DestroyIC();
++ static void _Ximp_Local_SetFocus();
++ static void _Ximp_Local_UnSetFocus();
++ static char * _Ximp_Local_SetICValues();
++ static char * _Ximp_Local_GetICValues();
++ static char * _Ximp_Local_MbReset();
++ static wchar_t * _Ximp_Local_WcReset();
++ static int _Ximp_Local_MbLookupString();
++ static int _Ximp_Local_WcLookupString();
++ 
++ static Bool		_Ximp_PreSetAttributes();
++ static Bool		_Ximp_StatusSetAttributes();
++ static char *		_Ximp_SetICValueData();
++ 
++ static Bool 		 _Ximp_PreGetAttributes();
++ static Bool 		 _Ximp_StatusGetAttributes();
++ 
++ extern FILE * _XlcOpenLocaleFile();
++ 
++ extern void _Ximp_Local_OpenIM_hook();
++ 
++ XIMMethodsRec Ximp_local_im_methods = {
++     _Ximp_Local_CloseIM,
++     _Ximp_Local_GetIMValues,
++     _Ximp_Local_CreateIC
++ };
++ 
++ static XICMethodsRec Ximp_ic_methods = {
++     _Ximp_Local_DestroyIC, 	/* destroy */
++     _Ximp_Local_SetFocus,  	/* set_focus */
++     _Ximp_Local_UnSetFocus,	/* unset_focus */
++     _Ximp_Local_SetICValues,	/* set_values */
++     _Ximp_Local_GetICValues,	/* get_values */
++     _Ximp_Local_MbReset,		/* mb_reset */
++     _Ximp_Local_WcReset,		/* wc_reset */
++     _Ximp_Local_MbLookupString,	/* mb_lookup_string */
++     _Ximp_Local_WcLookupString,	/* wc_lookup_string */
++ };
++ 
++ static
++ CreateDefTree(im)
++     Ximp_XIM im;
++ {
++     FILE *fp;
++     static char *buf[1024];
++     char *s, *rhs;
++     DefTree *elem;
++ 
++     fp = _XlcOpenLocaleFile(NULL, ((XimpLCd)im->core.lcd)->locale.language, COMPOSE_FILE);
++     im->ximp_impart->top = (DefTree *)NULL;
++     if (fp == (FILE *)NULL) return;
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++     im->ximp_impart->num_save_rooms = Ximp_ParseStringFile(fp, &im->ximp_impart->top);
++ #else
++     (void)Ximp_ParseStringFile(fp, &im->ximp_impart->top);
++ #endif
++     fclose(fp);
++ }
++ 
++ void
++ _Ximp_Local_OpenIM_hook(im)
++     Ximp_XIM im;
++ {
++     CreateDefTree(im);
++     im->ximp_impart->current_ic = (XIC)NULL;
++ }
++ 
++ static char *
++ _Ximp_Local_GetIMValues(im, values)
++     Ximp_XIM im;
++     XIMArg *values;
++ {
++     XIMArg *p;
++     XIMStyles **value;
++     XIMStyles *styles;
++     int i;
++ 
++     for (p = values; p->name != NULL; p++) {
++ 	if (strcmp(p->name, XNQueryInputStyle) == 0) {
++ 	    if ((styles = (XIMStyles *)Xmalloc(sizeof(XIMStyles) +
++ 	         sizeof(XIMStyle) *
++ 		 im->ximp_impart->im_styles->count_styles)) == NULL) {
++ 		break;
++ 	    }
++ 	    styles->count_styles = im->ximp_impart->im_styles->count_styles;
++ 	    styles->supported_styles = (XIMStyle *)(&styles[1]);
++ 	    for(i=0; i < styles->count_styles; i++) {
++ 		styles->supported_styles[i] = im->ximp_impart->im_styles->supported_styles[i];
++ 	    }
++ 	    value = (XIMStyles **)p->value;
++ 	    *value = styles;
++ 	} else {
++ 	    break;
++ 	}
++     }
++     return (p->name);
++ }
++ 
++ static
++ FreeDefTreeElements(top)
++ DefTree *top;
++ {
++     if (top->succession) FreeDefTreeElements(top->succession);
++     if (top->next) FreeDefTreeElements(top->next);
++     if (top->mb) Xfree(top->mb);
++     if (top->wc) Xfree(top->wc);
++     Xfree(top);
++ }
++ 
++ static Status
++ _Ximp_Local_CloseIM(im)
++     Ximp_XIM im;
++ {
++     XIC ic;
++ 
++     while (ic = im->core.ic_chain) {
++ 	XDestroyIC(ic);
++     }
++     FreeDefTreeElements(im->ximp_impart->top);
++     if( im->ximp_impart->im_name )
++ 	XFree( im->ximp_impart->im_name );
++     XFree(im->ximp_impart->im_styles->supported_styles);
++     XFree(im->ximp_impart->im_styles);
++     XFree(im->ximp_impart);
++     return (True);
++ }
++ 
++ static Bool
++ _Ximp_Local_Filter(d, w, ev, client_data)
++     Display *d;
++     Window w;
++     XEvent *ev;
++     XPointer client_data;
++ {
++     Ximp_XIC ic = (Ximp_XIC)client_data;
++     KeySym keysym;
++     static char buf[128];
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++     static long must_be_through = 0;
++ #endif
++ 
++     DefTree *p;
++ 
++     if (ev->type != KeyPress) return (False);
++     if (ev->xkey.keycode == 0) return (False);
++     if (((Ximp_XIM)ic->core.im)->ximp_impart->top == (DefTree *)NULL) return (False);
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++     if (must_be_through) {
++ 	must_be_through--;
++ 	return (False);
++     }
++ #endif
++ 
++     (void)XLookupString((XKeyEvent *)ev, buf, sizeof(buf), &keysym, NULL);
++     if (IsModifierKey(keysym)) return (False);
++     for (p = ic->ximp_icpart->context; p; p = p->next) {
++ 	if (((ev->xkey.state & p->modifier_mask) == p->modifier) &&
++ 	    (keysym == p->keysym)) {
++ 	    break;
++ 	}
++     }
++     if (p) { /* Matched */
++ 	if (p->succession) { /* Intermediate */
++ 	    ic->ximp_icpart->context = p->succession;
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++ 	    /* Seve Event */
++ 	    bcopy(ev, &ic->ximp_icpart.saved_event[ic->ximp_icpart.num_saved++], sizeof(XKeyEvent));
++ #endif
++ 	    return (True);
++ 	} else { /* Terminate (reached to leaf) */
++ 	    ic->ximp_icpart->composed = p;
++ 	    /* return back to client KeyPressEvent keycode == 0 */
++ 	    ev->xkey.keycode = 0;
++ 	    XPutBackEvent(d, ev);
++ 	    /* initialize internal state for next key sequence */
++ 	    ic->ximp_icpart->context = ((Ximp_XIM)ic->core.im)->ximp_impart->top;
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++ 	    ic->ximp_icpart.num_saved = 0;
++ #endif
++ 	    return (True);
++ 	}
++     } else { /* Unmatched */
++ 	if (ic->ximp_icpart->context == ((Ximp_XIM)ic->core.im)->ximp_impart->top) {
++ 	    return (False);
++ 	}
++ 	/* Error (Sequence Unmatch occured) */
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++ 	XPutBackEvent(d, ev);
++ 	while (ic->ximp_icpart.num_saved > 0) {
++ 	    ic->ximp_icpart.num_saved--;
++ 	    XPutBackEvent(d, &ic->ximp_icpart.saved_event[ic->ximp_icpart.num_saved]);
++ 	}
++ 	must_be_through = 1;
++ #endif
++ 	/* initialize internal state for next key sequence */
++ 	ic->ximp_icpart->context = ((Ximp_XIM)ic->core.im)->ximp_impart->top;
++ 	return (True);
++     }
++ }
++ 
++ static XIC
++ _Ximp_Local_CreateIC(im, values)
++     XIM im;
++     XIMArg *values;
++ {
++     Ximp_XIC ic;
++     XICXimpRec *ximp_icpart;
++     XimpChangeMaskRec dummy;
++ 
++     if ((ic = (Ximp_XIC)Xmalloc(sizeof(Ximp_XICRec))) == (Ximp_XIC)NULL) {
++ 	return ((XIC)NULL);
++     }
++     if((ximp_icpart = (XICXimpRec *)Xmalloc(sizeof(XICXimpRec))) == (XICXimpRec *)NULL) {
++ 	XFree(ic);
++ 	return ((XIC)NULL);
++     }
++     bzero((char *)ic, sizeof(Ximp_XICRec));
++     bzero((char *)ximp_icpart, sizeof(XICXimpRec));
++ 
++     ic->methods = &Ximp_ic_methods;
++     ic->core.im = im;
++     ic->core.filter_events = KeyPressMask;
++     ic->ximp_icpart = ximp_icpart;
++     ic->ximp_icpart->context = ((Ximp_XIM)im)->ximp_impart->top;
++     ic->ximp_icpart->composed = NULL;
++ 
++     if (_Ximp_SetICValueData(ic, values, XIMP_CREATE_IC, &dummy)) {
++ 	Xfree(ic);
++ 	Xfree(ximp_icpart);
++ 	return((XIC)NULL);
++     }
++     /* Not Yet */
++     if (!(ximp_icpart->value_mask & XIMP_INPUT_STYLE)) {
++ 	XFree(ic);
++ 	XFree(ximp_icpart);
++ 	return ((XIC)NULL);
++     }
++     if (ic->core.input_style & XIMPreeditNothing) {
++     } else if (ic->core.input_style & XIMPreeditNone) {
++     } else {
++     }
++     if (ic->core.input_style & XIMStatusNothing) {
++     } else if (ic->core.input_style & XIMStatusNone) {
++     } else {
++     }
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++     if( (ximp_icpart->saved_event = Xcalloc(((Ximp_XIM)im)->ximp_impart->num_save_rooms, sizeof(XEvent))) == NULL ) {
++ 	Xfree(ic);
++ 	Xfree(ximp_icpart);
++ 	return((XIC)NULL);
++     }
++ #endif
++     _XRegisterFilterByType(ic->core.im->core.display, ic->core.focus_window,
++ 	KeyPress, KeyPress, _Ximp_Local_Filter, (XPointer)ic);
++     return ((XIC)ic);
++ }
++ 
++ static void
++ _Ximp_Local_DestroyIC(ic)
++     Ximp_XIC ic;
++ {
++     if (((Ximp_XIM)ic->core.im)->ximp_impart->current_ic == (XIC)ic) {
++ 	_Ximp_Local_UnSetFocus(ic);
++     }
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++     Xfree(((XICXimpRec *)ic->ximp_icpart)->saved_event);
++ #endif
++     Xfree(ic->ximp_icpart);
++     return;
++ }
++ 
++ static void
++ _Ximp_Local_SetFocus(ic)
++     Ximp_XIC ic;
++ {
++     XIC current_ic = ((Ximp_XIM)ic->core.im)->ximp_impart->current_ic;
++ 
++     if (current_ic != (XIC)NULL) {
++ 	_Ximp_Local_UnSetFocus(current_ic);
++     }
++     ((Ximp_XIM)ic->core.im)->ximp_impart->current_ic = (XIC)ic;
++     _XRegisterFilterByType(ic->core.im->core.display, ic->core.focus_window,
++ 	KeyPress, KeyPress, _Ximp_Local_Filter, (XPointer)ic);
++ }
++ 
++ static void
++ _Ximp_Local_UnSetFocus(ic)
++     Ximp_XIC ic;
++ {
++     ((Ximp_XIM)ic->core.im)->ximp_impart->current_ic = (XIC)NULL;
++     _XUnregisterFilter (ic->core.im->core.display, ic->core.focus_window,
++ 	_Ximp_Local_Filter, (XPointer)ic);
++ }
++ 
++ static char *
++ _Ximp_SetICValues(ic, values)
++ Ximp_XIC	 ic;
++ XIMArg		*values;
++ {
++     XIM		 im;
++     char		*ret;
++     XimpChangeMaskRec	 change_mask;
++ 
++     XIMP_SET_NULLMASK(change_mask);
++     if((ret = _Ximp_SetICValueData(ic, values, XIMP_SET_IC, &change_mask)))
++ 	return(ret);
++ 
++     if(   (ic->ximp_icpart->value_mask & XIMP_RES_NAME)
++        || (ic->ximp_icpart->value_mask & XIMP_RES_CLASS) )
++ 	_Ximp_SetValue_Resource(ic, &change_mask);
++     return(ret);
++ }
++ 
++ static char *
++ _Ximp_SetICValueData(ic, values, mode, change_mask)
++     Ximp_XIC	 ic;
++     XIMArg		*values;
++     int		 mode;
++     XimpChangeaMask  change_mask;
++ {
++     XIMArg			*p;
++     char			*return_name = NULL;
++ 
++     for(p = values; p->name != NULL; p++) {
++ 	if(strcmp(p->name, XNInputStyle) == 0) {
++ 	    if(mode == XIMP_CREATE_IC) {
++ 		ic->core.input_style = (XIMStyle)p->value;
++ 		ic->ximp_icpart->value_mask |= XIMP_INPUT_STYLE;
++ 	    } else {
++ 		; /* Currently Fixed value */
++ 	    }
++ 	} else if(strcmp(p->name, XNClientWindow)==0) {
++ 	    if(!(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN)) {
++ 		ic->core.client_window = (Window)p->value;
++ 		ic->ximp_icpart->value_mask |= XIMP_CLIENT_WIN;
++ 		if(!(XIMP_CHK_FOCUSWINMASK(ic))) {
++ 		    ic->core.focus_window = ic->core.client_window;
++                     XIMP_SET_FOCUSWINMASK2(ic, change_mask);
++ 		}
++ 	    } else {
++ 		return_name = p->name;
++ 		break; /* Can't change this value */
++ 	    }
++ 	    
++ 	} else if(strcmp(p->name, XNFocusWindow)==0) {
++ 	    ic->ximp_icpart->back_focus_win = ic->core.focus_window;
++ 	    ic->core.focus_window = (Window)p->value;
++             XIMP_SET_FOCUSWINMASK2(ic, change_mask);
++ 	    
++ 	} else if(strcmp(p->name, XNResourceName)==0) {
++ 	    ic->core.im->core.res_name = (char *)p->value;
++ 	    ic->ximp_icpart->value_mask |= XIMP_RES_NAME;
++ 	    
++ 	} else if(strcmp(p->name, XNResourceClass)==0) {
++ 	    ic->core.im->core.res_class = (char *)p->value;
++ 	    ic->ximp_icpart->value_mask |= XIMP_RES_CLASS;
++ 	    
++ 	} else if(strcmp(p->name, XNGeometryCallback)==0) {
++ 	    ic->core.geometry_callback.client_data =
++ 		((XIMCallback *)p->value)->client_data;
++ 	    ic->core.geometry_callback.callback =
++ 		((XIMCallback *)p->value)->callback;
++ 	    ic->ximp_icpart->value_mask |= XIMP_GEOMETRY_CB;
++ 	    
++ 	} else if(strcmp(p->name, XNPreeditAttributes)==0) {
++ 	    if( _Ximp_PreSetAttributes(ic,
++ 				       &(ic->ximp_icpart->preedit_attr),
++ 				       p->value, mode, change_mask,
++ 				       return_name) == False )
++ 		break;
++ 	    
++ 	} else if(strcmp(p->name, XNStatusAttributes)==0) {
++ 	    if( _Ximp_StatusSetAttributes(ic,
++ 					  &(ic->ximp_icpart->status_attr),
++ 					  p->value, mode, change_mask,
++ 					  return_name) == False )
++ 		break;
++ 	    
++ 	} else {
++ 	    return_name = p->name;
++ 	    break;
++ 	}
++     }
++     return(return_name);
++ }
++ 		
++ static Bool
++ _Ximp_PreSetAttributes(ic, attr, vl, mode, change_mask, return_name)
++ Ximp_XIC		 ic;
++ Ximp_PreeditPropRec4	*attr;
++ XIMArg			*vl;
++ int			 mode;
++ XimpChangeaMask 	 change_mask;
++ char			*return_name;
++ {
++ 	XIMArg			*p;
++ 	XStandardColormap	*colormap_ret;
++ 	int			 list_ret;
++ 	XFontStruct		**struct_list;
++ 	char			**name_list;
++ 	int 			 i, len;
++ 	int			 count;
++ 	char 			*tmp;
++ 
++ 	for(p = vl; p->name != NULL; p++) {
++ 		if(strcmp(p->name, XNArea)==0) {
++ 			ic->core.preedit_attr.area.x = ((XRectangle *)p->value)->x;
++ 			ic->core.preedit_attr.area.y = ((XRectangle *)p->value)->y;
++ 			ic->core.preedit_attr.area.width = ((XRectangle *)p->value)->width;
++ 			ic->core.preedit_attr.area.height = ((XRectangle *)p->value)->height;
++ 			attr->Area.x      = ic->core.preedit_attr.area.x;
++ 			attr->Area.y      = ic->core.preedit_attr.area.y;
++ 			attr->Area.width  = ic->core.preedit_attr.area.width;
++ 			attr->Area.height = ic->core.preedit_attr.area.height;
++ 			XIMP_SET_PREAREAMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 			ic->core.preedit_attr.area_needed.width  = ((XRectangle *)p->value)->width;
++ 			ic->core.preedit_attr.area_needed.height = ((XRectangle *)p->value)->height;
++ 			attr->AreaNeeded.width  = ic->core.preedit_attr.area_needed.width;
++ 			attr->AreaNeeded.height = ic->core.preedit_attr.area_needed.height;
++ 			XIMP_SET_PREAREANEEDMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNSpotLocation)==0) {
++ 			ic->core.preedit_attr.spot_location.x = ((XPoint *)p->value)->x;
++ 			ic->core.preedit_attr.spot_location.y = ((XPoint *)p->value)->y;
++ 			attr->SpotLocation.x = ic->core.preedit_attr.spot_location.x;
++ 			attr->SpotLocation.y = ic->core.preedit_attr.spot_location.y;
++ 			XIMP_SET_PRESPOTLMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNColormap)==0) {
++ 			ic->core.preedit_attr.colormap = (Colormap)p->value;
++ 			attr->Colormap = ic->core.preedit_attr.colormap;
++ 			XIMP_SET_PRECOLORMAPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNStdColormap)==0) {
++ 			if( XGetRGBColormaps(ic->core.im->core.display,
++ 					ic->core.focus_window, &colormap_ret,
++ 					&count, (Atom)p->value) != 0) {
++ 				ic->core.preedit_attr.std_colormap = (Atom)p->value;
++ 				attr->StdColormap = ic->core.preedit_attr.std_colormap;
++ 				XIMP_SET_PRESTDCOLORMAPMASK(ic, change_mask);
++ 			} else {
++ 				return_name = p->name;
++ 				return(False);
++ 			}
++ 
++ 		} else if(strcmp(p->name, XNBackground)==0) {
++ 			ic->core.preedit_attr.background = (unsigned long)p->value;
++ 			attr->Background = ic->core.preedit_attr.background;
++ 			XIMP_SET_PREBGMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNForeground)==0) {
++ 			ic->core.preedit_attr.foreground = (unsigned long)p->value;
++ 			attr->Foreground = ic->core.preedit_attr.foreground;
++ 			XIMP_SET_PREFGMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 			ic->core.preedit_attr.background_pixmap = (Pixmap)p->value;
++ 			attr->Bg_Pixmap = ic->core.preedit_attr.background_pixmap;
++ 			XIMP_SET_PREBGPIXMAPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNFontSet)==0) {
++ 			ic->core.preedit_attr.fontset = (XFontSet)p->value;
++ 			if(p->value != NULL) {
++ 				if(ic->ximp_icpart->preedit_font)
++ 					Xfree(ic->ximp_icpart->preedit_font);
++ 				list_ret = XFontsOfFontSet(ic->core.preedit_attr.fontset,
++ 								&struct_list, &name_list);
++ 				for(i = 0, len = 0; i < list_ret; i++) {
++ 					len += (strlen(name_list[i]) + sizeof(char));
++ 				}
++ 				if( (tmp = Xmalloc(len + list_ret + sizeof(char))) == NULL ) {
++ 				    return_name = p->name;
++ 				    return( False );
++ 				}
++ 				tmp[0] = NULL;
++ 				for(i = 0; i < list_ret; i++) {
++ 					strcat(tmp, name_list[i]);
++ 					strcat(tmp, ",");
++ 				}
++ 				tmp[len + i - 1] = NULL;
++ 				ic->ximp_icpart->preedit_font = tmp;
++ 				XIMP_SET_PREFONTMASK(ic, change_mask);
++ 			} else {
++ 				return_name = p->name;
++ 				return(False);
++ 			}
++ 
++ 		} else if(strcmp(p->name, XNLineSpace)==0) {
++ 			ic->core.preedit_attr.line_space = (long)p->value;
++ 			attr->LineSpacing = ic->core.preedit_attr.line_space;
++ 			XIMP_SET_PRELINESPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNCursor)==0) {
++ 			ic->core.preedit_attr.cursor = (Cursor)p->value;
++ 			attr->Cursor = ic->core.preedit_attr.cursor;
++ 			XIMP_SET_PRECURSORMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
++ 			ic->core.preedit_attr.callbacks.start.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.preedit_attr.callbacks.start.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
++ 
++ 		} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
++ 			ic->core.preedit_attr.callbacks.done.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.preedit_attr.callbacks.done.callback =
++ 			((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
++ 
++ 		} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
++ 			ic->core.preedit_attr.callbacks.draw.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.preedit_attr.callbacks.draw.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
++ 
++ 		} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
++ 			ic->core.preedit_attr.callbacks.caret.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.preedit_attr.callbacks.caret.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
++ 		}
++ 	}
++ 	return(True);
++ }
++ 
++ static Bool
++ _Ximp_StatusSetAttributes(ic, attr, vl, mode, change_mask, return_name)
++ Ximp_XIC		 ic;
++ Ximp_StatusPropRec4	*attr;
++ XIMArg			*vl;
++ int			 mode;
++ XimpChangeaMask 	 change_mask;
++ char			*return_name;
++ {
++ 	XIMArg			*p;
++ 	XStandardColormap 	*colormap_ret;
++ 	int			 list_ret;
++ 	XFontStruct		**struct_list;
++ 	char			**name_list;
++ 	int 			 i, len;
++ 	int			 count;
++ 	char 			*tmp;
++ 
++ 	for(p = vl; p->name != NULL; p++) {
++ 		if(strcmp(p->name, XNArea)==0) {
++ 			ic->core.status_attr.area.x = ((XRectangle *)p->value)->x;
++ 			ic->core.status_attr.area.y = ((XRectangle *)p->value)->y;
++ 			ic->core.status_attr.area.width = ((XRectangle *)p->value)->width;
++ 			ic->core.status_attr.area.height = ((XRectangle *)p->value)->height;
++ 			attr->Area.x      = ic->core.status_attr.area.x;
++ 			attr->Area.y      = ic->core.status_attr.area.y;
++ 			attr->Area.width  = ic->core.status_attr.area.width;
++ 			attr->Area.height = ic->core.status_attr.area.height;
++ 			XIMP_SET_STSAREAMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 			ic->core.status_attr.area_needed.width  = ((XRectangle *)p->value)->width;
++ 			ic->core.status_attr.area_needed.height = ((XRectangle *)p->value)->height;
++ 			attr->AreaNeeded.width  = ic->core.status_attr.area_needed.width;
++ 			attr->AreaNeeded.height = ic->core.status_attr.area_needed.height;
++ 			XIMP_SET_STSAREANEEDMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNColormap)==0) {
++ 			ic->core.status_attr.colormap = (Colormap)p->value;
++ 			attr->Colormap = ic->core.status_attr.colormap;
++ 			XIMP_SET_STSCOLORMAPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNStdColormap)==0) {
++ 			if(XGetRGBColormaps(ic->core.im->core.display,
++ 					ic->core.focus_window, &colormap_ret,
++ 					&count, (Atom)p->value) !=0) {
++ 				ic->core.status_attr.std_colormap = (Atom)p->value;
++ 				attr->StdColormap = ic->core.status_attr.std_colormap;
++ 				XIMP_SET_STSSTDCOLORMAPMASK(ic, change_mask);
++ 			} else {
++ 				return_name = p->name;
++ 				return(False);
++ 			}
++ 
++ 		} else if(strcmp(p->name, XNBackground)==0) {
++ 			ic->core.status_attr.background = (unsigned long)p->value;
++ 			attr->Background = ic->core.status_attr.background;
++ 			XIMP_SET_STSBGMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNForeground)==0) {
++ 			ic->core.status_attr.foreground = (unsigned long)p->value;
++ 			attr->Foreground = ic->core.status_attr.foreground;
++ 			XIMP_SET_STSFGMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 			ic->core.status_attr.background_pixmap = (Pixmap)p->value;
++ 			attr->Bg_Pixmap = ic->core.status_attr.background_pixmap;
++ 			XIMP_SET_STSBGPIXMAPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNFontSet)==0) {
++ 			ic->core.status_attr.fontset = (XFontSet)p->value;
++ 			if (p->value != NULL) {
++ 				if(ic->ximp_icpart->status_font)
++ 					Xfree(ic->ximp_icpart->status_font);
++ 				list_ret = XFontsOfFontSet(ic->core.status_attr.fontset,
++ 								&struct_list, &name_list);
++ 				for(i = 0, len = 0; i < list_ret; i++) {
++ 					len += (strlen(name_list[i]) + sizeof(char));
++ 				}
++ 				if((tmp = Xmalloc(len + list_ret + sizeof(char))) == NULL){
++ 				    return_name = p->name;
++ 				    return( False );
++ 				}
++ 				tmp[0] = NULL;
++ 				for(i = 0; i < list_ret; i++) {
++ 					strcat(tmp, name_list[i]);
++ 					strcat(tmp, ",");
++ 				}
++ 				tmp[len + i - 1] = NULL;
++ 				ic->ximp_icpart->status_font = tmp;
++ 				XIMP_SET_STSFONTMASK(ic, change_mask);
++ 			} else {
++ 				return_name = p->name;
++ 				return(False);
++ 			}
++ 
++ 		} else if(strcmp(p->name, XNLineSpace)==0) {
++ 			ic->core.status_attr.line_space = (long)p->value;
++ 			attr->LineSpacing = ic->core.status_attr.line_space;
++ 			XIMP_SET_STSLINESPMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNCursor)==0) {
++ 			ic->core.status_attr.cursor = (Cursor)p->value;
++ 			attr->Cursor = ic->core.status_attr.cursor;
++ 			XIMP_SET_STSCURSORMASK(ic, change_mask);
++ 
++ 		} else if(strcmp(p->name, XNStatusStartCallback)==0) {
++ 			ic->core.status_attr.callbacks.start.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.status_attr.callbacks.start.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
++ 
++ 		} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
++ 			ic->core.status_attr.callbacks.done.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.status_attr.callbacks.done.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
++ 
++ 		} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
++ 			ic->core.status_attr.callbacks.draw.client_data =
++ 				((XIMCallback *)p->value)->client_data;
++ 			ic->core.status_attr.callbacks.draw.callback =
++ 				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
++ 		}
++ 	}
++ 	return(True);
++ }
++ 
++ static char *
++ _Ximp_Local_SetICValues(ic, values)
++     Ximp_XIC ic;
++     XIMArg *values;
++ {
++     /* Not Yet */
++     return(NULL);
++ }
++ 
++ static char *
++ _Ximp_Local_GetICValues(ic, values)
++ 	Ximp_XIC	 ic;
++ 	XIMArg		*values;
++ {
++     XIMArg		*p;
++     char		*p_char;
++     char		*return_name = NULL;
++     int		 len;
++ 
++     for(p = values; p->name != NULL; p++) {
++ 	if(strcmp(p->name, XNInputStyle) == 0) {
++ 	    if(ic->ximp_icpart->value_mask & XIMP_INPUT_STYLE) {
++ 		*((XIMStyle *)(p->value)) = ic->core.input_style;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNClientWindow)==0) {
++ 	    if(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN) {
++ 		*((Window *)(p->value)) = ic->core.client_window;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNFocusWindow)==0) {
++ 	    if(XIMP_CHK_FOCUSWINMASK(ic)) {
++ 		*((Window *)(p->value)) = ic->core.focus_window;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNResourceName)==0) {
++ 	    if(ic->core.im->core.res_name != (char *)NULL) {
++ 		    len = strlen(ic->core.im->core.res_name);
++ 		if((p_char = Xmalloc(len+1)) == NULL) {
++ 		    return_name = p->name;
++ 		    break;
++ 		}
++ 		strcpy(p_char, ic->core.im->core.res_name);
++ 		*((char **)(p->value)) = p_char;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNResourceClass)==0) {
++ 	    if(ic->core.im->core.res_class != (char *)NULL) {
++ 		len = strlen(ic->core.im->core.res_class);
++ 		if((p_char = Xmalloc(len+1)) == NULL) {
++ 		    return_name = p->name;
++ 		    break;
++ 		}
++ 		strcpy(p_char, ic->core.im->core.res_class);
++ 		*((char **)(p->value)) = p_char;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNGeometryCallback)==0) {
++ 	    if(ic->ximp_icpart->value_mask & XIMP_GEOMETRY_CB) {
++ 		*((XIMCallback *)(p->value)) = ic->core.geometry_callback;
++ 	    } else {
++ 		return_name = p->name;
++ 		break;
++ 	    }
++ 	} else if(strcmp(p->name, XNFilterEvents)==0) {
++ 	    *((unsigned long *)(p->value)) = ic->core.filter_events;
++ 	} else if(strcmp(p->name, XNPreeditAttributes)==0) {
++ 	    if( _Ximp_PreGetAttributes(ic, p->value,
++ 		&return_name) == False)
++ 		break;
++ 	} else if(strcmp(p->name, XNStatusAttributes)==0) {
++ 	    if( _Ximp_StatusGetAttributes(ic, p->value,
++ 		&return_name) == False)
++ 		break;
++ 	} else {
++ 	    return_name = p->name;
++ 	    break;
++ 	}
++     }
++     return(return_name);
++ }
++ 
++ static Bool
++ _Ximp_PreGetAttributes(ic, vl, return_name)
++ Ximp_XIC	 ic;
++ XIMArg		*vl;
++ char		**return_name;
++ {
++     XIMArg		*p;
++     XRectangle	*p_rect;
++     XPoint		*p_point;
++     XIMCallback 	*p_callback;
++ 
++     for(p = vl; p->name != NULL; p++) {
++ 	if(strcmp(p->name, XNArea)==0) {
++ 	    if(XIMP_CHK_PREAREAMASK(ic)) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x       = ic->core.preedit_attr.area.x;
++ 		p_rect->y       = ic->core.preedit_attr.area.y;
++ 		p_rect->width   = ic->core.preedit_attr.area.width;
++ 		p_rect->height  = ic->core.preedit_attr.area.height;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 	    if(XIMP_CHK_PREAREANEEDMASK(ic)) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x  = p_rect->y  = 0;
++ 		p_rect->width   = ic->core.preedit_attr.area_needed.width;
++ 		p_rect->height  = ic->core.preedit_attr.area_needed.height;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNSpotLocation)==0) {
++ 	    if(XIMP_CHK_PRESPOTLMASK(ic)) {
++ 		if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_point->x = ic->core.preedit_attr.spot_location.x;
++ 		p_point->y = ic->core.preedit_attr.spot_location.y;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	    *((XPoint **)(p->value)) = p_point;
++ 	} else if(strcmp(p->name, XNColormap)==0) {
++ 	    if(XIMP_CHK_PRECOLORMAPMASK(ic)) {
++ 		*((Colormap *)(p->value)) = ic->core.preedit_attr.colormap;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStdColormap)==0) {
++ 	    if(XIMP_CHK_PRESTDCOLORMAPMASK(ic))
++ 		*((Atom *)(p->value)) = ic->core.preedit_attr.std_colormap;
++ 	    else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNBackground)==0) {
++ 	    if(XIMP_CHK_PREBGMASK(ic)) {
++ 		*((unsigned long *)(p->value)) = ic->core.preedit_attr.background;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNForeground)==0) {
++ 	    if(XIMP_CHK_PREFGMASK(ic)) {
++ 		*((unsigned long *)(p->value)) = ic->core.preedit_attr.foreground;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 	    if(XIMP_CHK_PREBGPIXMAPMASK(ic)) {
++ 		*((Pixmap *)(p->value)) = ic->core.preedit_attr.background_pixmap;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNFontSet)==0) {
++ 	    if(XIMP_CHK_PREFONTMASK(ic)) {
++ 		*((XFontSet *)(p->value)) = ic->core.preedit_attr.fontset;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNLineSpace)==0) {
++ 	    if(XIMP_CHK_PRELINESPMASK(ic)) {
++ 		*((int *)(p->value)) = ic->core.preedit_attr.line_space;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNCursor)==0) {
++ 	    if(XIMP_CHK_PRECURSORMASK(ic)) {
++ 		*((Cursor *)(p->value)) = ic->core.preedit_attr.cursor;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.start.callback) {
++ 
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.preedit_attr.callbacks.start.client_data;
++ 		p_callback->callback =
++ 		    ic->core.preedit_attr.callbacks.start.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.draw.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.preedit_attr.callbacks.draw.client_data;
++ 		p_callback->callback =
++ 		    ic->core.preedit_attr.callbacks.draw.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.done.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.preedit_attr.callbacks.done.client_data;
++ 		p_callback->callback =
++ 		    ic->core.preedit_attr.callbacks.done.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
++ 	    if((int)ic->core.preedit_attr.callbacks.caret.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.preedit_attr.callbacks.caret.client_data;
++ 		p_callback->callback =
++ 		    ic->core.preedit_attr.callbacks.caret.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	}
++     }
++     return(True);
++ }
++ 
++ static Bool
++ _Ximp_StatusGetAttributes(ic, vl, return_name)
++     Ximp_XIC	 ic;
++     XIMArg	 	*vl;
++     char		**return_name;
++ {
++     XIMArg		*p;
++     XRectangle	*p_rect;
++     XIMCallback 	*p_callback;
++ 
++     for(p = vl; p->name != NULL; p++) {
++ 	if(strcmp(p->name, XNArea)==0) {
++ 	    if(XIMP_CHK_STSAREAMASK(ic)) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x       = ic->core.status_attr.area.x;
++ 		p_rect->y       = ic->core.status_attr.area.y;
++ 		p_rect->width   = ic->core.status_attr.area.width;
++ 		p_rect->height  = ic->core.status_attr.area.height;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNAreaNeeded)==0) {
++ 	    if(XIMP_CHK_STSAREANEEDMASK(ic)) {
++ 		if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_rect->x  = p_rect->y  = 0;
++ 		p_rect->width   = ic->core.status_attr.area_needed.width;
++ 		p_rect->height  = ic->core.status_attr.area_needed.height;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	    *((XRectangle **)(p->value)) = p_rect;
++ 	} else if(strcmp(p->name, XNColormap)==0) {
++ 	    if(XIMP_CHK_STSCOLORMAPMASK(ic)) {
++ 		*((Colormap *)(p->value)) = ic->core.status_attr.colormap;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStdColormap)==0) {
++ 	    if(XIMP_CHK_STSSTDCOLORMAPMASK(ic)) {
++ 		*((Atom *)(p->value)) = ic->core.status_attr.std_colormap;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNBackground)==0) {
++ 	    if(XIMP_CHK_STSBGMASK(ic)) {
++ 		*((unsigned long *)(p->value)) = ic->core.status_attr.background;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNForeground)==0) {
++ 	    if(XIMP_CHK_STSFGMASK(ic)) {
++ 		*((unsigned long *)(p->value)) = ic->core.status_attr.foreground;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
++ 	    if(XIMP_CHK_STSBGPIXMAPMASK(ic)) {
++ 		*((Pixmap *)(p->value)) = ic->core.status_attr.background_pixmap;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNFontSet)==0) {
++ 	    if(XIMP_CHK_STSFONTMASK(ic)) {
++ 		*((XFontSet *)(p->value)) = ic->core.status_attr.fontset;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNLineSpace)==0) {
++ 	    if(XIMP_CHK_STSLINESPMASK(ic)) {
++ 		*((int *)(p->value)) = ic->core.status_attr.line_space;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNCursor)==0) {
++ 	    if(XIMP_CHK_STSCURSORMASK(ic)) {
++ 		*((Cursor *)(p->value)) = ic->core.status_attr.cursor;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusStartCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.start.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.status_attr.callbacks.start.client_data;
++ 		p_callback->callback =
++ 		    ic->core.status_attr.callbacks.start.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.draw.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.status_attr.callbacks.draw.client_data;
++ 		p_callback->callback =
++ 		    ic->core.status_attr.callbacks.draw.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
++ 	    if((int)ic->core.status_attr.callbacks.done.callback) {
++ 		if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
++ 		    *return_name = p->name;
++ 		    return(False);
++ 		}
++ 		p_callback->client_data =
++ 		    ic->core.status_attr.callbacks.done.client_data;
++ 		p_callback->callback =
++ 		    ic->core.status_attr.callbacks.done.callback;
++ 		*((XIMCallback **)(p->value)) = p_callback;
++ 	    } else {
++ 		*return_name = p->name;
++ 		return(False);
++ 	    }
++ 	}
++     }
++     return(True);
++ }
++ 
++ static char *
++ _Ximp_Local_MbReset(ic)
++     Ximp_XIC ic;
++ {
++     ic->ximp_icpart->composed = (DefTree *)NULL;
++     ic->ximp_icpart->context = ((Ximp_XIM)ic->core.im)->ximp_impart->top;
++     return(NULL);
++ }
++ 
++ static wchar_t *
++ _Ximp_Local_WcReset(ic)
++     Ximp_XIC ic;
++ {
++     ic->ximp_icpart->composed = (DefTree *)NULL;
++     ic->ximp_icpart->context = ((Ximp_XIM)ic->core.im)->ximp_impart->top;
++     return(NULL);
++ }
++ 
++ static int
++ _Ximp_Local_MbLookupString(ic, ev, buffer, bytes, keysym, status)
++     Ximp_XIC ic;
++     XKeyEvent *ev;
++     char * buffer;
++     int bytes;
++     KeySym *keysym;
++     Status *status;
++ {
++     int ret;
++ 
++     if (ev->type != KeyPress) {
++ 	if (status) *status = XLookupNone;
++ 	return (0);
++     }
++     if (ev->keycode == 0) { /* Composed Event */
++ 	ret = strlen(ic->ximp_icpart->composed->mb);
++ 	if (ret > bytes) {
++ 	    if (status) *status = XBufferOverflow;
++ 	    return (ret);
++ 	}
++ 	bcopy(ic->ximp_icpart->composed->mb, buffer, ret);
++ 	if (keysym) *keysym = NoSymbol;
++ 	if (status) *status = XLookupChars;
++ 	return (ret);
++     } else { /* Throughed Event */
++ 	ret = _Ximp_LookupMBText(ic, ev, buffer, bytes, keysym, NULL);
++ 	if(ret > 0) {
++ 	    if(keysym && *keysym != NoSymbol) {
++ 		if(status) *status = XLookupBoth;
++ 	    } else {
++ 		if(status) *status = XLookupChars;
++ 	    }
++ 	} else {
++ 	    if(keysym && *keysym != NoSymbol) {
++ 		if(status) *status = XLookupKeySym;
++ 	    } else {
++ 		if(status) *status = XLookupNone;
++ 	    }
++ 	}
++     }
++     return (ret);
++ }
++ 
++ static int
++ _Ximp_Local_WcLookupString(ic, ev, buffer, wlen, keysym, status)
++     Ximp_XIC ic;
++     XKeyEvent *ev;
++     wchar_t * buffer;
++     int wlen;
++     KeySym *keysym;
++     Status *status;
++ {
++     int ret;
++ 
++     if (ev->type != KeyPress) {
++ 	if (status) *status = XLookupNone;
++ 	return (0);
++     }
++     if (ev->keycode == 0) { /* Composed Event */
++ 	ret = _Xwcslen(ic->ximp_icpart->composed->wc);
++ 	if (ret > wlen) {
++ 	    if (status) *status = XBufferOverflow;
++ 	    return (ret);
++ 	}
++ 	bcopy(ic->ximp_icpart->composed->wc, buffer, ret * sizeof(wchar_t));
++ 	if (keysym) *keysym = NoSymbol;
++ 	if (status) *status = XLookupChars;
++ 	return (ret);
++     } else { /* Throughed Event */
++ 	ret = _Ximp_LookupWCText(ic, ev, buffer, wlen, keysym, NULL);
++ 	if(ret > 0) {
++ 	    if(keysym && *keysym != NoSymbol) {
++ 		if(status) *status = XLookupBoth;
++ 	    } else {
++ 		if(status) *status = XLookupChars;
++ 	    }
++ 	} else {
++ 	    if(keysym && *keysym != NoSymbol) {
++ 		if(status) *status = XLookupKeySym;
++ 	    } else {
++ 		if(status) *status = XLookupNone;
++ 	    }
++ 	}
++     }
++     return (ret);
++ }
+*** /dev/null	Mon Oct 19 19:39:05 1992
+--- lib/X/Ximp/XimpParser.c	Mon Oct 19 19:26:02 1992
+***************
+*** 0 ****
+--- 1,493 ----
++ /* $XConsortium: XimpParser.c,v 1.1 92/10/19 19:25:59 rws Exp $ */
++ /******************************************************************
++ 
++               Copyright 1992 by Oki Technosystems Laboratory, Inc.
++               Copyright 1992 by Fuji Xerox Co., Ltd.
++ 
++ Permission to use, copy, modify, distribute, and sell this software
++ and its documentation for any purpose is hereby granted without fee,
++ provided that the above copyright notice appear in all copies and
++ that both that copyright notice and this permission notice appear
++ in supporting documentation, and that the name of Oki Technosystems
++ Laboratory and Fuji Xerox not be used in advertising or publicity
++ pertaining to distribution of the software without specific, written
++ prior permission.
++ Oki Technosystems Laboratory and Fuji Xerox make no representations
++ about the suitability of this software for any purpose.  It is provided
++ "as is" without express or implied warranty.
++ 
++ OKI TECHNOSYSTEMS LABORATORY AND FUJI XEROX DISCLAIM ALL WARRANTIES
++ WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
++ MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL OKI TECHNOSYSTEMS
++ LABORATORY AND FUJI XEROX BE LIABLE FOR ANY SPECIAL, INDIRECT OR
++ CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
++ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
++ OR PERFORMANCE OF THIS SOFTWARE.
++ 
++   Author: Yasuhiro Kawai	Oki Technosystems Laboratory
++   Author: Kazunori Nishihara	Fuji Xerox
++ 
++ ******************************************************************/
++ 
++ #include <stdio.h>
++ #include <X11/Xos.h>
++ #include "Xlibint.h"
++ #include "Xlcint.h"
++ 
++ #include "Ximplc.h"
++ 
++ /*
++  *	Parsing File Format:
++  *
++  *	FILE          ::= { [PRODUCTION] [COMMENT] "\n"}
++  *	PRODUCTION    ::= LHS ":" RHS [ COMMENT ]
++  *	COMMENT       ::= "#" {<any character except null or newline>}
++  *	LHS           ::= EVENT { EVENT }
++  *	EVENT         ::= [MODIFIER_LIST] "<" keysym ">"
++  *	MODIFIER_LIST ::= ("!" {MODIFIER} ) | "None"
++  *	MODIFIER      ::= ["~"] modifier_name
++  *	RHS           ::= ( STRING | keysym | STRING keysym )
++  *	STRING        ::= '"' { CHAR } '"'
++  *	CHAR          ::= GRAPHIC_CHAR | ESCAPED_CHAR
++  *	GRAPHIC_CHAR  ::= locale (codeset) dependent code
++  *	ESCAPED_CHAR  ::= ('\\' | '\"' | OCTAL | HEX )
++  *	OCTAL         ::= '\' OCTAL_CHAR [OCTAL_CHAR [OCTAL_CHAR]]
++  *	OCTAL_CHAR    ::= (0|1|2|3|4|5|6|7)
++  *	HEX           ::= '\' (x|X) HEX_CHAR [HEX_CHAR]]
++  *	HEX_CHAR      ::= (0|1|2|3|4|5|6|7|8|9|A|B|C|D|E|F|a|b|c|d|e|f)
++  *
++  */
++ 
++ static int lastch = NULL;
++ 
++ static int
++ nextch(fp)
++     FILE *fp;
++ {
++     int c;
++ 
++     if (lastch != NULL) {
++ 	c = lastch;
++ 	lastch = NULL;
++     } else {
++ 	c = getc(fp);
++ 	if (c == '\\') {
++ 	    c = getc(fp);
++ 	    if (c == '\n') {
++ 		c = getc(fp);
++ 	    } else {
++ 		ungetc(c, fp);
++ 		c = '\\';
++ 	    }
++ 	}
++     }
++     return(c);
++ }
++ 
++ static void
++ putbackch(c)
++     int c;
++ {
++     lastch = c;
++ }
++ 
++ #define ENDOFFILE 0
++ #define ENDOFLINE 1
++ #define COLON 2
++ #define LESS 3
++ #define GREATER 4
++ #define EXCLAM 5
++ #define TILDE 6
++ #define STRING 7
++ #define KEY 8
++ #define ERROR 9
++ 
++ #define MAXSTRLEN 100
++ 
++ #ifndef isalnum
++ #define isalnum(c)      \
++     (('0' <= (c) && (c) <= '9')  || \
++      ('A' <= (c) && (c) <= 'Z')  || \
++      ('a' <= (c) && (c) <= 'z'))
++ #endif
++ 
++ static char tokenbuf[MAXSTRLEN];
++ 
++ static int
++ nexttoken(fp)
++     FILE *fp;
++ {
++     int c;
++     int token;
++     char *p;
++     int i, j;
++ 
++     while ((c = nextch(fp)) == ' ' || c == '\t') {
++     }
++     switch (c) {
++       case EOF:
++ 	token = ENDOFFILE;
++ 	break;
++       case '\n':
++ 	token = ENDOFLINE;
++ 	break;
++       case '<':
++ 	token = LESS;
++ 	break;
++       case '>':
++ 	token = GREATER;
++ 	break;
++       case ':':
++ 	token = COLON;
++ 	break;
++       case '!':
++ 	token = EXCLAM;
++ 	break;
++       case '~':
++ 	token = TILDE;
++ 	break;
++       case '"':
++ 	p = tokenbuf;
++ 	while ((c = nextch(fp)) != '"') {
++ 	    if (c == '\n' || c == EOF) {
++ 		putbackch(c);
++ 		token = ERROR;
++ 		goto string_error;
++ 	    } else if (c == '\\') {
++ 		c = nextch(fp);
++ 		switch (c) {
++ 		  case '\\':
++ 		  case '"':
++ 		    *p++ = c;
++ 		    break;
++ 		  case '0':
++ 		  case '1':
++ 		  case '2':
++ 		  case '3':
++ 		  case '4':
++ 		  case '5':
++ 		  case '6':
++ 		  case '7':
++ 		    i = c - '0';
++ 		    c = nextch(fp);
++ 		    for (j = 0; j < 2 && c >= '0' && c <= '7'; j++) {
++ 			i <<= 3;
++ 			i += c - '0';
++ 			c = nextch(fp);
++ 		    }
++ 		    putbackch(c);
++ 		    *p++ = (char)i;
++ 		    break;
++ 		  case 'X':
++ 		  case 'x':
++ 		    i = 0;
++ 		    c = nextch(fp);
++ #define ishexch(c) (((c) >= '0' && (c) <= '9') || \
++ 		    ((c) >= 'A' && (c) <= 'F') || \
++ 		    ((c) >= 'a' && (c) <= 'f'))
++ 		    for (j = 0; j < 2 && ishexch(c); j++) {
++ 			i <<= 4;
++ 			if (c >= '0' && c <= '9') {
++ 			    i += c - '0';
++ 			} else if (c >= 'A' && c <= 'F') {
++ 			    i += c - 'A' + 10;
++ 			} else {
++ 			    i += c - 'a' + 10;
++ 			}
++ 			c = nextch(fp);
++ 		    }
++ 		    if (j == 0) {
++ 		        token = ERROR;
++ 		        goto string_error;
++ 		    }
++ 		    putbackch(c);
++ #undef ishexch
++ 		    break;
++ 		  case '\n':
++ 		  case EOF:
++ 		    putbackch(c);
++ 		    token = ERROR;
++ 		    goto string_error;
++ 		    break;
++ 		  default:
++ 		    *p++ = c;
++ 		    break;
++ 		}
++ 	    } else {
++ 		*p++ = c;
++ 	    }
++ 	}
++ 	*p = '\0';
++ 	token = STRING;
++ 	break;
++       case '#':
++ 	while ((c = nextch(fp)) != '\n' && c != EOF) {
++ 	}
++ 	if (c == '\n') {
++ 	    token = ENDOFLINE;
++ 	} else {
++ 	    token = ENDOFFILE;
++ 	}
++ 	break;
++       default:
++ 	if (isalnum(c) || c == '_' || c == '-') {
++ 	    p = tokenbuf;
++ 	    *p++ = c;
++ 	    c = nextch(fp);
++ 	    while (isalnum(c) || c == '_' || c == '-') {
++ 		*p++ = c;
++ 		c = nextch(fp);
++ 	    }
++ 	    *p = '\0';
++ 	    putbackch(c);
++ 	    token = KEY;
++ 	} else {
++ 	    token = ERROR;
++ 	}
++ 	break;
++     }
++ string_error:
++     return(token);
++ }
++ 
++ static long
++ modmask(name)
++     char *name;
++ {
++     long mask;
++ 
++     struct _modtbl {
++ 	char *name;
++ 	long mask;
++     };
++     struct _modtbl *p;
++ 
++     static struct _modtbl tbl[] = {
++ 	{ "Ctrl",	ControlMask	},
++         { "Lock",	LockMask	},
++         { "Caps",	LockMask	},
++         { "Shift",	ShiftMask	},
++         { "Alt",	Mod1Mask	},
++         { "Meta",	Mod1Mask	},
++         { NULL,		0		}};
++ 
++     p = tbl;
++     mask = 0;
++     for (p = tbl; p->name != NULL; p++) {
++ 	if (strcmp(name, p->name) == 0) {
++ 	    mask = p->mask;
++ 	    break;
++ 	}
++     }
++     return(mask);
++ }
++ 
++ #define AllMask (ShiftMask | LockMask | ControlMask | Mod1Mask) 
++ #define LOCAL_WC_BUFSIZE 128
++ #define SEQUENCE_MAX	10
++ 
++ static int
++ parseline(fp, top)
++     FILE *fp;
++     DefTree **top;
++ {
++     int token;
++     unsigned modifier_mask;
++     unsigned modifier;
++     unsigned tmp;
++     KeySym keysym;
++     DefTree *p;
++     Bool exclam, tilde;
++     KeySym rhs_keysym;
++     char *rhs_string_mb;
++     int l;
++     wchar_t local_wc_buf[LOCAL_WC_BUFSIZE], *rhs_string_wc;
++ 
++     struct DefBuffer {
++ 	unsigned modifier_mask;
++ 	unsigned modifier;
++ 	KeySym keysym;
++     };
++ 
++     struct DefBuffer buf[SEQUENCE_MAX];
++     int i, n;
++ 
++     do {
++ 	token = nexttoken(fp);
++     } while (token == ENDOFLINE);
++     
++     if (token == ENDOFFILE) {
++ 	return(-1);
++     }
++ 
++     n = 0;
++     do {
++ 	if ((token == KEY) && (strcmp("None", tokenbuf) == 0)) {
++ 	    modifier = 0;
++ 	    modifier_mask = AllMask;
++ 	    token = nexttoken(fp);
++ 	} else {
++ 	    modifier_mask = modifier = 0;
++ 	    exclam = False;
++ 	    if (token == EXCLAM) {
++ 		exclam = True;
++ 		token = nexttoken(fp);
++ 	    }
++ 	    while (token == TILDE || token == KEY) {
++ 		tilde = False;
++ 		if (token == TILDE) {
++ 		    token = nexttoken(fp);
++ 		    tilde = True;
++ 		    if (token != KEY)
++ 			goto error;
++ 		}
++ 		token = nexttoken(fp);
++ 		tmp = modmask(tokenbuf);
++ 		if (!tmp) {
++ 		    goto error;
++ 		}
++ 		modifier_mask |= tmp;
++ 		if (tilde) {
++ 		    modifier &= ~tmp;
++ 		} else {
++ 		    modifier |= tmp;
++ 		}
++ 	    }
++ 	    if (exclam) {
++ 		modifier_mask = AllMask;
++ 	    }
++ 	}
++ 
++ 	if (token != LESS) {
++ 	    goto error;
++ 	}
++ 
++ 	token = nexttoken(fp);
++ 	if (token != KEY) {
++ 	    goto error;
++ 	}
++ 
++ 	token = nexttoken(fp);
++ 	if (token != GREATER) {
++ 	    goto error;
++ 	}
++ 
++ 	keysym = XStringToKeysym(tokenbuf);
++ 	if (keysym == NoSymbol) {
++ 	    goto error;
++ 	}
++ 
++ 	buf[n].keysym = keysym;
++ 	buf[n].modifier = modifier;
++ 	buf[n].modifier_mask = modifier_mask;
++ 	n++;
++ 	if( n >= SEQUENCE_MAX )
++ 	    goto error;
++ 	token = nexttoken(fp);
++     } while (token != COLON);
++ 
++     token = nexttoken(fp);
++     if (token == STRING) {
++ 	if( (rhs_string_mb = Xmalloc(strlen(tokenbuf) + 1)) == NULL )
++ 	    goto error;
++ 	strcpy(rhs_string_mb, tokenbuf);
++ 	token = nexttoken(fp);
++ 	if (token == KEY) {
++ 	    rhs_keysym = XStringToKeysym(tokenbuf);
++ 	    if (rhs_keysym == NoSymbol) {
++ 		Xfree(rhs_string_mb);
++ 		goto error;
++ 	    }
++ 	    token = nexttoken(fp);
++ 	}
++ 	if (token != ENDOFLINE && token != ENDOFFILE) {
++ 	    Xfree(rhs_string_mb);
++ 	    goto error;
++ 	}
++     } else if (token == KEY) {
++ 	rhs_keysym = XStringToKeysym(tokenbuf);
++ 	if (rhs_keysym == NoSymbol) {
++ 	    goto error;
++ 	}
++ 	token = nexttoken(fp);
++ 	if (token != ENDOFLINE && token != ENDOFFILE) {
++ 	    goto error;
++ 	}
++ 	if( (rhs_string_mb = Xmalloc(1)) == NULL ) {
++ 	    Xfree( rhs_string_mb );
++ 	    goto error;
++ 	}
++ 	rhs_string_mb[0] = '\0';
++     } else {
++ 	goto error;
++     }
++ 
++     l = _Xmbstowcs(local_wc_buf, rhs_string_mb, LOCAL_WC_BUFSIZE - 1);
++     if (l == LOCAL_WC_BUFSIZE - 1) {
++ 	local_wc_buf[l] = (wchar_t)'\0';
++     }
++     if( (rhs_string_wc = (wchar_t *)Xmalloc((l + 1) * sizeof(wchar_t))) == NULL ) {
++ 	Xfree( rhs_string_mb );
++ 	return( 0 );
++     }
++     bcopy( local_wc_buf, rhs_string_wc, (l + 1) * sizeof(wchar_t) );
++ 
++     for (i = 0; i < n; i++) {
++ 	for (p = *top; p; p = p->next) {
++ 	    if (buf[i].keysym        == p->keysym &&
++ 		buf[i].modifier      == p->modifier &&
++ 		buf[i].modifier_mask == p->modifier_mask) {
++ 		break;
++ 	    }
++ 	}
++ 	if (p) {
++ 	    top = &p->succession;
++ 	} else {
++ 	    if( (p = (DefTree*)Xmalloc(sizeof(DefTree))) == NULL ) {
++ 		Xfree( rhs_string_mb );
++ 		goto error;
++ 	    }
++ 	    p->keysym        = buf[i].keysym;
++ 	    p->modifier      = buf[i].modifier;
++ 	    p->modifier_mask = buf[i].modifier_mask;
++ 	    p->succession    = NULL;
++ 	    p->next          = *top;
++ 	    p->mb            = NULL;
++ 	    p->wc            = NULL;
++ #ifdef notdef
++ 	    p->keysym_return = NoSymbol;
++ #endif
++ 	    *top = p;
++ 	    top = &p->succession;
++ 	}
++     }
++ 
++     if( p->mb != NULL )
++ 	Xfree( p->mb );
++     p->mb = rhs_string_mb;
++     if( p->wc != NULL )
++ 	Xfree( p->wc );
++     p->wc = rhs_string_wc;
++ #ifdef notdef
++     p->keysym_return = rhs_keysym;
++ #endif
++     return(n);
++ error:
++     while (token != ENDOFLINE && token != ENDOFFILE) {
++ 	token = nexttoken(fp);
++     }
++     return(0);
++ }
++ 
++ int
++ Ximp_ParseStringFile(fp, ptop)
++     FILE *fp;
++     DefTree **ptop;
++ {
++     int max_ev_seq = 0, i;
++     while ((i = parseline(fp, ptop)) >= 0) {
++ 	if (i > max_ev_seq) max_ev_seq = i;
++     }
++     return (max_ev_seq);
++ }

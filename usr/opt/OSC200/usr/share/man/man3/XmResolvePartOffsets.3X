@@ -1,0 +1,159 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: XmResolvePartOffsets.3X,v $ $Revision: 3.2.4.5 $ (DEC) $Date: 1993/12/14 20:18:00 $
+.\"
+.\" **
+.\" **
+.\" **  (c) Copyright 1989, 1990, 1992 by Open Software Foundation, Inc.
+.\" **      All Rights Reserved.
+.\" **
+.\" **  (c) Copyright 1987, 1988, 1989, by Hewlett-Packard Company
+.\" **
+.\" **  (c) Copyright 1987, 1988 by Digital Equipment Corporation,
+.\" **      Maynard, MA.  All Rights Reserved.
+.\" **
+.\" **
+.TH XmResolvePartOffsets 3X "" "" "" "OSF/Motif"
+.SH NAME
+\*LXmResolvePartOffsets\*O \- A function that allows writing of upward-compatible applications and widgets
+.SH SYNOPSIS
+.sS
+.iS
+\&#include <Xm/XmP.h>
+.sp \n(PDu
+void XmResolvePartOffsets (\*Vwidget_class, offset\*L)
+.ta .5i 1.5i
+	WidgetClass	\*Vwidget_class\*L;
+	XmOffsetPtr	\*V* offset\*L;
+.wH .fi
+.iE
+.sE
+.SH DESCRIPTION
+.iX "XmResolvePartOffsets"
+The use of offset records requires one extra global variable per widget
+class.
+The variable consists of a pointer to an array of offsets into the
+widget record for each part of the widget structure.
+The \*LXmResolvePartOffsets\*O function
+allocates the offset records needed by an application to guarantee
+upward-compatible access to widget instance records by
+applications and widgets.
+These offset records are used by the widget to access all of the
+widget's variables.
+A widget needs to take the following steps:
+.ML
+.LI
+Instead of creating a resource list, the widget creates an offset
+resource list.
+To help you accomplish this, use the \*LXmPartResource\*O
+structure and the \*LXmPartOffset\*O macro.
+The \*LXmPartResource\*O data structure looks just like a
+resource list, but instead of having
+one integer for its offset, it has two shorts.
+This is put into the class record as if it were a normal resource
+list.  Instead of using \*LXtOffset\*O for the offset, the widget uses
+\*LXmPartOffset\*O.
+.oS
+XmPartResource resources[] = {
+  { BarNxyz, BarCXyz, XmRBoolean,
+    sizeof(Boolean), XmPartOffset(Bar,xyz),
+    XmRImmediate, (XtPointer)False }
+};
+.oE
+.LI
+Instead of putting the widget size in the class record, the widget puts the
+widget part size in the same field.
+.LI
+Instead of putting \*LXtVersion\*O in the class record, the widget puts
+\*LXtVersionDontCheck\*O in the class record.
+.LI
+The widget defines a variable, of type \*LXmOffsetPtr\*O, to point to
+the offset record.
+This can be part of the widget's class record or a separate global
+variable.
+.LI
+In class initialization, the widget calls \*LXmResolvePartOffsets\*O,
+passing it a pointer to contain the address of the offset
+record and the class record.
+This does several things:
+.ML
+.LI
+Adds the superclass (which, by definition, has already been initialized)
+size field to the part size field.
+.LI
+Allocates an array based upon the number of superclasses.
+.LI
+Fills in the offsets of all the widget parts with the appropriate
+values, determined by examining the size fields of all superclass
+records.
+.LI
+Uses the part offset array to modify the offset entries in the resource
+list to be real offsets.
+.LE
+.LI
+The widget defines a constant which will be the index to its part
+structure in the offsets array.
+The value should be 1 greater than
+the index of the widget's superclass.
+Constants defined for all Xm
+widgets can be found in \*LXmP.h\*O.
+.oS
+\&#define BarIndex (XmBulletinBIndex + 1)
+.oE
+.LI
+Instead of accessing fields directly, the widget must always go through
+the offset table.
+The \*LXmField\*O macro helps you access these fields.
+Because the \*LXmPartOffset\*O and \*LXmField\*O
+macros concatenate things together, you must
+.ne 4
+ensure that there is no space
+after the part argument.
+For example, the following macros do not work because of the space
+after the part (Label) argument:
+.oS
+XmField(w, offset, Label , text, char *)
+XmPartOffset(Label , text)
+.oE
+Therefore, you must not have any spaces after the part (Label)
+argument, as illustrated here:
+.oS
+XmField(w, offset, Label, text, char *)
+.oE
+You can define macros for each field to make this easier.
+Assume an integer field \*Vxyz\*O:
+.oS
+.ta 0.25i
+\&#define BarXyz(w) (*(int *)(((char *) w) + \e
+	offset[BarIndex] + XtOffset(BarPart,xyz)))
+.oE
+.LE 
+.PP 
+The parameters for \*LXmResolvePartOffsets\*O are defined below:
+.VL 1.0i 
+.LI "\*Vwidget_class\*O"
+Specifies the widget class pointer for the created widget.
+.LI "\*Voffset\*O"
+Returns the offset record.
+.LE
+.SH "RELATED INFORMATION"
+.na
+\*LXmResolveAllPartOffsets(3X)\*O.
+.ad
+.EQ
+delim off
+.EN

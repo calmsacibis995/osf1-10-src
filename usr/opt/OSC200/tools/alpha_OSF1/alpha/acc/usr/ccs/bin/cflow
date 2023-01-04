@@ -1,0 +1,151 @@
+#!/bin/sh
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+# @(#)$RCSfile: cflow.sh,v $ $Revision: 4.3.5.2 $ (DEC) $Date: 1993/03/19 22:03:39 $ 
+
+o="-DLANGUAGE_C -Dunix -D__LANGUAGE_C__ -D__unix__ -D__osf__ -D__alpha \
+-D_LONGLONG -D_CFE -DSYSTYPE_BSD -D_SYSTYPE_BSD"
+INVFLG=
+DFLAG=
+IFLAG=
+MFLAG=
+DIR=/usr/ccs/lib
+TMP=/usr/tmp/cf.$$
+TMPG=$TMP.g
+trap "rm -f $TMP.?; kill $$" 1 2 3
+echo "" >$TMP.g
+
+base=`basename $0`
+case $base in
+	cflow | cflow.sh)	CC=/lib/cpp;;
+	*cflow*)		CC=`echo $base | sed s/cflow/cpp/p`;;
+	*) 			CC=/lib/cpp;;
+esac
+
+if [ "$1" = "" ]
+then
+	dspmsg cflow.cat 2 "Usage: cflow [-dNumber] [-i_] [-ip] [-ix] [-MA] [-r]\n\
+\t[-NdNumber] [-NlNumber] [-NnNumber] [-NtNumber] File [File ...]\n"
+	exit 0
+fi
+
+while [ "$1" != "" ]
+do
+	case "$1" in
+	-r)
+		INVFLG=1
+		;;
+	-d*)
+		DFLAG=$1
+		;;
+	-i*)
+		IFLAG="$IFLAG $1"
+		;;
+	-MA)
+		MFLAG="$MFLAG $1"
+		;;
+	-f)
+		cat $2 </dev/null >>$TMPG
+		shift
+		;;
+	-g)
+		TMPG=$2
+		if [ "$TMPG" = "" ]
+		then
+			TMPG=$TMP.g
+		fi
+		shift
+		;;
+	-N*)
+		MFLAG="$MFLAG $1"
+		;;
+	-[IDU])
+		o="$o $1$2"
+		shift
+		;;
+	-[IDU]*)
+		o="$o $1"
+		;;
+	*.y)
+		yacc $1
+		sed -e "/^# line/d" y.tab.c > $1.c
+		$CC -E $o $1.c > $TMP.i
+		$DIR/cflow1 $MFLAG -L$TMP.j $TMP.i 
+		if [ $? -eq 2 ]		# Unrecoverable failure in cflow1
+		then
+			 exit 1;
+		fi
+		$DIR/lpfx $IFLAG $TMP.j >> $TMPG
+		rm y.tab.c $1.c
+		;;
+	*.l)
+		lex $1
+		sed -e "/^# line/d" lex.yy.c > $1.c
+		$CC -E $o $1.c > $TMP.i
+		$DIR/cflow1 $MFLAG -L$TMP.j $TMP.i 
+		if [ $? -eq 2 ]		# Unrecoverable failure in cflow1
+		then
+			exit 1;
+		fi
+		$DIR/lpfx $IFLAG $TMP.j >> $TMPG
+		rm lex.yy.c $1.c
+		;;
+	*.c)
+		$CC -E $o $1 > $TMP.i
+		$DIR/cflow1 $MFLAG -L$TMP.j $TMP.i 
+		if [ $? -eq 2 ]		# Unrecoverable failure in cflow1
+		then
+			exit 1;
+		fi
+		$DIR/lpfx $IFLAG $TMP.j >> $TMPG
+		;;
+	*.i)
+		$DIR/cflow1 $MFLAG -L$TMP.j $1 
+		if [ $? -eq 2 ]		# Unrecoverable failure in cflow1
+		then
+			exit 1;
+		fi
+		$DIR/lpfx $IFLAG $TMP.j >> $TMPG
+		;;
+	*.s)
+		a=`basename $1 .s`
+		as -o $TMP.o $1
+		nm -he $TMP.o | sort -t'|' -n +1 -2 | $DIR/nmf $a ${a}.s >>$TMPG
+		;;
+	*.o)
+		a=`basename $1 .o`
+		nm -he $1 | sort -t'|' -n +1 -2 | $DIR/nmf $a ${a}.o >>$TMPG
+		;;
+	*)
+		dspmsg cflow.cat 1 "%s -- cflow can't process - file skipped\n" $1
+		;;
+	esac
+	shift
+done
+if [ "$INVFLG" != "" ]
+then
+	grep "=" $TMPG >$TMP.q
+	grep ":" $TMPG | $DIR/flip >>$TMP.q
+	sort <$TMP.q >$TMPG
+	rm $TMP.q
+fi
+$DIR/dag $DFLAG < $TMPG
+rm -f $TMP.?

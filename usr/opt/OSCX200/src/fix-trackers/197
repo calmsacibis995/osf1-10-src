@@ -1,0 +1,339 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203251654.AA01832@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2422) close XBUG #5075: server: lastEventTime and TimeSinceLastInputEvent should be dix notions
+Date: Wed, 25 Mar 92 11:54:49 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5075
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d01637	Wed Mar 25 11:40:27 1992
+--- server/include/dixstruct.h	Fri Mar 13 15:40:42 1992
+***************
+*** 22,28 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dixstruct.h,v 1.15 91/02/14 19:35:59 keith Exp $ */
+  
+  #ifndef DIXSTRUCT_H
+  #define DIXSTRUCT_H
+--- 22,28 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: dixstruct.h,v 1.16 92/03/13 15:39:45 rws Exp $ */
+  
+  #ifndef DIXSTRUCT_H
+  #define DIXSTRUCT_H
+***************
+*** 83,88 ****
+--- 83,89 ----
+  }           WorkQueueRec;
+  
+  extern TimeStamp currentTime;
++ extern TimeStamp lastDeviceEventTime;
+  extern void CloseDownClient();
+  
+  extern TimeStamp ClientTimeToServerTime();
+*** /tmp/d01448	Wed Mar 25 11:25:23 1992
+--- server/dix/globals.c	Fri Mar 13 15:41:54 1992
+***************
+*** 22,28 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: globals.c,v 1.50 91/05/14 12:25:28 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+--- 22,28 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: globals.c,v 1.51 92/03/13 15:40:57 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+***************
+*** 86,91 ****
+--- 86,92 ----
+  ClientPtr requestingClient;	/* XXX this should be obsolete now, remove? */
+  
+  TimeStamp currentTime;
++ TimeStamp lastDeviceEventTime;
+  
+  Bool permitOldBugs = FALSE; /* turn off some error checking, to permit certain
+  			     * old broken clients (like R2/R3 xterms) to work
+*** /tmp/d01465	Wed Mar 25 11:25:34 1992
+--- server/dix/window.c	Thu Mar 19 16:34:57 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.84 92/02/13 21:24:16 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.86 92/03/19 16:30:05 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+***************
+*** 581,587 ****
+  
+  }
+  
+! static WindowPtr
+  AllocateWindow(pScreen)
+      ScreenPtr pScreen;
+  {
+--- 581,587 ----
+  
+  }
+  
+! WindowPtr
+  AllocateWindow(pScreen)
+      ScreenPtr pScreen;
+  {
+***************
+*** 3570,3575 ****
+--- 3570,3579 ----
+          pWin->viewable = pWin->drawable.class == InputOutput;
+      	/* We SHOULD check for an error value here XXX */
+          (* pScreen->RealizeWindow)(pWin);
++ 	if (pScreen->ClipNotify)
++ 	    (* pScreen->ClipNotify) (pWin, 0, 0);
++ 	if (pScreen->PostValidateTree)
++ 	    (* pScreen->PostValidateTree)(NullWindow, pWin, VTMap);
+  	(* pScreen->RegionInit) (&temp, NullBox, 0);
+  	(* pScreen->RegionCopy) (&temp, &pWin->clipList);
+  	(*pScreen->WindowExposures) (pWin, &temp, NullRegion);
+***************
+*** 3972,3977 ****
+--- 3976,3983 ----
+  
+      if (on == SCREEN_SAVER_FORCER)
+      {
++ 	UpdateCurrentTimeIf();
++ 	lastDeviceEventTime = currentTime;
+          if (mode == ScreenSaverReset)
+              what = SCREEN_SAVER_OFF;
+          else
+*** /tmp/,RCSt1001494	Wed Mar 25 11:30:12 1992
+--- server/dix/events.c	Wed Mar 25 11:30:15 1992
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.51 91/12/26 09:46:14 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.53 92/03/13 17:49:31 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 485,491 ****
+  #define NoticeTime(xE) { \
+      if ((xE)->u.keyButtonPointer.time < currentTime.milliseconds) \
+  	MonthChangedOrBadTime(xE); \
+!     currentTime.milliseconds = (xE)->u.keyButtonPointer.time; }
+  
+  void
+  NoticeEventTime(xE)
+--- 485,492 ----
+  #define NoticeTime(xE) { \
+      if ((xE)->u.keyButtonPointer.time < currentTime.milliseconds) \
+  	MonthChangedOrBadTime(xE); \
+!     currentTime.milliseconds = (xE)->u.keyButtonPointer.time; \
+!     lastDeviceEventTime = currentTime; }
+  
+  void
+  NoticeEventTime(xE)
+***************
+*** 2963,2968 ****
+--- 2964,2970 ----
+      syncEvents.time.milliseconds = 0;	/* hardly matters */
+      currentTime.months = 0;
+      currentTime.milliseconds = GetTimeInMillis();
++     lastDeviceEventTime = currentTime;
+      for (i = 0; i < DNPMCOUNT; i++)
+      {
+  	DontPropagateMasks[i] = 0;
+*** /tmp/d01537	Wed Mar 25 11:32:52 1992
+--- server/os/Imakefile	Fri Mar 13 16:08:26 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.50 91/12/26 14:19:31 rws Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.51 92/03/13 16:07:24 rws Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+***************
+*** 65,70 ****
+--- 65,75 ----
+  #else
+       OS_DEFINES =
+  #endif /* SpecialMalloc */
++ #if defined(PegasusArchitecture) || defined(SGIArchitecture) || XdecServer
++     TIME_DEFINES = -DDDXTIME
++ #else
++     TIME_DEFINES =
++ #endif
+      DBM_DEFINES = NdbmDefines
+      ADM_DEFINES = -DADMPATH=\"$(ADMDIR)/X\%smsgs\"
+          DEFINES = ConnectionFlags $(OS_DEFINES) $(XDMAUTHDEFS) $(RPCDEFS) $(SIGNAL_DEFINES)
+***************
+*** 133,138 ****
+--- 138,144 ----
+  SpecialObjectRule(osinit.o,$(ICONFIGFILES),$(ADM_DEFINES))
+  SpecialObjectRule(WaitFor.o,$(ICONFIGFILES),$(EXT_DEFINES))
+  SpecialObjectRule(fonttype.o,$(ICONFIGFILES),$(FONT_DEFINES))
++ SpecialObjectRule(utils.o,$(ICONFIGFILES),$(TIME_DEFINES))
+  #if defined(SparcArchitecture) && HasGcc
+  oscolor.o: $(ICONFIGFILES)
+  	$(RM) $@
+*** /tmp/d01554	Wed Mar 25 11:33:01 1992
+--- server/os/WaitFor.c	Fri Mar 13 15:48:43 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: WaitFor.c,v 1.56 91/12/17 21:21:26 rws Exp $ */
+  
+  /*****************************************************************
+   * OS Depedent input routines:
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: WaitFor.c,v 1.57 92/03/13 15:47:39 rws Exp $ */
+  
+  /*****************************************************************
+   * OS Depedent input routines:
+***************
+*** 135,141 ****
+  	}
+  	if (ScreenSaverTime)
+  	{
+! 	    timeout = ScreenSaverTime - TimeSinceLastInputEvent();
+  	    if (timeout <= 0) /* may be forced by AutoResetServer() */
+  	    {
+  		long timeSinceSave;
+--- 135,142 ----
+  	}
+  	if (ScreenSaverTime)
+  	{
+! 	    timeout = (ScreenSaverTime -
+! 		       (GetTimeInMillis() - lastDeviceEventTime.milliseconds));
+  	    if (timeout <= 0) /* may be forced by AutoResetServer() */
+  	    {
+  		long timeSinceSave;
+*** /tmp/,RCSt1001587	Wed Mar 25 11:34:11 1992
+--- server/os/utils.c	Wed Mar 25 11:34:12 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: utils.c,v 1.109 92/02/24 19:03:14 keith Exp $ */
+  #include "Xos.h"
+  #include <stdio.h>
+  #include "misc.h"
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: utils.c,v 1.110 92/03/13 16:07:53 rws Exp $ */
+  #include "Xos.h"
+  #include <stdio.h>
+  #include "misc.h"
+***************
+*** 143,155 ****
+      perror(str);
+  }
+  
+! #if defined (UTEK) || defined (UTEKV) || defined(sgi)
+! /*
+!  * Tektronix has a shared-memory time value which doesn't
+!  * match gettimeofday at all, but it is only accessible
+!  * inside the driver.  SGI has their own GetTimeInMillis.
+!  */
+! #else
+  long
+  GetTimeInMillis()
+  {
+--- 143,149 ----
+      perror(str);
+  }
+  
+! #ifndef DDXTIME
+  long
+  GetTimeInMillis()
+  {
+*** /tmp/d01781	Wed Mar 25 11:51:38 1992
+--- server/os/xdmcp.c	Wed Mar 25 11:51:42 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: xdmcp.c,v 1.21 92/03/25 11:50:47 rws Exp $ */
+  /*
+   * Copyright 1989 Network Computing Devices, Inc., Mountain View, California.
+   *
+***************
+*** 24,32 ****
+--- 25,35 ----
+  #include "misc.h"
+  #include "osdep.h"
+  #include "input.h"
++ #include "dixstruct.h"
+  #include "opaque.h"
+  
+  #ifdef XDMCP
++ #undef REQUEST
+  #include "Xdmcp.h"
+  
+  extern int argcGlobal;
+***************
+*** 1067,1073 ****
+      	{
+  	    /* backoff dormancy period */
+  	    state = XDM_RUN_SESSION;
+! 	    if (TimeSinceLastInputEvent() > keepaliveDormancy * 1000)
+  	    {
+  		keepaliveDormancy <<= 1;
+  		if (keepaliveDormancy > XDM_MAX_DORMANCY)
+--- 1070,1077 ----
+      	{
+  	    /* backoff dormancy period */
+  	    state = XDM_RUN_SESSION;
+! 	    if ((GetTimeInMillis() - lastDeviceEventTime.milliseconds) >
+! 		keepaliveDormancy * 1000)
+  	    {
+  		keepaliveDormancy <<= 1;
+  		if (keepaliveDormancy > XDM_MAX_DORMANCY)

@@ -1,0 +1,70 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9204131938.AA20398@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2447) close XBUG #5012: server: memory leak in cfb initialization and shut down
+Date: Mon, 13 Apr 92 15:38:09 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5012
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d20379	Mon Apr 13 15:35:33 1992
+--- server/ddx/cfb/cfbscrinit.c	Tue Mar 31 17:53:15 1992
+***************
+*** 25,31 ****
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.23 91/12/30 09:35:27 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+--- 25,31 ----
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.24 92/03/31 17:52:52 keith Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+***************
+*** 151,164 ****
+      if (! miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
+  			rootdepth, ndepths, depths,
+  			defaultVisual, nvisuals, visuals,
+! 			&cfbBSFuncRec))
+  	return FALSE;
+  #ifdef CFB_NEED_SCREEN_PRIVATE
+      pScreen->devPrivates[cfbScreenPrivateIndex].ptr = pScreen->devPrivate;
+      pScreen->devPrivate = oldDevPrivate;
+  #endif
+-     /* smash miScreenClose */
+-     pScreen->CloseScreen = cfbCloseScreen;
+      return TRUE;
+  }
+  
+--- 151,167 ----
+      if (! miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
+  			rootdepth, ndepths, depths,
+  			defaultVisual, nvisuals, visuals,
+! 			(miBSFuncPtr) 0))
+  	return FALSE;
++     /* overwrite miCloseScreen with our own */
++     pScreen->CloseScreen = cfbCloseScreen;
++     /* init backing store here so we can overwrite CloseScreen without stepping
++      * on the backing store wrapped version */
++     miInitializeBackingStore (pScreen, &cfbBSFuncRec);
+  #ifdef CFB_NEED_SCREEN_PRIVATE
+      pScreen->devPrivates[cfbScreenPrivateIndex].ptr = pScreen->devPrivate;
+      pScreen->devPrivate = oldDevPrivate;
+  #endif
+      return TRUE;
+  }
+  

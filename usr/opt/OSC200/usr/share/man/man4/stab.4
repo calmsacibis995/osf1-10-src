@@ -1,0 +1,320 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: stab.4,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/12/21 15:29:37 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Copyright (c) 1980 Regents of the University of California.
+.\" All rights reserved.  The Berkeley software License Agreement
+.\" specifies the terms and conditions for redistribution.
+.\" 
+.\" @(#)stab.5	6.3 (Berkeley) 5/19/86
+.\" 
+.TH stab 4
+.SH NAME
+\*Lstab\*O \- Symbol table types
+.SH SYNOPSIS 
+.sS
+\*L#include <stab.h>\*O
+.sE 
+.SH DESCRIPTION
+.iX "stab file"
+.iX "files" "stab"
+.iX "symbol table types"
+The
+\*Lstab.h\*O
+header file
+defines some values of the
+\*Ln_type\*O
+field of the symbol table of
+\*La.out\*O
+files.
+These are the types for permanent symbols (that is, not local labels, etc.)
+used by the old debugger
+\*Lsdb\*O.
+Symbol table entries can be produced by the
+\*L.stabs\*O
+assembler directive.
+This allows one to specify a double-quote delimited name, a symbol type,
+one
+\*Lchar\*O
+and one
+\*Lshort\*O
+of information about the symbol, and an unsigned
+long (usually an address).
+To avoid having to produce an explicit label for the address field,
+the
+\*L.stabd\*O
+directive can be used to implicitly address the current location.
+If no name is needed, symbol table entries can be generated using the
+\*L.stabn\*O
+directive.
+The loader promises to preserve the order of symbol table entries produced
+by
+\*L.stab\*O
+directives.
+An element of the symbol table
+consists of the following structure:
+.sp
+.rS
+\*L/* SYMBOL INFORMATION ENTRY
+\*L* This is used for defined symbols, imports and stabs.  The type (kind)
+\*L* of the associated symbols load command determines which.
+\*Ltypedef struct symbol_info_t {
+.nL
+	union	{mo_offset_t	symbol_name;
+.nL
+		 mo_ptr_t	symbol_nameP;
+.nL
+      }	si_name;
+.nL
+	mo_short_t		si_package_index;
+.nL
+	mo_short_t		si_type;
+.nL
+	mo_short_t		si_flags;
+.nL
+	mo_byte_t		si_reserved byte;
+.nL
+	mo_byte_t		si_sc_type;
+.nL
+	union	{mo_addr_t	def_val;	/* defined section, offset */
+.nL
+		 mo_long_t	imp_val;	/* index in import list */
+.nL
+		 mo_long_t	lit_val;	/* literal value */
+.nL
+		 mo_vm_addr_t	abs_val;	/* absolute value */
+.nL
+      } si_value;
+.nL
+} symbol_info_t;
+.rE
+.PP 
+The low bits of the
+\*Lsi_sc_type\*O
+field are used to place a symbol into
+at most one segment, according to
+the following masks.
+A symbol can be in none of these segments by having none of these segment
+bits set.
+.sp
+.rS
+\*L* Simple values for si_sc_type.
+.nL
+*/
+#define	N_UNDF	0x0	/* undefined */
+.nL
+#define	N_ABS	0x2	/* absolute */
+.nL
+#define	N_TEXT	0x4	/* text */
+.nL
+#define	N_DATA	0x6	/* data */
+.nL
+#define	N_BSS	0x8	/* bss */
+.nL
+.nL
+#define	N_EXT	01	/* external bit, or'ed in */\*O
+.rE
+.PP 
+The
+\*Ln_value\*O
+field of a symbol is relocated by the linker,
+\*Lld\*O,
+as an address within the appropriate segment.
+The
+\*Ln_value\*O
+fields of symbols not in any segment are unchanged by the linker.
+In addition, the linker will discard certain symbols, according to rules
+of its own, unless the
+\*Lsi_sc_type\*O
+field has one of the following bits set:
+.sp
+.rS
+\*L#define N_STAB	0xe0	/* if any of these bits set, don't discard */
+.rE
+.PP 
+This allows up to 112 (7 \(** 16) symbol types, split between the various
+segments.
+Some of these have already been claimed.
+The old symbolic debugger,
+\*Lsdb\*O,
+uses the following
+\*Ln_type\*O
+values:
+.VL 1.5i
+.LI "\*L#define N_GSYM\*O"
+\*L0x20	/* global symbol: name,,0,type,0 */\*O
+.LI "\*L#define N_FNAME\*O"
+\*L0x22	/* procedure\|name\|(f77 kludge): name,,0 */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_FUN\*O"
+\*L0x24	/* procedure: name,,0,linenumber,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_STSYM\*O"
+\*L0x26	/* static symbol: name,,0,type,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_LCSYM\*O"
+\*L0x28	/* .lcomm symbol: name,,0,type,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_RSYM\*O"
+\*L0x40	/* register sym: name,,0,type,register */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_SLINE\*O"
+\*L0x44	/* src line: 0,,0,linenumber,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_SSYM\*O"
+\*L0x60	/* structure elt: name,,0,type,struct_offset */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_SO\*O"
+\*L0x64	/* source\|file\|name: name,,0,0,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_LSYM\*O"
+\*L0x80	/* local sym: name,,0,type,offset */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_SOL\*O"
+\*L0x84	/* #included\|file\|name: name,,0,0,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_PSYM\*O"
+\*L0xa0	/* parameter: name,,0,type,offset */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_ENTRY\*O"
+\*L0xa4	/* alternate entry: name,,linenumber,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_LBRAC\*O"
+\*L0xc0	/* left bracket: 0,,0,nesting\|level,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_RBRAC\*O"
+\*L0xe0	/* right bracket: 0,,0,nesting\|level,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_BCOMM\*O"
+\*L0xe2	/* begin\|common: name,, */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_ECOMM\*O"
+\*L0xe4	/* end\|common: name,, */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_ECOML\*O"
+\*L0xe8	/* end\|common\|(local name): ,,address */\*O
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*L#define N_LENG\*O"
+\*L0xfe	/* second\|stab\|entry\|with\|length\|information */\*O\c
+.LE 
+.PP 
+The comments give
+\*Lsdb\*O
+conventional use for
+\*L.stab\*Os
+and the
+\*Ln_name\*O,
+\*Ln_other\*O,
+\*Ln_desc\*O,
+and
+\*Ln_value\*O
+fields
+of the given
+\*Ln_type\*O.
+The
+\*Lsdb\*O
+debugger
+uses the
+\*Ln_desc\*O
+field to hold a type specifier in the form used
+by the Portable C Compiler,
+\*Lcc\*O.
+.PP 
+The Berkeley Pascal compiler,
+\*Lpc\*O,
+uses the following
+\*Lsi_sc_type\*O
+value:
+.sp
+.rS
+\*L#define  N_PC  0x30  /* global pascal symbol: name,,0,subtype,line */\*O
+.rE
+.PP 
+and uses the following subtypes to do type checking across separately
+compiled files:
+.\"from TP 4"  
+.ML
+.LI "1"
+Source filename
+.\"from TP "  
+.LI "2"
+Included filename
+.\"from TP "  
+.LI "3"
+Global label
+.\"from TP "  
+.LI "4"
+Global constant
+.\"from TP "  
+.LI "5"
+Global type
+.\"from TP "  
+.LI "6"
+Global variable
+.\"from TP "  
+.LI "7"
+Global function
+.\"from TP "  
+.LI "8"
+Global procedure
+.\"from TP "  
+.LI "9"
+External function
+.\"from TP "  
+.LI "10"
+External procedure
+.\"from TP "  
+.LI "11"
+Library variable
+.\"from TP "  
+.LI
+"12" Library routine
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Commands:
+\*Las\*O(1),
+\*Lld\*O(1)
+.iX "stab file"
+.EQ
+delim off
+.EN

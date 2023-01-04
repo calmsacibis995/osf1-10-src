@@ -1,0 +1,123 @@
+Path: news.crl.dec.com!nntpd.lkg.dec.com!pa.dec.com!nobody
+From: rws@expo.lcs.mit.edu (Bob Scheifler)
+Newsgroups: dec.mail.lists.x.fix-trackers
+Subject: (seq: 2293) close XBUG #4735: server: TopIf and BottomIf fail on nested windows
+Message-ID: <9112232206.AA27365@explain.lcs.mit.edu>
+Date: 23 Dec 91 22:06:38 GMT
+Distribution: dec
+Lines: 110
+Approved: news@usenet.pa.dec.com
+To: fix-trackers@expo.lcs.mit.edu
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+
+### bug number:   4735
+### area:         server
+### severity:     low
+### comments:     
+
+(Patch contains part of an unrelated fix concerning parentRelative borders.)
+
+*** /tmp/,RCSt1023522	Mon Dec 23 12:16:45 1991
+--- server/dix/window.c	Mon Dec  9 18:59:54 1991
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.78 91/11/27 15:54:50 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.80 91/12/09 18:58:03 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+***************
+*** 1214,1219 ****
+--- 1214,1220 ----
+      unsigned int val;
+      int error;
+      Bool checkOptional = FALSE;
++     Bool borderRelative = FALSE;
+  
+      if ((pWin->drawable.class == InputOnly) && (vmask & (~INPUTONLY_LEGAL_MASK)))
+          return BadMatch;
+***************
+*** 1231,1236 ****
+--- 1232,1239 ----
+  	  case CWBackPixmap:
+  	    pixID = (Pixmap )*pVlist;
+  	    pVlist++;
++ 	    if (pWin->backgroundState == ParentRelative)
++ 		borderRelative = TRUE;
+  	    if (pixID == None)
+  	    {
+  		if (pWin->backgroundState == BackgroundPixmap)
+***************
+*** 1254,1259 ****
+--- 1257,1263 ----
+  		    MakeRootTile(pWin);
+  		else
+  	            pWin->backgroundState = ParentRelative;
++ 		borderRelative = TRUE;
+  		/* Note that the parent's backgroundTile's refcnt is NOT
+  		 * incremented. */
+  	    }
+***************
+*** 1283,1288 ****
+--- 1287,1294 ----
+  	    }
+  	    break;
+  	  case CWBackPixel:
++ 	    if (pWin->backgroundState == ParentRelative)
++ 		borderRelative = TRUE;
+  	    if (pWin->backgroundState == BackgroundPixmap)
+  		(* pScreen->DestroyPixmap)(pWin->background.pixmap);
+  	    pWin->backgroundState = BackgroundPixel;
+***************
+*** 1657,1663 ****
+  	Note that this has to be done AFTER pScreen->ChangeWindowAttributes
+          for the tile to be rotated, and the correct function selected.
+      */
+!     if ((vmaskCopy & (CWBorderPixel | CWBorderPixmap))
+  	&& pWin->viewable && HasBorder (pWin))
+      {
+  	RegionRec exposed;
+--- 1663,1669 ----
+  	Note that this has to be done AFTER pScreen->ChangeWindowAttributes
+          for the tile to be rotated, and the correct function selected.
+      */
+!     if (((vmaskCopy & (CWBorderPixel | CWBorderPixmap)) || borderRelative)
+  	&& pWin->viewable && HasBorder (pWin))
+      {
+  	RegionRec exposed;
+***************
+*** 2573,2583 ****
+      register WindowPtr pWin;
+      register BoxPtr pBox;
+  {
+!     pBox->x1 = pWin->origin.x - wBorderWidth (pWin);
+!     pBox->y1 = pWin->origin.y - wBorderWidth (pWin);
+!     pBox->x2 = pWin->origin.x + (int)pWin->drawable.width
+  	       + wBorderWidth (pWin);
+!     pBox->y2 = pWin->origin.y + (int)pWin->drawable.height
+  	       + wBorderWidth (pWin);
+      return(pBox);
+  }
+--- 2579,2589 ----
+      register WindowPtr pWin;
+      register BoxPtr pBox;
+  {
+!     pBox->x1 = pWin->drawable.x - wBorderWidth (pWin);
+!     pBox->y1 = pWin->drawable.y - wBorderWidth (pWin);
+!     pBox->x2 = pWin->drawable.x + (int)pWin->drawable.width
+  	       + wBorderWidth (pWin);
+!     pBox->y2 = pWin->drawable.y + (int)pWin->drawable.height
+  	       + wBorderWidth (pWin);
+      return(pBox);
+  }

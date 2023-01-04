@@ -1,0 +1,951 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" Commented 10/28/93 10:37 by cmt
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: flex.1,v $ $Revision: 1.1.2.7 $ (DEC) $Date: 1993/12/03 14:58:52 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1990 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" The United States Government has rights in this work pursuant
+.\" to contract no. DE-AC03-76SF00098 between the United States
+.\" Department of Energy and the University of California.
+.\"
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" This reference page is derived from documentation contributed to
+.\" Berkeley by Vern Paxson.
+.\" 
+.\" @(#)lex.1   5.7 (Berkeley) 6/30/90
+.\" 
+.TH flex 1
+.SH NAME
+\*Lflex\*O \- Generates a C Language lexical analyzer
+.SH SYNOPSIS
+.PP
+.sS
+\*Lflex\*O
+\*O[\*L\(hybcdfinpstvFILT8\*O]
+\*L\(hyC\*O[\*LefmF\*O]
+\*O[\*L\(hyS\*Vskeleton\*O]
+\*O[\*Vfile\*O\ \&...]
+.sE
+.SH FLAGS
+.PP
+.VL 4m
+.\"
+.LI "\*L-b\*O"
+Generates backtracking information to \*Llex.backtrack\*O.
+This is a list of scanner states that require backtracking
+and the input characters on which they do so.  By adding rules you
+can remove backtracking states.  If all backtracking states
+are eliminated and \*L-f\*O
+or
+\*L-F\*O
+is used, the generated scanner will run faster.
+.\"
+.LI "\*L-d\*O"
+Makes the generated scanner run in \*Ldebug\*O
+mode.  Whenever a pattern is recognized and the global
+\*Lyy_lex_debug\*O
+is nonzero (which is the default), the scanner
+writes to
+\*Lstderr\*O
+a line of the form:
+.oS
+--accepting rule at line 53 ("\*Vthe matched text\*L")
+.oE
+The line number refers to the location of the rule in the file
+defining the scanner (the input to \*Llex\*O).  Messages
+are also generated when the scanner backtracks, accepts the
+default rule, reaches the end of its input buffer (or encounters
+a NULL), or reaches an End-of-File.
+.\"
+.LI "\*L-f\*O"
+Specifies \*Efull table\*O (no table compression is done).
+The result is large but fast.
+This flag is equivalent to \*L-Cf\*O.
+.\"
+.LI "\*L-i\*O"
+Instructs
+\*Lflex\*O
+to generate a
+case-insensitive
+scanner.  The case of letters given in the
+\*Lflex\*O
+input patterns will
+be ignored, and tokens in the input will be matched regardless of case.  The
+matched text given in
+\*Lyytext\*O
+will have the original case (as read by the scanner).
+.\"
+.LI "\*L-p\*O"
+Generates a performance report to \*Lstderr\*O. This identifies features of
+the \*Lflex\*O input file that will cause
+a loss of performance in the resulting scanner.
+.\"
+.LI "\*L-s\*O"
+Causes the
+default rule
+(that unmatched scanner input is echoed to
+\*Lstdout\*O)
+to be suppressed.  If the scanner encounters input that does not
+match any of its rules, it aborts with an error.
+.\"
+.LI "\*L-t\*O"
+Instructs
+\*Lflex\*O
+to write the scanner it generates to standard output instead
+of \*Llex.yy.c\*O.
+.\"
+.LI "\*L-v\*O"
+Specifies that
+\*Lflex\*O
+should write to \*Lstderr\*O
+a summary of statistics regarding the scanner it generates.
+.\"
+.LI "\*L-F\*O"
+Specifies that the fast
+scanner table representation should be used.  This representation is
+about as fast as the full table representation (\*L-f\*O),
+and for some sets of patterns will be considerably smaller (and for
+others, larger).  This flag is equivalent to \*L-CF\*O.
+.\"
+.LI "\*L-I\*O"
+Instructs
+\*Lflex\*O
+to generate an interactive
+scanner; that is, a scanner that stops immediately rather than
+looking ahead if it knows
+that the currently scanned text cannot be part of a longer rule's match.
+Note, \*L-I\*O cannot be used in conjunction with full
+or fast tables; that is, the \*L-f\*O, \*L-F\*O, \*L-Cf\*O,
+or \*L-CF\*O
+flags.
+.\"
+.LI "\*L-L\*O"
+Instructs
+\*Lflex\*O
+not to generate \*L#line\*O
+directives in \*Llex.yy.c\*O.
+The default is to generate such directives so error
+messages in the actions will be correctly
+located with respect to the original
+\*Llex\*O
+input file.
+.\"
+.LI "\*L-T\*O"
+Makes
+\*Lflex\*O
+run in trace
+mode.  It will generate a lot of messages to \*Lstdout\*O
+concerning
+the form of the input and the resultant nondeterministic and deterministic
+finite automata.  This flag is mostly for use in maintaining
+\*Lflex\*O.
+.\"
+.LI "\*L-8\*O"
+Instructs
+\*Lflex\*O
+to generate an 8-bit scanner (which is the default).
+.ig ++
+.\" On some sites, this is the default.  On others, the default
+.\" is 7-bit characters.  To see which is the case, check the verbose \*L-v\*O
+.\" output for \*Cequivalence classes created\*O.  If the denominator of
+.\" the number shown is 128, then by default
+.\" \*Lflex\*O
+.\" is generating 7-bit characters.  If it is 256, then the default is
+.\" 8-bit characters.  This is the default.
+.++
+.\"
+.LI "\*L-C[efmF]\*O"
+Controls the degree of table compression. The default setting is
+\*L-Cem\*O which provides the highest degree of table compression.
+Faster-executing scanners can be traded off at the cost of larger tables with
+the following generally being true:
+.IP
+Slowest and smallest
+.iS
+-Cem
+-Cm
+-Ce
+-C
+-C{f,F}e
+-C{f,F}
+.iE
+Fastest and largest
+.IP
+\*L-C\*O
+flags are not cumulative; whenever the flag is encountered, the
+previous \*L-C\*O settings are forgotten.  The
+\*L-\&f\*O or \*L-\&F\*O and \*L-\&Cm\*O flags
+do not make sense together; there is no opportunity for meta-equivalence
+classes if the table is not being compressed.  Otherwise, the flags
+may be freely mixed.
+.VL 4m
+.\"
+.LI "\*L-C\*O"
+A lone \*L-C\*O
+specifies that the scanner tables should be compressed and neither
+equivalence classes nor meta-equivalence classes should be used.
+.\"
+.LI "\*L-\&Ce"
+Directs
+\*Lflex\*O
+to construct equivalence classes;
+for example, sets of characters
+that have identical lexical properties.
+Equivalence classes usually give
+dramatic reductions in the final table/object file sizes (typically
+a factor of 2 to 5) and are inexpensive performance-wise (one array
+look-up per character scanned).
+.\"
+.LI "\*L-\&Cm"
+Directs
+\*Lflex\*O
+to construct meta-equivalence classes,
+which are sets of equivalence classes (or characters, if equivalence
+classes are not being used) that are commonly used together.  Meta-equivalence
+classes are often a big win when using compressed tables, but they
+have a moderate performance impact (one or two "if" tests and one
+array look-up per character scanned).
+.\"
+.LI "\*L-\&Cf"
+Specifies that the
+full
+scanner tables should be generated;
+\*Lflex\*O
+should not compress the
+tables by taking advantage of similar transition functions for
+different states.
+.\"
+.LI "\*L-\&CF"
+Specifies that the alternative fast scanner representation
+should be used.
+.LE
+.\"
+.LI "\*L-S\*Vskeleton_file\*O"
+Overrides the default skeleton file from which
+\*Lflex\*O
+constructs its scanners.  This is useful for
+\*Lflex\*O
+maintenance or development.
+.\"
+.LI "\*L-c\*O"
+Specifies table-compression options.  (Obsolescent)
+.\"
+.LI "\*L-n\*O"
+Suppresses the statistics summaries that the \*L-v\*O flag typically
+generates.  (Obsolete)
+.LE
+.\"
+.SH DESCRIPTION
+.iX "flex command"
+.iX "programs" "C"
+.iX "generating" "C programs"
+.iX "C language" "generating programs"
+.iX "lexical analysis"
+.PP
+The \*Lflex\*O command is a tool for generating \*Escanners\*O:
+programs which recognize lexical patterns in text.
+The \*Lflex\*O command reads the given input files,
+or its standard input if no filenames are given or if a file operand
+is \*L-\*O (dash) for a description of a scanner to generate.
+The description is in the form of pairs of regular expressions and C code,
+called \*Erules\*O.
+The \*Lflex\*O command generates as output a C source file, \*Llex.yy.c\*O,
+which defines a routine \*Lyylex()\*O.
+This file is compiled and linked with the \*L-ll\*O library to produce
+an executable.
+When the executable is run, it scans its input and the regular expressions
+in its \*Vrules\*O looking for the best match (longest input).
+When it has selected a rule it executes the associated C code which has access
+to the matched input sequence (commonly referred to as a token).
+This process then repeats until input is exhausted.
+.PP
+The \*Lflex\*O command treats multiple input files as one.
+.\"
+.SS "Syntax for Input"
+This section contains a description of the \*Lflex\*O input file, which
+is normally named with a \*L\&.l\*O suffix.  The section
+provides a listing of
+the special values, macros, and functions recognized by \*Lflex\*O.
+.ig ++
+.\" To
+.\" avoid confusion with special characters used by \*Lflex\*O, only a
+.\" few conventions are used here to indicate the syntax of the input:
+.\" .TP 12
+.\" [ \*Vitem\*O ]
+.\" means that \*Vitem\*O is optional.  Brackets can be nested.
+.\" .TP 12n
+.\" \*Vitem\*O ...
+.\" Means that one or more instances of \*Vitem\*O can appear.
+.\" .TP 12
+.\" \*Vitem\*O [ , \*Vitem\*O ... ]
+.\" A frequently-seen combination of the previous two cases, meaning that at least
+.\" one instance of \*Vitem\*O must appear, and that successive instances are
+.\" separated by commas.
+.++
+.PP
+The \*Lflex\*O input file consists of three sections, separated by a line
+with just \*L%\&%\&\*O in it:
+.iS
+\*O[ \*Vdefinitions\*O ]
+\*L%\&%\&\*O
+[ \*Vrules\*O ]
+[ \*L%\&%\&\*O
+[ \*Vuser functions\*O ] ]
+.iE
+.VL 6m
+.\"
+.LI "\*Vdefinitions\*O"
+Contains declarations to simplify the scanner specification, and
+declarations of start states which are explained below.
+.\"
+.LI "\*Vrules\*O"
+Describes what the scanner is to do.
+.\"
+.LI "\*Vuser functions\*O"
+Contains user-supplied functions that
+copied straight through to \*Llex.yy.c\*O.
+.LE
+.sp
+.IP
+With the exception of the first \*L%\&%\&\*O sequence all sections are optional.
+The minimal scanner \*L%\&%\&\*O, copies its input to standard output.
+.ne 5
+.PP
+Each line in the \*Vdefinitions\*O section can be:
+.VL
+.\"
+.LI "\*Vname regexp\*O"
+Defines \*Vname\*O to expand to \*Vregexp\*O.
+\*Vname\*O is a word beginning with a letter or an underscore (_)
+followed by zero or more letters, digits, underscores or dashes (-).
+In the regular-expression parts of the rules section,
+\*Lflex\*O substitutes \*Vregexp\*O wherever you refer to
+\*V{name}\*O (\*Vname\*O within braces).
+.\"
+.LI "\*L%x \*Vstate\*O [ \*Vstate\*O ... ]"
+.LI "\*L%s \*Vstate\*O [ \*Vstate\*O ... ]"
+Defines names for states used in the rules section.
+A rule may be made conditionally active based on the current scanner state.
+Multiple lines defining states can appear, and each can contain multiple
+\*Vstate\*O names, separated by white space.
+The name of a \*Vstate\*O follows the same syntax as that of
+\*Vregexp\*O names except that dashes ('-') are not permitted.
+Unlike \*Vregexp\*O names, \*Vstate\*O names share the
+C \*L#define\*O namespace.
+In the \*Vrules\*O section states are recognized as \*V<state>\*O (\*Vstate\*O
+within angle brackets).
+.IP
+The \*L%x\*O directive names exclusive states.  When a scanner is in an
+exclusive state, only rules prefixed with that state are active.
+Inclusive states are named with the \*L%s\*O directive.
+.\"
+.ig ++
+.\" .\"     As per latest POSIX this option is dropped so I'm deleting
+.\" .\"     this description - the code will follow.
+.\" .LI "\*L%t\*O"
+.\" .LI "\*Vnum chars\*O"
+.\" .LI "..."
+.\" .LI "%\*Lt\*O"
+.\" Defines a translation table.
+.\" All \*Vchars\*O are considered part of the same group \*Vnum\*O.
+.\" \*Lflex\*O already provides some support automatically and via the \*L-i\*O flag.
+.++
+.\"
+.LI "\*L%{\*O"
+.LI "\*L%}\*O"
+When placed on lines by
+themselves, these symbols enclose C code to be passed verbatim into the
+global definitions of the output file.  Such lines commonly include
+preprocessor directives and declarations of external variables and functions.
+.\"
+.LI "\*Vspace\*O"
+.LI "\*Vtab\*O"
+Lines beginning with a space or tab in the definitions section are passed
+directly into the \*Llex.yy.c\*O output file, as part of the initial global
+definitions.
+.\"     Note that the %[aeknop] directives are ignored - thay have no
+.\"     effect in [f]lex.
+.LE
+.PP
+The \*Vrules\*O section follows the \*Vdefinitions\*O, separated by a line
+consisting of \*L%\&%\&\*O.  The rules section contains rules for matching
+input and taking actions, in the following format:
+.iS
+\*Vpattern\*O [ \*Vaction\*O ]
+.iE
+The \*Vpattern\*O starts in the first column of the line and extends until the
+first non-escaped white space character.
+The \*Lflex\*O command attempts to find the \*Vpattern\*O that matches the longest
+input sequence and execute the associated \*Vaction\*O.
+If two or more \*Vpattern\*Os match the same input the
+one which appears first in the \*Vrules\*O section is chosen.
+If no \*Vaction\*O exists the matched input is discarded.
+If no \*Vpattern\*O matches the input the default is to copy it to
+standard output.
+.PP
+All \*Vaction\*O code is placed in the \*Lyylex()\*O function.
+Text (C code or declarations) placed at the beginning of the \*Vrules\*O
+section is copied to the beginning of the \*Lyylex()\*O function
+and may be used in actions.
+This text must begin with a space or a tab (to distinguish it from rules).
+.\" .zA "review, R1.1.2, XPG4"
+In addition, any input (beginning with a space or within \*L%{\*O and
+\*L%}\*O delimiter lines) appearing at the beginning of the rules
+section before any rules are specified will be written to \*Llex.yy.c\*O
+after the declarations of variables for the \*Lyylex(\|)\*O function
+and before the first line of code in \*Lyylex(\|)\*O.
+.\" .zZ "review, R1.1.2, XPG4"
+.PP
+Elements of each rule are:
+.VL 3m
+.\"
+.LI "\*Vstate\*O"
+A \*Vpattern\*O may begin with a comma separated list of \*Vstate\*O
+names enclosed
+by angle brackets (\*L<\*O \*Vstate\*O [\*L,\*O\*Vstate\*O...] \*L>\*O).
+These states are entered via the \*LBEGIN\*O statement.
+If a \*Vpattern\*O begins with a \*Vstate\*O, the scanner can only recognize
+it when in that state.  The initial state is 0 (zero).
+.\"
+.LI "\*Vregexp\*O"
+A regular expression to match against the input stream.
+The regular expressions in \*Lflex\*O provide a rich character matching syntax.
+.IP
+The following characters, shown in order of decreasing precedence have special
+meanings:
+.VL 3m
+.LI "\*Vx\*O"
+Matches the character \*Vx\*O.
+.\"
+.LI "(double quotes)"
+Enclose characters and treat them as literal strings.  For
+example, \*L"*+"\*O is treated as the asterisk character followed
+by the plus character.
+.\"
+.LI "\*L\e\*O\*Vstr\*O  (backslash)"
+If \*Vstr\*O is one of the characters \*La\*O, \*Lb\*O, \*Lf\*O, \*Ln\*O,
+\*Lr\*O, \*Lt\*O, or \*Lv\*O, then the ANSI C interpretation is adopted
+(for example, \*L\en\*O is a newline).
+If \*Vstr\*O is a string of octal digits it is interpreted as a
+character with octal value \*Vstr\*O.
+If \*Vstr\*O is a string of hexadecimal digits with a leading \*Lx\*O
+it is interpreted as a character with that value.
+Otherwise, it is interpreted literally with no special meaning.
+For example, \*Lx\e*yz\*O represents the four characters \*Lx*yz\*O.
+.\"
+.LI "\*L[\ \&]\*O  (brackets)"
+Represents a character class in the enclosed range ([.-.]) or the
+enclosed list ([...]).
+The dash character is used to define a range of characters from the ASCII
+value or the 8-bit class of the character that comes before it to the
+ASCII value or the 8-bit class of the character that follows it.
+For example, \*L[abcx-z]\*O matches \*La\*O, \*Lb\*O, \*Lc\*O, \*Lx\*O,
+\*Ly\*O, or \*Lz\*O.
+.IP
+The circumflex when it appears as the first character in a character class,
+indicates the complement of
+the set of characters within that class.
+For example, \*L[^abc]\*O matches any character except \*La\*O, \*Lb\*O or
+\*Lc\*O, including special characters like newline.
+Similarly, \%\*L[^a-zA-Z]\*O is any character that is not a letter.
+.\"
+.LI "\*L(\ \&)\*O (parentheses)"
+Groups regular expressions.
+For example, \*L(ab)\*O will be considered as a single regular expression.
+.\"
+.LI "\*L{\ \&}\*O (braces)"
+When enclosing numbers, indicates a number of consecutive
+occurrences of the expression that comes before it.  For example,
+\*L(ab){1,5}\*O indicates a match for from 1 to 5 occurrences
+of the string \*Lab\*O\&.
+.IP
+When enclosing a name, the name represents a regular expression
+defined in the \*Vdefinitions\*O section.
+For example, \*L{digit}\*O is replaced by the defined regular expression
+for \*Ldigit\*O.
+Note that the expansion takes place as if the definition were enclosed
+in parentheses.
+.\"
+.LI "\*L\&.\*O  (period)"
+Matches any single character except newline.
+.\"
+.LI "\*L?\*O (question mark)"
+Matches zero or one of the preceding expressions.
+For example, \*Lab?c\*O matches both \*Lac\*O and \*Labc\*O.
+.\"
+.LI "\*L*\*O  (asterisk)"
+Matches zero or more of the preceding expressions.
+For example, \*La*\*O is zero or more consecutive \*La\*O characters.
+The utility of matching zero occurrences is more obvious in complicated
+expressions.  For example, the expression, \*L[A-Za-z][A-Za-z0-9]*\*O
+indicates all alphanumeric strings with a leading alphabetic character,
+including strings that are only one alphabetic character.
+.\"
+.LI "\*L\(pl\*O (plus sign)"
+Matches one or more of the preceding expressions.
+For example, \*L[a-z]\(pl\*O is all strings of lowercase letters.
+.\"
+.LI "\*Vxy\*O  (concatenation)"
+Matches the expression \*Vx\*O followed by the expression \*Vy\*O.
+.\"
+.LI "\*L(br\\*O  (vertical bar)"
+Matches either the preceding expression or the following expression.
+For example, \*La(br\cd\*O matches either \*Lab\*O or \*Lcd\*O.
+.\"
+.LI "\*Vx\*O/\*Vy\*O (slash)"
+Matches expression \*Vx\*O only if expression \*Vy\*O (trailing context)
+immediately follows it.
+For example, \*Lab/cd\*O
+matches the string \*Lab\*O but only if followed by \*Lcd\*O.
+Only one trailing context is permitted per \*Vpattern\*O.
+.\"
+.LI "\*L^\*O  (circumflex)"
+When it appears at the beginning of the pattern matches the beginning
+of a line.
+For example, \*L^abc\*O will match the string \*Labc\*O if it is found
+at the beginning of a line.
+.\"
+.LI "\*L$\*O (dollar sign)"
+When it appears at the end of a pattern matches the end of a line.
+It is equivalent to \*L/\en\*O.
+For example, \*Labc$\*O will match the string \*Labc\*O if it is found
+at the end of a line.
+.\"
+.LI "\*L<<EOF>>\*O"
+Matches an End-of-File.
+.\"
+.LI "\*L<\*Vx\*L>\*O (angle bracket)"
+Identifies a state name (see above) and may only appear at the beginning
+of a pattern.
+For example, \*L<done><<EOF>>\*O matches an End-of-File, but only if it
+is in state \*Ldone\*O.
+.LE
+.if n .PP
+In addition, the following rules apply for bracket expressions:
+.VL
+.LI "\*LEquivalence class expressions\*O"
+These represent the set of collating
+elements in an equivalence class and are enclosed within bracket-equal
+delimiters ([= =]). An equivalence class generally is designed to deal
+with primary-secondary sorting; that is, for languages like French
+that define groups of characters as sorting to the same primary
+location, and then have a tie-breaking, secondary sort. For example,
+if \*La\*O, \*L\o'a`'\*O, and \*L\o'a^'\*O belong to the same equivalence class,
+then \*L[[=a=]b]\*O, \*L[[=\o'a`'=]b]\*O, and
+\*L[[=\o'a^'=]b]\*O are each equivalent
+to \*L[a\o'a`'\o'a^'b]\*O.
+.\"
+.LI "\*LCharacter class expressions\*O"
+These represent the set of characters
+in the current locale belonging to the named ctype class. These
+are expressed as a ctype class name enclosed in bracket-colon delimiters
+\*L\&\&([: :])\*O.
+.IP
+In the C or POSIX locale,  this operating system supports the following character class expressions:
+[\*L:alpha:\*O], [\*L:upper:\*O], [\*L:lower:\*O], [\*L:digit:\*O],
+[\*L:alnum:\*O], [\*L:xdigit:\*O], [\*L:space:\*O], [\*L:print:\*O],
+[\*L:punct:\*O], [\*L:graph:\*O], [\*L:cntrl:\*O].
+.LE
+.sp
+Other locales may define additional character classes.
+.IP
+Letters and digits never have special meanings.  A character such as \*L^\*O
+or \*L\-\*O, which has a special meaning in particular contexts, refers simply
+to itself when found outside that context.  Spaces and tabs must be escaped
+to appear in a regular expression; otherwise they indicate the
+end of the expression.
+.\"
+.LI "\*Vaction\*O"
+Each \*Vpattern\*O in a rule has a corresponding \*Vaction\*O, which can be any
+arbitrary C statement.
+The pattern ends at the first non-escaped white space character;
+the remainder of the line is its \*Vaction\*O.
+If the action is empty, then when the pattern is matched the input which
+matched it is discarded.
+.IP
+If the action contains a \*L{\*O, then the action spans till the balancing
+\*L}\*O is found, and the action may cross multiple lines.
+Using a \*Lreturn\*O statement in an action returns from \*Lyylex()\*O.
+.IP
+An action consisting solely of a vertical bar (\*L|\*O) means \*Vsame as
+the action for the next rule\*O.
+.IP
+\*Lflex\*O variables which can be used within actions are:
+.VL 10
+.\"
+.LI "\*Lyytext\*O"
+A string (\*Lchar *\*O) containing the current matched input.
+It cannot be modified.
+.\"
+.LI "\*Lyyleng\*O"
+The length (\*Lint\*O) of the current matched input.
+It cannot be modified.
+.\"
+.LI "\*Lyyin\*O"
+A stream (\*LFILE *\*O) that \*Lflex\*O reads from (\*Lstdin\*O by default).
+It may be changed but because of the buffering \*Lflex\*O uses this
+makes sense only before scanning begins.
+Once scanning terminates because an End-of-File
+was seen, \*Lvoid yyrestart (FILE *\*Vnew_file\*L)\*O may be called
+to point \*Lyyin\*O at a new input file.
+Alternatively, \*Lyyin\*O may be changed whenever a new or different
+buffer is selected (see \*Lyy_switch_to_buffer()\*O).
+.\"
+.LI "\*Lyyout\*O"
+A stream (\*LFILE *\*O) to which \*LECHO\*O output is written (\*Lstdout\*O
+by default).
+It can be changed by the user.
+.\"
+.LI "\*LYY_CURRENT_BUFFER\*O"
+Returns the current buffer (\*LYY_BUFFER_STATE\*O) used for scanner input.
+.LE
+.sp
+.ig ++
+.\" .RS
+.\" .TP
+.\" yytext
+.\" The text that was matched by the regular expression firing this action.  This
+.\" variable is a standard \*Lchar\ *\*O string.
+.\" .TP
+.\" yyleng
+.\" An \*Lint\*O variable containing the length of \*Lyytext\*O.
+.\" .TP
+.\" yylval
+.\" The value of the token appearing in the return statement.  This variable is
+.\" declared in the \*Ly.tab.h\*O file produced by \*Lyacc\*O, and can be either a
+.\" simple \*Lint\*O or a union.
+.\" .RE
+.++
+.if n .PP
+The \*Lflex\*O command macros and functions that may be used within actions are:
+.VL 10
+.\"
+.LI "\*LECHO\*O"
+Copies \*Lyytext\*O to the scanner's output.
+.\"
+.LI "\*LBEGIN \*Vstate\*O"
+Changes the scanner state to be \*Vstate\*O. This affects which rules
+are active.
+The \*Vstate\*O must be defined in a \*L%s\*O, or \*L%x\*O definition.
+The initial state of the scanner is \*LINITIAL\*O or 0 (zero).
+.\"
+.LI "\*LREJECT\*O"
+Directs the scanner to proceed immediately to the \*Enext best\*O
+pattern that matches the input (which may be a prefix of the current
+match).  \*Lyytext\*O and \*Lyyleng\*O are reset appropriately.  Note
+that \*LREJECT\*O is a particularly expensive feature in terms of
+scanner performance; if it is used in any of the scanner's actions, it
+will slow down all of the scanner's pattern matching operations.
+\*LREJECT\*O cannot be used if \*Lflex\*O is invoked with either
+\*L-f\*O or \*L-F\*O flags.
+.\"
+.LI "\*Lyymore()\*O"
+Indicates that the next matched text should be appended to the currently
+matched text in \*Lyytext\*O (rather than replace it).
+.\"
+.LI "\*Lyyless(\*O\*Vn\*O\*L)\*O"
+Returns all but the first
+\*Vn\*O
+characters of the current token back to the input stream, where they
+will be rescanned when the scanner looks for the next match.
+\*Lyytext\*O
+and
+\*Lyyleng\*O
+are adjusted accordingly.
+.\"
+.LI "\*Lyywrap(\|)\*O"
+Returns 0 (zero) if there is more input to scan or 1 if there is not.
+The default \*Lyywrap(\|)\*O always returns 1.
+Currently it is implemented as a macro, however in future implementations
+it may become a function.
+.\"
+.LI "\*Lyyterminate()\*O"
+Can be used in lieu of a return statement in an action.  It terminates
+the scanner and returns a 0 (zero) to the scanner's caller.
+.IP
+\*Lyyterminate()\*O is automatically called when an End-of-File is encountered.
+It is a macro and may be redefined.
+.\"
+.LI "\*Lyy_create_buffer(\*Vfile, size\*O)"
+Returns a \*LYY_BUFFER_STATE\*O handle to a new input buffer large
+enough to accommodate \*Vsize\*O
+characters and associated with the given \*Vfile\*O.
+When in doubt, use \*LYY_BUF_SIZE\*O for the size.
+.\"
+.LI "\*Lyy_switch_to_buffer(\*Vnew_buffer\*O)"
+Switches the scanner's processing to scan for tokens from
+the given buffer, which must be a \*LYY_BUFFER_STATE\*O.
+.\"
+.LI "\*Lyy_delete_buffer(\*Vbuffer\*O)"
+Deletes the given buffer.
+.\"
+.LI "\*LYY_NEW_FILE\*O"
+Enables scanning to continue after \*Lyyin\*O has been pointed at a new
+file to process.
+.\"
+.LI "\*LYY_DECL\*O"
+Controls how the scanning function, \*Lyylex()\*O  is declared.
+By default, it is \*Lint yylex(\|)\*O, or, if prototypes are being
+used, \*Lint yylex(void)\*O.  This definition may be changed by redefining
+the \*LYY_DECL\*O macro.
+This macro is expanded immediately before the \*L{\&...\&}\*O (braces)
+that delimit the scanner function body.
+.\"
+.LI "\*LYY_INPUT(\*Vbuf,result,max_size\*L)\*O"
+Controls scanner input.
+By default, \*LYY_INPUT\*O reads from the
+file-pointer \*Lyyin\*O.
+Its action is to place up to \*Vmax_size\*O
+characters in the character array \*Vbuf\*O
+and return in the integer variable \*Vresult\*O
+either the number of characters read or the constant \*LYY_NULL\*O
+to indicate EOF.
+Following is a sample redefinition of \*LYY_INPUT\*O, in the definitions
+section of the input file:
+.IP
+.\" Begin Digital-specific information CORRECTION
+.\" Fixed coding to avoid formatting problems
+.oS
+.ps -2
+.vs -2
+.if n .in 0
+\&%{
+\&#undef YY_INPUT
+\&#define YY_INPUT(buf,result,max_size)\e
+   {\e
+       int c = getchar();\e
+       result = (c == EOF) ? YY_NULL : (buf[0] = c, 1);\e
+   }
+\&%}
+.if n .in
+.ps
+.vs
+.oE
+.\" End Digital-specific information CORRECTION
+.IP
+When the scanner receives an End-of-File indication from \*LYY_INPUT\*O,
+it checks the \*Lyywrap(\|)\*O function.
+If \*Lyywrap(\|)\*O returns zero, it is assumed that the \*Lyyin\*O has
+been set up to point to another input file, and scanning continues.
+If it returns non-zero, then the scanner terminates, returning zero to its
+caller.
+.\"
+.LI "\*LYY_USER_ACTION\*O"
+Redefinable to provide an action which is
+always executed prior to the matched pattern's action.
+.\"
+.LI "\*LYY _USER_INIT\*O"
+Redefinable to provide an action which is always executed before
+the first scan.
+.\"
+.LI "\*LYY_BREAK\*O"
+Is used in the scanner to separate different actions.
+By default, it is simply a \*Vbreak\*O, but may be redefined if necessary.
+.LE
+.LE
+.PP
+The \*Vuser functions\*O section consists of complete C
+functions, which are passed directly into the \*Llex.y.cc\*O output file
+(the effect is similar to defining the
+functions in separate \*L\&.c\*O files and linking them with \*Llex.y.cc\*O).
+This section is separated from the \*Vrules\*O section by the \*L%\&%\&\*O
+delimiter.
+.PP
+Comments, in C syntax, can appear anywhere in the \*Vuser functions\*O or
+\*Vdefinitions\*O sections.
+In the \*Vrules\*O section, comments can be embedded within actions.
+Empty lines or lines consisting of white space are ignored.
+.PP
+The following macros are not normally called explicitly within an action, but
+are used internally by \*Lflex\*O to handle the input and output streams.
+.VL 4m
+.LI "\*Linput(\|)\*O"
+Reads the next character from the input stream.
+You cannot redefine \*Linput()\*O.
+.\"
+.LI "\*Loutput(\|)\*O"
+Writes the next character to the output stream.
+.\"
+.LI "\*Lunput(\*Vc\*O)\*O"
+Puts the character \*Vc\*O back onto the input stream.
+It will be the next character scanned.
+You cannot redefine \*Lunput()\*O.
+.LE
+.IP
+The \*Llibl.a\*O contains default functions to support testing or quick use of
+a \*Lflex\*O program without \*Lyacc\*O; these functions can be linked in
+through \*L\-ll\*O.  They can also be provided by the user.
+.VL
+.\"
+.LI "\*Lmain(\|)\*O"
+A simple wrapper that simply calls \*Lsetlocale()\*O and then calls
+the \*Lyylex()\*O function.
+.\"
+.LI "\*Lyywrap(\|)\*O"
+The function called when the scanner reaches the end of an input
+stream.  The default definition simply returns 1, which causes the scanner
+in turn to return 0 (zero).
+.LE
+.SH EXAMPLES
+.PP
+.AL
+.LI
+The following command
+processes the file \*Llexcommands\*O to produce the scanner file
+\*Llex\&.yy\&.c\*O:
+.iS
+flex lexcommands
+.iE
+This is then compiled and linked by the command:
+.iS
+cc -oscanner lex.yy.c -ll
+.iE
+This produces a program \*Lscanner\*O.
+.\"
+.LI
+The \*Lscanner\*O program converts
+uppercase to lowercase letters, removes spaces at the end of a line, and
+replaces multiple spaces with single spaces.
+The \*Llexcommands\*O command contains:
+.oS
+\&%\&%\&
+[A-Z]   putchar(tolower(yytext[0]));
+[\| ]+$
+[\| ]+  putchar(' ');
+.oE
+.LE
+.SH FILES
+.PP
+.VL 14
+.\"
+.LI "\*Lflex.skel\*O"
+Skeleton scanner.
+.\"
+.LI "\*Llex.yy.c\*O"
+Generated scanner C source.
+.\"
+.LI "\*Llex.backtrack\*O"
+Backtracking information generated from \*L-b\*O flag.
+.LE
+.SH NOTES
+.PP
+.ML
+.LI
+Some trailing context
+patterns cannot be properly matched and generate
+warning messages
+.IP
+.oS
+Dangerous trailing context
+.oE
+.IP
+These are
+patterns where the ending of the
+first part of the rule matches the beginning of the second
+part, such as \*Lzx*/xy*\*O, where the \*Lx*\*O matches the \*Lx\*O at
+the beginning of the trailing context.
+.\"
+.LI
+For some trailing context rules, parts that are actually fixed length are
+not recognized as such, leading to the previously mentioned
+performance loss.
+In particular, patterns using \*L{\*Vn\*L}\*O (such as
+\*Ltest{3}\*O) are always
+considered variable length.
+.IP
+Combining trailing context with the special \&\&\*L|\*O\&\& (vertical bar)
+action can result in fixed
+trailing context being turned into the more expensive
+variable
+trailing context.  This happens in the following example:
+.IP
+.oS
+\&%\&%\&
+abc\t\&|
+xyz/def
+.oE
+.\"
+.LI
+Use of \*Lunput(\|)\*O
+invalidates the contents of \*Lyytext\*O and \*Lyyleng\*O within the
+current \*Lflex\*O action.
+.\"
+.LI
+Use of \*Lunput(\|)\*O
+to push back more text than was matched can
+result in the pushed-back text matching a beginning-of-line (\*L^\*O)
+rule even though it did not come at the beginning of the line.
+.\"
+.LI
+Pattern matching of NULLs is substantially slower than matching other
+characters.
+.\"
+.LI
+The \*Lflex\*O command
+does not generate correct \*L#line\*O directives for code internal
+to the scanner; thus, bugs in \*Lflex.skel\*O
+yield invalid line numbers.
+.\"
+.LI
+Due to both buffering of input and read-ahead, you cannot intermix
+calls to \*L<stdio.h>\*O routines, such as, for example, \*Lgetchar(\|)\*O,
+with
+\*Lflex\*O
+rules and expect it to work.  Call \*Linput(\|)\*O
+instead.
+.\"
+.LI
+The total table entries listed by the \*L-v\*O
+flag excludes the number of table entries needed to determine
+what rule was matched.  The number of entries is equal
+to the number of deterministic finite-state automaton (DFA) states if
+the scanner does not use \*LREJECT\*O,
+and somewhat greater than the number of states if it does.
+.\"
+.LI
+\*LREJECT\*O
+cannot be used with the \*L-f\*O
+or \*L-F\*O
+flags.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lyacc\*O(1), \*Lsed\*O(1), \*Lawk\*O(1).
+.PP
+Files:  \*Llocale\*O(4).
+.EQ
+delim off
+.EN

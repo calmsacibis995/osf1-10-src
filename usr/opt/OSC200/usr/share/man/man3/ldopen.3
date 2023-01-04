@@ -1,0 +1,201 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ldopen.3,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/06/14 19:24:38 $
+.\"
+.\" ------------------------------------------------------------------
+.\" | Copyright Unpublished, MIPS Computer Systems, Inc.  All Rights |
+.\" | Reserved.  This software contains proprietary and confidential |
+.\" | information of MIPS and its suppliers.  Use, disclosure or     |
+.\" | reproduction is prohibited without the prior express written   |
+.\" | consent of MIPS.                                               |
+.\" ------------------------------------------------------------------
+.\"  ldopen.3 3.1
+.TH ldopen 3
+.SH NAME
+ldopen, ldaopen \- open a common object file for reading
+.SH LIBRARY
+.PP
+.B libmld.a
+.SH SYNOPSIS
+.PP
+.nf
+.B #include <stdio.h>
+.B #include <filehdr.h>
+.B #include <syms.h>
+.B #include <ldfcn.h> \}
+.PP
+.BR "\s-1LDFILE\s+1 \(**ldopen (" "filename, ldptr" )
+.BR "char \(**" filename ;
+.BR "\s-1LDFILE\s+1 \(**" ldptr ;
+.PP
+.BR "\s-1LDFILE\s+1 \(**ldaopen (" "filename, oldptr" )
+.BR "char \(**" filename ;
+.BR "\s-1LDFILE\s+1 \(**" oldptr ;
+.PP
+.BR ldreadst " (ldptr, flags)"
+.BR "\s-1LDFILE\s+1 \(**" ldptr;
+.BR "int" flags;
+.fi
+.SH DESCRIPTION
+.PP
+.iX "ldopen function"
+.iX "ldaopen function"
+The
+.B ldopen
+and \*Lldclose\*O(3) routines provide uniform access to simple object files and
+to object files that are members of archive files.
+An archive
+of common object files can be processed as if it were a series of
+simple common object files.
+.PP
+If
+\*Vldptr\*O
+has the value
+.BR \s-1NULL\s+1\*S ,
+.B ldopen
+opens
+.IR filename ,
+allocates and initializes the
+.B \s-1LDFILE\s+1
+structure, and returns a pointer to
+the structure to the calling program.
+.PP
+If
+\*Vldptr\*O
+is valid and
+.BI \s-1TYPE\s+1( ldptr )
+is the archive magic number,
+.B ldopen
+reinitializes the
+.BR \s-1LDFILE\s+1 " structure"
+for the next archive member of
+.IR filename .
+.PP
+.B ldopen
+and
+\*Vldclose\*O
+work in concert\.
+\*Vldclose\*O
+returns
+.B \s-1FAILURE\s+1
+only when
+.BI \s-1TYPE\s+1( ldptr )
+is the archive magic number and there is another file in the archive
+to be processed.
+Only then should
+.B ldopen
+be called with the current value of
+.IR ldptr .
+In all other cases, and particularly when a new
+\*Vfilename\*O
+is opened,
+.B ldopen
+should be called with a
+.SM \f3NULL\f1
+\*Vldptr\*O
+argument.
+.PP
+The following is a prototype for the use of
+.B ldopen
+and
+.IR ldclose:
+.oS
+/\(** for each filename to be processed \(**/
+
+ldptr = \s-1NULL\s+1;
+do
+ if ( (ldptr = ldopen(filename, ldptr)) != \s-1NULL\s+1 )
+
+ {
+ /\(** check magic number \(**/
+ /\(** process the file \(**/
+ }
+} while (ldclose(ldptr) == \s-1FAILURE\s+1 );
+.oE
+.PP
+If the value of
+\*Voldptr\*O
+is not
+.BR \s-1NULL\s+1\*S ,
+.B ldaopen
+opens
+\*Vfilename\*O
+anew and allocates and initializes a new
+.B \s-1LDFILE\s+1
+structure, copying the
+fields from
+.IR oldptr .
+.B ldaopen
+returns a pointer to the new
+.BR \s-1LDFILE\s+1 " structure."
+This new pointer is independent of the old pointer,
+.IR oldptr .
+The two pointers can be used concurrently to read separate parts of
+the object file.
+For example,
+one pointer can be used to step sequentially through the relocation information while the other is used to read indexed symbol table entries.
+.PP
+The \*Lldopen\*O function
+and
+.B ldaopen
+open
+\*Vfilename\*O
+for reading.
+If
+\*Vfilename\*O
+cannot be opened or if memory for the
+.B \s-1LDFILE\s+1
+structure cannot be allocated,
+both functions return
+.SM \f3NULL\f1.
+A successful open does not ensure that the given file is a common object
+file or an archived object file.
+\}
+.PP
+The \*Lldopen\*O function causes the symbol table header and file descriptor
+table to be read.
+Further access, using \*Lldptr\*O, causes other appropriate sections of the
+symbol table to be read (for example, if you call \*Lldtbread\*O,
+the symbols or externals are read).
+To force sections for the symbol table in memory,
+call \*Lldreadst\*O with \*LST_P*\*O constants ORed together
+from \*Lst_support.h\*O.
+.PP
+The program must be loaded with the object file access routine library
+.ie '\*p'' \{
+.BR libmld.a .
+\}
+.el \{
+.BR \s-1LIBDIR\s+1\/libmld.a
+\}
+.\" .if !'\*p'' \{
+.\" .PP
+.\" \*Lintro\*O(4) describes
+.\" .BR \s-1INCDIR\s+1  and  \s-1LIBDIR\s+1 .
+.\" \}
+.SH RELATED INFORMATION
+.PP
+.ie '\*p'' \{
+\*Lfopen\*O(3), \*Lldclose\*O(3), \*Lldfcn\*O(4).
+\}
+.el \{
+\*Lfopen\*O(3), \*Lldclose\*O(3),
+\*Lldfcn\*O(4)
+\}
+.EQ
+delim off
+.EN

@@ -1,0 +1,343 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9201312305.AA17431@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2341) close XBUG #4633,4432,4438,4645,4533,4740: various fontserver bugs
+Date: Fri, 31 Jan 92 18:05:30 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: fontserver: the font server doesn't handle
+		 garbage characters adequately
+        ### bug number:   4633
+        ### area:         fontserver
+        ### severity:     high
+        ### comments:     
+
+        Subject: fontserver: error code mismatches
+        ### bug number:   4432
+        ### area:         fontserver
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontserver: minor bug in bit mangling macros
+        ### bug number:   4438
+        ### area:         fontserver
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontserver: syntax errors in osdep.h
+        ### bug number:   4645
+        ### area:         fontserver
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontserver: doesnt't manage signals correctly
+        ### bug number:   4533
+        ### area:         fontserver
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontserver: can crash derefing a bogus pointer
+        ### bug number:   4740
+        ### area:         fontserver
+        ### severity:     low
+        ### comments:     
+
+Includes small change to make MEMBUG work with AIXV3.
+
+
+*** /tmp/,RCSt1QVQBXj	Fri Jan 31 17:48:30 1992
+--- fonts/server/os/osdep.h	Fri Jan 31 17:46:43 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: osdep.h,v 1.3 91/05/13 16:51:04 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: osdep.h,v 1.4 92/01/31 17:45:07 eswu Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 131,141 ****
+  #define MASKANDSETBITS(dst, b1, b2)  \
+  		      { int cri;			\
+  			for (cri=0; cri<mskcnt; cri++)	\
+! 		          dst[cri] = (b1[cri] & b2[cri]) }
+  #define ORBITS(dst, b1, b2)  \
+  		      { int cri;			\
+  		      for (cri=0; cri<mskcnt; cri++)	\
+! 		          dst[cri] = (b1[cri] | b2[cri]) }
+  #define UNSETBITS(dst, b1) \
+  		      { int cri;			\
+  		      for (cri=0; cri<mskcnt; cri++)	\
+--- 131,141 ----
+  #define MASKANDSETBITS(dst, b1, b2)  \
+  		      { int cri;			\
+  			for (cri=0; cri<mskcnt; cri++)	\
+! 		          dst[cri] = (b1[cri] & b2[cri]); }
+  #define ORBITS(dst, b1, b2)  \
+  		      { int cri;			\
+  		      for (cri=0; cri<mskcnt; cri++)	\
+! 		          dst[cri] = (b1[cri] | b2[cri]); }
+  #define UNSETBITS(dst, b1) \
+  		      { int cri;			\
+  		      for (cri=0; cri<mskcnt; cri++)	\
+*** /tmp/,RCSt1RGYA2e	Fri Jan 31 17:48:32 1992
+--- fonts/server/os/utils.c	Fri Jan 31 17:47:58 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: utils.c,v 1.8 91/12/09 16:49:10 converse Exp $ */
+  /*
+   * misc os utilities
+   */
+--- 1,4 ----
+! /* $XConsortium: utils.c,v 1.9 92/01/31 17:45:40 eswu Exp $ */
+  /*
+   * misc os utilities
+   */
+***************
+*** 32,37 ****
+--- 32,38 ----
+  #include	<X11/Xos.h>
+  #include	"misc.h"
+  #include	"globals.h"
++ #include	<signal.h>
+  
+  #ifndef X_NOT_POSIX
+  #ifdef _POSIX_SOURCE
+***************
+*** 75,80 ****
+--- 76,85 ----
+  
+      dispatchException |= DE_RESET;
+      isItTimeToYield = TRUE;
++ 
++ #ifdef SYSV
++     signal(SIGHUP, AutoResetServer);
++ #endif
+  }
+  
+  SIGVAL
+***************
+*** 99,104 ****
+--- 104,113 ----
+  
+      dispatchException |= DE_RECONFIG;
+      isItTimeToYield = TRUE;
++ 
++ #ifdef SYSV
++     signal(SIGUSR1, ServerReconfig);
++ #endif
+  }
+  
+  SIGVAL
+***************
+*** 111,116 ****
+--- 120,129 ----
+  
+      dispatchException |= DE_FLUSH;
+      isItTimeToYield = TRUE;
++ 
++ #ifdef SYSV
++     signal(SIGUSR2, ServerCacheFlush);
++ #endif
+  }
+  
+  long
+***************
+*** 142,148 ****
+--- 155,165 ----
+  	extern pointer MemoryAllocationBase;
+  
+  	if (!MemoryAllocationBase)
++ #ifndef AIXV3
+  	    MemoryAllocationBase = (pointer) sbrk(0);
++ #else
++ 	    MemoryAllocationBase = (pointer) 0x20000000;
++ #endif
+      }
+  #endif
+  
+*** /tmp/,RCSt1N3gCKs	Fri Jan 31 17:48:35 1992
+--- fonts/server/os/io.c	Fri Jan 31 17:49:04 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: io.c,v 1.5 91/06/21 18:19:12 keith Exp $ */
+  /*
+   * i/o functions
+   *
+--- 1,4 ----
+! /* $XConsortium: io.c,v 1.6 92/01/31 17:46:55 eswu Exp $ */
+  /*
+   * i/o functions
+   *
+***************
+*** 156,162 ****
+  	    if (needed > oci->size) {
+  		char       *ibuf;
+  
+! 		ibuf = (char *) fsrealloc(oci, needed);
+  		if (!ibuf) {
+  		    yield_control_death();
+  		    return -1;
+--- 156,162 ----
+  	    if (needed > oci->size) {
+  		char       *ibuf;
+  
+! 		ibuf = (char *) fsrealloc(oci->buffer, needed);
+  		if (!ibuf) {
+  		    yield_control_death();
+  		    return -1;
+*** /tmp/,RCSt1QYsCKs	Fri Jan 31 17:48:57 1992
+--- fonts/server/difs/dispatch.c	Fri Jan 31 17:45:22 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: dispatch.c,v 1.7 91/07/27 02:29:05 keith Exp $ */
+  /*
+   * protocol dispatcher
+   */
+--- 1,4 ----
+! /* $XConsortium: dispatch.c,v 1.8 92/01/31 17:40:44 eswu Exp $ */
+  /*
+   * protocol dispatcher
+   */
+***************
+*** 138,143 ****
+--- 138,144 ----
+  		NoticeF("Re-reading config file\n");
+  		if (ReadConfigFile(configfilename) != FSSuccess)
+  		    ErrorF("couldn't parse config file");
++ 		SetConfigValues();
+  		dispatchException &= ~DE_RECONFIG;
+  	    }
+  	    /* flush all the caches */
+***************
+*** 146,156 ****
+  		CacheReset();
+  		dispatchException &= ~DE_FLUSH;
+  	    }
+! 	    /* reset when no clients left */
+! 	    if ((dispatchException & DE_RESET) && (nClients == 0)) {
+! 		NoticeF("reseting\n");
+  		break;
+- 
+  	    }
+  	    /* die *now* */
+  	    if (dispatchException & DE_TERMINATE) {
+--- 147,156 ----
+  		CacheReset();
+  		dispatchException &= ~DE_FLUSH;
+  	    }
+! 	    /* reset */
+! 	    if (dispatchException & DE_RESET) {
+! 		NoticeF("resetting\n");
+  		break;
+  	    }
+  	    /* die *now* */
+  	    if (dispatchException & DE_TERMINATE) {
+***************
+*** 176,182 ****
+      nClients++;
+      prefix = (fsConnClientPrefix *) ((char *) stuff + sz_fsReq);
+      if ((prefix->byteOrder != 'l') && (prefix->byteOrder != 'B'))
+! 	return (client->noClientException = -1);
+      if (((*(char *) &whichbyte) && (prefix->byteOrder == 'B')) ||
+  	    (!(*(char *) &whichbyte) && (prefix->byteOrder == 'l'))) {
+  	client->swapped = TRUE;
+--- 176,182 ----
+      nClients++;
+      prefix = (fsConnClientPrefix *) ((char *) stuff + sz_fsReq);
+      if ((prefix->byteOrder != 'l') && (prefix->byteOrder != 'B'))
+! 	return (client->noClientException = -2);
+      if (((*(char *) &whichbyte) && (prefix->byteOrder == 'B')) ||
+  	    (!(*(char *) &whichbyte) && (prefix->byteOrder == 'l'))) {
+  	client->swapped = TRUE;
+***************
+*** 183,188 ****
+--- 183,189 ----
+  	SwapConnClientPrefix(prefix);
+      }
+      stuff->reqType = 2;
++     stuff->length += (prefix->auth_len >> 2);
+      if (client->swapped) {
+  	swaps(&stuff->length, whichbyte);
+      }
+***************
+*** 275,281 ****
+  
+      if (auth_accept != AuthSuccess) {
+  	nClients--;
+! 	return (client->noClientException = -1);
+      }
+      client->requestVector = client->swapped ? SwappedProcVector : ProcVector;
+      client->sequence = 0;
+--- 276,282 ----
+  
+      if (auth_accept != AuthSuccess) {
+  	nClients--;
+! 	return (client->noClientException = -2);
+      }
+      client->requestVector = client->swapped ? SwappedProcVector : ProcVector;
+      client->sequence = 0;
+***************
+*** 889,894 ****
+--- 890,898 ----
+      fprintf(stderr, "Shut down client\n");
+  #endif
+  
++     if (currentClient == client)
++ 	currentClient = serverClient;
++ 
+      while (!clients[currentMaxClients - 1])
+  	currentMaxClients--;
+  }
+***************
+*** 987,991 ****
+  MarkClientException(client)
+      ClientPtr   client;
+  {
+!     client->noClientException = -1;
+  }
+--- 991,995 ----
+  MarkClientException(client)
+      ClientPtr   client;
+  {
+!     client->noClientException = -2;
+  }
+*** /tmp/,RCSt1E50BfD	Fri Jan 31 17:49:01 1992
+--- fonts/server/difs/swaprep.c	Fri Jan 31 17:45:49 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: swaprep.c,v 1.5 91/07/27 02:30:02 keith Exp $ */
+  /*
+   * font server reply swapping
+   */
+--- 1,4 ----
+! /* $XConsortium: swaprep.c,v 1.6 92/01/31 17:44:19 eswu Exp $ */
+  /*
+   * font server reply swapping
+   */
+***************
+*** 376,382 ****
+  
+      pInfoT = pInfoTBase = (char *) ALLOCATE_LOCAL(size);
+      if (!pInfoT) {
+! 	client->noClientException = -1;
+  	return;
+      }
+      SwapConnSetupAccept(pConnSetup, (fsConnSetupAccept *) pInfoT);
+--- 376,382 ----
+  
+      pInfoT = pInfoTBase = (char *) ALLOCATE_LOCAL(size);
+      if (!pInfoT) {
+! 	client->noClientException = -2;
+  	return;
+      }
+      SwapConnSetupAccept(pConnSetup, (fsConnSetupAccept *) pInfoT);

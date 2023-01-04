@@ -1,0 +1,709 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! @(#)$RCSfile: CreateAcc.uil,v $ $Revision: 1.1.2.5 $ (DEC) $Date: 1993/12/20 21:32:40 $
+! 
+
+procedure
+    CreateAccountCloseCB();
+    CreateAccGetWidgetCB(integer);
+    CreateAccSaveCB();
+    CreateAccHelpCB();
+    CreateAccSaveNCloseCB();
+    CreateAccSelectUserCB();
+    CreateAccountFieldChangedCB();
+
+/******************************************************************************/
+/* A C C O U N T S   S C R E E N   M A I N   W I N D O W */
+/******************************************************************************/
+
+object
+    AccountCreateMW: XmMainWindow 
+        {
+        arguments
+            {
+            XmNx = 0;
+            XmNy = 0;
+            XmNborderWidth = 1;
+            };
+        controls
+            {
+            XmForm AccCreateMainFRM;
+            XmMenuBar CreateAccMB;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                AccCommonCreateMWCB();
+                };
+            };
+        };
+    AccCreateMainFRM: XmForm 
+        {
+        arguments
+            {
+            XmNmarginHeight = 5;
+            XmNmarginWidth = 2;
+            XmNy = 50;
+            XmNdefaultPosition = false;
+            };
+        controls
+            {
+            XmForm AccCreateInformationFRM;
+            XmForm AccCreateSecGroupFRM;
+            XmRowColumn AccCreateCntrlButtonsRC;
+            };
+        };
+
+/******************************************************************************/
+/* M E N U   B A R */
+/******************************************************************************/
+     
+    CreateAccMB: XmMenuBar 
+        {
+        controls
+            {
+            XmCascadeButton CreateAccModFileCS;
+            XmCascadeButton CreateAccModEditCS;
+!           XmCascadeButton CreateAccModOptionsCS;
+            };
+        };
+    CreateAccModFileCS: XmCascadeButton 
+        {
+        arguments
+            {
+            XmNlabelString = FILE_STR;
+            XmNmnemonic = FILE_NM;
+            };
+        controls
+            {
+            XmPulldownMenu CreateAccModFilePDM;
+            };
+        };
+    CreateAccModEditCS: XmCascadeButton 
+        {
+        arguments
+            {
+            XmNlabelString = EDIT_STR;
+            XmNmnemonic = EDIT_NM;
+            XmNsensitive = false;
+            };
+        controls
+            {
+            XmPulldownMenu CreateAccModEditPDM;
+            };
+        };
+    CreateAccModOptionsCS: XmCascadeButton 
+        {
+        arguments
+            {
+            XmNlabelString = OPTIONS_STR;
+            XmNmnemonic = OPTIONS_NM;
+            };
+        controls
+            {
+            XmPulldownMenu CreateAccModOptionsPDM;
+            };
+        };
+    CreateAccModFilePDM: XmPulldownMenu 
+        {
+        arguments
+            {
+            XmNborderWidth = 1;
+            };
+        controls
+            {
+            XmPushButton CreateAccModFileClosePB;
+            };
+        };
+    CreateAccModEditPDM: XmPulldownMenu 
+        {
+        arguments
+            {
+            XmNborderWidth = 1;
+            };
+        controls
+            {
+            XmPushButton CreateAccModEditRollbackPB;
+/***
+            XmPushButton AccModEditClearPB;
+ ***/
+            };
+        };
+    CreateAccModOptionsPDM: XmPulldownMenu 
+        {
+        arguments
+            {
+            XmNborderWidth = 1;
+            };
+        controls
+            {
+            XmPushButton CreateAccModOptionsPasswordPB;
+#ifdef OSF_B1
+            XmPushButton CreateAccModOptionsClearancePB;
+#endif
+            };
+        };
+    CreateAccModFileClosePB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = CLOSE_STR;
+            };
+        callbacks
+            {
+            XmNactivateCallback = procedures
+                {
+                CreateAccountCloseCB();
+                };
+            };
+        };
+    CreateAccModEditRollbackPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = RESET_STR;
+            };
+        };
+    CreateAccModOptionsPasswordPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = CHG_PWD_STR;
+            XmNsensitive = false;
+            };
+        };
+    CreateAccModEditClearPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = CLEAR_STR;
+            };
+        };
+    CreateAccModOptionsClearancePB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = CLEARANCE_STR;
+            };
+        };
+
+/******************************************************************************/
+/* A C C O U N T    I N F O R M A T I O N */
+/******************************************************************************/
+     
+    AccCreateInformationFRM: XmForm 
+        {
+        arguments
+            {
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = XmForm AccCreateSecGroupFRM;
+            XmNbottomAttachment = XmATTACH_WIDGET;
+            XmNbottomWidget = XmForm AccCreateSecGroupFRM;
+            XmNbottomOffset = ACC_STD_Y_OFFSET;
+            };
+        controls
+            {
+            XmLabel AccCreateAccountInfoLBL;
+            XmLabel AccCreateUsernameLBL;
+            user_defined AccCreateUsernameTXL;
+            XmLabel AccCreateUIDLBL;
+            XmTextField AccCreateUIDTX;
+            XmLabel AccCreateTmpltnameLBL;
+            user_defined AccCreateTmpltnameTXL;
+            XmLabel AccCreateTmpltcountLBL;
+            XmTextField AccCreateTmpltcountTX;
+            XmLabel AccCreateHomeDirLBL;
+            XmTextField AccCreateHomeDirTX;
+            XmLabel AccCreateShellLBL;
+            user_defined AccCreateShellTXL;
+            XmLabel AccCreateCommentsLBL;
+            XmTextField AccCreateCommentsTX;
+            XmLabel AccCreatePriGrpLBL;
+            user_defined AccCreatePriGroupTXL;
+            };
+        };
+    AccCreateAccountInfoLBL: XmLabel
+        {
+        arguments
+            {
+            XmNlabelString = ACC_INFO_STR;
+            XmNfontList = BIG_LABEL_FONT;
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNrightAttachment = XmATTACH_FORM;
+            XmNtopAttachment = XmATTACH_FORM;
+            };
+        };
+    AccCreateUsernameLBL: XmLabel 
+        {
+        arguments
+            {
+            XmNlabelString = USERNAME_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopOffset = StdDistanceFromTopOfLabel;
+            XmNtopWidget = XmLabel AccCreateAccountInfoLBL;
+            };
+        };
+    AccCreateUIDLBL: XmLabel
+        {
+        arguments
+            {
+            XmNlabelString = UID_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = XmLabel AccCreateTmpltcountLBL;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateUsernameLBL;
+            };
+        };
+    AccCreateTmpltnameLBL: XmLabel
+        {
+        arguments
+            {
+            XmNlabelString = TMPLTNAME_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = XmLabel AccCreateUsernameLBL;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopWidget = XmLabel AccCreateUsernameLBL;
+            XmNtopOffset = ACC_TEXT_ENTRY_LABEL_TOP_OFFSET;
+            XmNsensitive = false;
+            };
+        };
+    AccCreateTmpltcountLBL: XmLabel
+        {
+        arguments
+            {
+            XmNlabelString = TMPLTCOUNT_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNrightAttachment = XmATTACH_WIDGET;
+            XmNrightWidget = XmTextField AccCreateTmpltcountTX;
+            XmNrightOffset = 5;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateTmpltnameLBL;
+            XmNsensitive = false;
+            };
+        };
+    AccCreateHomeDirLBL: XmLabel
+        {
+        arguments
+            {
+            XmNlabelString = HOME_DIR_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNleftWidget = XmLabel AccCreateTmpltnameLBL;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopWidget = XmLabel AccCreateTmpltnameLBL;
+            XmNtopOffset = ACC_TEXT_ENTRY_LABEL_TOP_OFFSET;
+            };
+        };
+    AccCreateShellLBL: XmLabel 
+        {
+        arguments
+            {
+            XmNlabelString = SHELL_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopWidget = XmLabel AccCreateHomeDirLBL;
+            XmNtopOffset = ACC_TEXT_ENTRY_LABEL_TOP_OFFSET;
+            XmNleftAttachment = XmATTACH_FORM;
+            };
+        };
+    AccCreateCommentsLBL: XmLabel 
+        {
+        arguments
+            {
+            XmNlabelString = COMMENTS_STR;
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNleftWidget = XmLabel AccCreateShellLBL;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopOffset = ACC_TEXT_ENTRY_LABEL_TOP_OFFSET;
+            XmNtopWidget = XmLabel AccCreateShellLBL;
+            };
+        };
+    AccCreateUsernameTXL: user_defined procedure XmCreateTextList
+        {
+        arguments
+            {
+            XmNcolumns = MAX_NAME_LENGTH;
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNmaxLength = MAX_NAME_LENGTH;
+            XmNleftAttachment = XmATTACH_WIDGET;
+            XmNleftWidget = XmLabel AccCreateHomeDirLBL;
+            XmNleftOffset = 5;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateUsernameLBL;
+            XmNtextListNoNewEntry = false;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_USERNAME);
+                };
+            XmNactivateCallback = procedures
+                 {
+                 CreateAccSelectUserCB();
+                 };
+            XmNvalueChangedCallback = procedures
+                 {
+                 CreateAccountFieldChangedCB();
+                 };
+            };
+        };
+    AccCreateUIDTX: XmTextField
+        {
+        arguments
+            {
+            XmNcolumns = 5;
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNrightAttachment = XmATTACH_FORM;
+            XmNrightOffset = 25;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = user_defined AccCreateUsernameTXL;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_UID);
+                };
+            XmNvalueChangedCallback = procedures
+                 {
+                 CreateAccountFieldChangedCB();
+                 };
+            };
+        };
+    AccCreateTmpltnameTXL: user_defined procedure XmCreateTextList
+        {
+        arguments
+            {
+            XmNcolumns = MAX_NAME_LENGTH;
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNmaxLength = MAX_NAME_LENGTH;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = user_defined AccCreateUsernameTXL;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateTmpltnameLBL;
+            XmNsensitive = false;
+            XmNeditable = false;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_TEMPLATE);
+                };
+            };
+        };
+    AccCreateTmpltcountTX: XmTextField
+        {
+        arguments
+            {
+            XmNcolumns = MAX_TEMPLATE_COUNT_LENGTH;
+            XmNmaxLength = MAX_TEMPLATE_COUNT_LENGTH;
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = XmTextField AccCreateUIDTX;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = user_defined AccCreateTmpltnameTXL;
+            XmNsensitive = false;
+            XmNeditable = false;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_TEMPLATE_COUNT);
+                };
+            };
+        };
+    AccCreateHomeDirTX: XmTextField
+        {
+        arguments
+            {
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNleftWidget = user_defined AccCreateTmpltnameTXL;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = XmTextField AccCreateTmpltcountTX;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateHomeDirLBL;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_HOME_DIR);
+                };
+            XmNvalueChangedCallback = procedures
+                {
+                CreateAccountFieldChangedCB();
+                };
+            };
+        };
+    AccCreateShellTXL: user_defined procedure XmCreateTextList
+        {
+        arguments
+            {
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = XmTextField AccCreateHomeDirTX;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = XmTextField AccCreateHomeDirTX;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateShellLBL;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_SHELL);
+                };
+            XmNvalueChangedCallback = procedures
+                {
+                CreateAccountFieldChangedCB();
+                };
+            };
+        };
+    AccCreateCommentsTX: XmTextField 
+        {
+        arguments
+            {
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = user_defined AccCreateShellTXL;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = user_defined AccCreateShellTXL;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreateCommentsLBL;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_COMMENTS);
+                };
+            XmNvalueChangedCallback = procedures
+                {
+                CreateAccountFieldChangedCB();
+                };
+            };
+        };
+    AccCreatePriGrpLBL: XmLabel 
+        {
+        arguments
+            {
+            XmNfontList = SMALL_LABEL_FONT;
+            XmNlabelString = PRI_GROUP_STR;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = XmLabel AccCreateCommentsLBL;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopOffset = ACC_TEXT_ENTRY_LABEL_TOP_OFFSET;
+            XmNtopWidget = XmLabel AccCreateCommentsLBL;
+            };
+        };
+    AccCreatePriGroupTXL: user_defined procedure XmCreateTextList
+        {
+        arguments
+            {
+            XmNfontList = TEXT_ENTRY_FONT;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNleftWidget = XmTextField AccCreateCommentsTX;
+            XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNrightWidget = XmTextField AccCreateCommentsTX;
+            XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+            XmNtopWidget = XmLabel AccCreatePriGrpLBL;
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_PRI_GROUP);
+                };
+            XmNvalueChangedCallback = procedures
+                {
+                CreateAccountFieldChangedCB();
+                };
+            };
+        };
+
+/******************************************************************************/
+/* S E C O N D A R Y   G R O U P S */
+/******************************************************************************/
+
+    AccCreateSecGroupFRM: XmForm 
+        {
+        arguments
+            {
+            XmNmarginWidth = 0;
+            XmNmarginHeight = 0;
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNbottomAttachment = XmATTACH_WIDGET;
+            XmNbottomWidget = XmRowColumn AccCreateCntrlButtonsRC;
+            XmNbottomOffset = ACC_STD_Y_OFFSET;
+            };
+        controls
+            {
+            XmLabel AccCreateSecGroupLBL;
+            XmForm AccCreateSecGroupSLFRM;
+            };
+        };
+    AccCreateSecGroupLBL: XmLabel 
+        {
+        arguments
+            {
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNrightAttachment = XmATTACH_FORM;
+            XmNlabelString = SEC_GROUPS_STR;
+            XmNfontList = BIG_LABEL_FONT;
+            };
+        };
+    AccCreateSecGroupSLFRM: XmForm 
+        {
+        arguments
+            {
+            XmNleftAttachment = XmATTACH_FORM;
+            XmNtopAttachment = XmATTACH_WIDGET;
+            XmNtopWidget =  XmLabel AccCreateSecGroupLBL;
+!           XmNwidth = ACC_SL_FRM_WIDTH;
+            XmNwidth = ACC_SEC_GRP_SL_WIDTH;
+            XmNresizePolicy = XmRESIZE_NONE;
+            XmNmarginHeight = 4;
+            XmNmarginWidth = 4;
+            XmNshadowType = XmSHADOW_ETCHED_OUT;
+            XmNshadowThickness = 2;
+            };
+        controls
+            {
+            user_defined AccCreateSecGroupSL;
+            };
+        };
+    AccCreateSecGroupSL: user_defined procedure XmCreateSelectList
+        {
+        arguments
+            {
+            XmNbottomAttachment = XmATTACH_FORM;
+            XmNleftAttachment = XmATTACH_POSITION;
+            XmNleftPosition = 50;
+            XmNrightAttachment = XmATTACH_FORM;
+            XmNvisibleItemCount = 5;
+            XmNselectionPolicy = XmSINGLE_SELECT;
+            XmNalphabetizeLists = true;
+            XmNselectListLabelString = "Selected";
+            XmNavailableListLabelString = "Available";
+            };
+        callbacks
+            {
+            MrmNcreateCallback = procedures
+                {
+                CreateAccGetWidgetCB(ACC_SEC_GROUPS);
+                };
+            };
+        };
+
+/******************************************************************************/
+/* C O N T R O L   B U T T O N S */
+/******************************************************************************/
+
+    AccCreateCntrlButtonsRC: XmRowColumn 
+        {
+        arguments
+            {
+            XmNbottomAttachment = XmATTACH_FORM;
+            XmNleftAttachment = XmATTACH_POSITION;
+            XmNleftPosition = 17;
+            XmNorientation = XmHORIZONTAL;
+            XmNpacking = XmPACK_COLUMN;
+            XmNentryAlignment = XmALIGNMENT_CENTER;
+            };
+        controls
+            {
+            XmPushButton AccCreateOKPB;
+            XmPushButton AccCreateApplyPB;
+            XmPushButton AccCreateCancelPB;
+            XmPushButton AccCreateHelpPB;
+            };
+        };
+    AccCreateApplyPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = APPLY_STR;
+            };
+        callbacks
+            {
+            XmNactivateCallback = procedures
+                 {
+                 CreateAccSaveCB();
+                 };
+            };
+        };
+    AccCreateCancelPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = CANCEL_STR;
+            };
+        callbacks
+            {
+            XmNactivateCallback = procedures
+                 {
+                 CreateAccountCloseCB();
+                 };
+            };
+        };
+    AccCreateOKPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = OK_STR;
+            };
+        callbacks
+            {
+            XmNactivateCallback = procedures
+                 {
+                 CreateAccSaveNCloseCB();
+                 };
+            };
+        };
+    AccCreateHelpPB: XmPushButton 
+        {
+        arguments
+            {
+            XmNlabelString = HELP_STR;
+            };
+        callbacks
+            {
+            XmNactivateCallback = procedures
+                 {
+                 CreateAccHelpCB();
+                 };
+            };
+        };

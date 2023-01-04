@@ -1,0 +1,230 @@
+#!/sbin/sh 
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#	uucpsetup  -  configure uucp related files
+#
+
+HOSTNAME=`hostname`
+case "$HOSTNAME" in
+"")	echo "Your system does not have a name."
+	exit 1
+esac
+
+#DEBUG=y ; export DEBUG
+case "$DEBUG" in
+y)
+	MYROOT=/usr/staff/xxx			
+	UULIB=$MYROOT
+	UUHOME=$MYROOT/spool/uucppublic	
+	UUSPOOL=$MYROOT/spool/uucp
+	CRONTAB=$MYROOT/crontab
+	NULL=$MYROOT/dev/null	
+	;;
+*)
+	UULIB=/usr/lib/uucp
+	UUHOME=/usr/spool/uucppublic
+	UUSPOOL=/usr/spool/uucp
+	CRONTAB=/usr/adm/cron
+	NULL=/dev/null
+	;;
+esac
+PATH="$UULIB:/bin:/etc:/usr/bin:";export PATH
+readonly UULIB UUHOME UUSPOOL PATH
+DEVFLG=n; SYSFLG=n; INFLG=n; POLFLG=n
+
+USAGE="usage: uucpsetup [-moiapqh]
+	-m	add modems; modifies Devices File
+	-o	add outgoing systems; modifies Systems File
+	-i	add incoming systems; modifies Permissions File
+	-a	add all (-m -o -i)
+	-q	quiet mode; suppress verbose messages
+	-h	help; prints this message
+	-p	configure the Poll File
+	no flags implies -m -o -i"
+
+CHILDABORT=5
+
+## For now, die on interrupts
+trap 'echo Interrupt... Exiting uucpsetup; exit 1' 1 2 3 
+
+# Require it to be run by root
+case "`whoami`" in
+"root") 	: ;;
+*)	echo "$0: you must be root to run uucpsetup."
+	exit 1
+esac
+
+
+# Process options
+case "$1" in	# no options => -m -o -i    001
+"")	echo  "********************************************************************"
+	echo  "All the three options -m -o -i in that order will be invoked."
+	echo  "If you type CTRL-C then rest of the options will not be invoked."
+	echo  "********************************************************************"
+	DEVFLG=y; SYSFLG=y; INFLG=y 
+	;;
+esac
+while :
+do
+    case "$1" in
+    -*) for opt in `echo $1 |
+	awk '{for(i=2;i<=length($0);i++)printf"%s ",substr($0,i,1)}'`
+	do
+		case "$opt" in
+		a)	DEVFLG=y ; SYSFLG=y ; INFLG=y
+			;;
+		o)	SYSFLG=y
+			;;
+		m)	DEVFLG=y
+			;;
+		i)	INFLG=y
+			;;		
+		q)	QUIET=y ; export QUIET
+			DEVFLG=y; SYSFLG=y	
+			;;
+		p)	POLFLG=y
+			;;		
+		h)	echo 
+			echo "$USAGE"
+			exit 1
+			;;
+		*)	echo
+			echo "uucpsetup: unknown option: $opt"
+			echo "$USAGE"
+			exit 1
+		esac
+	done
+	shift
+	;;
+    *)	break
+	;;
+    esac
+done
+#echo "quiet is : $QUIET"
+
+case "$QUIET" in y) : ;; *) echo "
+Whenever a default selection is given for a question
+[shown in square brackets] press the RETURN key to 
+select the default choice.
+"
+esac
+
+trap ':' 1 2 3 15 # Let commands in $UULIB deal with signals
+
+case "$DEVFLG" in y)
+	#
+	## PART III : CONFIGURE DEVICES 
+	#
+	case "$QUIET" in
+		y) :
+		   ;; 
+	esac
+	sh $UULIB/addmodems
+	case "$?" in
+	0)	OUT="0" ;;
+	1)	OUT="1" 
+		;;
+	2)	OUT="2"
+		;;
+	$CHILDABORT)	
+		exit $CHILDABORT
+		;;
+	*)	echo "Unrecoverable error adding devices."
+		exit 1
+	esac
+esac
+
+case "$SYSFLG" in y)
+	#
+	## PART II : SYSTEMS TO CALL OUT TO
+	#
+	case "$QUIET" in
+		 y) :
+		 ;;
+	esac
+	sh $UULIB/addoutsys
+	case "$?" in
+	0)	 OUT="0"
+		 ;;
+	$CHILDABORT)	
+		exit $CHILDABORT
+		;;
+	1)	OUT="1" ;;
+	2)	OUT="2" ;;
+	*)	echo "Unrecoverable error adding outgoing uucp connections."
+		exit 1
+	esac
+esac
+
+case "$INFLG" in y)
+	#
+	## PART II : SYSTEMS WHO CALL US
+	#
+	case "$QUIET" in
+		 y) :
+		    ;;
+	esac
+	sh $UULIB/addinsys
+	case "$?" in
+	0)	OUT=0 ;;
+	$CHILDABORT)	
+		exit $CHILDABORT
+		;;
+	1)	OUT=1 ;;
+	2)	OUT=2 ;;
+	*)	echo "Unrecoverable error adding incoming uucp connections."
+		exit 1
+	esac
+esac
+
+case "$POLFLG" in y)
+	#
+	## PART III : CONFIGURE POLL FILE 
+	#
+	case "$QUIET" in
+		y) :
+		   ;; 
+	esac
+	sh $UULIB/configpoll
+	case "$?" in
+	0)	OUT="0" ;;
+	1)	OUT="1" 
+		;;
+	2)	OUT="2"
+		;;
+	$CHILDABORT)	
+		exit $CHILDABORT
+		;;
+	*)	echo "Unrecoverable error adding system name to Poll file."
+		exit 1
+	esac
+esac
+	
+	
+## EPILOGUE
+case "$QUIET" in y) : ;; *) echo "
+uucpsetup script ended."
+esac
+exit $OUT

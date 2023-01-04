@@ -1,0 +1,148 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207291724.AA00584@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2626) close XBUG #5340: Xlib: (Xsi) _XConvertMBToWC() returns unkindly error code
+Date: Wed, 29 Jul 92 13:24:14 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5340
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d00563	Wed Jul 29 13:22:55 1992
+--- lib/X/Xsi/XCnvWCToMB.c	Wed Jul 29 11:45:04 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCnvWCToMB.c,v 1.23 92/04/14 15:54:49 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCnvWCToMB.c,v 1.24 92/07/29 11:44:21 rws Exp $
+   */
+  
+  /*
+***************
+*** 48,54 ****
+  /*
+    _IsValidEscSequence()
+    if str is valid escape sequence returns length of it in bytes.
+!   else if str is not valid escape sequence returns -1.
+  
+    ISO 2022
+      6.3.3 Categories of escape sequence
+--- 48,55 ----
+  /*
+    _IsValidEscSequence()
+    if str is valid escape sequence returns length of it in bytes.
+!   else if str is not valid escape sequence returns BadEncoding.
+!   else if str has not enough data returns BadTerminate.
+  
+    ISO 2022
+      6.3.3 Categories of escape sequence
+***************
+*** 86,92 ****
+      int i;
+  
+      if (len <= 0)
+! 	return (-1);
+  
+      if (*str == ESC) {
+  	if (len == 1)	/* Only ESC */
+--- 87,93 ----
+      int i;
+  
+      if (len <= 0)
+! 	return (BadTerminate);
+  
+      if (*str == ESC) {
+  	if (len == 1)	/* Only ESC */
+***************
+*** 98,117 ****
+  	} else if (*str >= 0x30 && *str <= 0x7e) {
+  	    return (2);
+  	} else if (*str >= 0x20 && *str <= 0x2f) {
+! 	    for (i++; len > 0; str++,i++, len--) {
+  		if (*str >= 0x30 && *str <= 0x7e)
+  		    return(i);
+  		if (*str < 0x20 || *str >= 0x7f)
+! 		    return (-1); /* Not valid Escape seqence */
+  	    }
+! 	    return (-1);
+  	} else {
+! 	    return (-1);
+  	}
+      } else if (*str == CSI) {
+  	len--; i = 1; str++;
+      } else {
+! 	return (-1);	/* Not Escape sequence */
+      }
+  
+      if (len == 0)
+--- 99,118 ----
+  	} else if (*str >= 0x30 && *str <= 0x7e) {
+  	    return (2);
+  	} else if (*str >= 0x20 && *str <= 0x2f) {
+! 	    for (i++, len--, str++; len > 0; str++,i++, len--) {
+  		if (*str >= 0x30 && *str <= 0x7e)
+  		    return(i);
+  		if (*str < 0x20 || *str >= 0x7f)
+! 		    return (BadEncoding); /* Not valid Escape seqence */
+  	    }
+! 	    return (BadTerminate);
+  	} else {
+! 	    return (BadEncoding);
+  	}
+      } else if (*str == CSI) {
+  	len--; i = 1; str++;
+      } else {
+! 	return (BadEncoding);	/* Not Escape sequence */
+      }
+  
+      if (len == 0)
+***************
+*** 121,129 ****
+  	if (*str >= 0x40 && *str <= 0x7e)
+  	    return(i);
+  	if (*str < 0x20 || *str >= 0x7f)
+! 	    return (-1); /* Not valid Escape seqence */
+      }
+!     return (-1);
+  }
+  
+  
+--- 122,130 ----
+  	if (*str >= 0x40 && *str <= 0x7e)
+  	    return(i);
+  	if (*str < 0x20 || *str >= 0x7f)
+! 	    return (BadEncoding); /* Not valid Escape seqence */
+      }
+!     return (BadTerminate);
+  }
+  
+  
+***************
+*** 199,205 ****
+  		}
+  		continue;
+  	    }
+! 	    Return(BadEncoding);
+  	}
+          /*
+           * filter control characters.
+--- 200,206 ----
+  		}
+  		continue;
+  	    }
+! 	    Return(len);
+  	}
+          /*
+           * filter control characters.

@@ -1,0 +1,203 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: scnhdr.4,v $ $Revision: 3.2.4.3 $ (DEC) $Date: 1993/12/17 19:34:27 $
+.\"
+.\" ------------------------------------------------------------------
+.\" | Copyright Unpublished, MIPS Computer Systems, Inc.  All Rights |
+.\" | Reserved.  This software contains proprietary and confidential |
+.\" | information of MIPS and its suppliers.  Use, disclosure or     |
+.\" | reproduction is prohibited without the prior express written   |
+.\" | consent of MIPS.                                               |
+.\" ------------------------------------------------------------------
+.\" $Header: /usr/doc/osf1doc/refpages/rcs/src/BASE/DEC/man4/scnhdr.4,v 3.2.4.3 1993/12/17 19:34:27 Blaise_Corcoran Exp $
+.TH scnhdr 4
+.SH NAME
+\*Lscnhdr\*O \- Section header for an object file
+.SH SYNOPSIS
+.PP
+.iX "scnhdr structure"
+.iX "scnhdr section header"
+.sS
+\*L#include <scnhdr.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+Every object file has a table of section headers to specify the layout
+of the data within the file.  Each section within an object file has its own
+header.  The C structure appears below:
+.PP
+.sS
+\*Lstruct scnhdr
+.nL
+{
+.nL
+ char s_name[8]; /* section name */
+.nL
+ long s_paddr; /* physical address, aliased s_nlib */
+.nL
+ long s_vaddr; /* virtual address */
+.nL
+ long s_size; /* section size */
+.nL
+ long s_scnptr; /* file ptr to raw data for section */
+.nL
+ long s_relptr; /* file ptr to relocation */
+.nL
+ long s_lnnoptr; /* file ptr to gp table */
+.nL
+ unsigned short s_nreloc; /* number of relocation entries */
+.nL
+ unsigned short s_nlnno; /* number of gp table entries */
+.nL
+ int s_flags; /* flags */
+.nL
+};\*O
+.sE
+.PP
+File pointers are byte offsets into the file; they can be used as the offset in
+a call to FSEEK [see \*Lldfcn\*O(4)].
+If a section is initialized, the file contains the actual bytes.  An
+uninitialized section is somewhat different.  It has a size, symbols defined
+in it, and symbols that refer to it.  But it can have no relocation entries
+or data.  Consequently, an uninitialized section has no raw data in the object
+file, and the values for
+\*Vs_scnptr, s_relptr,\*O
+and
+\*Vs_nreloc\*O
+are zero.
+.PP
+The entries that refer to line numbers
+.RI ( s_lnnoptr, " and " s_nlnno )
+are not used.
+See the header file
+\*Vsym.h\*O
+for the entries to get to the line number table.  The entries that were for
+line numbers in the section header are used for gp tables.
+.PP
+The number of relocation entries for a section is found in the
+\*Vs_nreloc\*O
+field of the section header.  This field being a `C' language short and can
+overflow with large objects.  If this field overflows the section header
+\*Vs_flags\*O
+field has the
+.SM S_NRELOC_OVFL
+bit set.  In this case the true number of relocation entries is found in the
+\*Vr_vaddr\*O
+field of the first relocation entry for that section.  That relocation entry
+has a type of
+.SM R_ABS
+so it is ignored when the relocation takes place.  This is a stopgap solution.
+.PP
+The gp table gives the section size corresponding to each applicable value
+of the compiler option
+.BI -G " num"
+(always including 0), sorted by smallest size first. It is pointed to
+by the
+\*Vs_lnnoptr\*O
+field in the section header and its number of entries
+(including the header) is in the
+\*Vs_nlnno\*O
+field in the section header.
+This table only needs to exist for the
+\*V.sdata\*O
+and
+\*V.sbss\*O
+sections.  If there is no ``small'' section then the gp table for it is
+attached to the corresponding ``large'' section so the information still
+gets to the link editor, \*Lld\*O(1).
+The C union for the gp table appears below.
+.PP
+.sS
+\*Lunion gp_table
+.nL
+{
+.nL
+ struct {
+.nL
+ int current_g_value; /* actual value */
+.nL
+ int unused;
+.nL
+ } header;
+.nL
+ struct {
+.nL
+ int g_value; /* hypothetical value */
+.nL
+ int bytes; /* section size corresponding to hypothetical value */
+.nL
+ } entry;
+.nL
+};\*O
+.sE
+.PP
+Each gp table has one header structure that contains the actual value of the
+.BI \-G " num"
+option used to produce the object file.  An entry must exist for every
+applicable value of the
+.BI \-G " num"
+option.  The applicable values are all the sizes of the data items
+in that section.
+.PP
+For
+\*V.lib\*O
+sections the number of shared libraries is in the
+\*Vs_nlib\*O
+field (an alias to
+.IR s_paddr ).
+The
+\*V.lib\*O
+section is made up of
+\*Vs_nlib\*O
+descriptions of shared libraries.
+Each description of a shared library is a
+\*Vlibscn\*O
+structure followed by the path name to the shared library.
+The C structure appears below and is defined in
+\*Vscnhdr.h .\*O
+.PP
+.sS
+\*Lstruct libscn
+.nL
+{
+.nL
+ int size; /* size of this entry (including target name) */
+.nL
+ int offset; /* offset from start of entry to target name */
+.nL
+ long tsize; /* text size in bytes, padded to DW boundary */
+.nL
+ long dsize; /* initialized data size */
+.nL
+ long bsize; /* uninitialized data */
+.nL
+ long text_start; /* base of text used for this library */
+.nL
+ long data_start; /* base of data used for this library */
+.nL
+ long bss_start; /* base of bss used for this library */
+.nL
+ /* pathname of target shared library */
+.nL
+};\*O
+.sE
+.SH RELATED INFORMATION
+.PP
+\*Lld\*O(1), \*Lfseek\*O(3), \*La.out\*O(4), \*Lreloc\*O(4).
+.EQ
+delim off
+.EN

@@ -1,0 +1,1663 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207101345.AA11096@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2608) close XBUG #5376: config: need support for OSF/1 shared libraries
+Date: Fri, 10 Jul 92 09:45:23 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5376
+### area:         config
+### severity:     enhancement
+### comments:     
+
+*** /tmp/d05565	Thu Jul  9 17:39:45 1992
+--- config/README	Sun Jun 28 17:41:04 1992
+***************
+*** 1,4 ****
+! $XConsortium: README,v 1.24 92/06/01 19:40:32 rws Exp $
+  
+  The easiest way to write an Imakefile is to find another one that does
+  something similar and copy/modify it!
+--- 1,4 ----
+! $XConsortium: README,v 1.26 92/06/28 17:40:47 rws Exp $
+  
+  The easiest way to write an Imakefile is to find another one that does
+  something similar and copy/modify it!
+***************
+*** 74,79 ****
+--- 74,80 ----
+  	NeedVarargsPrototypes	whether varargs prototypes are supported
+  	NeedWidePrototypes	whether or not to widen function prototypes
+  	NoOpCDebugFlags		C compiler flags to not debug or optimize
++ 	NoRConst		YES if const for structs of funcs is bad
+  	OSMajorVersion		major version number of operating system
+  	OSMinorVersion		minor version number of operating system
+  	OptimizedCDebugFlags	C compiler flags to turn on optimization
+***************
+*** 81,86 ****
+--- 82,88 ----
+  	RanlibCmd		command to clean up libraries
+  	RanlibInstFlags		flags to ranlib after copying
+  	RmCmd			command to delete files
++ 	ShLibDir		directory in which to install shared libraries
+  	StandardCppDefines	-D's for running cpp
+  	StandardDefines		-D's for running C compiler
+  	StandardIncludes	-I's for running C compiler
+*** /tmp/d05656	Thu Jul  9 17:40:34 1992
+--- config/Library.tmpl	Sun Jun 28 17:40:02 1992
+***************
+*** 6,12 ****
+   * DoNormalLib, DoSharedLib, DoDebugLib, DoProfileLib
+   */
+  
+! XCOMM $XConsortium: Library.tmpl,v 1.13 92/05/28 12:04:33 rws Exp $
+  
+  #ifndef LibraryCcCmd
+  #if DoSharedLib && defined(SharedLibraryCcCmd)
+--- 6,12 ----
+   * DoNormalLib, DoSharedLib, DoDebugLib, DoProfileLib
+   */
+  
+! XCOMM $XConsortium: Library.tmpl,v 1.14 92/06/28 17:39:33 rws Exp $
+  
+  #ifndef LibraryCcCmd
+  #if DoSharedLib && defined(SharedLibraryCcCmd)
+***************
+*** 28,33 ****
+--- 28,36 ----
+  #ifndef LibraryCDebugFlags
+  #define LibraryCDebugFlags OptimizedCDebugFlags
+  #endif
++ #ifndef SeparateSharedCompile
++ #define SeparateSharedCompile YES
++ #endif
+  #ifndef AvoidNullMakeCommand
+  #define AvoidNullMakeCommand NO
+  #endif
+***************
+*** 60,66 ****
+  #define _ProfiledCleanDir() $(_NULLCMD_)
+  #endif
+  
+! #if DoSharedLib && DoNormalLib
+  #define _SharedLibMkdir() LibMkdir(shared)
+  #define _SharedObjCompile(options) SharedLibObjCompile(options)
+  #define _SharedCleanDir() LibCleanDir(shared)
+--- 63,69 ----
+  #define _ProfiledCleanDir() $(_NULLCMD_)
+  #endif
+  
+! #if DoSharedLib && DoNormalLib && SeparateSharedCompile
+  #define _SharedLibMkdir() LibMkdir(shared)
+  #define _SharedObjCompile(options) SharedLibObjCompile(options)
+  #define _SharedCleanDir() LibCleanDir(shared)
+***************
+*** 70,76 ****
+  #define _SharedCleanDir() $(_NULLCMD_)
+  #endif
+  
+! #if DoSharedLib && !DoNormalLib
+  #define _NormalObjCompile(options) NormalSharedLibObjCompile(options)
+  #else
+  #define _NormalObjCompile(options) NormalLibObjCompile(options)
+--- 73,79 ----
+  #define _SharedCleanDir() $(_NULLCMD_)
+  #endif
+  
+! #if DoSharedLib && !DoNormalLib && SeparateSharedCompile
+  #define _NormalObjCompile(options) NormalSharedLibObjCompile(options)
+  #else
+  #define _NormalObjCompile(options) NormalLibObjCompile(options)
+*** /tmp/d05729	Thu Jul  9 17:41:12 1992
+--- config/Imake.tmpl	Sun Jun 28 17:40:30 1992
+***************
+*** 7,13 ****
+  #endif
+  XCOMM -------------------------------------------------------------------------
+  XCOMM Makefile generated from IMAKE_TEMPLATE and INCLUDE_IMAKEFILE
+! XCOMM $XConsortium: Imake.tmpl,v 1.155 92/06/01 18:33:08 rws Exp $
+  XCOMM
+  XCOMM Platform-specific parameters may be set in the appropriate <vendor>.cf
+  XCOMM configuration files.  Site-specific parameters should be set in the file
+--- 7,13 ----
+  #endif
+  XCOMM -------------------------------------------------------------------------
+  XCOMM Makefile generated from IMAKE_TEMPLATE and INCLUDE_IMAKEFILE
+! XCOMM $XConsortium: Imake.tmpl,v 1.157 92/06/28 17:40:08 rws Exp $
+  XCOMM
+  XCOMM Platform-specific parameters may be set in the appropriate <vendor>.cf
+  XCOMM configuration files.  Site-specific parameters should be set in the file
+***************
+*** 468,473 ****
+--- 468,480 ----
+  #define AlternateUsrLibDir YES
+  #endif
+  #endif
++ #ifndef ShLibDir
++ #ifdef OSF1Architecture
++ #define ShLibDir /usr/shlib
++ #else
++ #define ShLibDir UsrLibDir
++ #endif
++ #endif
+  #ifndef IncRoot
+  #ifdef ProjectRoot
+  #define IncRoot Concat(ProjectRoot,/include)
+***************
+*** 502,507 ****
+--- 509,517 ----
+  #endif
+  #ifndef DefaultCCOptions
+  #define DefaultCCOptions /* as nothing: this is for floating point, etc. */
++ #endif
++ #ifndef NoRConst
++ #define NoRConst NO /* YES if const for structs of funcs is bad */
+  #endif
+  #ifndef InstPgmFlags
+  #define InstPgmFlags -s
+*** /tmp/d05782	Thu Jul  9 17:41:45 1992
+--- config/Project.tmpl	Sun Jun 28 17:41:48 1992
+***************
+*** 1,6 ****
+  XCOMM -------------------------------------------------------------------------
+  XCOMM X Window System Build Parameters
+! XCOMM $XConsortium: Project.tmpl,v 1.149 92/06/01 19:39:56 rws Exp $
+  
+  /*****************************************************************************
+   *                                                                           *
+--- 1,6 ----
+  XCOMM -------------------------------------------------------------------------
+  XCOMM X Window System Build Parameters
+! XCOMM $XConsortium: Project.tmpl,v 1.151 92/06/28 17:41:17 rws Exp $
+  
+  /*****************************************************************************
+   *                                                                           *
+***************
+*** 395,400 ****
+--- 395,403 ----
+  #ifndef XtErrorPrefix
+  #define XtErrorPrefix /* as empty string */
+  #endif
++ #ifndef XtExtraDefines
++ #define XtExtraDefines /* as empty string */
++ #endif
+  #ifndef XtWarningPrefix
+  #define XtWarningPrefix /* as empty string */
+  #endif
+***************
+*** 528,534 ****
+   * Makefile.
+   */
+            PATHSEP = /			/* for building filenames */
+!         USRLIBDIR = UsrLibDir		/* libraries */
+             BINDIR = BinDir		/* programs */
+            INCROOT = IncRoot		/* base of where to put header files */
+       BUILDINCROOT = BuildIncRoot	/* base of build loc */
+--- 531,538 ----
+   * Makefile.
+   */
+            PATHSEP = /			/* for building filenames */
+!         USRLIBDIR = UsrLibDir		/* nonshared libraries */
+!          SHLIBDIR = ShLibDir            /* shared libraries */
+             BINDIR = BinDir		/* programs */
+            INCROOT = IncRoot		/* base of where to put header files */
+       BUILDINCROOT = BuildIncRoot	/* base of build loc */
+***************
+*** 675,681 ****
+  #endif
+  #if !SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.a)
+!              XLIB = $(EXTENSIONLIB) LoaderLibPrefix _Use(-lX11,$(XLIBSRC)/libX11.a)
+  #endif
+        DEPXAUTHLIB = _UseCat($(USRLIBDIR),$(XAUTHSRC),/libXau.a)
+           XAUTHLIB = LoaderLibPrefix _Use(-lXau,$(DEPXAUTHLIB))
+--- 679,686 ----
+  #endif
+  #if !SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.a)
+!          XLIBONLY = LoaderLibPrefix _Use(-lX11,$(XLIBSRC)/libX11.a)
+!              XLIB = $(EXTENSIONLIB) $(XLIBONLY)
+  #endif
+        DEPXAUTHLIB = _UseCat($(USRLIBDIR),$(XAUTHSRC),/libXau.a)
+           XAUTHLIB = LoaderLibPrefix _Use(-lXau,$(DEPXAUTHLIB))
+*** /tmp/d10944	Fri Jul 10 09:32:38 1992
+--- config/osf1.cf	Fri Jul 10 09:32:05 1992
+***************
+*** 1,6 ****
+! XCOMM platform:  $XConsortium: osf1.cf,v 1.6 92/04/07 10:08:10 rws Exp $
+  
+! #define OSName			OSF1
+  XCOMM operating system:  OSName
+  #define OSMajorVersion		1
+  #define OSMinorVersion		0
+--- 1,7 ----
+! XCOMM platform:  $XConsortium: osf1.cf,v 1.9 92/07/10 09:31:43 rws Exp $
+! /* only tested with Digital OSF/1 V1.0 */
+  
+! #define OSName			OSF/1 1.0
+  XCOMM operating system:  OSName
+  #define OSMajorVersion		1
+  #define OSMinorVersion		0
+***************
+*** 13,21 ****
+  #define InstPgmFlags -S
+  #define InstallCmd installbsd
+  
+  #ifdef MipsArchitecture
+  #define DefaultCCOptions	-Xc
+- #define StandardDefines -D__OSF1__
+  #define XdecServer YES
+  #define PexCCOptions -Xc -Wf,-XNp15000,-XNd15000
+  #endif
+--- 14,25 ----
+  #define InstPgmFlags -S
+  #define InstallCmd installbsd
+  
++ #include <osfLib.rules>
++ #define StandardDefines -D__OSF1__
++ #define NoRConst YES
++ 
+  #ifdef MipsArchitecture
+  #define DefaultCCOptions	-Xc
+  #define XdecServer YES
+  #define PexCCOptions -Xc -Wf,-XNp15000,-XNd15000
+  #endif
+*** /tmp/d05911	Thu Jul  9 17:42:54 1992
+--- config/sunLib.tmpl	Sun Jun 28 17:42:59 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: sunLib.tmpl,v 1.17 92/05/08 09:02:48 rws Exp $
+  
+  /*
+   * SunOS shared library template
+--- 1,4 ----
+! XCOMM $XConsortium: sunLib.tmpl,v 1.18 92/06/28 17:42:28 rws Exp $
+  
+  /*
+   * SunOS shared library template
+***************
+*** 19,24 ****
+--- 19,31 ----
+  #ifndef SharedXmuRev
+  #define SharedXmuRev 4.10
+  #endif
++ #if SunPost411FCSLd
++ #if NormalLibXmu
++ #define SharedXmuReqs -L../$(TOOLKITSRC) -lXt -L../$(EXTENSIONSRC)/lib -lXext -L../$(XLIBSRC) -lX11
++ #else
++ #define SharedXmuReqs $(XTOOLLIB) $(XLIB)
++ #endif
++ #endif
+  #ifndef SharedXextRev
+  #define SharedXextRev 4.10
+  #endif
+***************
+*** 49,55 ****
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.sa.$(SOXLIBREV)) */
+!              XLIB = $(EXTENSIONLIB) _Use(-lX11,-L$(XLIBSRC) -lX11)
+  #endif
+  #if SharedLibXmu
+  /* Sun shared libraries are deficient in link semantics */
+--- 56,63 ----
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.sa.$(SOXLIBREV)) */
+!          XLIBONLY = _Use(-lX11,-L$(XLIBSRC) -lX11)
+!              XLIB = $(EXTENSIONLIB) $(XLIBONLY)
+  #endif
+  #if SharedLibXmu
+  /* Sun shared libraries are deficient in link semantics */
+***************
+*** 82,86 ****
+  #endif
+  #if SharedLibPex
+          DEPPEXLIB = /* _UseCat($(USRLIBDIR),$(PEXLIBSRC),/libPEX5.sa.$(SOPEXREV)) */
+!          PEXLIB = _Use(-lPEX5,-L$(PEXLIBSRC) -lPEX5)
+  #endif
+--- 90,94 ----
+  #endif
+  #if SharedLibPex
+          DEPPEXLIB = /* _UseCat($(USRLIBDIR),$(PEXLIBSRC),/libPEX5.sa.$(SOPEXREV)) */
+!            PEXLIB = _Use(-lPEX5,-L$(PEXLIBSRC) -lPEX5)
+  #endif
+*** /tmp/d05930	Thu Jul  9 17:43:04 1992
+--- config/sunLib.rules	Sun Jun 28 17:43:19 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: sunLib.rules,v 1.8 92/05/22 11:47:31 rws Exp $
+  
+  /*
+   * SunOS shared library rules
+--- 1,4 ----
+! XCOMM $XConsortium: sunLib.rules,v 1.9 92/06/28 17:43:02 rws Exp $
+  
+  /*
+   * SunOS shared library rules
+***************
+*** 89,91 ****
+--- 89,101 ----
+  	$(RM) Concat(lib,libname.sa.rev)
+  
+  #endif /* SharedLibraryDataTarget */
++ 
++ #if SunPost411FCSLd
++ #ifndef XmuDependencyRule
++ #define XmuDependencyRule()						@@\
++ libXmu.so.$(SOXMUREV): $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV)	@@\
++ 									@@\
++ $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV):				@@\
++ 	cd $(EXTENSIONSRC)/lib; make libXext.so.$(SOXEXTREV)
++ #endif /* XmuDependencyRule */
++ #endif
+*** /tmp/d06022	Thu Jul  9 17:43:51 1992
+--- config/sv4Lib.tmpl	Sun Jun 28 17:43:39 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: sv4Lib.tmpl,v 1.7 92/05/08 09:02:55 rws Exp $
+  
+  /*
+   * SVR4 shared library template
+--- 1,4 ----
+! XCOMM $XConsortium: sv4Lib.tmpl,v 1.8 92/06/28 17:43:23 rws Exp $
+  
+  /*
+   * SVR4 shared library template
+***************
+*** 48,54 ****
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.sa.$(SOXLIBREV)) */
+!              XLIB = $(EXTENSIONLIB) _Use(-lX11,-L$(XLIBSRC) -lX11)
+  #endif
+  #if SharedLibXmu
+  /* SVR4 shared libraries are deficient in link semantics */
+--- 48,55 ----
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.sa.$(SOXLIBREV)) */
+!          XLIBONLY = _Use(-lX11,-L$(XLIBSRC) -lX11)
+!              XLIB = $(EXTENSIONLIB) $(XLIBONLY)
+  #endif
+  #if SharedLibXmu
+  /* SVR4 shared libraries are deficient in link semantics */
+*** /tmp/d06077	Thu Jul  9 17:44:20 1992
+--- config/ibmLib.rules	Sun Jun 28 17:44:27 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: ibmLib.rules,v 1.5 91/05/10 09:27:27 jap Exp $
+  
+  /*
+   * AIX shared library rules
+--- 1,4 ----
+! XCOMM $XConsortium: ibmLib.rules,v 1.6 92/06/28 17:44:12 rws Exp $
+  
+  /*
+   * AIX shared library rules
+***************
+*** 74,76 ****
+--- 74,84 ----
+  #ifndef SharedLibraryDataTarget
+  #define SharedLibraryDataTarget(libname,rev,salist)
+  #endif /* SharedLibraryTarget */
++ 
++ #ifndef XmuDependencyRule
++ #define XmuDependencyRule()						@@\
++ libXmu.a: $(EXTENSIONSRC)/lib/libXext.a					@@\
++ 									@@\
++ $(EXTENSIONSRC)/lib/libXext.a:						@@\
++ 	cd $(EXTENSIONSRC)/lib; make libXext.a
++ #endif /* XmuDependencyRule */
+*** /tmp/d06096	Thu Jul  9 17:44:30 1992
+--- config/ibmLib.tmpl	Sun Jun 28 17:44:06 1992
+***************
+*** 1,9 ****
+! XCOMM $XConsortium: ibmLib.tmpl,v 1.5 92/05/08 09:02:58 rws Exp $
+  
+  /*
+   * AIX shared library template
+   */
+  
+  PICFLAGS = PositionIndependentCFlags
+  
+  /*
+--- 1,18 ----
+! XCOMM $XConsortium: ibmLib.tmpl,v 1.6 92/06/28 17:43:45 rws Exp $
+  
+  /*
+   * AIX shared library template
+   */
+  
++ #define SharedXextReqs $(XLIBONLY)
++ #define SharedXmuReqs $(XTOOLLIB) $(XLIB)
++ #define SharedOldXReqs $(XLIBONLY)
++ #define SharedXtReqs $(XLIBONLY)
++ #define SharedXawReqs $(XMULIB) $(XTOOLLIB) $(XLIB)
++ #define SharedXinputReqs $(XLIB)
++ #define SharedXTestReqs $(XLIB)
++ #define SharedPexReqs $(XLIBONLY)
++ 
+  PICFLAGS = PositionIndependentCFlags
+  
+  /*
+***************
+*** 16,22 ****
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.a) */
+!              XLIB = $(EXTENSIONLIB) _Use(-lX11,-L$(XLIBSRC) -lX11)
+  #endif
+  #if SharedLibXmu
+          DEPXMULIB = /* _UseCat($(USRLIBDIR),$(XMUSRC),/libXmu.a) */
+--- 25,32 ----
+  #endif
+  #if SharedLibX
+            DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.a) */
+!          XLIBONLY = _Use(-lX11,-L$(XLIBSRC) -lX11)
+!              XLIB = $(EXTENSIONLIB) $(XLIBONLY)
+  #endif
+  #if SharedLibXmu
+          DEPXMULIB = /* _UseCat($(USRLIBDIR),$(XMUSRC),/libXmu.a) */
+*** /dev/null	Thu Jul  9 17:45:22 1992
+--- config/osfLib.tmpl	Sun Jun 28 20:58:29 1992
+***************
+*** 0 ****
+--- 1,89 ----
++ XCOMM $XConsortium: osfLib.tmpl,v 1.3 92/06/28 20:57:19 rws Exp $
++ 
++ /*
++  * OSF/1 shared library template
++  */
++ 
++ #ifndef SharedXlibRev
++ #define SharedXlibRev 5.0
++ #endif
++ #ifndef SharedOldXRev
++ #define SharedOldXRev 5.0
++ #endif
++ #define SharedOldXReqs $(XLIBONLY)
++ #ifndef SharedXtRev
++ #define SharedXtRev 5.0
++ #endif
++ #define SharedXtReqs $(XLIBONLY)
++ #ifndef SharedXawRev
++ #define SharedXawRev 5.0
++ #endif
++ #define SharedXawReqs $(XMULIB) $(XTOOLLIB) $(XLIB) -init _XawFixupVendorShell
++ #ifndef SharedXmuRev
++ #define SharedXmuRev 5.0
++ #endif
++ #define SharedXmuReqs $(XTOOLLIB) $(XLIB)
++ #ifndef SharedXextRev
++ #define SharedXextRev 5.0
++ #define SharedXextReqs $(XLIBONLY)
++ #endif
++ #ifndef SharedXinputRev
++ #define SharedXinputRev 5.0
++ #endif
++ #define SharedXinputReqs $(XLIB)
++ #ifndef SharedXTestRev
++ #define SharedXTestRev 1.0
++ #endif
++ #define SharedXTestReqs $(XLIB)
++ #ifndef SharedXTrapRev
++ #define SharedXTrapRev 1.0
++ #endif
++ #ifndef SharedPexRev
++ #define SharedPexRev 1.0
++ #endif
++ #define SharedPexReqs $(XLIBONLY)
++ 
++ SHLIBLDFLAGS = SharedLibraryLoadFlags
++ PICFLAGS = PositionIndependentCFlags
++ 
++ /*
++  * and now a little bit of magic for using imake without source tree; if we
++  * are using shared libraries, we really do not need to depend on anything
++  */
++ #if SharedLibXext
++   DEPEXTENSIONLIB = /* _UseCat($(USRLIBDIR),$(EXTENSIONSRC)/lib,/libXext.sa.$(SOXEXTREV)) */
++      EXTENSIONLIB = _Use(-lXext,-L$(EXTENSIONSRC)/lib -lXext)
++ #endif
++ #if SharedLibX
++           DEPXLIB = $(DEPEXTENSIONLIB) /* _UseCat($(USRLIBDIR),$(XLIBSRC),/libX11.sa.$(SOXLIBREV)) */
++          XLIBONLY = _Use(-lX11,-L$(XLIBSRC) -lX11)
++              XLIB = $(EXTENSIONLIB) $(XLIBONLY)
++ #endif
++ #if SharedLibXmu
++         DEPXMULIB = /* _UseCat($(USRLIBDIR),$(XMUSRC),/libXmu.sa.$(SOXMUREV) */
++            XMULIB = _Use(-lXmu,-L$(XMUSRC) -lXmu)
++ #endif
++ #if SharedOldLibX
++        DEPOLDXLIB = /* _UseCat($(USRLIBDIR),$(OLDXLIBSRC),/liboldX.sa.$(SOOLDXREV)) */
++           OLDXLIB = _Use(-loldX,-L$(OLDXLIBSRC) -loldX)
++ #endif
++ #if SharedLibXt
++       DEPXTOOLLIB = /* _UseCat($(USRLIBDIR),$(TOOLKITSRC),/libXt.sa.$(SOXTREV)) */
++          XTOOLLIB = _Use(-lXt,-L$(TOOLKITSRC) -lXt)
++ #endif
++ #if SharedLibXaw
++         DEPXAWLIB = /* _UseCat($(USRLIBDIR),$(AWIDGETSRC),/libXaw.sa.$(SOXAWREV)) */
++            XAWLIB = _Use(-lXaw,-L$(AWIDGETSRC) -lXaw)
++ #endif
++ #if SharedLibXinput
++         DEPXILIB = /* _UseCat($(USRLIBDIR),$(XILIBSRC),/libXi.sa.$(SOXINPUTREV)) */
++            XILIB = _Use(-lXi,-L$(XILIBSRC) -lXi)
++ #endif
++ #if SharedLibXTest
++         DEPXTESTLIB = /* _UseCat($(USRLIBDIR),$(XTESTLIBSRC),/libXtst.sa.$(SOXTESTREV)) */
++            XTESTLIB = _Use(-lXtst,-L$(XTESTLIBSRC) -lXtst)
++ #endif
++ #if SharedLibPex
++         DEPPEXLIB = /* _UseCat($(USRLIBDIR),$(PEXLIBSRC),/libPEX5.sa.$(SOPEXREV)) */
++            PEXLIB = _Use(-lPEX5,-L$(PEXLIBSRC) -lPEX5)
++ #endif
+*** /dev/null	Thu Jul  9 17:45:33 1992
+--- config/osfLib.rules	Sun Jun 28 19:53:36 1992
+***************
+*** 0 ****
+--- 1,88 ----
++ XCOMM $XConsortium: osfLib.rules,v 1.3 92/06/28 19:53:30 rws Exp $
++ 
++ /*
++  * OSF/1 shared library rules
++  */
++ 
++ #ifndef HasSharedLibraries
++ #define HasSharedLibraries YES
++ #endif
++ #ifndef SeparateSharedCompile
++ #define SeparateSharedCompile NO
++ #endif
++ #ifndef SharedDataSeparation
++ #define SharedDataSeparation NO
++ #endif
++ #ifndef SharedCodeDef
++ #define SharedCodeDef /**/
++ #endif
++ #ifndef SharedLibraryDef
++ #define SharedLibraryDef /**/
++ #endif
++ #ifndef ShLibIncludeFile
++ #define ShLibIncludeFile <osfLib.tmpl>
++ #endif
++ #ifndef SharedLibraryLoadFlags
++ #define SharedLibraryLoadFlags -shared -no_archive
++ #endif
++ #ifndef PositionIndependentCFlags
++ #define PositionIndependentCFlags /**/
++ #endif
++ 
++ /*
++  * InstallSharedLibrary - generate rules to install the shared library.
++  */
++ #ifndef InstallSharedLibrary
++ #define	InstallSharedLibrary(libname,rev,dest)				@@\
++ install:: Concat(lib,libname.so.rev) 					@@\
++ 	MakeDir($(DESTDIR)dest)						@@\
++ 	$(INSTALL) -c $(INSTLIBFLAGS) Concat(lib,libname.so.rev) $(DESTDIR)dest @@\
++ 	$(RM) Concat($(DESTDIR)dest/lib,libname.so)			@@\
++ 	$(LN) Concat(lib,libname.so.rev) Concat($(DESTDIR)dest/lib,libname.so)
++ 
++ #endif /* InstallSharedLibrary */
++ 
++ /*
++  * InstallSharedLibraryData - generate rules to install the shared library data
++  */
++ #ifndef InstallSharedLibraryData
++ #define	InstallSharedLibraryData(libname,rev,dest)
++ #endif /* InstallSharedLibraryData */
++ 
++ 
++ /*
++  * SharedLibraryTarget - generate rules to create a shared library;
++  * build it into a different name so that we do not hose people by having
++  * the library gone for long periods.
++  */
++ #ifndef SharedLibraryTarget
++ #define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
++ AllTarget(Concat(lib,libname.so.rev))					@@\
++ 									@@\
++ Concat(lib,libname.so.rev):  solist					@@\
++ 	$(RM) $@~							@@\
++ 	(cd down; $(LD) -o up/$@~ $(SHLIBLDFLAGS) -package $@ -soname $@ solist $(REQUIREDLIBS) -lc) @@\
++ 	$(RM) $@ 							@@\
++ 	$(MV) $@~ $@							@@\
++ 	$(RM) Concat(lib,libname.so)					@@\
++ 	$(LN) $@ Concat(lib,libname.so)					@@\
++ 									@@\
++ clean::									@@\
++ 	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
++ 
++ #endif /* SharedLibraryTarget */
++ 
++ /*
++  * SharedLibraryDataTarget - generate rules to create shlib data file;
++  */
++ #ifndef SharedLibraryDataTarget
++ #define SharedLibraryDataTarget(libname,rev,salist)
++ #endif /* SharedLibraryTarget */
++ 
++ #ifndef XmuDependencyRule
++ #define XmuDependencyRule()						@@\
++ libXmu.so.$(SOXMUREV): $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV)	@@\
++ 									@@\
++ $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV):				@@\
++ 	cd $(EXTENSIONSRC)/lib; make libXext.so.$(SOXEXTREV)
++ #endif /* XmuDependencyRule */
+*** /tmp/d07023	Thu Jul  9 19:42:04 1992
+--- lib/X/Imakefile	Sun Jun 28 17:46:18 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.130 92/01/19 17:33:38 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.133 92/06/28 17:45:35 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+***************
+*** 23,28 ****
+--- 23,31 ----
+  #endif
+  #endif
+  
++ #ifdef SharedXlibReqs
++ REQUIREDLIBS = SharedXlibReqs
++ #endif
+  #ifdef MacIIArchitecture
+  XBSDLIB = /**/
+  #endif
+***************
+*** 45,50 ****
+--- 48,56 ----
+  #if MotifBC
+        BC_DEFINES = -DMOTIFBC
+  #endif
++ #if NoRConst
++  RCONST_DEFINES = -DNORCONST
++ #endif
+     INSTALLFLAGS = $(INSTINCFLAGS)
+         AUTHOBJS = AuDispose.o AuGetBest.o AuFileName.o AuRead.o 
+         AUTHSRCS = AuDispose.c AuGetBest.c AuFileName.c AuRead.c 
+***************
+*** 850,858 ****
+  LinkSourceFile(XwcTextExt.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPer.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPrp.c,Xsi)					@@\
+! SpecialLibObjectRule(XConnIM.o,$(ICONFIGFILES),$(CONN_DEFINES))		@@\
+! SpecialLibObjectRule(XlcLoad.o,$(ICONFIGFILES),$(NLS_DEFINES))		@@\
+! SpecialLibObjectRule(XLocalIM.o,$(ICONFIGFILES),$(NLS_DEFINES))
+  
+  #endif /* BuildXsi */
+  
+--- 856,868 ----
+  LinkSourceFile(XwcTextExt.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPer.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPrp.c,Xsi)					@@\
+! SpecialCLibObjectRule(XConnIM,$(ICONFIGFILES),$(CONN_DEFINES))		@@\
+! SpecialCLibObjectRule(XlcLoad,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))		@@\
+! SpecialCLibObjectRule(XLocalIM,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))	@@\
+! SpecialCLibObjectRule(XCrFntSet,$(_NOOP_),$(RCONST_DEFINES))		@@\
+! SpecialCLibObjectRule(XCrIC,$(_NOOP_),$(RCONST_DEFINES))		@@\
+! SpecialCLibObjectRule(XOpenIM,$(_NOOP_),$(RCONST_DEFINES))		@@\
+! SpecialCLibObjectRule(XlcDefLd,$(_NOOP_),$(RCONST_DEFINES))
+  
+  #endif /* BuildXsi */
+  
+***************
+*** 985,991 ****
+  LinkSourceFile(XimpWTxtPr.c,Ximp)					@@\
+  LinkSourceFile(XimpXConv.c,Ximp)					@@\
+  LinkSourceFile(Ximpint.c,Ximp)						@@\
+! SpecialLibObjectRule(XimpLCUtil.o,$(ICONFIGFILES),$(SRCH_DEFINES))
+  
+  #endif /* BuildXimp */
+  
+--- 995,1001 ----
+  LinkSourceFile(XimpWTxtPr.c,Ximp)					@@\
+  LinkSourceFile(XimpXConv.c,Ximp)					@@\
+  LinkSourceFile(Ximpint.c,Ximp)						@@\
+! SpecialCLibObjectRule(XimpLCUtil,$(ICONFIGFILES),$(SRCH_DEFINES))
+  
+  #endif /* BuildXimp */
+  
+***************
+*** 993,1008 ****
+  
+  LibraryObjectRule()
+  
+! SpecialLibObjectRule(XErrDes.o,$(ICONFIGFILES),$(EDB_DEFINES))
+! SpecialLibObjectRule(XStrKeysym.o,$(ICONFIGFILES),$(KDB_DEFINES))
+! SpecialLibObjectRule(XConnDis.o,$(ICONFIGFILES),$(XDMAUTHDEFS) $(RPCDEFS) $(CONN_DEFINES))
+! SpecialLibObjectRule(XOpenDis.o,$(ICONFIGFILES),$(BC_DEFINES))
+! SpecialLibObjectRule(Wrap.o,$(ICONFIGFILES),$(XDMAUTHDEFS))
+! SpecialLibObjectRule(Xstreams.o,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialLibObjectRule(XlibInt.o,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialLibObjectRule(XcmsColNm.o,$(ICONFIGFILES),$(CMS_DEFINES))
+! SpecialLibObjectRule(globals.o,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialLibObjectRule(Context.o,$(ICONFIGFILES),$(BC_DEFINES))
+  
+  LCRules()
+  
+--- 1003,1019 ----
+  
+  LibraryObjectRule()
+  
+! SpecialCLibObjectRule(XErrDes,$(ICONFIGFILES),$(EDB_DEFINES))
+! SpecialCLibObjectRule(XStrKeysym,$(ICONFIGFILES),$(KDB_DEFINES))
+! SpecialCLibObjectRule(XConnDis,$(ICONFIGFILES),$(XDMAUTHDEFS) $(RPCDEFS) $(CONN_DEFINES))
+! SpecialCLibObjectRule(XOpenDis,$(ICONFIGFILES),$(BC_DEFINES))
+! SpecialCLibObjectRule(Wrap,$(ICONFIGFILES),$(XDMAUTHDEFS))
+! SpecialCLibObjectRule(Xstreams,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialCLibObjectRule(XlibInt,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialCLibObjectRule(XcmsColNm,$(ICONFIGFILES),$(CMS_DEFINES))
+! SpecialCLibObjectRule(globals,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialCLibObjectRule(Context,$(ICONFIGFILES),$(BC_DEFINES))
+! SpecialCLibObjectRule(Xrm,$(_NOOP_),$(RCONST_DEFINES))
+  
+  LCRules()
+  
+***************
+*** 1012,1018 ****
+  #else
+  SharedLibraryTarget(X11,$(SOXLIBREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(X11,$(SOXLIBREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget3(X11,$(OBJS1),$(OBJS2),$(OBJS3))
+--- 1023,1029 ----
+  #else
+  SharedLibraryTarget(X11,$(SOXLIBREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(X11,$(SOXLIBREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget3(X11,$(OBJS1),$(OBJS2),$(OBJS3))
+*** /tmp/d07460	Thu Jul  9 19:46:21 1992
+--- lib/X/Xrm.c	Sat Jun 27 21:53:47 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Xrm.c,v 1.72 92/01/10 14:21:12 rws Exp $
+   */
+  
+  /***********************************************************
+--- 1,5 ----
+  /*
+!  * $XConsortium: Xrm.c,v 1.73 92/06/27 21:53:30 rws Exp $
+   */
+  
+  /***********************************************************
+***************
+*** 39,45 ****
+  #else
+  #define Const /**/
+  #endif
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 39,45 ----
+  #else
+  #define Const /**/
+  #endif
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10410	Thu Jul  9 20:19:58 1992
+--- lib/X/Xsi/XLocalIM.c	Sat Jun 27 21:55:32 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.9 92/04/24 16:15:02 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.10 92/06/27 21:55:25 rws Exp $
+   */
+  
+  /*
+***************
+*** 68,74 ****
+  extern char *getenv();
+  #endif
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 68,74 ----
+  extern char *getenv();
+  #endif
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10429	Thu Jul  9 20:20:08 1992
+--- lib/X/Xsi/XlcDefLd.c	Sat Jun 27 21:55:27 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlcDefLd.c,v 1.1 91/05/02 09:14:44 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlcDefLd.c,v 1.2 92/06/27 21:55:09 rws Exp $
+   */
+  
+  /*
+***************
+*** 35,41 ****
+  #include "Xlibint.h"
+  #include "Xi18nint.h"
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 35,41 ----
+  #include "Xlibint.h"
+  #include "Xi18nint.h"
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10448	Thu Jul  9 20:20:19 1992
+--- lib/X/Xsi/XlcLoad.c	Sat Jun 27 21:55:11 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlcLoad.c,v 1.41 92/04/14 15:53:03 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlcLoad.c,v 1.42 92/06/27 21:54:57 rws Exp $
+   */
+  
+  /*
+***************
+*** 38,44 ****
+  #include "Xi18nint.h"
+  #include <X11/Xos.h>
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 38,44 ----
+  #include "Xi18nint.h"
+  #include <X11/Xos.h>
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10467	Thu Jul  9 20:20:30 1992
+--- lib/X/Xsi/XOpenIM.c	Sat Jun 27 21:55:00 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XOpenIM.c,v 1.17 91/08/12 17:20:36 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XOpenIM.c,v 1.18 92/06/27 21:54:41 rws Exp $
+   */
+  
+  /*
+***************
+*** 41,47 ****
+  extern int getuid();
+  #endif
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 41,47 ----
+  extern int getuid();
+  #endif
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10486	Thu Jul  9 20:20:41 1992
+--- lib/X/Xsi/XCrIC.c	Sat Jun 27 21:54:43 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCrIC.c,v 1.31 92/04/14 15:44:17 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCrIC.c,v 1.32 92/06/27 21:54:29 rws Exp $
+   */
+  
+  /*
+***************
+*** 41,47 ****
+  # define Va_start(a,b) va_start(a)
+  #endif
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 41,47 ----
+  # define Va_start(a,b) va_start(a)
+  #endif
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10506	Thu Jul  9 20:20:54 1992
+--- lib/X/Xsi/XCrFntSet.c	Sat Jun 27 21:54:31 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCrFntSet.c,v 1.46 92/04/24 16:10:50 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCrFntSet.c,v 1.47 92/06/27 21:54:20 rws Exp $
+   */
+  
+  /*
+***************
+*** 63,69 ****
+  #define DELIM_COUNT	13      /* Number of delimiters */
+  #define CSETPOS		13      /* CHARSET-REGISTRY position */
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 63,69 ----
+  #define DELIM_COUNT	13      /* Number of delimiters */
+  #define CSETPOS		13      /* CHARSET-REGISTRY position */
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10527	Thu Jul  9 20:21:13 1992
+--- lib/oldX/Imakefile	Sun Jun 28 17:48:49 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.21 91/09/18 14:29:40 rws Exp $
+  #define DoNormalLib NormalOldLibX
+  #define DoSharedLib SharedOldLibX
+  #define DoDebugLib DebugOldLibX
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.22 92/06/28 17:48:35 rws Exp $
+  #define DoNormalLib NormalOldLibX
+  #define DoSharedLib SharedOldLibX
+  #define DoDebugLib DebugOldLibX
+***************
+*** 5,12 ****
+  #define DoProfileLib ProfileOldLibX
+  #include <Library.tmpl>
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(XLIBSRC)/libX11.a
+  #endif
+  
+  #if Malloc0ReturnsNull
+--- 5,12 ----
+  #define DoProfileLib ProfileOldLibX
+  #include <Library.tmpl>
+  
+! #ifdef SharedOldXReqs
+! REQUIREDLIBS = SharedOldXReqs
+  #endif
+  
+  #if Malloc0ReturnsNull
+***************
+*** 34,40 ****
+  #else
+  SharedLibraryTarget(oldX,$(SOOLDXREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(oldX,$(SOOLDXREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(oldX,$(OBJS))
+--- 34,40 ----
+  #else
+  SharedLibraryTarget(oldX,$(SOOLDXREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(oldX,$(SOOLDXREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(oldX,$(OBJS))
+*** /tmp/d10550	Thu Jul  9 20:22:02 1992
+--- lib/Xt/Imakefile	Sun Jun 28 17:48:27 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.93 91/09/18 14:29:25 rws Exp $
+  #define DoNormalLib NormalLibXt
+  #define DoSharedLib SharedLibXt
+  #define DoDebugLib DebugLibXt
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.99 92/06/28 17:48:11 rws Exp $
+  #define DoNormalLib NormalLibXt
+  #define DoSharedLib SharedLibXt
+  #define DoDebugLib DebugLibXt
+***************
+*** 9,22 ****
+  #define MotifBC NO
+  #endif
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(XLIBSRC)/libX11.a
+  #endif
+  
+  /* config options */
+  
+  XFILESEARCHPATHDEFAULT = XFileSearchPathDefault
+! /* don't place spaces at the beginning of these lines, hp bug */
+  XTERRORPREFIX = XtErrorPrefix
+  XTWARNINGPREFIX = XtWarningPrefix
+  
+--- 9,22 ----
+  #define MotifBC NO
+  #endif
+  
+! #ifdef SharedXtReqs
+! REQUIREDLIBS = SharedXtReqs
+  #endif
+  
+  /* config options */
+  
+  XFILESEARCHPATHDEFAULT = XFileSearchPathDefault
+! 
+  XTERRORPREFIX = XtErrorPrefix
+  XTWARNINGPREFIX = XtWarningPrefix
+  
+***************
+*** 27,33 ****
+  #undef AllocateLocalDefines
+  #define AllocateLocalDefines SharedAllocateLocalDefines
+  #endif
+!         DEFINES = AllocateLocalDefines $(ALIGN_DEFINES)
+       DB_DEFINES = -DERRORDB=\"$(LIBDIR)/XtErrorDB\" \
+  		  -DXTERROR_PREFIX=\"$(XTERRORPREFIX)\" \
+  		  -DXTWARNING_PREFIX=\"$(XTWARNINGPREFIX)\"
+--- 27,33 ----
+  #undef AllocateLocalDefines
+  #define AllocateLocalDefines SharedAllocateLocalDefines
+  #endif
+!         DEFINES = AllocateLocalDefines $(ALIGN_DEFINES) XtExtraDefines
+       DB_DEFINES = -DERRORDB=\"$(LIBDIR)/XtErrorDB\" \
+  		  -DXTERROR_PREFIX=\"$(XTERRORPREFIX)\" \
+  		  -DXTWARNING_PREFIX=\"$(XTWARNINGPREFIX)\"
+***************
+*** 38,43 ****
+--- 38,46 ----
+  #if MotifBC
+       BC_DEFINES = -DMOTIFBC
+  #endif
++ #if NoRConst
++  RCONST_DEFINES = -DNORCONST
++ #endif
+  
+     INSTALLFLAGS = $(INSTINCFLAGS)
+         LINTLIBS = $(LINTXLIB)
+***************
+*** 174,185 ****
+  
+  LibraryObjectRule()
+  
+! SpecialLibObjectRule(Intrinsic.o,$(ICONFIGFILES),$(SRCH_DEFINES))
+! SpecialLibObjectRule(Error.o,$(ICONFIGFILES),$(DB_DEFINES))
+! SpecialLibObjectRule(Alloc.o,NullParameter,$(ALLOC_DEFINES))
+! SpecialLibObjectRule(Converters.o,$(ICONFIGFILES),$(BC_DEFINES))
+  #if DoSharedLib
+! SpecialObjectRule(sharedlib.o,,$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+--- 177,189 ----
+  
+  LibraryObjectRule()
+  
+! SpecialCLibObjectRule(Intrinsic,$(ICONFIGFILES),$(SRCH_DEFINES))
+! SpecialCLibObjectRule(Error,$(ICONFIGFILES),$(DB_DEFINES))
+! SpecialCLibObjectRule(Alloc,$(_NOOP_),$(ALLOC_DEFINES))
+! SpecialCLibObjectRule(Converters,$(ICONFIGFILES),$(BC_DEFINES))
+! SpecialCLibObjectRule(TMaction,$(_NOOP_),$(RCONST_DEFINES))
+  #if DoSharedLib
+! SpecialCObjectRule(sharedlib,$(_NOOP_),$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+***************
+*** 189,196 ****
+  SharedLibraryTarget(Xt,$(SOXTREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xt,$(SOXTREV),$(UNSHAREDOBJS))
+! InstallSharedLibrary(Xt,$(SOXTREV),$(USRLIBDIR))
+! InstallSharedLibraryData(Xt,$(SOXTREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xt,$(OBJS))
+--- 193,200 ----
+  SharedLibraryTarget(Xt,$(SOXTREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xt,$(SOXTREV),$(UNSHAREDOBJS))
+! InstallSharedLibrary(Xt,$(SOXTREV),$(SHLIBDIR))
+! InstallSharedLibraryData(Xt,$(SOXTREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xt,$(OBJS))
+*** /tmp/d10571	Thu Jul  9 20:22:18 1992
+--- lib/Xt/TMaction.c	Sat Jun 27 21:55:22 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMaction.c,v 1.16 91/07/31 13:12:13 swick Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: TMaction.c,v 1.17 92/06/27 21:55:11 rws Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+***************
+*** 32,38 ****
+  #include "IntrinsicI.h"
+  #include "StringDefs.h"
+  
+! #if __STDC__ && !defined(VMS)
+  #define RConst const
+  #else
+  #define RConst /**/
+--- 32,38 ----
+  #include "IntrinsicI.h"
+  #include "StringDefs.h"
+  
+! #if __STDC__ && !defined(NORCONST)
+  #define RConst const
+  #else
+  #define RConst /**/
+*** /tmp/d10590	Thu Jul  9 20:22:29 1992
+--- lib/Xt/Functions.c	Tue Jun 30 10:46:09 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Functions.c,v 1.5 91/05/03 15:31:31 rws Exp $ */
+  
+  /*
+  
+--- 1,4 ----
+! /* $XConsortium: Functions.c,v 1.6 92/06/30 10:45:22 rws Exp $ */
+  
+  /*
+  
+***************
+*** 90,103 ****
+  Boolean XtIsVendorShell(object)
+      Widget object;
+  {
+- #if defined(AIXSHLIB) && defined(SHAREDCODE)
+      return _XtIsSubclassOf(object,
+  			   transientShellWidgetClass->core_class.superclass,
+  			   (WidgetClass)wmShellWidgetClass, 0x40);
+- #else
+-     return _XtIsSubclassOf(object, (WidgetClass)vendorShellWidgetClass,
+- 			   (WidgetClass)wmShellWidgetClass, 0x40);
+- #endif
+  }
+  
+  
+--- 90,105 ----
+  Boolean XtIsVendorShell(object)
+      Widget object;
+  {
+      return _XtIsSubclassOf(object,
++ #ifdef notdef
++ /*
++  * We don't refer to vendorShell directly, because some shared libraries
++  * bind local references tightly.
++  */
++ 			   (WidgetClass)vendorShellWidgetClass,
++ #endif
+  			   transientShellWidgetClass->core_class.superclass,
+  			   (WidgetClass)wmShellWidgetClass, 0x40);
+  }
+  
+  
+*** /tmp/d10611	Thu Jul  9 20:22:45 1992
+--- lib/Xmu/Imakefile	Sun Jun 28 17:48:01 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.74 91/12/20 11:20:22 rws Exp $
+  XCOMM
+  XCOMM This library contains miscellaneous utility routines and is not part
+  XCOMM of the Xlib standard.
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.77 92/06/28 17:47:45 rws Exp $
+  XCOMM
+  XCOMM This library contains miscellaneous utility routines and is not part
+  XCOMM of the Xlib standard.
+***************
+*** 10,22 ****
+  #define DoProfileLib ProfileLibXmu
+  #include <Library.tmpl>
+  
+! #if defined(RsArchitecture) || SunPost411FCSLd
+! #if DoNormalLib
+! REQUIREDLIBS = -L../$(TOOLKITSRC) -lXt -L../$(EXTENSIONSRC)/lib -lXext -L../$(XLIBSRC) -lX11
+! #else
+! REQUIREDLIBS = -L$(TOOLKITSRC) -lXt -L$(EXTENSIONSRC)/lib -lXext -L$(XLIBSRC) -lX11
+  #endif
+- #endif
+  
+  /* Since people link in Xmu without Xt, we avoid references to string data. */
+  #if HasSharedLibraries
+--- 10,18 ----
+  #define DoProfileLib ProfileLibXmu
+  #include <Library.tmpl>
+  
+! #ifdef SharedXmuReqs
+! REQUIREDLIBS = SharedXmuReqs
+  #endif
+  
+  /* Since people link in Xmu without Xt, we avoid references to string data. */
+  #if HasSharedLibraries
+***************
+*** 149,167 ****
+  
+  LibraryObjectRule()
+  
+! SpecialLibObjectRule(CvtStdSel.o,$(ICONFIGFILES),$(CSSDEFS))
+! SpecialLibObjectRule(LocBitmap.o,$(ICONFIGFILES),$(BITDEFS))
+  #if DoSharedLib && SharedDataSeparation
+! SpecialObjectRule(sharedlib.o,,$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+! #if SunPost411FCSLd
+! libXmu.so.$(SOXMUREV): $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV)
+! 
+! $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV):
+! 	cd $(EXTENSIONSRC)/lib; make libXext.so.$(SOXEXTREV)
+  #endif
+  #if DoNormalLib
+  SharedLibraryTarget(Xmu,$(SOXMUREV),$(OBJS),shared,..)
+  #else
+--- 145,161 ----
+  
+  LibraryObjectRule()
+  
+! SpecialCLibObjectRule(CvtStdSel,$(ICONFIGFILES),$(CSSDEFS))
+! SpecialCLibObjectRule(LocBitmap,$(ICONFIGFILES),$(BITDEFS))
+  #if DoSharedLib && SharedDataSeparation
+! SpecialCObjectRule(sharedlib,$(_NOOP_),$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+! #ifdef XmuDependencyRule
+! XmuDependencyRule()
+  #endif
++ 
+  #if DoNormalLib
+  SharedLibraryTarget(Xmu,$(SOXMUREV),$(OBJS),shared,..)
+  #else
+***************
+*** 168,181 ****
+  SharedLibraryTarget(Xmu,$(SOXMUREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xmu,$(SOXMUREV),$(UNSHAREDOBJS))
+- #ifdef RsArchitecture
+- libXmu.a: $(EXTENSIONSRC)/lib/libXext.a
+  
+! $(EXTENSIONSRC)/lib/libXext.a:
+! 	cd $(EXTENSIONSRC)/lib; make libXext.a
+! #endif
+! InstallSharedLibrary(Xmu,$(SOXMUREV),$(USRLIBDIR))
+! InstallSharedLibraryData(Xmu,$(SOXMUREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xmu,$(OBJS))
+--- 162,170 ----
+  SharedLibraryTarget(Xmu,$(SOXMUREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xmu,$(SOXMUREV),$(UNSHAREDOBJS))
+  
+! InstallSharedLibrary(Xmu,$(SOXMUREV),$(SHLIBDIR))
+! InstallSharedLibraryData(Xmu,$(SOXMUREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xmu,$(OBJS))
+*** /tmp/d10634	Thu Jul  9 20:23:28 1992
+--- lib/Xaw/Imakefile	Sun Jun 28 20:44:20 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.78 91/09/18 14:28:23 rws Exp $
+  #define DoNormalLib NormalLibXaw
+  #define DoSharedLib SharedLibXaw
+  #define DoDebugLib DebugLibXaw
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.80 92/06/28 17:46:42 rws Exp $
+  #define DoNormalLib NormalLibXaw
+  #define DoSharedLib SharedLibXaw
+  #define DoDebugLib DebugLibXaw
+***************
+*** 5,12 ****
+  #define DoProfileLib ProfileLibXaw
+  #include <Library.tmpl>
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(XMUSRC)/libXmu.a $(EXTENSIONSRC)/lib/libXext.a $(TOOLKITSRC)/libXt.a $(XLIBSRC)/libX11.a
+  #endif
+  
+     INSTALLFLAGS = $(INSTINCFLAGS)
+--- 5,12 ----
+  #define DoProfileLib ProfileLibXaw
+  #include <Library.tmpl>
+  
+! #ifdef SharedXawReqs
+! REQUIREDLIBS = SharedXawReqs
+  #endif
+  
+     INSTALLFLAGS = $(INSTINCFLAGS)
+***************
+*** 169,175 ****
+  LibraryObjectRule()
+  
+  #if DoSharedLib && SharedDataSeparation
+! SpecialObjectRule(sharedlib.o,,$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+--- 169,175 ----
+  LibraryObjectRule()
+  
+  #if DoSharedLib && SharedDataSeparation
+! SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
+  #endif
+  
+  #if DoSharedLib
+***************
+*** 179,186 ****
+  SharedLibraryTarget(Xaw,$(SOXAWREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xaw,$(SOXAWREV),$(UNSHAREDOBJS))
+! InstallSharedLibrary(Xaw,$(SOXAWREV),$(USRLIBDIR))
+! InstallSharedLibraryData(Xaw,$(SOXAWREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xaw,$(OBJS))
+--- 179,186 ----
+  SharedLibraryTarget(Xaw,$(SOXAWREV),$(OBJS),.,.)
+  #endif
+  SharedLibraryDataTarget(Xaw,$(SOXAWREV),$(UNSHAREDOBJS))
+! InstallSharedLibrary(Xaw,$(SOXAWREV),$(SHLIBDIR))
+! InstallSharedLibraryData(Xaw,$(SOXAWREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xaw,$(OBJS))
+*** /tmp/d10655	Thu Jul  9 20:23:41 1992
+--- lib/Xaw/Vendor.c	Sun Jun 28 20:56:48 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Vendor.c,v 1.21 91/07/30 15:29:56 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Vendor.c,v 1.23 92/06/28 20:56:11 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 126,134 ****
+  		   screenConvertArg, XtNumber(screenConvertArg));
+  }
+  
+  /* ARGSUSED */
+! static void XawVendorShellInitialize(req, new)
+  	Widget req, new;
+  {
+      XtAddEventHandler(new, (EventMask) 0, TRUE, _XEditResCheckMessages, NULL);
+  }
+--- 126,148 ----
+  		   screenConvertArg, XtNumber(screenConvertArg));
+  }
+  
++ #ifdef __OSF1__
++ /* stupid OSF/1 shared libraries have the wrong semantics */
++ /* symbols do not get resolved external to the shared library */
++ void _XawFixupVendorShell()
++ {
++     transientShellWidgetClass->core_class.superclass =
++ 	(WidgetClass) &vendorShellClassRec;
++     topLevelShellWidgetClass->core_class.superclass =
++ 	(WidgetClass) &vendorShellClassRec;
++ }
++ #endif
++ 
+  /* ARGSUSED */
+! static void XawVendorShellInitialize(req, new, args, num_args)
+  	Widget req, new;
++ 	ArgList args;
++ 	Cardinal *num_args;
+  {
+      XtAddEventHandler(new, (EventMask) 0, TRUE, _XEditResCheckMessages, NULL);
+  }
+*** /tmp/d10676	Thu Jul  9 20:24:01 1992
+--- extensions/lib/Imakefile	Sun Jun 28 17:49:18 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.38 92/05/08 15:18:51 mor Exp $
+  #define DoNormalLib NormalLibXext
+  #define DoSharedLib SharedLibXext
+  #define DoDebugLib DebugLibXext
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.39 92/06/28 17:49:04 rws Exp $
+  #define DoNormalLib NormalLibXext
+  #define DoSharedLib SharedLibXext
+  #define DoDebugLib DebugLibXext
+***************
+*** 5,12 ****
+  #define DoProfileLib ProfileLibXext
+  #include <Library.tmpl>
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(XLIBSRC)/libX11.a
+  #endif
+  
+  #define IHaveSubdirs
+--- 5,12 ----
+  #define DoProfileLib ProfileLibXext
+  #include <Library.tmpl>
+  
+! #ifdef SharedXextReqs
+! REQUIREDLIBS = SharedXextReqs
+  #endif
+  
+  #define IHaveSubdirs
+***************
+*** 52,58 ****
+  #else
+  SharedLibraryTarget(Xext,$(SOXEXTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xext,$(SOXEXTREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xext,$(OBJS))
+--- 52,58 ----
+  #else
+  SharedLibraryTarget(Xext,$(SOXEXTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xext,$(SOXEXTREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xext,$(OBJS))
+*** /tmp/d10707	Thu Jul  9 20:25:26 1992
+--- extensions/lib/xinput/Imakefile	Sun Jun 28 17:49:41 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.11 91/07/24 15:38:57 rws Exp $
+  #define DoNormalLib NormalLibXinput
+  #define DoSharedLib SharedLibXinput
+  #define DoDebugLib DebugLibXinput
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.12 92/06/28 17:49:27 rws Exp $
+  #define DoNormalLib NormalLibXinput
+  #define DoSharedLib SharedLibXinput
+  #define DoDebugLib DebugLibXinput
+***************
+*** 9,16 ****
+  #define NeedXinputAlias NO
+  #endif
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(EXTENSIONSRC)/lib/libXext.a $(XLIBSRC)/libX11.a
+  #endif
+  
+  #if Malloc0ReturnsNull
+--- 9,16 ----
+  #define NeedXinputAlias NO
+  #endif
+  
+! #ifdef SharedXinputReqs
+! REQUIREDLIBS = SharedXinputReqs
+  #endif
+  
+  #if Malloc0ReturnsNull
+***************
+*** 102,108 ****
+  #else
+  SharedLibraryTarget(Xi,$(SOXINPUTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xi,$(SOXINPUTREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xi,$(OBJS))
+--- 102,108 ----
+  #else
+  SharedLibraryTarget(Xi,$(SOXINPUTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xi,$(SOXINPUTREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xi,$(OBJS))
+*** /tmp/d10730	Thu Jul  9 20:25:50 1992
+--- extensions/lib/xtest/Imakefile	Sun Jun 28 17:50:04 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.2 92/02/25 09:34:18 rws Exp $
+  #define DoNormalLib NormalLibXTest
+  #define DoSharedLib SharedLibXTest
+  #define DoDebugLib DebugLibXTest
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.3 92/06/28 17:49:50 rws Exp $
+  #define DoNormalLib NormalLibXTest
+  #define DoSharedLib SharedLibXTest
+  #define DoDebugLib DebugLibXTest
+***************
+*** 5,12 ****
+  #define DoProfileLib ProfileLibXTest
+  #include <Library.tmpl>
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(EXTENSIONSRC)/lib/libXext.a $(XLIBSRC)/libX11.a
+  #endif
+  
+  INCLUDES = -I$(TOP) -I$(XLIBSRC) -I../../include
+--- 5,12 ----
+  #define DoProfileLib ProfileLibXTest
+  #include <Library.tmpl>
+  
+! #ifdef SharedXTestReqs
+! REQUIREDLIBS = SharedXTestReqs
+  #endif
+  
+  INCLUDES = -I$(TOP) -I$(XLIBSRC) -I../../include
+***************
+*** 24,30 ****
+  #else
+  SharedLibraryTarget(Xtst,$(SOXTESTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xtst,$(SOXTESTREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xtst,$(OBJS))
+--- 24,30 ----
+  #else
+  SharedLibraryTarget(Xtst,$(SOXTESTREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(Xtst,$(SOXTESTREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(Xtst,$(OBJS))
+*** /tmp/,RCSt1010752	Thu Jul  9 20:28:01 1992
+--- extensions/lib/PEXlib/Imakefile	Thu Jul  9 20:28:03 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.6 92/06/30 16:25:51 rws Exp $
+  
+  #define DoNormalLib NormalLibPex
+  #define DoSharedLib SharedLibPex
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.7 92/06/30 16:27:06 rws Exp $
+  
+  #define DoNormalLib NormalLibPex
+  #define DoSharedLib SharedLibPex
+***************
+*** 6,11 ****
+--- 6,15 ----
+  #define DoProfileLib ProfileLibPex
+  #include <Library.tmpl>
+  
++ #ifdef SharedPexReqs
++ REQUIREDLIBS = SharedPexReqs
++ #endif
++ 
+  #ifdef PexNativeFPFormat
+  NATIVE_FP_FORMAT = PexNativeFPFormat
+  FP_DEFINES = -DNATIVE_FP_FORMAT=$(NATIVE_FP_FORMAT)
+***************
+*** 70,76 ****
+  #else
+  SharedLibraryTarget(PEX5,$(SOPEXREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(PEX5,$(SOPEXREV),$(USRLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(PEX5,$(OBJS))
+--- 74,80 ----
+  #else
+  SharedLibraryTarget(PEX5,$(SOPEXREV),$(OBJS),.,.)
+  #endif
+! InstallSharedLibrary(PEX5,$(SOPEXREV),$(SHLIBDIR))
+  #endif
+  #if DoNormalLib
+  NormalLibraryTarget(PEX5,$(OBJS))

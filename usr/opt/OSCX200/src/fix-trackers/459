@@ -1,0 +1,2934 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210200008.AA19690@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2698) close XBUG #5571: Xlib: (Ximp) keyEvent dropping/dis-order problem (4 of 7)
+Date: Mon, 19 Oct 92 20:08:04 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5571
+### area:         Xlib
+### severity:     low
+### comments:     part 4 of 7
+
+*** /tmp/d18686	Mon Oct 19 19:31:52 1992
+--- lib/X/Ximp/XimpMCT.c	Mon Oct 19 19:25:34 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpMCT.c,v 1.5 92/04/14 13:29:33 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpMCT.c,v 1.6 92/10/19 19:25:12 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 68,78 ****
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! extern int _Ximp_cstostring();
+! extern int _Ximp_cstoct();
+  
+  
+  int
+  Ximp_mbstostring(mbstr, mbstr_len, string, string_len, unconv_num)
+      unsigned char *mbstr;
+      int mbstr_len;
+--- 68,171 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! extern int _Xlc_cstostring(), _Xlc_cstoct();
+! extern int _XlcCheckESCSequence(), _XlcCheckCSISequence();
+  
++ #define STRING_CONV(xxxtocs, cstoxxx) \
++     unsigned char buf[BUFSIZE]; \
++     int to_length, buf_len, scan_len, tmp_len; \
++     int ret = -1; \
++     LCMethods methods = LC_METHODS(lcd); \
++     State state; \
++ \
++     if (to_len) { \
++ 	to_length = *to_len; \
++ 	*to_len = 0; \
++     } else \
++ 	to_length = MAXINT; \
++     if (unconv_num) \
++ 	*unconv_num = 0; \
++ \
++     state = (*methods->create_state)(lcd); \
++     (*methods->cnv_start)(state); \
++     state->last_codeset = state->GL_codeset; \
++ \
++     while (from_len > 0 && to_length > 0) { \
++ 	buf_len = BUFSIZE; \
++ 	scan_len = (*xxxtocs)(state, from_ptr, from_len, buf, &buf_len); \
++ 	if (scan_len == -1) \
++ 	    goto error; \
++ 	if (scan_len == 0)  \
++ 	    break; \
++ \
++ 	from_ptr += scan_len; \
++ 	from_len -= scan_len; \
++ \
++ 	tmp_len = to_length; \
++ 	if ((*cstoxxx)(state, buf, buf_len, to_ptr, &tmp_len) == -1) { \
++ 	    if (unconv_num) \
++ 		*unconv_num += buf_len / state->codeset->length; \
++ 	    continue; \
++ 	} \
++ \
++ 	if (to_ptr) \
++ 	    to_ptr += tmp_len; \
++ 	if (to_len) \
++ 	    *to_len += tmp_len; \
++ 	to_length -= tmp_len; \
++ 	state->last_codeset = state->codeset; \
++     } \
++ \
++     ret =  from_ptr - from; \
++ \
++ error: \
++     (*methods->cnv_end)(state); \
++     (*methods->destroy_state)(state); \
++ \
++     return ret;
+  
++ static int
++ strtostr(lcd, strtocs, from, from_len, cstostr, to, to_len, unconv_num)
++     XLCd lcd;
++     int (*strtocs)();
++     unsigned char *from;
++     int from_len;
++     int (*cstostr)();
++     unsigned char *to;
++     int *to_len;
++     int *unconv_num;
++ {
++     unsigned char *from_ptr = from;
++     unsigned char *to_ptr = to;
++     STRING_CONV(strtocs, cstostr)
++ }
++ 
+  int
++ _Xlc_strcpy(lcd, str1, str1_len, str2, str2_len, unconv_num)
++     XLCd lcd;
++     register unsigned char *str1;
++     register int str1_len;
++     register unsigned char *str2;
++     int *str2_len;
++     int *unconv_num;
++ {
++     unsigned char *str1_tmp = str1;
++ 
++     if (str2_len && str1_len > *str2_len)
++ 	str1_len = *str2_len;
++ 
++     while (str1_len--)
++ 	*str2++ = *str1++;
++ 
++     if (unconv_num)
++ 	*unconv_num = 0;
++     if (str2_len)
++ 	*str2_len = str1 - str1_tmp;
++ 
++     return str1 - str1_tmp;
++ }
++ 
++ int
+  Ximp_mbstostring(mbstr, mbstr_len, string, string_len, unconv_num)
+      unsigned char *mbstr;
+      int mbstr_len;
+***************
+*** 80,98 ****
+      int *string_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_strtostr(lcd, lcd->ximp_lcpart->methods->mbstocs, mbstr,
+! 			  mbstr_len, _Ximp_cstostring, string, string_len,
+! 			  unconv_num);
+  }
+  
+  int
+  _Ximp_mbstostring(lcd, mbstr, mbstr_len, string, string_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+      unsigned char *string;
+--- 173,190 ----
+      int *string_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_mbstostring(lcd, mbstr, mbstr_len, string, string_len,
+! 			     unconv_num);
+  }
+  
+  int
+  _Ximp_mbstostring(lcd, mbstr, mbstr_len, string, string_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+      unsigned char *string;
+***************
+*** 99,107 ****
+      int *string_len;
+      int *unconv_num;
+  {
+!     return _Ximp_strtostr(lcd, lcd->ximp_lcpart->methods->mbstocs, mbstr,
+! 			  mbstr_len, _Ximp_cstostring, string, string_len,
+! 			  unconv_num);
+  }
+  
+  
+--- 191,200 ----
+      int *string_len;
+      int *unconv_num;
+  {
+!     LCMethods methods = LC_METHODS(lcd);
+! 
+!     return strtostr(lcd, methods->mbstocs, mbstr, mbstr_len, _Xlc_cstostring,
+! 		    string, string_len, unconv_num);
+  }
+  
+  
+***************
+*** 113,131 ****
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_strtostr(lcd, lcd->ximp_lcpart->methods->mbstocs, mbstr,
+! 			  mbstr_len, _Ximp_cstoct, ctext, ctext_len,
+! 			  unconv_num);
+  }
+  
+  int
+  _Ximp_mbstoct(lcd, mbstr, mbstr_len, ctext, ctext_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+      unsigned char *ctext;
+--- 206,222 ----
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_mbstoct(lcd, mbstr, mbstr_len, ctext, ctext_len, unconv_num);
+  }
+  
+  int
+  _Ximp_mbstoct(lcd, mbstr, mbstr_len, ctext, ctext_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *mbstr;
+      int mbstr_len;
+      unsigned char *ctext;
+***************
+*** 132,140 ****
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     return _Ximp_strtostr(lcd, lcd->ximp_lcpart->methods->mbstocs, mbstr,
+! 			  mbstr_len, _Ximp_cstoct, ctext, ctext_len,
+! 			  unconv_num);
+  }
+  
+  
+--- 223,232 ----
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     LCMethods methods = LC_METHODS(lcd);
+! 
+!     return strtostr(lcd, methods->mbstocs, mbstr, mbstr_len, _Xlc_cstoct,
+! 		    ctext, ctext_len, unconv_num);
+  }
+  
+  
+***************
+*** 146,152 ****
+      int *mbstr_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+--- 238,244 ----
+      int *mbstr_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+***************
+*** 156,162 ****
+  
+  int
+  _Ximp_cttombs(lcd, ctext, ctext_len, mbstr, mbstr_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      unsigned char *mbstr;
+--- 248,254 ----
+  
+  int
+  _Ximp_cttombs(lcd, ctext, ctext_len, mbstr, mbstr_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      unsigned char *mbstr;
+***************
+*** 166,176 ****
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *bufptr = mbstr;
+      unsigned char *tmpptr;
+!     unsigned char msb_mask;
+!     int GL_codeset, GR_codeset, codeset_number;
+      int buf_len, tmp_len, skip_size;
+      int ret = -1;
+!     int (*cstombs)();
+  
+      if (mbstr_len)
+  	buf_len = *mbstr_len;
+--- 258,270 ----
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *bufptr = mbstr;
+      unsigned char *tmpptr;
+!     unsigned char side;
+      int buf_len, tmp_len, skip_size;
+      int ret = -1;
+!     LCMethods methods = LC_METHODS(lcd);
+!     State state;
+!     CharSet charset, GR_charset, GL_charset;
+!     CodeSet codeset;
+  
+      if (mbstr_len)
+  	buf_len = *mbstr_len;
+***************
+*** 179,203 ****
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     cstombs = lcd->ximp_lcpart->methods->cstombs;
+!     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
+!     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      while (ctext_len > 0 && buf_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b) {
+! 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
+! 					  &GL_codeset, &GR_codeset);
+! 	} else if (ch == 0x9b) {
+! 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
+  	} else {
+  	    tmpptr = ctptr;
+! 	    msb_mask = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0))
+--- 273,304 ----
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     GL_charset = _XlcGetCharSetFromName("ISO8859-1", GL);
+!     GR_charset = _XlcGetCharSetFromName("ISO8859-1", GR);
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      while (ctext_len > 0 && buf_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b || ch == 0x9b) {
+! 	    if (ch == 0x1b)
+! 		tmp_len = _XlcCheckESCSequence(ctptr, ctext_len, &charset);
+! 	    else
+! 		tmp_len = _XlcCheckCSISequence(ctptr, ctext_len, &charset);
+! 
+! 	    if (tmp_len > 0 && charset) {
+! 		if (charset->side == GL)
+! 		    GL_charset = charset;
+! 		else
+! 		    GR_charset = charset;
+! 	    }
+  	} else {
+  	    tmpptr = ctptr;
+! 	    side = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (side != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0))
+***************
+*** 204,214 ****
+  		    goto error;
+  	    }
+  
+! 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
+! 	    if (codeset_number > -1) {
+  		tmp_len = buf_len;
+! 		skip_size = (*cstombs)(lcd, ctptr, tmpptr - ctptr,
+! 				       bufptr, &tmp_len, codeset_number);
+  		if (skip_size < 0 || skip_size != tmpptr - ctptr)
+  			goto error;
+  
+--- 305,316 ----
+  		    goto error;
+  	    }
+  
+! 	    charset = side ? GR_charset : GL_charset;
+! 	    if (codeset = _XlcGetCodeSetFromCharSet(lcd, charset)) {
+! 		state->codeset = codeset;
+  		tmp_len = buf_len;
+! 		skip_size = (*methods->cstombs)(state, ctptr, tmpptr - ctptr,
+! 						bufptr, &tmp_len);
+  		if (skip_size < 0 || skip_size != tmpptr - ctptr)
+  			goto error;
+  
+***************
+*** 228,234 ****
+  	*mbstr_len = bufptr - mbstr;
+      ret = ctptr - ctext;
+  error:
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      return ret;
+  }
+--- 330,337 ----
+  	*mbstr_len = bufptr - mbstr;
+      ret = ctptr - ctext;
+  error:
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      return ret;
+  }
+***************
+*** 235,241 ****
+  
+  int
+  _Ximp_ct_mbslen(lcd, ctext, ctext_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      int *unconv_num;
+--- 338,344 ----
+  
+  int
+  _Ximp_ct_mbslen(lcd, ctext, ctext_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      int *unconv_num;
+***************
+*** 242,276 ****
+  {
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *tmpptr;
+!     unsigned char msb_mask;
+      unsigned char buf[BUFSIZE];
+-     int GL_codeset, GR_codeset, codeset_number;
+      int tmp_len, skip_size;
+      int ret = 0;
+!     int (*cstombs)();
+  
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     cstombs = lcd->ximp_lcpart->methods->cstombs;
+!     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
+!     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      while (ctext_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b) {
+! 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
+! 					  &GL_codeset, &GR_codeset);
+! 	} else if (ch == 0x9b) {
+! 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
+  	} else {
+  	    tmpptr = ctptr;
+! 	    msb_mask = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0)) {
+--- 345,388 ----
+  {
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *tmpptr;
+!     unsigned char side;
+      unsigned char buf[BUFSIZE];
+      int tmp_len, skip_size;
+      int ret = 0;
+!     LCMethods methods = LC_METHODS(lcd);
+!     State state;
+!     CharSet charset, GR_charset, GL_charset;
+!     CodeSet codeset;
+  
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     GL_charset = _XlcGetCharSetFromName("ISO8859-1", GL);
+!     GR_charset = _XlcGetCharSetFromName("ISO8859-1", GR);
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      while (ctext_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b || ch == 0x9b) {
+! 	    if (ch == 0x1b)
+! 		tmp_len = _XlcCheckESCSequence(ctptr, ctext_len, &charset);
+! 	    else
+! 		tmp_len = _XlcCheckCSISequence(ctptr, ctext_len, &charset);
+! 
+! 	    if (tmp_len > 0 && charset) {
+! 		if (charset->side == GL)
+! 		    GL_charset = charset;
+! 		else
+! 		    GR_charset = charset;
+! 	    }
+  	} else {
+  	    tmpptr = ctptr;
+! 	    side = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (side != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0)) {
+***************
+*** 279,291 ****
+  		}
+  	    }
+  
+! 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
+! 	    if (codeset_number > -1) {
+  		tmp_len = BUFSIZE;
+! 		skip_size = (*cstombs)(lcd, ctptr, tmpptr - ctptr,
+! 				       buf, &tmp_len, codeset_number);
+  		if (skip_size < 0) {
+! 		    ret - -1;
+  		    goto error;
+  		}
+  		ret += tmp_len;
+--- 391,404 ----
+  		}
+  	    }
+  
+! 	    charset = side ? GR_charset : GL_charset;
+! 	    if (codeset = _XlcGetCodeSetFromCharSet(lcd, charset)) {
+! 		state->codeset = codeset;
+  		tmp_len = BUFSIZE;
+! 		skip_size = (*methods->cstombs)(state, ctptr, tmpptr - ctptr,
+! 						buf, &tmp_len);
+  		if (skip_size < 0) {
+! 		    ret = -1;
+  		    goto error;
+  		}
+  		ret += tmp_len;
+***************
+*** 302,308 ****
+  	ctext_len -= tmp_len;
+      }
+  error:
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      return ret;
+  }
+--- 415,422 ----
+  	ctext_len -= tmp_len;
+      }
+  error:
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      return ret;
+  }
+*** /tmp/d18705	Mon Oct 19 19:32:04 1992
+--- lib/X/Ximp/XimpMDrS.c	Mon Oct 19 19:25:41 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpMDrS.c,v 1.3 92/04/14 13:29:36 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpMDrS.c,v 1.4 92/10/19 19:25:35 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18724	Mon Oct 19 19:32:16 1992
+--- lib/X/Ximp/XimpMEsc.c	Mon Oct 19 19:25:44 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpMEsc.c,v 1.3 92/04/14 13:29:38 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpMEsc.c,v 1.4 92/10/19 19:25:41 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18750	Mon Oct 19 19:32:32 1992
+--- lib/X/Ximp/XimpMExt.c	Mon Oct 19 19:25:48 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpMExt.c,v 1.3 92/04/14 13:29:40 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpMExt.c,v 1.4 92/10/19 19:25:45 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18783	Mon Oct 19 19:32:56 1992
+--- lib/X/Ximp/XimpWCT.c	Mon Oct 19 19:26:42 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWCT.c,v 1.5 92/04/14 13:30:14 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWCT.c,v 1.6 92/10/19 19:26:38 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 68,78 ****
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! extern int _Ximp_cstostring();
+! extern int _Ximp_cstoct();
+  
+  
+  int
+  Ximp_wcstostring(wcstr, wcstr_len, string, string_len, unconv_num)
+      wchar_t *wcstr;
+      int wcstr_len;
+--- 68,198 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! extern int _Xlc_cstostring(), _Xlc_cstoct();
+! extern int _XlcCheckESCSequence(), _XlcCheckCSISequence();
+  
++ #define STRING_CONV(xxxtocs, cstoxxx) \
++     unsigned char buf[BUFSIZE]; \
++     int to_length, buf_len, scan_len, tmp_len; \
++     int ret = -1; \
++     LCMethods methods = LC_METHODS(lcd); \
++     State state; \
++ \
++     if (to_len) { \
++ 	to_length = *to_len; \
++ 	*to_len = 0; \
++     } else \
++ 	to_length = MAXINT; \
++     if (unconv_num) \
++ 	*unconv_num = 0; \
++ \
++     state = (*methods->create_state)(lcd); \
++     (*methods->cnv_start)(state); \
++     state->last_codeset = state->GL_codeset; \
++ \
++     while (from_len > 0 && to_length > 0) { \
++ 	buf_len = BUFSIZE; \
++ 	scan_len = (*xxxtocs)(state, from_ptr, from_len, buf, &buf_len); \
++ 	if (scan_len == -1) \
++ 	    goto error; \
++ 	if (scan_len == 0)  \
++ 	    break; \
++ \
++ 	from_ptr += scan_len; \
++ 	from_len -= scan_len; \
++ \
++ 	tmp_len = to_length; \
++ 	if ((*cstoxxx)(state, buf, buf_len, to_ptr, &tmp_len) == -1) { \
++ 	    if (unconv_num) \
++ 		*unconv_num += buf_len / state->codeset->length; \
++ 	    continue; \
++ 	} \
++ \
++ 	if (to_ptr) \
++ 	    to_ptr += tmp_len; \
++ 	if (to_len) \
++ 	    *to_len += tmp_len; \
++ 	to_length -= tmp_len; \
++ 	state->last_codeset = state->codeset; \
++     } \
++ \
++     ret =  from_ptr - from; \
++ \
++ error: \
++     (*methods->cnv_end)(state); \
++     (*methods->destroy_state)(state); \
++ \
++     return ret;
+  
++ static int
++ strtowstr(lcd, strtocs, from, from_len, cstowstr, to, to_len, unconv_num)
++     XLCd lcd;
++     int (*strtocs)();
++     unsigned char *from;
++     int from_len;
++     int (*cstowstr)();
++     wchar_t *to;
++     int *to_len;
++     int *unconv_num;
++ {
++     unsigned char *from_ptr = from;
++     wchar_t *to_ptr = to;
++     STRING_CONV(strtocs, cstowstr)
++ }
++ 
++ static int
++ wstrtostr(lcd, wstrtocs, from, from_len, cstostr, to, to_len, unconv_num)
++     XLCd lcd;
++     int (*wstrtocs)();
++     wchar_t *from;
++     int from_len;
++     int (*cstostr)();
++     unsigned char *to;
++     int *to_len;
++     int *unconv_num;
++ {
++     wchar_t *from_ptr = from;
++     unsigned char *to_ptr = to;
++     STRING_CONV(wstrtocs, cstostr)
++ }
++ 
+  int
++ _Xlc_mbstowcs(lcd, mbstr, mbstr_len, wcstr, wcstr_len, unconv_num)
++     XLCd lcd;
++     unsigned char *mbstr;
++     int mbstr_len;
++     wchar_t *wcstr;
++     int *wcstr_len;
++     int *unconv_num;
++ {
++     LCMethods methods = LC_METHODS(lcd);
++ 
++     if (lcd == NULL && (lcd = _XlcCurrentLC()) == NULL)
++ 	return -1;
++ 
++     return strtowstr(lcd, methods->mbstocs, mbstr, mbstr_len, methods->cstowcs,
++ 		     wcstr, wcstr_len, unconv_num);
++ }
++ 
++ int
++ _Xlc_wcstombs(lcd, wcstr, wcstr_len, mbstr, mbstr_len, unconv_num)
++     XLCd lcd;
++     wchar_t *wcstr;
++     int wcstr_len;
++     unsigned char *mbstr;
++     int *mbstr_len;
++     int *unconv_num;
++ {
++     LCMethods methods = LC_METHODS(lcd);
++ 
++     if (lcd == NULL && (lcd = _XlcCurrentLC()) == NULL)
++ 	return -1;
++ 
++     return wstrtostr(lcd, methods->wcstocs, wcstr, wcstr_len, methods->cstombs,
++ 		     mbstr, mbstr_len, unconv_num);
++ }
++ 
++ int
+  Ximp_wcstostring(wcstr, wcstr_len, string, string_len, unconv_num)
+      wchar_t *wcstr;
+      int wcstr_len;
+***************
+*** 80,98 ****
+      int *string_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wcstr,
+!                            wcstr_len, _Ximp_cstostring, string, string_len,
+!                            unconv_num);
+  }
+  
+  int
+  _Ximp_wcstostring(lcd, wcstr, wcstr_len, string, string_len, unconv_num)
+!     Ximp_XLCd lcd;
+      wchar_t *wcstr;
+      int wcstr_len;
+      unsigned char *string;
+--- 200,217 ----
+      int *string_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_wcstostring(lcd, wcstr, wcstr_len, string, string_len,
+! 			     unconv_num);
+  }
+  
+  int
+  _Ximp_wcstostring(lcd, wcstr, wcstr_len, string, string_len, unconv_num)
+!     XLCd lcd;
+      wchar_t *wcstr;
+      int wcstr_len;
+      unsigned char *string;
+***************
+*** 99,107 ****
+      int *string_len;
+      int *unconv_num;
+  {
+!     return _Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wcstr,
+!                            wcstr_len, _Ximp_cstostring, string, string_len,
+!                            unconv_num);
+  }
+  
+  
+--- 218,227 ----
+      int *string_len;
+      int *unconv_num;
+  {
+!     LCMethods methods = LC_METHODS(lcd);
+! 
+!     return wstrtostr(lcd, methods->wcstocs, wcstr, wcstr_len, _Xlc_cstostring,
+! 		     string, string_len, unconv_num);
+  }
+  
+  
+***************
+*** 113,131 ****
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wcstr,
+! 			   wcstr_len, _Ximp_cstoct, ctext, ctext_len,
+! 			   unconv_num);
+  }
+  
+  int
+  _Ximp_wcstoct(lcd, wcstr, wcstr_len, ctext, ctext_len, unconv_num)
+!     Ximp_XLCd lcd;
+      wchar_t *wcstr;
+      int wcstr_len;
+      unsigned char *ctext;
+--- 233,249 ----
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+  
+!     return _Ximp_wcstoct(lcd, wcstr, wcstr_len, ctext, ctext_len, unconv_num);
+  }
+  
+  int
+  _Ximp_wcstoct(lcd, wcstr, wcstr_len, ctext, ctext_len, unconv_num)
+!     XLCd lcd;
+      wchar_t *wcstr;
+      int wcstr_len;
+      unsigned char *ctext;
+***************
+*** 132,140 ****
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     return _Ximp_wstrtostr(lcd, lcd->ximp_lcpart->methods->wcstocs, wcstr,
+! 			   wcstr_len, _Ximp_cstoct, ctext, ctext_len,
+! 			   unconv_num);
+  }
+  
+  
+--- 250,259 ----
+      int *ctext_len;
+      int *unconv_num;
+  {
+!     LCMethods methods = LC_METHODS(lcd);
+! 
+!     return wstrtostr(lcd, methods->wcstocs, wcstr, wcstr_len, _Xlc_cstoct,
+! 		     ctext, ctext_len, unconv_num);
+  }
+  
+  
+***************
+*** 146,152 ****
+      int *wcstr_len;
+      int *unconv_num;
+  {
+!     Ximp_XLCd lcd = (Ximp_XLCd) _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+--- 265,271 ----
+      int *wcstr_len;
+      int *unconv_num;
+  {
+!     XLCd lcd = _XlcCurrentLC();
+  
+      if (lcd == NULL)
+  	return -1;
+***************
+*** 156,162 ****
+  
+  int
+  _Ximp_cttowcs(lcd, ctext, ctext_len, wcstr, wcstr_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      wchar_t *wcstr;
+--- 275,281 ----
+  
+  int
+  _Ximp_cttowcs(lcd, ctext, ctext_len, wcstr, wcstr_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      wchar_t *wcstr;
+***************
+*** 166,176 ****
+      unsigned char ch, *ctptr = ctext;
+      wchar_t *bufptr = wcstr;
+      unsigned char *tmpptr;
+!     unsigned char msb_mask;
+!     int GL_codeset, GR_codeset, codeset_number;
+      int buf_len, tmp_len, skip_size;
+      int ret = -1;
+!     int (*cstowcs)();
+  
+      if (wcstr_len)
+  	buf_len = *wcstr_len;
+--- 285,297 ----
+      unsigned char ch, *ctptr = ctext;
+      wchar_t *bufptr = wcstr;
+      unsigned char *tmpptr;
+!     unsigned char side;
+      int buf_len, tmp_len, skip_size;
+      int ret = -1;
+!     LCMethods methods = LC_METHODS(lcd);
+!     State state;
+!     CharSet charset, GR_charset, GL_charset;
+!     CodeSet codeset;
+  
+      if (wcstr_len)
+  	buf_len = *wcstr_len;
+***************
+*** 179,203 ****
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     cstowcs = lcd->ximp_lcpart->methods->cstowcs;
+!     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
+!     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      while (ctext_len > 0 && buf_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b) {
+! 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
+! 					  &GL_codeset, &GR_codeset);
+! 	} else if (ch == 0x9b) {
+! 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
+  	} else {
+  	    tmpptr = ctptr;
+! 	    msb_mask = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0))
+--- 300,331 ----
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     GL_charset = _XlcGetCharSetFromName("ISO8859-1", GL);
+!     GR_charset = _XlcGetCharSetFromName("ISO8859-1", GR);
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      while (ctext_len > 0 && buf_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b || ch == 0x9b) {
+! 	    if (ch == 0x1b)
+! 		tmp_len = _XlcCheckESCSequence(ctptr, ctext_len, &charset);
+! 	    else
+! 		tmp_len = _XlcCheckCSISequence(ctptr, ctext_len, &charset);
+! 
+! 	    if (tmp_len > 0 && charset) {
+! 		if (charset->side == GL)
+! 		    GL_charset = charset;
+! 		else
+! 		    GR_charset = charset;
+! 	    }
+  	} else {
+  	    tmpptr = ctptr;
+! 	    side = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (side != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0))
+***************
+*** 204,214 ****
+  		    goto error;
+  	    }
+  
+! 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
+! 	    if (codeset_number > -1) {
+  		tmp_len = buf_len;
+! 		skip_size = (*cstowcs)(lcd, ctptr, tmpptr - ctptr,
+! 				       bufptr, &tmp_len, codeset_number);
+  		if (skip_size < 0 || skip_size != tmpptr - ctptr)
+  			goto error;
+  
+--- 332,343 ----
+  		    goto error;
+  	    }
+  
+! 	    charset = side ? GR_charset : GL_charset;
+! 	    if (codeset = _XlcGetCodeSetFromCharSet(lcd, charset)) {
+! 		state->codeset = codeset;
+  		tmp_len = buf_len;
+! 		skip_size = (*methods->cstowcs)(state, ctptr, tmpptr - ctptr,
+! 						bufptr, &tmp_len);
+  		if (skip_size < 0 || skip_size != tmpptr - ctptr)
+  			goto error;
+  
+***************
+*** 228,234 ****
+  	*wcstr_len = bufptr - wcstr;
+      ret = ctptr - ctext;
+  error:
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      return ret;
+  }
+--- 357,364 ----
+  	*wcstr_len = bufptr - wcstr;
+      ret = ctptr - ctext;
+  error:
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      return ret;
+  }
+***************
+*** 235,241 ****
+  
+  int
+  _Ximp_ct_wcslen(lcd, ctext, ctext_len, unconv_num)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      int *unconv_num;
+--- 365,371 ----
+  
+  int
+  _Ximp_ct_wcslen(lcd, ctext, ctext_len, unconv_num)
+!     XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+      int *unconv_num;
+***************
+*** 242,276 ****
+  {
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *tmpptr;
+!     unsigned char msb_mask;
+      wchar_t buf[BUFSIZE];
+-     int GL_codeset, GR_codeset, codeset_number;
+      int tmp_len, skip_size;
+      int ret = 0;
+!     int (*cstowcs)();
+  
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     cstowcs = lcd->ximp_lcpart->methods->cstowcs;
+!     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
+!     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
+  
+!     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
+  
+      while (ctext_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b) {
+! 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
+! 					  &GL_codeset, &GR_codeset);
+! 	} else if (ch == 0x9b) {
+! 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
+  	} else {
+  	    tmpptr = ctptr;
+! 	    msb_mask = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0)) {
+--- 372,415 ----
+  {
+      unsigned char ch, *ctptr = ctext;
+      unsigned char *tmpptr;
+!     unsigned char side;
+      wchar_t buf[BUFSIZE];
+      int tmp_len, skip_size;
+      int ret = 0;
+!     LCMethods methods = LC_METHODS(lcd);
+!     State state;
+!     CharSet charset, GR_charset, GL_charset;
+!     CodeSet codeset;
+  
+      if (unconv_num)
+  	*unconv_num = 0;
+      
+!     GL_charset = _XlcGetCharSetFromName("ISO8859-1", GL);
+!     GR_charset = _XlcGetCharSetFromName("ISO8859-1", GR);
+  
+!     state = (*methods->create_state)(lcd);
+!     (*methods->cnv_start)(state);
+  
+      while (ctext_len > 0) {
+  	ch = *ctptr;
+! 	if (ch == 0x1b || ch == 0x9b) {
+! 	    if (ch == 0x1b)
+! 		tmp_len = _XlcCheckESCSequence(ctptr, ctext_len, &charset);
+! 	    else
+! 		tmp_len = _XlcCheckCSISequence(ctptr, ctext_len, &charset);
+! 
+! 	    if (tmp_len > 0 && charset) {
+! 		if (charset->side == GL)
+! 		    GL_charset = charset;
+! 		else
+! 		    GR_charset = charset;
+! 	    }
+  	} else {
+  	    tmpptr = ctptr;
+! 	    side = ch & 0x80;
+  	    for ( ; ctext_len; tmpptr++, ctext_len--) {
+  		ch = *tmpptr;
+! 		if (side != (ch & 0x80) || ch == '\033' || ch == 0x9b)
+  		    break;
+  	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
+  			(ch >= 0x80 && ch < 0xa0)) {
+***************
+*** 279,289 ****
+  		}
+  	    }
+  
+! 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
+! 	    if (codeset_number > -1) {
+  		tmp_len = BUFSIZE;
+! 		skip_size = (*cstowcs)(lcd, ctptr, tmpptr - ctptr,
+! 				       buf, &tmp_len, codeset_number);
+  		if (skip_size < 0) {
+  		    ret = -1;
+  		    goto error;
+--- 418,429 ----
+  		}
+  	    }
+  
+! 	    charset = side ? GR_charset : GL_charset;
+! 	    if (codeset = _XlcGetCodeSetFromCharSet(lcd, charset)) {
+! 		state->codeset = codeset;
+  		tmp_len = BUFSIZE;
+! 		skip_size = (*methods->cstowcs)(state, ctptr, tmpptr - ctptr,
+! 						buf, &tmp_len);
+  		if (skip_size < 0) {
+  		    ret = -1;
+  		    goto error;
+***************
+*** 302,308 ****
+  	ctext_len -= tmp_len;
+      }
+  error:
+!     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+      return ret;
+  }
+--- 442,449 ----
+  	ctext_len -= tmp_len;
+      }
+  error:
+!     (*methods->cnv_end)(state);
+!     (*methods->destroy_state)(state);
+  
+      return ret;
+  }
+*** /tmp/d18802	Mon Oct 19 19:33:07 1992
+--- lib/X/Ximp/XimpWDrS.c	Mon Oct 19 19:26:45 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWDrS.c,v 1.3 92/04/14 13:30:18 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWDrS.c,v 1.4 92/10/19 19:26:42 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18821	Mon Oct 19 19:33:17 1992
+--- lib/X/Ximp/XimpWEsc.c	Mon Oct 19 19:26:49 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWEsc.c,v 1.3 92/04/14 13:30:22 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWEsc.c,v 1.4 92/10/19 19:26:46 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18840	Mon Oct 19 19:33:28 1992
+--- lib/X/Ximp/XimpWExt.c	Mon Oct 19 19:26:52 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpWExt.c,v 1.3 92/04/14 13:30:24 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpWExt.c,v 1.4 92/10/19 19:26:49 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+*** /tmp/d18859	Mon Oct 19 19:33:39 1992
+--- lib/X/Ximp/Ximplc.h	Mon Oct 19 19:27:14 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Ximplc.h,v 1.6 92/07/29 10:16:27 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: Ximplc.h,v 1.7 92/10/19 19:27:10 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 29,60 ****
+  /******************************************************************
+  
+                Copyright 1991, 1992 by FUJITSU LIMITED
+!               Copyright 1991, 1992 by Sony Corporation
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+! in supporting documentation, and that the name of FUJITSU LIMITED
+! and Sony Corporation not be used in advertising or publicity
+! pertaining to distribution of the software without specific, written
+! prior permission.
+! FUJITSU LIMITED and Sony Corporation make no representations about
+! the suitability of this software for any purpose.  It is provided
+! "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SONY CORPORATION DISCLAIM ALL WARRANTIES WITH
+! REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED AND
+! SONY CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+! OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+! TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+! PERFORMANCE
+! OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!           Makoto Wakamatsu     Sony Corporation
+  
+  ******************************************************************/
+  /*
+--- 29,62 ----
+  /******************************************************************
+  
+                Copyright 1991, 1992 by FUJITSU LIMITED
+! 	      Copyright 1991, 1992 by Sun Microsystems, Inc.
+!               Copyright 1991, 1992 by Sony Corporaion
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+! in supporting documentation, and that the name of FUJITSU LIMITED,
+! Sun Microsystems, Inc. and Sony Corporation not be used in advertising 
+! or publicity pertaining to distribution of the software without specific,
+! written prior permission.
+! FUJITSU LIMITED, Sun Microsystems, Inc. and Sony Corporation make no 
+! representations about the suitability of this software for any purpose.
+! It is provided "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED, SUN MICROSYSTEMS, INC. AND SONY CORPORATION DISCLAIM 
+! ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED 
+! WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU
+! LIMITED, SUN MICROSYSTEMS, INC. AND SONY CORPORATION BE LIABLE FOR ANY
+! SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+! RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+! CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+! CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!           Hiromu Inukai        Sun Microsystems, Inc.
+!           Hideki Hiura         Sun Microsystems, Inc.
+! 	  Makoto Wakamatsu     Sony Corporaion
+  
+  ******************************************************************/
+  /*
+***************
+*** 69,86 ****
+  	by Takashi Fujiwara,FUJITSU LIMITED.
+  */
+  
+  #include "XIMProto.h"
+  
+! #define USE_SJIS	True
+! #ifdef SVR4
+! #define FIX_EUC32	True
+  #endif
+  
+  #define GL		0x00
+  #define GR		0x80
+  #define MAX_CODESET	10
+  #define MAX_FONTSET	50
+! #define XIMP_MB_CUR_MAX(lcd)   (((Ximp_XLCd)(lcd))->ximp_lcpart->mb_cur_max) 
+  #ifndef MB_CUR_MAX
+  #define MB_CUR_MAX      XIMP_MB_CUR_MAX(_XlcCurrentLC())
+  #endif
+--- 71,94 ----
+  	by Takashi Fujiwara,FUJITSU LIMITED.
+  */
+  
++ #define XIMP_40
+  #include "XIMProto.h"
+  
+! #ifndef NOT_USE_SJIS
+! #define USE_SJIS
+  #endif
++ #ifndef NOT_XIMP_BC
++ #define XIMP_BC
++ #endif
+  
++ #define	CODESET_FILE	"Codeset"
++ #define	COMPOSE_FILE	"Compose"
++ 
+  #define GL		0x00
+  #define GR		0x80
+  #define MAX_CODESET	10
+  #define MAX_FONTSET	50
+! #define XIMP_MB_CUR_MAX(lcd)   (((XimpLCd)(lcd))->locale.mb_cur_max) 
+  #ifndef MB_CUR_MAX
+  #define MB_CUR_MAX      XIMP_MB_CUR_MAX(_XlcCurrentLC())
+  #endif
+***************
+*** 89,142 ****
+  #endif
+  
+  #ifndef MAXINT
+! #define MAXINT (~(1 << (8 * sizeof(int)) - 1))
+  #endif /* !MAXINT */
+  
+! typedef struct _Ximp_XLCd	*Ximp_XLCd;
+! typedef struct _Ximp_XFontSet	*Ximp_XFontSet;
+  
+  /*
+   * XLCd dependent data
+   */
+  
+! enum {
+!     ISO8859_1, ISO8859_2, ISO8859_3, ISO8859_4, ISO8859_7,
+!     ISO8859_6, ISO8859_8, ISO8859_5, ISO8859_9, JISX0201_1976_0,
+!     GB2312_1980_0, GB2312_1980_1, JISX0208_1983_0, JISX0208_1983_1,
+!     KSC5601_1987_0, KSC5601_1987_1
+! } encoding_define;
+  
+! typedef struct {
+!     int			lindex;
+!     unsigned char	msb_mask;
+! } EncodingIndexRec;
+  
+! typedef struct {
+!     int			lindex;
+!     char	       *charset_name;
+!     int			char_length;
+!     char	       *GL_encoding;
+!     int			GL_gc_size;
+!     char	       *GR_encoding;
+!     int			GR_gc_size;
+! } EncodingRec;
+  
+! typedef struct {
+!     int			char_length;
+!     unsigned char	msb_mask;
+!     int			index_num;
+!     EncodingIndexRec   *encoding_index;
+! } CodeSetRec;
+  
+! typedef struct {
+!     int			cset_number;
+!     char	       *font_name;
+!     unsigned char       msb_mask;
+!     Bool		ext_flag;
+! } FontSetDataRec;
+  
+! typedef struct {
+!     Bool		(*initialize)();
+      void		(*cnv_start)();
+      void		(*cnv_end)();
+      char		(*mbchar)();
+--- 97,182 ----
+  #endif
+  
+  #ifndef MAXINT
+! #define MAXINT		(~((unsigned int)1 << (8 * sizeof(int)) - 1))
+  #endif /* !MAXINT */
+  
+! #define LC_METHODS(lcd)	(((XimpLCd)(lcd))->lc_methods)
+  
+  /*
+   * XLCd dependent data
+   */
+  
+! typedef unsigned char         Side;
+! typedef struct _ParseInfoRec *ParseInfo;
+! typedef struct _XimpLCdRec   *XimpLCd;
+  
+! typedef struct _CharSetRec {
+!     char	       *name;
+!     Side		side;
+!     int			length;
+!     char	       *encoding;	/* Compound Text encoding */
+!     int			gc_num;		/* num of graphic characters */
+!     Bool		string_encoding;
+! } CharSetRec, *CharSet;
+  
+! typedef struct _CodeSetRec {
+!     int			cs_num;
+!     Side		side;
+!     int			length;
+!     ParseInfo		parse_info;
+!     unsigned long	wc_encoding;
+!     int			charset_num;
+!     CharSet	       *charset_list;
+! } CodeSetRec, *CodeSet;
+  
+! typedef enum {
+!     E_GL,				/* GL encoding */
+!     E_GR,				/* GR encoding */
+!     E_SS,				/* single shift */
+!     E_LSL,				/* locking shift left */
+!     E_LSR,				/* locking shift right */
+!     E_LAST
+! } EncodingType;
+  
+! typedef struct _ParseInfoRec {
+!     EncodingType	type;
+!     char	       *encoding;
+!     CodeSet		codeset;
+! } ParseInfoRec;
+  
+! typedef enum {
+!     MBType,
+!     WCType
+! } CvtType;
+! 
+! typedef struct _CvtDataRec {
+!     CvtType		type;
+!     int			per_size;
+!     union {
+! 	char	       *multi_byte;
+! 	wchar_t	       *wide_char;
+! 	XChar2b        *xchar2b;
+!     } string;
+!     int			length;
+!     int			cvt_length;
+!     CodeSet		codeset;
+! } CvtDataRec, *CvtData;
+! 
+! typedef struct _StateRec {
+!     XimpLCd		lcd;
+!     int			(*converter)();
+!     CodeSet		codeset;
+!     CodeSet		GL_codeset;
+!     CodeSet		GR_codeset;
+!     CodeSet		last_codeset;
+!     struct _StateRec   *next;
+!     Bool		is_used;
+! } StateRec, *State;
+! 
+! typedef struct _LCMethodsRec {
+!     void		(*destroy)();
+!     State		(*create_state)();
+!     void		(*destroy_state)();
+      void		(*cnv_start)();
+      void		(*cnv_end)();
+      char		(*mbchar)();
+***************
+*** 144,168 ****
+      int			(*wcstocs)();
+      int			(*cstombs)();
+      int			(*cstowcs)();
+! } XLCdXimpMethods;
+  
+! typedef struct {
+!     char	       *codeset_name;
+      int			codeset_num;
+!     CodeSetRec	       *codeset;
+      int			mb_cur_max; 
+      Bool		state_dependent;
+      int			fontset_data_num;
+!     FontSetDataRec     *fontset_data;
+!     XLCdXimpMethods    *methods;
+      XPointer		extension;
+! } XLCdXimpRec;
+  
+! typedef struct _Ximp_XLCd {
+      XLCdMethods		methods;
+      XLCdCoreRec		core;	
+!     XLCdXimpRec	       *ximp_lcpart;
+! } Ximp_XLCdRec;
+  
+  /*
+   * XFontSet dependent data
+--- 184,224 ----
+      int			(*wcstocs)();
+      int			(*cstombs)();
+      int			(*cstowcs)();
+! } LCMethodsRec, *LCMethods;
+  
+! typedef struct _FontSetDataRec {
+!     char	       *font_name;
+!     Side		side;
+!     int			cs_num;
+! } FontSetDataRec, *FontSetData;
+! 
+! typedef struct _LocaleRec {
+!     char	       *name;
+!     char	       *language;
+!     char	       *territory;
+!     char	       *codeset;
+      int			codeset_num;
+!     CodeSet	       *codeset_list;
+      int			mb_cur_max; 
++     unsigned char      *mb_parse_table;
++     int			mb_parse_list_num;
++     ParseInfo	       *mb_parse_list;
++     unsigned long	wc_encode_mask;
++     unsigned long	wc_shift_bits;
+      Bool		state_dependent;
++     CodeSet		initial_state_GL;
++     CodeSet		initial_state_GR;
+      int			fontset_data_num;
+!     FontSetData		fontset_data;
+      XPointer		extension;
+! } LocaleRec, *Locale;
+  
+! typedef struct _XimpLCdRec {
+      XLCdMethods		methods;
+      XLCdCoreRec		core;	
+!     LCMethods		lc_methods;
+!     LocaleRec		locale;
+! } XimpLCdRec;
+  
+  /*
+   * XFontSet dependent data
+***************
+*** 170,185 ****
+  
+  typedef struct {
+      XFontStruct	       *font;
+!     unsigned char	msb_mask;
+!     unsigned		min_char;
+!     unsigned		max_char;
+! } ExtFontRec;
+! 
+! typedef struct {
+!     XFontStruct	       *font;
+!     unsigned char	msb_mask;
+!     int			ext_font_num;
+!     ExtFontRec	       *ext_font_list;
+  } FontSetRec;
+  
+  typedef struct {
+--- 226,233 ----
+  
+  typedef struct {
+      XFontStruct	       *font;
+!     CodeSet		codeset;
+!     Side		side;
+  } FontSetRec;
+  
+  typedef struct {
+***************
+*** 188,201 ****
+      XPointer		extension;
+  } XFontSetXimpRec;
+  
+! typedef struct _Ximp_XFontSet {
+      XFontSetMethods	methods;
+      XFontSetCoreRec	core;	
+!     XFontSetXimpRec    *ximp_fspart;
+! } Ximp_XFontSetRec;
+  
+! extern EncodingRec **encoding_table;
+  
+  /*
+   * Input Method data
+   */
+--- 236,264 ----
+      XPointer		extension;
+  } XFontSetXimpRec;
+  
+! typedef struct _XimpFontSetRec {
+      XFontSetMethods	methods;
+      XFontSetCoreRec	core;	
+!     XFontSetXimpRec	ximp_fspart;
+! } XimpFontSetRec, *XimpFontSet;
+  
+! extern Bool _XlcRegisterCharSet();
+! extern CharSet _XlcGetCharSetFromEncoding(), _XlcGetCharSetFromName();
+! extern CodeSet _XlcGetCodeSetFromCharSet();
+! extern Bool _XlcInsertLoader();
+  
++ extern XimpLCd _XlcCreateLC();
++ extern Bool _XlcLoadCodeSet();
++ extern void _XlcDestroyLC(), _XlcDestroyState(), _XlcCnvStart(), _XlcCnvEnd();
++ extern State _XlcCreateState();
++ 
++ extern char _Xlc_mbchar();
++ extern int _Xlc_mbstocs(), _Xlc_wcstocs(), _Xlc_cstombs(), _Xlc_cstowcs();
++ 
++ extern XFontSet _XDefaultCreateFontSet();
++ extern XIM _Ximp_OpenIM();
++ 
++ 
+  /*
+   * Input Method data
+   */
+***************
+*** 204,249 ****
+  typedef struct _Ximp_XIC	*Ximp_XIC;
+  
+  #define XIMP_NAME	256
+- #define	XIMP_TIME_OUT	120
+  
+  #define XIMP_CREATE_IC	0
+  #define	XIMP_SET_IC	1
+  #define	XIMP_START_IC	2
+  
+! #define XIMP_INPUT_STYLE	0x0001
+! #define XIMP_CLIENT_WIN		0x0002
+! #define XIMP_RES_NAME		0x0004
+! #define XIMP_RES_CLASS		0x0008
+! #define XIMP_GEOMETRY_CB        0x0010
+! #define XIMP_FILTER_EV          0x0020
+! #define XIMP_PRE_CALLBAK        0x0040
+! #define XIMP_STS_CALLBAK        0x0080
+  
+! #define XIMP_PROP_FOCUS		( XIMP_FOCUS_WIN_MASK )
+! #define XIMP_PROP_PREEDIT	( XIMP_PRE_AREA_MASK \
+! 				| XIMP_PRE_FG_MASK \
+! 				| XIMP_PRE_BG_MASK \
+! 				| XIMP_PRE_COLORMAP_MASK \
+! 				| XIMP_PRE_BGPIXMAP_MASK \
+! 				| XIMP_PRE_LINESP_MASK \
+! 				| XIMP_PRE_CURSOR_MASK \
+! 				| XIMP_PRE_AREANEED_MASK \
+! 				| XIMP_PRE_SPOTL_MASK )
+! #define XIMP_PROP_STATUS	( XIMP_STS_AREA_MASK \
+! 				| XIMP_STS_FG_MASK \
+! 				| XIMP_STS_BG_MASK \
+! 				| XIMP_STS_COLORMAP_MASK \
+! 				| XIMP_STS_BGPIXMAP_MASK \
+! 				| XIMP_STS_LINESP_MASK \
+! 				| XIMP_STS_CURSOR_MASK \
+! 				| XIMP_STS_AREANEED_MASK \
+! 				| XIMP_STS_WINDOW_MASK )
+! #define XIMP_PROP_PREFONT       ( XIMP_PRE_FONT_MASK )
+! #define XIMP_PROP_STSFONT       ( XIMP_STS_FONT_MASK )
+  
+  /*
+   * XIM Extension data
+   */
+  typedef struct {
+  	int		extension_back_front_exist;
+  	Atom		extension_back_front_id;
+--- 267,287 ----
+  typedef struct _Ximp_XIC	*Ximp_XIC;
+  
+  #define XIMP_NAME	256
+  
+  #define XIMP_CREATE_IC	0
+  #define	XIMP_SET_IC	1
+  #define	XIMP_START_IC	2
+  
+! #define FILTERD		True
+! #define NOTFILTERD	False
+  
+! #define XIMP_MAXBUF 1024
+! #define CT_MAX_IN_CM 15
+  
+  /*
+   * XIM Extension data
+   */
++ 
+  typedef struct {
+  	int		extension_back_front_exist;
+  	Atom		extension_back_front_id;
+***************
+*** 260,277 ****
+  	Atom		extension_lookup_proc;
+  	Atom		extension_lookup_proc_rep;
+  	/* Add Extension */
+! 	} Ximp_ExtXIMRec;
+  
+  /*
+   * XIM dependent data
+   */
+  typedef struct  {
+! 	XIM		 im_next;
+! 	int		 connectserver;
+! 	int		 inputserver;
+! 	Bool		 use_wchar;
+  	Ximp_KeyList	*process_start_keys;
+! 	char		*locale_server;
+  	Window		 fe_window;
+  	Window		 owner;
+  	Atom		 improtocol_id;
+--- 298,368 ----
+  	Atom		extension_lookup_proc;
+  	Atom		extension_lookup_proc_rep;
+  	/* Add Extension */
+! } Ximp_ExtXIMRec;
+  
+  /*
++  * Data dtructure for local processing
++  */
++ 
++ /*
++  * Method for represent Keysequence by Tree of DefTree structure.
++  *
++  *  Key[:string] ->next
++  *   |
++  *   V succession
++  *
++  * <Compose><A><quotedbl>: "A_diaerasis"
++  * <Compose><A><apostrophe>: "A_acute"
++  * <acute><A>: "A_acute"
++  *
++  * is translated to
++  *
++  * Compose ----> acute -> NIL
++  *    |            |
++  *    |            V
++  *    V            A:A_acute
++  *    A -> NIL     |
++  *    |            V
++  *    |           NIL
++  *    V
++  * quotedbl:A_diaerasis -> apostrophe:A_acute -> NIL
++  *    |                         |
++  *    V                         V
++  *   NIL                       NIL
++  *
++  * Each structure address means context
++  *
++  */
++ 
++ typedef struct _DefTree {
++     struct _DefTree *next; 		/* another Key definition */
++     struct _DefTree *succession;	/* successive Key Sequence */
++ 					/* Key definitions */
++     unsigned         modifier_mask;
++     unsigned         modifier;
++     KeySym           keysym;		/* leaf only */
++     char            *mb;
++     wchar_t         *wc;		/* make from mb */
++ #ifdef notdef
++     KeySym keysym_return;
++ #endif
++ } DefTree;
++ 
++ /*
+   * XIM dependent data
+   */
++ 
+  typedef struct  {
+! 	Bool		 is_local;
+! 	int		 reconnection_mode;
+! 	Bool		 is_connected;
+! 	char		*im_name;
+! 	int		 def_svr_mode;
+  	Ximp_KeyList	*process_start_keys;
+! 	Bool		 use_wchar;
+! 	XIMStyles	*delaybind_styles;
+! 
+! 	/* for IMServer */
+  	Window		 fe_window;
+  	Window		 owner;
+  	Atom		 improtocol_id;
+***************
+*** 289,324 ****
+  	Atom		 preeditfont_id;
+  	Atom		 statusfont_id;
+  	Atom		 preeditmaxsize_id;
+  	char		*im_proto_vl;
+  	XIMStyles	*im_styles;
+  	Ximp_KeyList	*im_keyslist;
+  	char		*im_server_name;
+  	char		*im_server_vl;
+  	char		*im_vendor_name;
+  	Atom		*im_ext_list;
+  	Ximp_ExtXIMRec	*imtype;
+- 	} XIMXimpRec;
+  
+  /*
+   * IM struct
+   */
+  typedef struct _Ximp_XIM {
+  	XIMMethods	 methods;
+  	XIMCoreRec	 core;
+  	XIMXimpRec	*ximp_impart;
+! 	} Ximp_XIMRec;
+  
+  typedef struct {
+  	XIMCallback     start;
+  	XIMCallback     done;
+  	XIMCallback     draw;
+  	XIMCallback     proc;
+! 	} ICExtLookupCallbacks;
+  
+   /*
+    * data block describing the visual attributes associated with an input
+    * context
+    */
+  typedef struct {
+  	XRectangle      area;
+  	XRectangle      area_needed;
+--- 380,437 ----
+  	Atom		 preeditfont_id;
+  	Atom		 statusfont_id;
+  	Atom		 preeditmaxsize_id;
++ 	Atom		 type_id;
++ 	long		*type_list;
+  	char		*im_proto_vl;
++ 	int		 im_proto_vnum;
+  	XIMStyles	*im_styles;
+  	Ximp_KeyList	*im_keyslist;
++ 	Ximp_KeyList	*im_offkeyslist;
+  	char		*im_server_name;
+  	char		*im_server_vl;
+  	char		*im_vendor_name;
+  	Atom		*im_ext_list;
++ 
++ 	/* for Local Processing */
++ 	XIC		current_ic;
++ 	DefTree		*top;
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++ 	int		num_save_rooms;
++ #endif
++ 
++ 	/* for Extension */
+  	Ximp_ExtXIMRec	*imtype;
+  
++ 	/* for Force Select KeyRelease */
++ 	Bool             is_forceselectkeyrelease;
++ } XIMXimpRec;
++ 
+  /*
+   * IM struct
+   */
++ 
+  typedef struct _Ximp_XIM {
+  	XIMMethods	 methods;
+  	XIMCoreRec	 core;
+  	XIMXimpRec	*ximp_impart;
+! } Ximp_XIMRec;
+  
++ /*
++  * Externsion Lookup Callback
++  */
++ 
+  typedef struct {
+  	XIMCallback     start;
+  	XIMCallback     done;
+  	XIMCallback     draw;
+  	XIMCallback     proc;
+! } ICExtLookupCallbacks;
+  
+   /*
+    * data block describing the visual attributes associated with an input
+    * context
+    */
++ 
+  typedef struct {
+  	XRectangle      area;
+  	XRectangle      area_needed;
+***************
+*** 333,357 ****
+  	Cursor          cursor;
+  	XPointer	draw_data;
+  	ICExtLookupCallbacks callbacks;
+! 	} ICExtLookupAttributes, *ICExtLookupAttributesPtr;
+  
+  /*
+   * IC deprndent data
+   */
+  typedef struct {
+  	long			 icid;
+! 	int			 input_mode;
+! 	int			 is_bep_mode;
+  	int			 filter_mode;
+- 	unsigned long		 back_mask;
+  	long			 value_mask;
+  	Bool			 putback_key_event;
+  	Window			 back_focus_win;
+  
+! 	long			 proto_mask;
+! 	Ximp_PreeditPropRec	 preedit_attr;
+  	char			*preedit_font;
+! 	Ximp_StatusPropRec	 status_attr;
+  	char			*status_font;
+  	XIMCallback		 error;
+   	/* Extended Callback attribute */
+--- 446,483 ----
+  	Cursor          cursor;
+  	XPointer	draw_data;
+  	ICExtLookupCallbacks callbacks;
+! } ICExtLookupAttributes, *ICExtLookupAttributesPtr;
+  
++ typedef int Ximp_CBStatus;
++ 
++ #define XIMPCBPREEDITACTIVE    0x00000001
++ #define XIMPCBSTATUSACTIVE     0x00000002
++ #define DEFAULTCBSTATUSSTRING "Disconnected"
++ 
++ typedef enum _Ximp_inputmode {
++     BEING_BYPASSED  = 0,
++     BEING_PREEDITED = 1
++ } input_mode_t ;
++ 
+  /*
+   * IC deprndent data
+   */
++ 
+  typedef struct {
+  	long			 icid;
+! 	int			 svr_mode;
+! 	input_mode_t		 input_mode;
+  	int			 filter_mode;
+  	long			 value_mask;
++ 	unsigned long		 back_mask;
+  	Bool			 putback_key_event;
+  	Window			 back_focus_win;
+  
+! 	long			 proto3_mask;
+! 	long			 proto4_mask;
+! 	Ximp_PreeditPropRec4	 preedit_attr;
+  	char			*preedit_font;
+! 	Ximp_StatusPropRec4	 status_attr;
+  	char			*status_font;
+  	XIMCallback		 error;
+   	/* Extended Callback attribute */
+***************
+*** 360,380 ****
+  	XIMCallback		 restart;
+  	XIMCallback		 destroy;
+  
+  	void			*ictype;
+! 	} XICXimpRec;
+  
+  /*
+   * IC struct
+   */
+  typedef struct _Ximp_XIC {
+  	XICMethods	 methods;
+  	XICCoreRec	 core;
+  	XICXimpRec	*ximp_icpart;
+! 	} Ximp_XICRec;
+  
+  /*
+   * predicate argument
+   */
+  typedef struct {
+  	Atom	type;
+  	Window	owner;
+--- 486,517 ----
+  	XIMCallback		 restart;
+  	XIMCallback		 destroy;
+  
++ 	Ximp_CBStatus		cbstatus ;
++ 	/* for Local Processing */
++ 	DefTree			*context;
++ 	DefTree			*composed;
++ #ifdef BACKTRACK_WHEN_UNMATCHED
++ 	XEvent			*saved_event;
++ 	int			num_saved;
++ #endif
++ 
+  	void			*ictype;
+! } XICXimpRec;
+  
+  /*
+   * IC struct
+   */
++ 
+  typedef struct _Ximp_XIC {
+  	XICMethods	 methods;
+  	XICCoreRec	 core;
+  	XICXimpRec	*ximp_icpart;
+! } Ximp_XICRec;
+  
+  /*
+   * predicate argument
+   */
++ 
+  typedef struct {
+  	Atom	type;
+  	Window	owner;
+***************
+*** 389,391 ****
+--- 526,906 ----
+  	Window	window;
+  	Atom	atom;
+  } XimpPNPredicateArgRec, *XimpPNPredicateArg;
++ 
++ typedef struct {
++ 	int	proto3;
++ 	int	proto4;
++ } XimpChangeMaskRec, *XimpChangeaMask;
++ 
++ #define XIMP_INPUT_STYLE	0x0001
++ #define XIMP_CLIENT_WIN		0x0002
++ #define XIMP_RES_NAME		0x0004
++ #define XIMP_RES_CLASS		0x0008
++ #define XIMP_GEOMETRY_CB        0x0010
++ #define XIMP_FILTER_EV          0x0020
++ #define XIMP_PRE_CALLBAK        0x0040
++ #define XIMP_STS_CALLBAK        0x0080
++ 
++ #define XIMP_CHK_FOCUSWINMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_FOCUS_WIN_MASK4)
++ #define XIMP_CHK_PREAREAMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_AREA_MASK4)
++ #define XIMP_CHK_PREAREANEEDMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_AREANEED_MASK4)
++ #define XIMP_CHK_PRECOLORMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_COLORMAP_MASK4)
++ #define XIMP_CHK_PRESTDCOLORMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_STD_COLORMAP_MASK4)
++ #define XIMP_CHK_PREFGMASK(ic)			(ic->ximp_icpart->proto4_mask & XIMP_PRE_FG_MASK4)
++ #define XIMP_CHK_PREBGMASK(ic)			(ic->ximp_icpart->proto4_mask & XIMP_PRE_BG_MASK4)
++ #define XIMP_CHK_PREBGPIXMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_BGPIXMAP_MASK4)
++ #define XIMP_CHK_PRELINESPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_LINESP_MASK4)
++ #define XIMP_CHK_PRECURSORMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_CURSOR_MASK4)
++ #define XIMP_CHK_PRESPOTLMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_SPOTL_MASK4)
++ #define XIMP_CHK_STSAREAMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_AREA_MASK4)
++ #define XIMP_CHK_STSAREANEEDMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_AREANEED_MASK4)
++ #define XIMP_CHK_STSCOLORMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_COLORMAP_MASK4)
++ #define XIMP_CHK_STSSTDCOLORMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_STD_COLORMAP_MASK4)
++ #define XIMP_CHK_STSFGMASK(ic)			(ic->ximp_icpart->proto4_mask & XIMP_STS_FG_MASK4)
++ #define XIMP_CHK_STSBGMASK(ic)			(ic->ximp_icpart->proto4_mask & XIMP_STS_BG_MASK4)
++ #define XIMP_CHK_STSBGPIXMAPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_BGPIXMAP_MASK4)
++ #define XIMP_CHK_STSLINESPMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_LINESP_MASK4)
++ #define XIMP_CHK_STSCURSORMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_CURSOR_MASK4)
++ #define XIMP_CHK_STSWINDOWMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_WINDOW_MASK4)
++ #define XIMP_CHK_PREFONTMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_PRE_FONT_MASK4)
++ #define XIMP_CHK_STSFONTMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_STS_FONT_MASK4)
++ #define XIMP_CHK_SERVERTYPEMASK(ic)		(ic->ximp_icpart->proto4_mask & XIMP_SERVERTYPE_MASK4)
++ 
++ #define XIMP_CHK_PROP_FOCUS(mask)		( (mask.proto4) & XIMP_FOCUS_WIN_MASK4 )
++ #define XIMP_CHK_PROP_PREEDIT(mask)		( (mask.proto4) & \
++ 						 (  XIMP_PRE_AREA_MASK4 \
++ 						  | XIMP_PRE_AREANEED_MASK4 \
++ 						  | XIMP_PRE_COLORMAP_MASK4 \
++ 						  | XIMP_PRE_STD_COLORMAP_MASK4 \
++ 						  | XIMP_PRE_FG_MASK4 \
++ 						  | XIMP_PRE_BG_MASK4 \
++ 						  | XIMP_PRE_BGPIXMAP_MASK4 \
++ 						  | XIMP_PRE_LINESP_MASK4 \
++ 						  | XIMP_PRE_CURSOR_MASK4 \
++ 						  | XIMP_PRE_SPOTL_MASK4 ) )
++ #define XIMP_CHK_PROP_STATUS(mask)		( (mask.proto4) & \
++ 						 (  XIMP_STS_AREA_MASK4 \
++ 						  | XIMP_STS_AREANEED_MASK4 \
++ 						  | XIMP_STS_COLORMAP_MASK4 \
++ 						  | XIMP_STS_STD_COLORMAP_MASK4 \
++ 						  | XIMP_STS_FG_MASK4 \
++ 						  | XIMP_STS_BG_MASK4 \
++ 						  | XIMP_STS_BGPIXMAP_MASK4 \
++ 						  | XIMP_STS_LINESP_MASK4 \
++ 						  | XIMP_STS_CURSOR_MASK4 \
++ 						  | XIMP_STS_WINDOW_MASK4 ) )
++ #define XIMP_CHK_PROP_PREFONT(mask)		( (mask.proto4) & XIMP_PRE_FONT_MASK4 )
++ #define XIMP_CHK_PROP_STSFONT(mask)		( (mask.proto4) & XIMP_STS_FONT_MASK4 )
++ #define XIMP_EQU_PRESPOTLMASK(mask)		( (mask.proto4) == XIMP_PRE_SPOTL_MASK4 )
++ 
++ #define XIMP_UNSET_PROPFOCUS(mask)		{ mask.proto4 &= ~(XIMP_FOCUS_WIN_MASK4); \
++ 						  mask.proto3 &= ~(XIMP_FOCUS_WIN_MASK3); }
++ #define XIMP_UNSET_PROPPREEDIT(mask)		{ mask.proto4 &= ~( \
++ 						 (  XIMP_PRE_AREA_MASK4 \
++ 						  | XIMP_PRE_AREANEED_MASK4 \
++ 						  | XIMP_PRE_COLORMAP_MASK4 \
++ 						  | XIMP_PRE_STD_COLORMAP_MASK4 \
++ 						  | XIMP_PRE_FG_MASK4 \
++ 						  | XIMP_PRE_BG_MASK4 \
++ 						  | XIMP_PRE_BGPIXMAP_MASK4 \
++ 						  | XIMP_PRE_LINESP_MASK4 \
++ 						  | XIMP_PRE_CURSOR_MASK4 \
++ 						  | XIMP_PRE_SPOTL_MASK4 \
++ 						  | XIMP_PRE_FONT_MASK4 ) ); \
++ 						  mask.proto3 &= ~( \
++ 						 (  XIMP_PRE_AREA_MASK3 \
++ 						  | XIMP_PRE_AREANEED_MASK3 \
++ 						  | XIMP_PRE_COLORMAP_MASK3 \
++ 						  | XIMP_PRE_FG_MASK3 \
++ 						  | XIMP_PRE_BG_MASK3 \
++ 						  | XIMP_PRE_BGPIXMAP_MASK3 \
++ 						  | XIMP_PRE_LINESP_MASK3 \
++ 						  | XIMP_PRE_CURSOR_MASK3 \
++ 						  | XIMP_PRE_SPOTL_MASK3 \
++ 						  | XIMP_PRE_FONT_MASK4 ) ); }
++ #define XIMP_UNSET_PROPSTATUS(mask)		{ mask.proto4 &= ~( \
++ 						 (  XIMP_STS_AREA_MASK4 \
++ 						  | XIMP_STS_AREANEED_MASK4 \
++ 						  | XIMP_STS_COLORMAP_MASK4 \
++ 						  | XIMP_STS_STD_COLORMAP_MASK4 \
++ 						  | XIMP_STS_FG_MASK4 \
++ 						  | XIMP_STS_BG_MASK4 \
++ 						  | XIMP_STS_BGPIXMAP_MASK4 \
++ 						  | XIMP_STS_LINESP_MASK4 \
++ 						  | XIMP_STS_CURSOR_MASK4 \
++ 						  | XIMP_STS_WINDOW_MASK4 \
++ 						  | XIMP_STS_FONT_MASK4 ) ); \
++ 						  mask.proto3 &= ~( \
++ 						 (  XIMP_STS_AREA_MASK3 \
++ 						  | XIMP_STS_AREANEED_MASK3 \
++ 						  | XIMP_STS_COLORMAP_MASK3 \
++ 						  | XIMP_STS_FG_MASK3 \
++ 						  | XIMP_STS_BG_MASK3 \
++ 						  | XIMP_STS_BGPIXMAP_MASK3 \
++ 						  | XIMP_STS_LINESP_MASK3 \
++ 						  | XIMP_STS_CURSOR_MASK3 \
++ 						  | XIMP_STS_WINDOW_MASK3 \
++ 						  | XIMP_STS_FONT_MASK3 ) ); }
++ 
++ #define XIMP_SET_NULLMASK(mask)			{ mask.proto4                 = NULL; \
++ 						  mask.proto3                 = NULL; }
++ #define XIMP_SET_NULLMASK2(mask)		{ mask->proto4                 = NULL; \
++ 						  mask->proto3                 = NULL; }
++ 
++ #define XIMP_SET_FOCUSWINMASK(ic)		{ ic->ximp_icpart->proto4_mask |= XIMP_FOCUS_WIN_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_FOCUS_WIN_MASK3; }
++ 
++ #define XIMP_SET_FOCUSWINMASK2(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_FOCUS_WIN_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_FOCUS_WIN_MASK3; \
++ 						  mask->proto4                 |= XIMP_FOCUS_WIN_MASK4; \
++ 						  mask->proto3                 |= XIMP_FOCUS_WIN_MASK3; }
++ #define XIMP_SET_PREAREAMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_AREA_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_AREA_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_AREA_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_AREA_MASK3; }
++ #define XIMP_SET_PREAREANEEDMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_AREANEED_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_AREANEED_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_AREANEED_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_AREANEED_MASK3; }
++ #define XIMP_SET_PRECOLORMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_COLORMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_COLORMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_COLORMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_COLORMAP_MASK3; }
++ #define XIMP_SET_PRESTDCOLORMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_STD_COLORMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_COLORMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_STD_COLORMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_COLORMAP_MASK3; }
++ #define XIMP_SET_PREFGMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_FG_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_FG_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_FG_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_FG_MASK3; }
++ #define XIMP_SET_PREBGMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_BG_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_BG_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_BG_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_BG_MASK3; }
++ #define XIMP_SET_PREBGPIXMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_BGPIXMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_BGPIXMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_BGPIXMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_BGPIXMAP_MASK3; }
++ #define XIMP_SET_PRELINESPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_LINESP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_LINESP_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_LINESP_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_LINESP_MASK3; }
++ #define XIMP_SET_PRECURSORMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_CURSOR_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_CURSOR_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_CURSOR_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_CURSOR_MASK3; }
++ #define XIMP_SET_PRESPOTLMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_SPOTL_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_SPOTL_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_SPOTL_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_SPOTL_MASK3; }
++ 
++ #define XIMP_SET_STSAREAMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_STS_AREA_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_AREA_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_AREA_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_AREA_MASK3; }
++ #define XIMP_SET_STSAREANEEDMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_AREANEED_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_AREANEED_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_AREANEED_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_AREANEED_MASK3; }
++ #define XIMP_SET_STSCOLORMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_COLORMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_COLORMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_COLORMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_COLORMAP_MASK3; }
++ #define XIMP_SET_STSSTDCOLORMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_STD_COLORMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_COLORMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_STD_COLORMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_COLORMAP_MASK3; }
++ #define XIMP_SET_STSFGMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_STS_FG_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_FG_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_FG_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_FG_MASK3; }
++ #define XIMP_SET_STSBGMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_STS_BG_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_BG_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_BG_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_BG_MASK3; }
++ #define XIMP_SET_STSBGPIXMAPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_BGPIXMAP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_BGPIXMAP_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_BGPIXMAP_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_BGPIXMAP_MASK3; }
++ #define XIMP_SET_STSLINESPMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_LINESP_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_LINESP_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_LINESP_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_LINESP_MASK3; }
++ #define XIMP_SET_STSCURSORMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_CURSOR_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_CURSOR_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_CURSOR_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_CURSOR_MASK3; }
++ #define XIMP_SET_STSWINDOWMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_STS_WINDOW_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_WINDOW_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_WINDOW_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_WINDOW_MASK3; }
++ 
++ #define XIMP_SET_PREFONTMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_PRE_FONT_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_PRE_FONT_MASK3; \
++ 						  mask->proto4                 |= XIMP_PRE_FONT_MASK4; \
++ 						  mask->proto3                 |= XIMP_PRE_FONT_MASK3; }
++ #define XIMP_SET_STSFONTMASK(ic, mask)		{ ic->ximp_icpart->proto4_mask |= XIMP_STS_FONT_MASK4; \
++ 						  ic->ximp_icpart->proto3_mask |= XIMP_STS_FONT_MASK3; \
++ 						  mask->proto4                 |= XIMP_STS_FONT_MASK4; \
++ 						  mask->proto3                 |= XIMP_STS_FONT_MASK3; }
++ #define XIMP_SET_SERVERTYPEMASK(ic, mask)	{ ic->ximp_icpart->proto4_mask |= XIMP_SERVERTYPE_MASK4; \
++ 						  mask->proto4                 |= XIMP_SERVERTYPE_MASK4; }
++ 
++ #define XIMP_PROTO_MASK(ic, mask)	(ISXimp4(ic)?mask.proto4:mask.proto3)
++ #define XIMP_PROTO_MASK2(ic)		(ISXimp4(ic)?ic->ximp_icpart->proto4_mask:ic->ximp_icpart->proto3_mask)
++ 
++ #define XIMP_FOCUS_WIN_MASK(ic)		(ISXimp4(ic)?XIMP_FOCUS_WIN_MASK4:XIMP_FOCUS_WIN_MASK3)
++ #define XIMP_PRE_AREA_MASK(ic)		(ISXimp4(ic)?XIMP_PRE_AREA_MASK4:XIMP_PRE_AREA_MASK3)
++ #define XIMP_PRE_AREANEED_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_AREANEED_MASK4:XIMP_PRE_AREANEED_MASK3)
++ #define XIMP_PRE_COLORMAP_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_COLORMAP_MASK4:XIMP_PRE_COLORMAP_MASK3)
++ #define XIMP_PRE_STD_COLORMAP_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_STD_COLORMAP_MASK4:XIMP_PRE_COLORMAP_MASK3)
++ #define XIMP_PRE_FG_MASK(ic)		(ISXimp4(ic)?XIMP_PRE_FG_MASK4:XIMP_PRE_FG_MASK3)
++ #define XIMP_PRE_BG_MASK(ic)		(ISXimp4(ic)?XIMP_PRE_BG_MASK4:XIMP_PRE_BG_MASK3)
++ #define XIMP_PRE_BGPIXMAP_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_BGPIXMAP_MASK4:XIMP_PRE_BGPIXMAP_MASK3)
++ #define XIMP_PRE_LINESP_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_LINESP_MASK4:XIMP_PRE_LINESP_MASK3)
++ #define XIMP_PRE_CURSOR_MASK(ic)	(ISXimp4(ic)?XIMP_PRE_CURSOR_MASK4:XIMP_PRE_CURSOR_MASK3)
++ #define XIMP_PRE_SPOTL_MASK(ic)		(ISXimp4(ic)?XIMP_PRE_SPOTL_MASK4:XIMP_PRE_SPOTL_MASK3)
++ #define XIMP_STS_AREA_MASK(ic)		(ISXimp4(ic)?XIMP_STS_AREA_MASK4:XIMP_STS_AREA_MASK3)
++ #define XIMP_STS_AREANEED_MASK(ic)	(ISXimp4(ic)?XIMP_STS_AREANEED_MASK4:XIMP_STS_AREANEED_MASK3)
++ #define XIMP_STS_COLORMAP_MASK(ic)	(ISXimp4(ic)?XIMP_STS_COLORMAP_MASK4:XIMP_STS_COLORMAP_MASK3)
++ #define XIMP_STS_STD_COLORMAP_MASK(ic)	(ISXimp4(ic)?XIMP_STS_STD_COLORMAP_MASK4:XIMP_STS_COLORMAP_MASK3)
++ #define XIMP_STS_FG_MASK(ic)		(ISXimp4(ic)?XIMP_STS_FG_MASK4:XIMP_STS_FG_MASK3)
++ #define XIMP_STS_BG_MASK(ic)		(ISXimp4(ic)?XIMP_STS_BG_MASK4:XIMP_STS_BG_MASK3)
++ #define XIMP_STS_BGPIXMAP_MASK(ic)	(ISXimp4(ic)?XIMP_STS_BGPIXMAP_MASK4:XIMP_STS_BGPIXMAP_MASK3)
++ #define XIMP_STS_LINESP_MASK(ic)	(ISXimp4(ic)?XIMP_STS_LINESP_MASK4:XIMP_STS_LINESP_MASK3)
++ #define XIMP_STS_CURSOR_MASK(ic)	(ISXimp4(ic)?XIMP_STS_CURSOR_MASK4:XIMP_STS_CURSOR_MASK3)
++ #define XIMP_STS_WINDOW_MASK(ic)	(ISXimp4(ic)?XIMP_STS_WINDOW_MASK4:XIMP_STS_WINDOW_MASK3)
++ #define XIMP_PRE_FONT_MASK(ic)		(ISXimp4(ic)?XIMP_PRE_FONT_MASK4:XIMP_PRE_FONT_MASK3)
++ #define XIMP_STS_FONT_MASK(ic)		(ISXimp4(ic)?XIMP_STS_FONT_MASK4:XIMP_STS_FONT_MASK3)
++ 
++ #define XIMP_PROP_FOCUS(ic)	( XIMP_FOCUS_WIN_MASK(ic) )
++ #define XIMP_PROP_PREEDIT(ic)	( XIMP_PRE_AREA_MASK(ic) \
++ 				| XIMP_PRE_FG_MASK(ic) \
++ 				| XIMP_PRE_BG_MASK(ic) \
++ 				| XIMP_PRE_COLORMAP_MASK(ic) \
++ 				| XIMP_PRE_BGPIXMAP_MASK(ic) \
++ 				| XIMP_PRE_LINESP_MASK(ic) \
++ 				| XIMP_PRE_CURSOR_MASK(ic) \
++ 				| XIMP_PRE_AREANEED_MASK(ic) \
++ 				| XIMP_PRE_SPOTL_MASK(ic) )
++ #define XIMP_PROP_STATUS(ic)	( XIMP_STS_AREA_MASK(ic) \
++ 				| XIMP_STS_FG_MASK(ic) \
++ 				| XIMP_STS_BG_MASK(ic) \
++ 				| XIMP_STS_COLORMAP_MASK(ic) \
++ 				| XIMP_STS_BGPIXMAP_MASK(ic) \
++ 				| XIMP_STS_LINESP_MASK(ic) \
++ 				| XIMP_STS_CURSOR_MASK(ic) \
++ 				| XIMP_STS_AREANEED_MASK(ic) \
++ 				| XIMP_STS_WINDOW_MASK(ic) )
++ #define XIMP_PROP_PREFONT(ic)	( XIMP_PRE_FONT_MASK(ic) )
++ #define XIMP_PROP_STSFONT(ic)	( XIMP_STS_FONT_MASK(ic) )
++ 
++ #define XIMP_NOCONNECT		0x0000
++ #define XIMP_DELAYBINDABLE	0x0001
++ #define XIMP_RECONNECTABLE	0x0002
++ #define XIMP_RESTARTABLE	0x0004
++ 
++ #define IS_FORCESELECTKEYRELEASE(im)        (((Ximp_XIM)(im))->ximp_impart->is_forceselectkeyrelease)
++ 
++ #define ISXimp4IM(im) 		(im->ximp_impart->im_proto_vnum >= XIMP_VERSION_NUMBER) 
++ #define RECONNECTION_MODE(im) 	(((Ximp_XIM)(im))->ximp_impart->reconnection_mode)
++ #define IS_SERVER_CONNECTED(im)	(((Ximp_XIM)(im))->ximp_impart->is_connected)
++ #define IS_LOCAL_PROCESSING(im) (((Ximp_XIM)(im))->ximp_impart->is_local)
++ 
++ #define IS_IC_CONNECTED(ic)	(ic->ximp_icpart->icid)
++ 
++ #define IS_RECONNECTABLE(im)   (RECONNECTION_MODE(im) & XIMP_RECONNECTABLE)
++ #define MAKE_RECONNECTABLE(im) (RECONNECTION_MODE(im) |= XIMP_RECONNECTABLE)
++ #define IS_DELAYBINDABLE(im)   (RECONNECTION_MODE(im) & XIMP_DELAYBINDABLE)
++ #define MAKE_DELAYBINDABLE(im) (RECONNECTION_MODE(im) |= XIMP_DELAYBINDABLE)
++ #define IS_RESTARTABLE(im)     (RECONNECTION_MODE(im) & XIMP_RESTARTABLE)
++ #define MAKE_RESTARTABLE(im)   (RECONNECTION_MODE(im) |= XIMP_RESTARTABLE)
++ #define IS_UNCONNECTABLE(im)   (RECONNECTION_MODE(im) == XIMP_NOCONNECT)
++ #define MAKE_UNCONNECTABLE(im) (RECONNECTION_MODE(im) = XIMP_NOCONNECT)
++ #define IS_CONNECTABLE(im)     (RECONNECTION_MODE(im) != XIMP_NOCONNECT)
++ #define MAKE_CONNECTABLE(im)   (RECONNECTION_MODE(im) = XIMP_RECONNECTABLE|XIMP_DELAYBINDABLE|XIMP_RESTARTABLE)
++ 
++ #define ISXimp4(ic)   (((Ximp_XIM)ic->core.im)->ximp_impart->im_proto_vnum >= XIMP_VERSION_NUMBER)
++ 
++ #define ISFE1(ic)     (((Ximp_XIC)ic)->ximp_icpart->svr_mode == XIMP_FE_TYPE1)
++ #define ISFE2(ic)     (((Ximp_XIC)ic)->ximp_icpart->svr_mode == XIMP_FE_TYPE2)
++ #define ISFE3(ic)     (((Ximp_XIC)ic)->ximp_icpart->svr_mode == XIMP_FE_TYPE3)
++ #define ISBE1(ic)     ((((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_BE_TYPE1) == XIMP_BE_TYPE1)
++ #define ISBE2(ic)     ((((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_BE_TYPE2) == XIMP_BE_TYPE2)
++ #define ISSYNCBE1(ic) (((Ximp_XIC)ic)->ximp_icpart->svr_mode == XIMP_SYNC_BE_TYPE1)
++ #define ISSYNCBE2(ic) (((Ximp_XIC)ic)->ximp_icpart->svr_mode == XIMP_SYNC_BE_TYPE2)
++ #define ISFRONTEND(ic) (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_FRONTEND4)
++ #define ISBACKEND(ic) (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_BACKEND4)
++ #define ISTYPE1(ic)   (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_TYPE1)
++ #define ISTYPE2(ic)   (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_TYPE2)
++ #define ISTYPE3(ic)   (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_TYPE3)
++ #define ISSYNC(ic)    (((Ximp_XIC)ic)->ximp_icpart->svr_mode & XIMP_SYNC)
++ 
++ #define ISXIMP3FE(ic) ((((Ximp_XIC)ic)->ximp_icpart->svr_mode & 0x03) == XIMP_FRONTEND_BC_MASK)
++ 
++ #define IS_BEING_PREEDITED(ic)	(((Ximp_XIC)ic)->ximp_icpart->input_mode == BEING_PREEDITED)
++ #define IS_FABLICATED(ic,ev)	((ic->ximp_icpart->putback_key_event) || (ev->keycode == 0))
++ #define IS_USE_WCHAR(ic)	(((Ximp_XIM)ic->core.im)->ximp_impart->use_wchar)
++     
++ #define ISCMOf(ev,n,x)		(((XEvent*)ev)->xclient.data.l[n] == (x))
++ #define ISXIMP_ERROR(ev)	(((XEvent*)ev)->type == ClientMessage && ((XEvent*)ev)->xclient.format == 32 \
++ 				  && (ISCMOf(ev,0,XIMP_ERROR3) || ISCMOf(ev,0,XIMP_ERROR4)))
++ #define XIMP_SYNCHRONIZE(ic)	 {if(IS_SERVER_CONNECTED((ic->core.im)) && (IS_BEING_PREEDITED(ic)) &&\
++ 				      ((((Ximp_XIC)ic)->ximp_icpart->svr_mode) & XIMP_SYNC ))\
++ 				      _Ximp_Synchronize(ic);}
++ 
++ #define XIMP_PREEDIT_MAX_LONG(ic) (ISXimp4(ic)?XIMP_PREEDIT_MAX_LONG4:XIMP_PREEDIT_MAX_LONG3)
++ #define XIMP_STATUS_MAX_LONG(ic)  (ISXimp4(ic)?XIMP_STATUS_MAX_LONG4:XIMP_STATUS_MAX_LONG3)
++ 
++ #define  XIMP3_RESET_RETURN_ATOM    2
++ #define  XIMP4_RESET_RETURN_DETAIL  2
++ #define  XIMP4_RESET_RETURN_ATOM    3
++ #define  NO_RESET_DATA              0
++ #define  RESET_DATA_VIA_CM          1
++ #define  RESET_DATA_VIA_PROP        2
++ #define  XIMP_RESET_RETURN_ATOM(ic) (ISXimp4(ic)?XIMP4_RESET_RETURN_ATOM:XIMP3_RESET_RETURN_ATOM)
++ 
++ #define  XIMP_KEYRELEASE(ic)		XIMP_KEYRELEASE4
++ #define  XIMP_KEYPRESS(ic)		(ISXimp4(ic)?XIMP_KEYPRESS4:XIMP_KEYPRESS3)
++ 
++ #define  XIMP_CREATE(ic)		(ISXimp4(ic)?XIMP_CREATE4:XIMP_CREATE3)
++ #define  XIMP_DESTROY(ic)		(ISXimp4(ic)?XIMP_DESTROY4:XIMP_DESTROY3)
++ #define  XIMP_REG_KEY_PRESSED(ic)	(ISXimp4(ic)?XIMP_REG_KEY_PRESSED4:XIMP_BEGIN3)
++ #define  XIMP_SETFOCUS(ic)		(ISXimp4(ic)?XIMP_SETFOCUS4:XIMP_SETFOCUS3)
++ #define  XIMP_UNSETFOCUS(ic)		(ISXimp4(ic)?XIMP_UNSETFOCUS4:XIMP_UNSETFOCUS3)
++ #define  XIMP_CLIENT_WINDOW(ic)		XIMP_CLIENT_WINDOW4
++ #define  XIMP_FOCUS_WINDOW(ic)		XIMP_FOCUS_WINDOW4
++ #define  XIMP_MOVE(ic)			(ISXimp4(ic)?XIMP_MOVE4:XIMP_MOVE3)
++ #define  XIMP_RESET(ic)			(ISXimp4(ic)?XIMP_RESET4:XIMP_RESET3)
++ #define  XIMP_SETVALUE(ic)		(ISXimp4(ic)?XIMP_SETVALUE4:XIMP_SETVALUE3)
++ #define  XIMP_GETVALUE(ic)		(ISXimp4(ic)?XIMP_GETVALUE4:XIMP_GETVALUE3)
++ 
++ #define  XIMP_PREEDITSTART_RETURN(ic)	(ISXimp4(ic)?XIMP_PREEDITSTART_RETURN4:XIMP_PREEDITSTART_RETURN3)
++ #define  XIMP_PREEDITCARET_RETURN(ic)	(ISXimp4(ic)?XIMP_PREEDITCARET_RETURN4:XIMP_PREEDITCARET_RETURN3)
++ #define  XIMP_SPROC_STARTED(ic)		(ISXimp4(ic)?XIMP_SPROC_STARTED4:XIMP_PROCESS_BEGIN3)
++ #define  XIMP_SPROC_STOPPED(ic)		(ISXimp4(ic)?XIMP_SPROC_STOPPED4:XIMP_PROCESS_END3)
++ #define  XIMP_READPROP(ic)		(ISXimp4(ic)?XIMP_READPROP4:XIMP_READPROP3)
++ #define  XIMP_CLIENT_WINDOW_RETURN(ic)	XIMP_CLIENT_WINDOW_RETURN4
++ #define  XIMP_FOCUS_WINDOW_RETURN(ic)	XIMP_FOCUS_WINDOW_RETURN4
++ #define  XIMP_GETVALUE_RETURN(ic)	(ISXimp4(ic)?XIMP_GETVALUE_RETURN4:XIMP_GETVALUE_RETURN3)
++ #define  XIMP_RESET_RETURN(ic)		(ISXimp4(ic)?XIMP_RESET_RETURN4:XIMP_RESET_RETURN3)
++ #define  XIMP_CREATE_RETURN(ic)		(ISXimp4(ic)?XIMP_CREATE_RETURN4:XIMP_CREATE_RETURN3)
++ #define  XIMP_KEYPRESS_RETURN(ic)	XIMP_KEYPRESS_RETURN4
++ #define  XIMP_KEYRELEASE_RETURN(ic)	XIMP_KEYRELEASE_RETURN4
++ #define  XIMP_EVENTMASK_NOTIFY(ic)	XIMP_EVENTMASK_NOTIFY4
++ #define  XIMP_EVENTMASK_NOTIFY_RETURN(ic)	XIMP_EVENTMASK_NOTIFY_RETURN4
++ 
++ #define  XIMP_GEOMETRY(ic)		(ISXimp4(ic)?XIMP_GEOMETRY4:XIMP_GEOMETRY3)
++ #define  XIMP_PREEDITSTART(ic)		(ISXimp4(ic)?XIMP_PREEDITSTART4:XIMP_PREEDITSTART3)
++ #define  XIMP_PREEDITDONE(ic)		(ISXimp4(ic)?XIMP_PREEDITDONE4:XIMP_PREEDITDONE3)
++ #define  XIMP_PREEDITDRAW(ic)		(ISXimp4(ic)?XIMP_PREEDITDRAW4:XIMP_PREEDITDRAW3)
++ #define  XIMP_PREEDITDRAW_CM(ic)	(ISXimp4(ic)?XIMP_PREEDITDRAW_CM4:XIMP_PREEDITDRAW_CM3)
++ #define  XIMP_PREEDITDRAW_CM_TINY(ic)	(ISXimp4(ic)?XIMP_PREEDITDRAW_CM_TINY4:XIMP_PREEDITDRAW_CM_TINY3)
++ #define  XIMP_PREEDITCARET(ic)		(ISXimp4(ic)?XIMP_PREEDITCARET4:XIMP_PREEDITCARET3)
++ #define  XIMP_STATUSSTART(ic)		(ISXimp4(ic)?XIMP_STATUSSTART4:XIMP_STATUSSTART3)
++ #define  XIMP_STATUSDONE(ic)		(ISXimp4(ic)?XIMP_STATUSDONE4:XIMP_STATUSDONE3)
++ #define  XIMP_STATUSDRAW(ic)		(ISXimp4(ic)?XIMP_STATUSDRAW4:XIMP_STATUSDRAW3)
++ #define  XIMP_STATUSDRAW_CM(ic)		(ISXimp4(ic)?XIMP_STATUSDRAW_CM4:XIMP_STATUSDRAW_CM3)
++ #define  XIMP_EXTENSION(ic)		(ISXimp4(ic)?XIMP_EXTENSION4:XIMP_EXTENSION3)
++ 
+*** /tmp/d18896	Mon Oct 19 19:34:03 1992
+--- lib/X/Ximp/XimpCT.c	Mon Oct 19 19:23:50 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XimpCT.c,v 1.4 92/04/14 13:28:38 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+--- 1,4 ----
+! /* $XConsortium: XimpCT.c,v 1.5 92/10/19 19:23:46 rws Exp $ */
+  /*
+   * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+   * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+***************
+*** 68,333 ****
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! _get_codeset_number(lcd, lindex, msb_mask)
+!     Ximp_XLCd lcd;
+!     int lindex;
+!     unsigned char msb_mask;
+! {
+!     int i, codeset_num, index_num;
+!     register CodeSetRec *codeset;
+!     register EncodingIndexRec *index_ptr;
+  
+-     codeset_num = lcd->ximp_lcpart->codeset_num;
+-     codeset = lcd->ximp_lcpart->codeset;
+- 
+-     for (i = 0; i < codeset_num; i++, codeset++) {
+- 	index_ptr = codeset->encoding_index;
+- 	index_num = codeset->index_num;
+- 
+- 	while (index_num--) {
+- 	    if (index_ptr->lindex == lindex && index_ptr->msb_mask == msb_mask)
+- 		return i;
+- 	    index_ptr++;
+- 	}
+-     }
+- 
+-     return -1;
+- }
+- 
+- EncodingRec *
+- _get_encoding_rec(lindex)
+-     int lindex;
+- {
+-     EncodingRec *encoding_ptr, **table_ptr;
+- 
+-     table_ptr = encoding_table;
+- 
+-     while (encoding_ptr = *table_ptr++)
+- 	if (encoding_ptr->lindex == lindex)
+- 	    return encoding_ptr;
+-     
+-     return NULL;
+- }
+- 
+- static int
+- get_encoding_index(encoding, msb_mask, char_length, gc_size)
+-     unsigned char *encoding;
+-     unsigned char msb_mask;
+-     int char_length;
+-     int gc_size;
+- {
+-     EncodingRec *encoding_ptr, **table_ptr;
+- 
+-     table_ptr = encoding_table;
+- 
+-     if (msb_mask) {
+- 	while (encoding_ptr = *table_ptr++)
+- 	    if (encoding_ptr->GR_encoding) {
+- 	    	if (encoding_ptr->char_length == char_length &&
+- 		    !strcmp(encoding_ptr->GR_encoding, (char *)encoding) &&
+- 		    encoding_ptr->GR_gc_size == gc_size)
+- 
+- 		    return encoding_ptr->lindex;
+- 	    }
+-     } else {
+- 	while (encoding_ptr = *table_ptr++)
+- 	    if (encoding_ptr->GL_encoding) {
+- 	    	if (encoding_ptr->char_length == char_length &&
+- 		    !strcmp(encoding_ptr->GL_encoding, (char *)encoding) &&
+- 		    encoding_ptr->GL_gc_size == gc_size)
+- 
+- 		    return encoding_ptr->lindex;
+- 	    }
+-     }
+- 
+-     return -1;
+- }
+- 
+- 
+- static int
+- check_ESC_IF_char(encoding, len)
+- unsigned char *encoding;
+- register len;
+- {
+-     register unsigned char ch, *strptr = encoding;
+- 
+-     if (len < 1)
+- 	return -1;
+- 
+-     ch = *strptr++;
+-     if (ch >= 0x30 && ch < 0x7f)
+- 	return 1;
+- 
+-     while (--len > 0) {
+- 	if (ch < 0x20 || ch > 0x2f)
+- 	    break;
+- 	ch = *strptr++;
+-     }
+- 
+-     if (len == 0 || ch < 0x30 || ch > 0x7e)
+- 	return -1;
+- 
+-     return strptr - encoding;
+- }
+- 
+  int
+! _check_ESC_sequence(lcd, ctext, ctext_len, GL_codeset, GR_codeset)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+!     int *GL_codeset, *GR_codeset;
+  {
+!     unsigned char ch, msb_mask, *ctptr = ctext;
+!     unsigned char encoding[BUFSIZE];
+!     int gc_size, char_length, lindex, encoding_len;
+!     int buf_len, tmp_len, skip_size;
+  
+!     if (--ctext_len < 1 || *ctptr++ != 0x1b)
+  	return -1;
+!     tmp_len = ctext_len;
+  
+!     msb_mask = GL;
+!     char_length = 1;
+!     gc_size = 94;
+! 
+!     ctext_len--;
+!     switch (ch = *ctptr++) {
+! 	case '-': gc_size = 96;
+! 	case ')': msb_mask = GR;
+! 	case '(':
+! 	    break;
+! 	case '$':
+! 	    if (ctext_len-- < 1)
+! 		return -1;
+! 
+! 	    switch (ch = *ctptr++) {
+! 		case ')': msb_mask = GR;
+! 		case '(':
+!     		    char_length = 2;
+! 		    break;
+! 		default:
+! 		    goto unknown;
+! 	    }
+! 	    break;
+! 	case '%':
+! 	    if (ctext_len < 1)
+! 		return -1;
+! 
+! 	    if (ctext_len > 4 && *ctptr++ == '/') {
+! 		ch = *ctptr++;
+! 		if (ch < 0x30 || ch > 0x3f)
+! 		    goto unknown;
+! 		ch = *ctptr++;
+! 		skip_size = (ch & 0x7f) * 128 + (*ctptr++ & 0x7f);
+! 		ctext_len -= 4;
+! 		if (ctext_len < skip_size)
+! 		    return -1;
+! 		ctptr += skip_size;
+! 		return ctptr - ctext;
+! 	    }
+! 	    goto unknown;
+! 	default:
+! unknown:
+! 	    ctptr = ctext + 1;
+! 	    ctext_len = tmp_len;
+! 	    msb_mask = char_length = gc_size = 0;
+! 	    break;
+! 
+!     }
+! 
+!     encoding_len = check_ESC_IF_char(ctptr, ctext_len);
+!     if (encoding_len < 0)
+  	return -1;
+  
+!     strncpy((char *)encoding, (char *)ctptr, encoding_len);
+!     encoding[encoding_len] = 0;
+!     ctptr += encoding_len;
+  
+!     if (char_length == 2) {
+! 	ch = encoding[encoding_len - 1];
+! 	if (ch >= 0x60 && ch <=0x6f)
+! 	    char_length = 3;
+! 	else if (ch >= 0x70 && ch <=0x7f)
+! 	    char_length = 4;
+!     }
+! 
+!     lindex = get_encoding_index(encoding, msb_mask, char_length, gc_size);
+!     if (lindex >= 0) {
+! 	if (msb_mask)
+! 	    *GR_codeset = _get_codeset_number(lcd, lindex, GR);
+! 	else
+! 	    *GL_codeset = _get_codeset_number(lcd, lindex, GL);
+!     }
+      
+!     return ctptr - ctext;
+  }
+  
+  int
+! _check_CSI_sequence(lcd, ctext, ctext_len)
+!     Ximp_XLCd lcd;
+      unsigned char *ctext;
+      int ctext_len;
+  {
+      unsigned char ch, *ctptr = ctext;
+  
+!     if (--ctext_len < 1 || *ctptr++ != 0x9b)
+  	return -1;
+  
+!     ch = *ctptr++;
+!     while (ch >= 0x30 && ch < 0x40 && ctext_len > 0) {
+! 	ctext_len--;
+! 	ch = *ctptr++;
+!     }
+  
+!     while (ch >= 0x20 && ch < 0x30 && ctext_len > 0) {
+! 	ctext_len--;
+! 	ch = *ctptr++;
+!     }
+! 
+!     if (ch < 0x40 || ch > 0x7e || ctext_len <= 0)
+  	return -1;
+  
+!     return ctptr - ctext;
+  }
+  
+  
+  int
+! _Ximp_cstostring(lcd, csstr, csstr_len, string, string_len, cs_num)
+!     Ximp_XLCd lcd;
+      unsigned char *csstr;
+      int csstr_len;
+      unsigned char *string;
+      int *string_len;
+-     int cs_num;
+  {
+      unsigned char *csptr = csstr;
+      unsigned char *string_ptr = string;
+      unsigned char ch;
+!     CodeSetRec *codeset;
+!     EncodingIndexRec *encoding_index;
+!     int str_len, lindex, index_num;
+  
+      if (string_len)
+  	str_len = *string_len;
+      else
+  	str_len = MAXINT;
+  
+-     codeset = lcd->ximp_lcpart->codeset + cs_num;
+-     encoding_index = codeset->encoding_index;
+-     index_num = codeset->index_num;
+- 
+- 
+-     while (index_num--) {
+- 	lindex = encoding_index->lindex;
+- 	if (encoding_index->msb_mask == GL &&
+- 		lindex >= ISO8859_1 && lindex <= JISX0201_1976_0)
+- 	    break;
+- 
+- 	encoding_index++;
+-     }
+-     if (index_num < 0)
+- 	return -1;
+- 
+      while (csstr_len > 0 && str_len > 0) {
+  	ch = *csptr++ & 0x7f;
+  	if (ch < 0x20 || ch > 0x7e)
+--- 68,156 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
+! #define SKIP_I(str)	while (*(str) >= 0x20 && *(str) <=  0x2f) (str)++;
+! #define SKIP_P(str)	while (*(str) >= 0x30 && *(str) <=  0x3f) (str)++;
+  
+  int
+! _XlcCheckESCSequence(ctext, ctext_len, charset)
+      unsigned char *ctext;
+      int ctext_len;
+!     CharSet *charset;
+  {
+!     unsigned char msb_mask, *ctptr = ctext;
+!     unsigned char buf[BUFSIZE];
+!     int length;
+  
+!     if (*ctptr++ != 0x1b)
+  	return -1;
+!     
+!     SKIP_I(ctptr);
+  
+!     if (*ctptr < 0x30 && *ctptr > 0x7e)
+  	return -1;
++     
++     length = ++ctptr - ctext;
++     if (ctext_len < length)
++ 	return -1;
+  
+!     strncpy((char *)buf, (char *)ctext, length);
+!     buf[length] = '\0';
+  
+!     *charset = _XlcGetCharSetFromEncoding(buf);
+      
+!     return length;
+  }
+  
+  int
+! _XlcCheckCSISequence(ctext, ctext_len, charset)
+      unsigned char *ctext;
+      int ctext_len;
++     CharSet *charset;
+  {
+      unsigned char ch, *ctptr = ctext;
++     int length;
+  
+!     if (*ctptr++ != 0x9b)
+  	return -1;
+  
+!     SKIP_P(ctptr);
+!     SKIP_I(ctptr);
+  
+!     if (*ctptr < 0x40 && *ctptr > 0x7e)
+  	return -1;
++     
++     length = ++ctptr - ctext;
++     if (ctext_len < length)
++ 	return -1;
++     
++     *charset = NULL;
+  
+!     return length;
+  }
+  
+  
+  int
+! _Xlc_cstostring(state, csstr, csstr_len, string, string_len)
+!     State state;
+      unsigned char *csstr;
+      int csstr_len;
+      unsigned char *string;
+      int *string_len;
+  {
+      unsigned char *csptr = csstr;
+      unsigned char *string_ptr = string;
+      unsigned char ch;
+!     int str_len;
+!     CharSet charset = *state->codeset->charset_list;
+  
++     if (charset->string_encoding == False)
++ 	return -1;
++ 
+      if (string_len)
+  	str_len = *string_len;
+      else
+  	str_len = MAXINT;
+  
+      while (csstr_len > 0 && str_len > 0) {
+  	ch = *csptr++ & 0x7f;
+  	if (ch < 0x20 || ch > 0x7e)
+***************
+*** 346,367 ****
+  
+  
+  int
+! _Ximp_cstoct(lcd, csstr, csstr_len, ctext, ctext_len, cs_num)
+!     Ximp_XLCd lcd;
+      unsigned char *csstr;
+      int csstr_len;
+      unsigned char *ctext;
+      int *ctext_len;
+-     int cs_num;
+  {
+!     unsigned char encoding[BUFSIZE], *encoding_ptr;
+      unsigned char *csptr = csstr;
+      unsigned char *ctptr = ctext;
+!     unsigned char ch, msb_mask, min_ch, max_ch;
+!     EncodingRec *encoding_rec;
+!     CodeSetRec *codeset;
+!     int char_length, gc_size;
+!     int ct_len, tmp_len;
+  
+      if (ctext_len)
+  	ct_len = *ctext_len;
+--- 169,187 ----
+  
+  
+  int
+! _Xlc_cstoct(state, csstr, csstr_len, ctext, ctext_len)
+!     State state;
+      unsigned char *csstr;
+      int csstr_len;
+      unsigned char *ctext;
+      int *ctext_len;
+  {
+!     unsigned char encoding[BUFSIZE];
+      unsigned char *csptr = csstr;
+      unsigned char *ctptr = ctext;
+!     unsigned char ch, side, min_ch, max_ch;
+!     int length, gc_num, ct_len, tmp_len;
+!     CharSet charset = *state->codeset->charset_list;
+  
+      if (ctext_len)
+  	ct_len = *ctext_len;
+***************
+*** 368,414 ****
+      else
+  	ct_len = MAXINT;
+  
+!     codeset = lcd->ximp_lcpart->codeset + cs_num;
+  
+!     if (codeset->index_num <= 0)
+! 	return -1;
+! 
+!     encoding_rec = _get_encoding_rec(codeset->encoding_index[0].lindex);
+!     if (encoding_rec == NULL)
+! 	return -1;
+! 
+!     msb_mask = codeset->encoding_index[0].msb_mask;
+!     char_length = encoding_rec->char_length;
+!     gc_size = (msb_mask == GR) ? 
+! 		encoding_rec->GR_gc_size : encoding_rec->GL_gc_size;
+! 
+!     encoding_ptr = encoding;
+!     *encoding_ptr++ = '\033';
+!     if (char_length > 1)
+! 	*encoding_ptr++ = '$';
+!     if (gc_size == 94) {
+! 	if (msb_mask == GL)
+! 	    *encoding_ptr++ = '(';
+! 	else if (msb_mask == GR)
+! 	    *encoding_ptr++ = ')';
+!     } else if (gc_size == 96) {
+! 	if (msb_mask == GR)
+! 	    *encoding_ptr++ = '-';
+      }
+-     strcpy((char *)encoding_ptr, (msb_mask == GR) ? 
+- 		encoding_rec->GR_encoding : encoding_rec->GL_encoding);
+-     tmp_len = strlen((char *)encoding);
+-     if ((ct_len -= tmp_len) < 0)
+- 	return -1;
+-     strcpy((char *)ctptr, (char *)encoding);
+-     ctptr += tmp_len;
+  
+      min_ch = 0x20;
+      max_ch = 0x7f;
+  
+!     if (gc_size == 94) {
+  	max_ch--;
+! 	if (char_length > 1 || msb_mask == GR)
+  	    min_ch++;
+      }
+  
+--- 188,212 ----
+      else
+  	ct_len = MAXINT;
+  
+!     side = charset->side;
+!     length = charset->length;
+!     gc_num = charset->gc_num;
+  
+!     if (state->last_codeset != state->codeset) {
+! 	strcpy((char *) encoding, charset->encoding);
+! 	tmp_len = strlen((char *) encoding);
+! 	if ((ct_len -= tmp_len) < 0)
+! 	    return -1;
+! 	strcpy((char *) ctptr, (char *) encoding);
+! 	ctptr += tmp_len;
+      }
+  
+      min_ch = 0x20;
+      max_ch = 0x7f;
+  
+!     if (gc_num == 94) {
+  	max_ch--;
+! 	if (length > 1 || side == GR)
+  	    min_ch++;
+      }
+  
+***************
+*** 417,423 ****
+  	if (ch < min_ch || ch > max_ch)
+  	    if (ch != 0x09 && ch != 0x0a && ch != 0x0b)
+  		return -1;
+! 	*ctptr++ = ch | msb_mask;
+  	csstr_len--;
+  	ct_len--;
+      }
+--- 215,221 ----
+  	if (ch < min_ch || ch > max_ch)
+  	    if (ch != 0x09 && ch != 0x0a && ch != 0x0b)
+  		return -1;
+! 	*ctptr++ = ch | side;
+  	csstr_len--;
+  	ct_len--;
+      }

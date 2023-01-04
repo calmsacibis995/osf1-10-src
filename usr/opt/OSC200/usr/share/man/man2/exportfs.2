@@ -1,0 +1,175 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: exportfs.2,v $ $Revision: 3.2.6.3 $ (DEC) $Date: 1993/08/20 14:30:07 $
+.\"
+.TH exportfs 2
+.SH NAME
+.PP
+\*Lexportfs\*O \- Exports an NFS file system
+.SH SYNOPSIS
+.PP
+.\"Removed per Eric Werme's comments in response to QAR 10840 for Ag/Maint
+.\"#include <sys/mount.h>
+.oS
+#include <nfs/nfs.h>
+exportfs(access, cookie, exdata)
+int access;
+int *cookie;
+struct exportfsdata *exdata;
+.oE
+.SH DESCRIPTION
+.PP
+.iX "exportfs system call"
+.iX "file system" "exporting"
+The \*Lexportfs\*O system call allows the specified
+local file system to be mounted
+remotely by an NFS client.  This system call is usually called
+from \*Lmountd\*O. The system call allows access to the kernels export
+data base. The method of access is specified by the \*Laccess\*O flag
+as follows:
+.oS
+#define EXPORTFS_CREATE 0x01        /* create a new export record */
+#define EXPORTFS_REMOVE 0x02        /* remove an old export record */
+#define EXPORTFS_READ   0x03        /* read an export record */
+.oE
+Each entry in the export data base has the following structure:
+.\"Replaced during Sterling.
+.oS
+struct exportfsdata {
+        dev_t   e_dev;     /* ID of device containing the directory */
+        ino_t   e_ino;     /* File serial number */
+        uint_t  e_gen;     /* File generation number */
+        char e_path[MAXPATHLEN];  /* Name of the path to export */
+        int  e_flags;             /* Export flags */
+        uid_t e_rootmap;   /* Map root to this uid (either 0 or -2) */
+        uid_t e_anon;      /* Map anonymous users to this uid */
+        struct exportfsaddrlist e_rootaddrs;
+                           /* List of hosts where root can be mapped
+                            * to uid 0 */
+        struct exportfsaddrlist e_writeaddrs;
+                           /* List of hosts allowed write access to
+                            * read mostly export */
+        int     e_more;    /* Used in EXPORTFS_READ */
+};
+
+struct exportfsaddrlist {
+        unsigned naddrs;
+        struct sockaddr addrvec[EXMAXADDRS];
+};
+.oE
+.PP
+The
+\*Ve_path \*O
+argument is a pointer to a null-terminated string containing
+the path name of the file system or directory being exported.
+.PP
+The
+\*Ve_dev,\*O
+\*Ve_ino,\*O
+and
+\*Ve_gen\*O
+fields are inputs to the system call for creating an entry. They are
+returned when an entry is read.
+.PP
+Security on the
+exported file systems can be improved
+by setting the root mapped user
+ID in,
+\*Ve_rootmap\*O
+and the anonymous user id in
+\*Ve_anon\*O
+to user id \-2.  Setting the rootmap field to 0 specifies that all
+client superusers will be mapped to 0 and thus will have the same rights
+as the local superuser.  Anonymous remote users are those without UNIX
+credentials and superusers on client systems.  Setting anon to a user id
+other than -2 will map all anonymous users to that uid.  Use of the
+rootmap field overrides values in \*Le_anon\*O for client superusers.
+Finally,
+to grant superuser privileges to only a select group of clients, set
+rootmap to -2 and use the
+\*Ve_rootaddrs\*O
+structure to specify the list of privileged systems.
+.PP
+The export permissions flags are set in
+\*Ve_flags\*O
+for the local file system path.
+The following flags are the only possible flags accepted by \*Lexportfs\*O:
+.oS
+#define M_EXRDONLY    /* export read-only */
+#define M_EXRDMOSTLY  /* export read-write to hosts in e_writeaddrs */
+.oE
+.PP
+By default, exports are read-write.  To export a filesystem or directory
+read-only, set the M_EXRDONLY flag.  To export a filesystem or directory
+read-only to most clients and read-write to a select group, set the
+M_EXRDMOSTLY flag and include the list of clients in
+\*Ve_writeaddrs\*O.
+.PP
+.\"The following replaced existing text during Sterling.
+The
+\*Ve_more\*O
+field is used in conjunction with the \*Vcookie\*O parameter
+to sequentially read the kernel's export data base using EXPORTFS_READ.
+The contents of
+\*Vcookie\*O
+should be set to zero to read the first record. After reading the
+record into \*Vexdata\*O, the system call will set
+\*Ve_more\*O
+to a non-zero value if there are more records to read and will update
+the value of \*Vcookie\*O.
+If there are no more records in the data base,
+\*Ve_more\*O
+will be zero after the system call completes.
+.PP
+The \*Lexportfs\*O system call returns a value of 0
+upon successful completion of an
+operation, and \-1 upon failure.
+.SH ERRORS
+.PP
+.TP 15
+[EPERM]
+Not superuser.
+.TP 15
+[EIO]
+Not enough memory in the system to service the request.
+.TP 15
+[EFAULT]
+Bad address for \*Vexdata\*O or \*Vcookie\*O.
+.TP 15
+[ENOENT]
+Access is EXPORTFS_CREATE or EXPORTFS_REMOVE and
+\*Ve_path\*O
+does not exist, or access is EXPORTFS_REMOVE and
+\*Ve_path\*O is not an exported path, or access is EXPORTFS_READ and
+there are no exportfsdata records to read.
+.TP 15
+[EREMOTE]
+Access is EXPORTFS_CREATE and
+\*Ve_path\*O
+is an NFS mounted directory.  Only local directories can be exported.
+.TP 15
+[EINVAL]
+The \*Vexdata\*O pointer is NULL, the \*Vcookie\*O value is negative, or
+the \*Vaccess\*O flag is invalid.
+.SH RELATED INFORMATION
+.PP
+Files: \*Lexports\*O(4)
+.PP
+Daemons: \*Lmountd\*O(8)
+.EQ
+delim off
+.EN

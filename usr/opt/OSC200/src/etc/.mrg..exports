@@ -1,0 +1,132 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: .mrg..exports,v $ $Revision: 1.1.2.2 $ (DEC) $Date: 1993/12/10 00:29:38 $
+# 
+# specify name of your merge routine here if you are not using 3-way merge. 
+
+MERGE_ROUTINE=DRI_Merge
+
+DRI_Merge()
+{
+	# check if the merge has already been done
+	#
+	grep -q 'defines remote mount points for NFS mount requests' $_FILE && 
+	{
+		return 0
+	}
+
+	MRG_Echo "removing old exports file comments"
+	#
+	# grep -v out all of the old comment strings
+	#
+	grep -v 'the NFS file systems to be exported' $_FILE | \
+	grep -v 'Syntax: pathname' | \
+	egrep -v '^#[ 	]+or$' | \
+	grep -v '#comments' | \
+	grep -v 'name of a local file system or directory' | \
+	grep -v 'maps client superuser access to the specified uid on the' | \
+	grep -v 'the default uid mapping for client superusers is' | \
+	grep -v 'specifies read-only permissions for the exported file system' | \
+	grep -v 'or directory; the default is read-write' | \
+	grep -v 'access list of host names and/or netgroups for this export' | \
+	grep -v 'identifiers must be separated by white space; no names' | \
+	grep -v 'implies everyone' | \
+	grep -v 'text following comment character (#) is ignored' > $_TMPFILE
+
+	[ "$?" = 0 ] ||
+	{
+		MRG_Echo "\tfailed to remove old exports file comments"
+		return 1
+	}
+	mv $_TMPFILE $_FILE
+
+	MRG_Echo "adding new exports file comments"
+	#
+	# add new comments after RCS string
+	#
+	ln="`grep -n 'RCSfile:' $_FILE | cut -f1 -d':'`"
+	if [ "x$ln" = "x" ]
+	then
+		MRG_Echo "\tDid not add new comments to exports file"
+		return 0
+	fi
+	ed - $_FILE << _Add_lines_eof 1>/dev/null
+$ln
+a
+#
+# The exports file defines remote mount points for NFS mount requests.
+#
+# Syntax: pathname [-option ...] [name ...]
+#
+# A whitespace character in the left-most position of a line indicates
+# a continuation line.
+#
+# pathname      Specifies the name of a local file system or directory
+#               of a local filesystem.
+#
+# The following are valid exports options:
+#
+# -root=0
+#         Maps all client superusers to uid 0; by default, superusers are
+#         mapped to user "nobody".  This option overrides -anon=uid for
+#         client superusers.
+# -root=hostname[:hostname]...
+#         Maps client superusers on only the specified hosts to uid 0;
+#         overrides the use of -anon=uid for client superusers.
+# -ro
+#         Exports pathname read-only; default is read-write.
+# -rw=hostname[:hostname]...
+#         Exports pathname read-write to the specified hosts and
+#         read-only to other hosts.
+# -anon=uid
+#         Maps anonymous users to the specified uid.  Client superusers
+#         and NFS requests without UNIX authentication are considered
+#         anonymous; setting uid to -1 disables anonymous access.
+# -access=name[:name]...
+#         Specifies the hosts to grant mount access to.  Use of
+#         whitespace separated name list following options is also
+#         accepted.  Client can be a host name, IP address, or NIS
+#         netgroup.  If a mount access list is not provided, the path
+#         is exported to all hosts.
+.
+w
+q
+_Add_lines_eof
+
+	[ "$?" = 0 ] ||
+	{
+		MRG_Echo "\tfailed to add new comments to exports file"
+		return 1
+	}
+	return 0
+}
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+# OPTIONAL: for 3-way merge, make MRG_SetCheck calls here.
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 

@@ -1,0 +1,217 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: tra.7,v $ $Revision: 1.1.2.6 $ (DEC) $Date: 1993/12/21 01:03:06 $
+.\"
+.TH tra 7
+.SH NAME
+.PP
+\*Ltra\*O \- DETRA 4 Mb/s or 16 Mb/s Token Ring interface
+.SH SYNOPSIS
+.PP
+\*Ldevice tra0 at * vector traintr\*O
+.PP
+Entry in the system configuration file
+.SH DESCRIPTION
+.PP
+.iX "tra interface" "DETRA Token Ring Network interface"
+.iX "DETRA Token Ring Network interface"
+.iX "Token Ring interface" "DETRA Network interface"
+The \*Ltra\*O interface is a Token Ring TURBOchannel adapter that can
+operate at 4 Mb/s or 16 Mb/s.  The adapter uses a TMS380 chip to implement the
+Token Ring protocol.
+.PP
+The host's Internet address is specified at boot time with a SIOCSIFADDR
+ioctl.  Also the speed at which the interface should operate can be
+specified using the SIOCSMACSPEED ioctl.  The default speed at which the
+interface will try and enter the ring is at 16 Mb/s.  The other supported
+speed is 4 Mb/s.  \*Lifconfig(8)\*O describes how to set the speed of the
+interface by using the \*Lspeed\*O option.
+.PP
+The maximum MAC frame size supported by the driver on a 4 Mb/s Token Ring
+network is 4136 and for a 16 Mb/s network it is 8232.
+.\" Removed per Uttam 7/27/93
+.\"  The \*Ltra\*O interface does not
+.\"support the BSD trailer encapsulation, that is specific to the VAX
+.\"architecture.
+.PP
+The SIOCRPHYSADDR ioctl can be used to read the physical address of the
+DETRA adapter.
+.PP
+The SIOCADDMULTI and SIOCDELMULTI ioctls can be used to add or delete
+functional addresses.
+.PP
+The SIOCRDCTRS ioctl can be used to read the Token Ring driver counters.
+The DETRA adapter status and characteristics can also be read through this
+ioctl by providing one of the following options:
+.VL 4m
+.LI "CTR_TRN"
+Reads the counters
+.LI "TRN_CHAR"
+Reads the characteristics
+.LI "TRN_MIB_ENTRY"
+Reads the RFC 1231 mib entry
+.LI "TRN_MIB_STAT_ENTRY"
+Reads the RFC 1231 status entry
+.\" Removed per Uttam 7/27/93
+.\".LI "TRN_MIB_TIMER_ENTRY"
+.\"Not supported by the driver.
+.LE
+.PP
+The driver does not support reporting information on the timer statistics as
+defined in RFC 1239.
+.PP
+The argument to this ioctl is a pointer to a counter or status structure,
+\*Lctrreq\*O, found in \*L<net/if.h>\*O.  The structures defining the Token
+Ring counters and status maintained can be found in
+\*L<netinet/if_trnstat.h>\*O.
+.PP
+The SIOCENABLBACK and SIOCDISABLBACK ioctls can be used to enable and
+disable the interface loopback mode, respectively.  The driver enables
+internal loopback only.
+.PP
+The SIOCIFRESET ioctl can be used to reset the adapter.
+.SH EXAMPLES
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"tra0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"tra0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+Diagnostic messages contain information provided by the \*Ltra\*O driver
+and the adapter.  The following messages contain information about the
+adapter's state, and are printed on the console.  Each message
+begins with the adapter identification, including the
+number of the adapter:
+.VL
+.LI "Adapter check interrupt: <\*Vreason\*O>"
+The driver received an adapter check interrupt.  The reason for the interrupt
+is displayed.
+.LI "Cannot get aligned address for System Status Block (SSB)"
+The driver could not get an aligned address for the System Status Block (SSB).
+(See Texas Instruments, TMS380 Second-Generation Token Ring User's Guide for
+an explanation of SSB.)
+.LI "Bring Up Diagnostic Tests failed, SIFCMD/SIFSTS = <\*Vhex value\*O>"
+.LI "Failure reason: \*Vreason\*O"
+The Bring Up Diagnostics (BUD) failed.  The value of the command/status
+register and the reason for the failure are displayed.
+.LI "Driver received an unknown interrupt"
+The driver received an unknown interrupt.
+.LI "Error writing initialization block: SIFCMD/SIFSTS = <\*Vvalue\*O>"
+An error while trying to write out the initialization block to
+the TMS380 Token Ring chip.  The value of the command/status register is
+displayed in hexadecimal.
+.LI "MAC_CLOSE command returned an unknown status: <\*Vvalue\*O>"
+The MAC_CLOSE command returned an unknown status to the driver.
+.LI "MAC_CLOSE request pending"
+A request to close the MAC was previously issued to the adapter.
+.LI "MAC_OPEN request pending"
+A request to open the MAC was previously issued to the adapter.
+.LI "MAC_OPEN command rejected: <\*Vreason\*O>"
+The command to open the MAC was rejected.  The reason is displayed.
+.LI "Opening the adapter into the ring at <\*Vvalue\*O> Mb/s"
+The driver opened the adapter into the ring at the speed indicated.  Only
+two speeds are supported - 4 Mb/s and 16 Mb/s.
+.LI "Receive suspended"
+.LI "Transmit suspended"
+If either message is displayed, reset the adapter by issuing the following
+commands:
+.iS
+% \*Lifconfig tra0 down\*O
+% \*Lifconfig tra0 up\*O
+.iE
+If the message persists, an error is occurring while transmitting and receiving
+packets. You will need to investigate the error.
+.LI "Ring status: <\*Vstatus\*O>"
+The status of the ring.
+.LI "Taking adapter off the ring"
+The driver has taken the adapter off the ring.
+.LI "Time out occurred during MAC_READ_ERROR_LOG command"
+A timeout occurred while waiting for the MAC_READ_ERROR_LOG command to
+complete.
+.LI "Time out occurred during MAC_CLOSE command"
+A timeout occurred while trying to close the MAC; the interface is down.
+.LI "Time out occurred during MAC_OPEN command"
+A timeout occurred while waiting for the MAC_OPEN command to complete.
+.\" Removed per Uttam 9/16/93
+.\".LI "tra\*Vn\*O: <\*Vvalue\*O>  resets in <\*Vvalue\*O> seconds.  Check cabling ..."
+.\"The adapter has been reset more than two times in less than 210 seconds and the
+.\"driver has taken the adapter off the ring. This usually indicates a lobe wire
+.\"fault.  After checking for the fault, bring the adapter online by
+.\"using the \L*ifconfig tra\*Vn\*O up\*O command.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lnetstat\*O(1), \*Lifconfig\*O(8), \*Lsrconfig\*O(8)
+.PP
+\*ENetwork Programmer's Guide\*O
+.EQ
+delim off
+.EN

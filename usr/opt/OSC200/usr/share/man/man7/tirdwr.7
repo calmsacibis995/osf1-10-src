@@ -1,0 +1,154 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" *** MIPS Information ***
+.\"
+.\" If there is MIPS-specific information included on a manpage,
+.\" set it off with conditional coding:
+.\"
+.\" #ifdef MIPS
+.\"
+.\" End the MIPS-specific information with this line:
+.\"
+.\" #endif
+.\" 
+.\" Be sure the "#ifdef MIPS" and "#endif" are flush with the
+.\" left margin, and that each is on a line by itself.
+.\" 
+.\" **********************
+.\"
+.\" NOTE:  Do NOT include any copyright notice in your manpage unless
+.\"        you have taken the information from another source, such
+.\"        as the OSF.  
+.\"
+.\"        Do NOT include .so lines for the RSML and SML macro packages.
+.\"
+.\" **********************
+.\"         
+.\"  The path to this template is:
+.\"
+.\"	ravine:/usr/public/RefPage_Template_RSML
+.\"   
+.\" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+.\"	
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+...\" OSF/1 1.2
+...\"
+.TH tirdwr 7
+.SH NAME
+\*Ltirdwr\*O - STREAMS module for reads and writes by TI transport users
+.SH DESCRIPTION
+.PP
+.iX "tirdwr module"
+The \*Ltirdwr\*O module is a STREAMS module that provides a transport
+user supporting the Transport Interface (TI) with an alternate interface
+to a transport protocol provider supporting TI.
+This alternate interface allows the transport user to communicate
+with the transport protocol provider using the \*Lread(\|)\*O and
+\*Lwrite(\|)\*O functions.
+It can also continue to use the \*Lputmsg, putpmsg(\|)\*O
+and \*Lgetmsg, getpmsg(\|)\*O
+functions, but these functions will only transfer data messages between
+the user process and device stream.
+.PP
+The user places the \*Ltirdwr\*O module on a device stream by calling the
+STREAMS \*LI_PUSH ioctl(\|)\*O function.
+Once the module has been pushed on the device stream, the user cannot
+make further calls to TI functions.
+If the user attempts to do this, an error occurs on the stream.
+After the error is detected, subsequent calls
+fail with \*Lerrno\*O set to [EPROTO].
+The user removes the \*Ltirdwr\*O module from a device stream
+by calling the STREAMS \*LI_POP ioctl(\|)\*O function.
+.SS Module Behavior When Pushed and Popped
+When the \*Ltirdwr\*O module is pushed on a device stream, it checks any
+existing messages that are destined for the user to determine
+their message type.
+If existing messages are regular data messages, it forwards the messages
+to the user.
+It ignores any messages related to process management, such as messages that
+generate signals to the user.
+If any other messages are present, it returns an error to the user
+request with \*Lerrno\*O set to [EPROTO].
+.PP
+When the \*Ltirdwr\*O module is popped from a device stream, it checks
+whether an orderly release indication has been previously received from
+the transport protocol provider.
+If an orderly release indication was received, it sends an orderly release
+request to the remote side of the transport connection.
+The \*Ltirdwr\*O module also acts this way when the device
+stream is closed.
+.SS Module Behavior for Reads and Writes
+When the \*Ltirdwr\*O module receives messages from
+the transport protocol provider that do not contain a control part (see the
+\*Lputmsg, putpmsg(\|)\*O and \*Lgetmsg, getpmsg(\|)\*O reference pages),
+it transparently passes the messages to its upstream neighbor.
+The exception is for zero-length data messages, where the module frees
+the message and does not
+pass them to its upstream neighbor.
+.PP
+When the module receives messages from the transport protocol
+provider that contain a control part, it takes one of the following actions:
+.ML
+.LI
+For data messages with a control part, it removes this part,
+then passes the message to its upstream neighbor.
+.LI
+For messages that represent expedited data,
+it generates an error.
+Further system calls will fail with \*Lerrno\*O set to [EPROTO].
+.LI
+For messages that represent expedited data,
+it generates an error.
+Further system calls will fail with \*Lerrno\*O set to [EPROTO].
+.LI
+For messages that represent an orderly release indication from the transport
+protocol provider, it generates a zero-length data message, indicating
+the End-of-File (EOF), and sends this message upstream
+to the reading process.
+The original message containing the orderly release indication is freed.
+.LI
+For messages that represent an abortive disconnect indication from the
+transport protocol provider, it causes all further \*Lwrite(\|)\*O
+and \*Lputmsg, putpmsg(\|)\*O calls to fail with \*Lerrno\*O
+set to [ENXIO].
+Subsequent \*Lread(\|)\*O and \*Lgetmsg, getpmsg(\|)\*O calls
+will return zero-length data messages indicating the End-of-File (EOF),
+once all previous data has been read.
+.LI
+For all other messages, it generates an
+error, and further calls will fail with \*Lerrno\*O set
+to [EPROTO].
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lintro(2)\*O,
+\*Lgetmsg(2)\*O,
+\*Lgetpmsg(2)\*O,
+\*Lputmsg(2)\*O,
+\*Lputpmsg(2)\*O,
+\*Lread(2)\*O,
+\*Lwrite(2)\*O
+.PP
+Interfaces:
+\*Lstreamio(7)\*O
+.iX "tirdwr module"
+.EQ
+delim off
+.EN

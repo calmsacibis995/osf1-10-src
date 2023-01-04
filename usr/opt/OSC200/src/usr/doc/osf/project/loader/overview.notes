@@ -1,0 +1,571 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+			Loader Design Overview			10/24/89 lwa
+			----------------------			------------
+								edited 03/21/90
+								---------------
+
+   WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+            IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+            IT IS PROVIDED FOR INFORMATION ONLY.
+
+   A. Overview
+
+	The loader is divided into format-independent and
+	format-dependent parts; the each part is further divided into
+	machine-independent and machine-dependent parts.
+	Format-dependent routines are called through a switch (the
+	loader switch) from the format-independent part.  The
+	format-independent part of the loader implements all module
+	loading and unloading functions, including:
+
+	- exec
+	- callable program load
+	- loading shared libraries
+	- loading kernel modules
+	- pre-loading of shared libraries
+
+	The format-independent loader defines all the loader
+	semantics, including the policy for resolution of unresolved
+	symbols, the policy for assignment of the process address
+	space, and the security policy.  Most of the loader data
+	structures are maintained by the format-independent part.
+
+	The format-dependent part is responsible for all accesses to
+	the object file itself.  This includes the operations to map
+	(or copy) the object file into the process address space, as
+	well as to build the lists of exported and unresolved symbols
+	and to perform relocation if required.
+
+	Some components of each of the format-independent and
+	format-dependent parts of the loader are machine-dependent.
+	For example, the policy for assignment of process address
+	space is a machine-dependent component of the
+	format-independent part of the loader.  The code which handles
+	relocation is often a machine-dependent component of the
+	format-dependent part of the loader.
+
+      1. Address Space Usage
+
+	The current design for the loader calls for nearly all of the
+	loader functions to be implemented in user space.  Only the
+	core parts of the exec system call will be implemented in the
+	kernel.  This includes a minimal loader (absolute code only;
+	no unresolved symbol or shared library support -- essentially
+	the identical functions of the loader in the standard BSD4.3
+	exec call).
+
+	The loader proper will be mapped into each process' address
+	space at a fixed address; it will be responsible for loading
+	the program being exec'ed, its shared libraries, and any
+	explicitly-loaded programs into the process.
+
+	A portion of each process' address space will be set aside for
+	use by shared libraries.  The loader design supports both
+	statically-bound shared libraries (bound to run at a fixed
+	address), and relocatable shared libraries (possibly using
+	"position-independent" code).  A fixed portion of the address
+	space is set aside for shared libraries, even when using
+	relocatable libraries, to make the pre-loading optimization
+	useful (see below).
+
+      2. Process Structure
+
+	Support for pre-loading and for loading kernel extensions
+	requires dedicated loader processes.  There will be a process
+	that performs kernel loading and manages the kernel's address
+	space, import and export lists, and so forth.  This process
+	must be a privileged process (root access).  In addition,
+	there will be a pre-load command that pre-loads libraries and
+	manages the pre-load cache (depending on the exact pre-load
+	policy supported).
+
+	Communication with these processes, where required, will use
+	the Mach IPC mechanisms via MIG.
+
+   B. Core Loader Structure
+
+      1. Main Loop Algorithm and Data Structures
+
+	a) Region Table
+
+	We assume all object files are divided into regions.  By my
+	definition, a region is a separately relocated, virtually
+	contiguous chunk of object file.  It may contain code, data,
+	text, or any combination of the above.  Each region has a
+	name, a region number within its object module (zero-based), a
+	size, the virtual address to which is is relocated to run, the
+	virtual address at which it is mapped in the current process
+	(which may be different in the case of kernel loading), an
+	alignment, protection for the pages of the region, and a
+	region type (text, data, demand-zero, etc).  Other region
+	information (eg. concatenate vs.  overlay, location of region
+	in object file, etc.) are type-specific information and hence
+	the responsibility of the type manager.
+	
+	A region may require relocation; if it does, the maintenance
+	of the relocation information and performing of the actual
+	relocation are the responsibility of the format-dependent code.
+	
+	b) Export Symbol Table
+
+	An object file may export symbols; each symbol has a name, a
+	package in which the symbol resides (see "Packages" section below),
+	and a value.  The symbol value is a machine-dependent
+	structure, usually a union of several different symbol value
+	representations.  Two symbol value representations are most
+	frequently used: a (region descriptor, offset within region)
+	pair, and an absolute virtual address.
+
+	The format-independent loader maintains an export symbol table
+	for each loaded object file, containing this information.  The
+	structure of the export symbol table itself is
+	format-dependent, because we want to avoid the overhead of
+	building a hash table for those object file formats that
+	already support a hashed symbol table.  The format-dependent
+	manager must supply a routine to look up symbols in the export
+	symbol table.
+	
+	c) Import Symbol Table
+
+	An object file may have unresolved references.  The loader
+	obtains a list of unresolved references for each object file
+	being loaded; it resolves each symbol in the unresolved symbol
+	list using the symbol resolution policy described below.  The
+	import symbol table is used during relocation, to obtain the
+	values that have been assigned to the symbols resolved during
+	the loading process.
+
+	d) Packages
+
+	Packages are an abstraction we introduce to aid in managing
+	the symbol-resolution process.  Logically, a package is a
+	programming language-level construct, although we do not want
+	to require making any changes to the programming language or
+	source files to use packages.
+
+	Conceptually, every exported symbol belongs to some package,
+	and a library is simply a collection of packages.  Thus, the
+	pair (package name, symbol name) is essentially a
+	two-dimensional name for the routine or data item named by the
+	specified symbol in the specified package.  We assume that
+	package names are unique across an entire system; this is much
+	easier than ensuring uniqueness of symbol names across an
+	entire system.  We further assume that the pair (package name,
+	symbol name) is unique within the process.
+
+	The import symbol table for a module specifies the package
+	name and symbol name for each imported symbol.  The loader
+	maps the package name into a library pathname by using a table
+	of installed libraries; see the description of the symbol
+	resolution algorithm below.
+
+	e) Basic Load Algorithm
+
+	The loader uses an iterative (rather than recursive) algorithm
+	for loading a module and its dependencies (libraries).  The
+	basic algorithm involves building a list of all the modules
+	that need to be loaded, then iterating over the list to assign
+	region addresses, to relocate regions, and to call the
+	module initialization routines if required.
+
+	The key item here is building the list of modules to be
+	loaded.  This list is built based on two pieces of
+	information.  First, any object module can specify that it
+	depends on other static dependencies (like System V Release 3
+	shared libraries).  These static dependencies are added to the
+	list, irrespective of whether there are any unresolved symbols
+	resolved by them.  Second, a module is added to the list if it
+	resolves an unresolved symbol in another module.  The
+	resolution of an unresolved symbol is performed by the symbol
+	resolution policy as listed below.  This resolves the symbol
+	to the symbol value exported by the module exporting the
+	symbol.  Typically, this is a (region, offset in region) pair,
+	which is converted to an absolute virtual address by a
+	machine-dependent routine after all the regions of the object
+	module have been mapped.
+
+	The operations of mapping a region to the process' address
+	space and of relocating a region are format-dependent
+	operations.  The loader performs these operations in this
+	order:
+
+	1) Mapping all regions.  Mapping a region must be
+	   format-dependent, because some regions may be discontiguous
+	   within the object file, or non page-aligned, and hence have
+	   to be copied; and only the object file format manager is
+	   allowed to look inside the object file.  The map-region
+	   fills in the information describing each region in the
+	   table of mapped regions for the module.
+
+	2) Relocating all regions. Relocation is format-dependent
+	   because each object file format supports its own unique
+	   kinds of relocation entries.  The relocation routine is
+	   passed the table of mapped regions for the module and the
+	   import symbol table for the module.
+
+	f) Initialization and Termination Routines.
+
+	Any module may have initialization routines, called by the
+	format-dependent loader when loading of the library is
+	complete.  The order in which initialization routines are
+	called is undefined; hence, it is generally a bad idea for a
+	module's initialization routine to depend on functions
+	imported from other modules.
+
+	Any module may also have termination routines, called by the
+	format-dependent loader before unloading the module and on
+	normal program exit.  Again, the order in which the
+	termination routines are called is undefined.
+
+	g) Loader Handles
+
+	Each loaded module is identified externally by a "loader
+	handle", which is an opaque value assigned by the loader when
+	the module is loaded.  The "load" system call, which
+	explicitly loads a module, returns the loader handle for the
+	loaded module.  In addition, for debugging purposes, there is
+	a call that iterates through the loader handles of all loaded
+	modules.  There are also informational calls that return
+	information about a loaded module, that return information
+	about all the loaded regions of a given loaded module, and
+	that return the entry point address of a loaded module (all
+	passed the loader handle of the module).
+	
+      2. Symbol Resolution Policy
+
+	Our policy for symbol resolution is based on the goal that
+	most symbol resolutions should be specified by the programmer
+	or the program installer (system administrator) at the time
+	the program is built or installed.  It will be unusual for the
+	user running a program to want to control the symbol
+	resolutions.  Moreover, the user should not have to configure
+	his environment correctly (by setting up a set of seach rules,
+	for example) to get programs to work correctly.
+
+	On the other hand, it must be possible for a user to control
+	symbol resolution for programs without having to modify the
+	programs.  This is a requirement for debugging shared
+	libraries, and also for customizing an application by supplying
+	a private version of some library the application uses.
+
+	In addition to the above goals, it is undesirable that the
+	symbol resolution information stamped on the object file
+	include absolute path names of library files.  To begin with,
+	there is no guarantee that a library file will be installed at
+	the same path names in the development and target systems.
+	Moreover, sharing of libraries among multiple systems across a
+	network is complicated if the library file path names must be
+	the same on all systems sharing the file.  Finally, stamping
+	full library path names on each object file makes it very
+	difficult to move a library in the file system hierarchy --
+	doing so requires finding and restamping each object file that
+	uses the library.
+	
+	Together, these three goals imply:
+
+	1) The need to stamp each executable program with the
+	information needed to resolve that program's unresolved
+	symbols.
+
+	2) The need to separate the absolute path names of libraries
+	from the information stamped on the object file.
+
+	3) The need for the user to be able to override the symbol
+	resolution information by explicit request.
+
+	So, our current design makes use of symbol resolution
+	information (in the form of package names) from the object
+	file, and provides both global and per-process tables to
+	translate package names into absolute library file pathnames.
+
+	In this scheme, then, the symbol resolution information
+	stamped on the object file just resolves a given symbol name
+	to the name of the package to which the symbol belongs.
+	Resolution thus requires a second step, which is to look up
+	the package name to find the path name of the library that
+	contains the specified package.  This second step of
+	resolution is done using a global, system-wide table, called
+	the Known Package Table.  The Known Package Table simply maps
+	from package name to library pathname.  Entries are made in
+	the Known Package Table by administrative command, similar to
+	maintaining the pre-load cache.  (In fact, I believe that
+	pre-load cache management and Known Package Table management
+	can be combined).  The global Known Package Table is shared
+	read-only by all processes at a fixed address.
+	
+	In addition to the global, system-wide Known Package Table,
+	there is also a per-process Known Package Table.  It permits
+	the user to explicitly override the resolution of specified
+	symbols, for debugging and similar purposes, and to install
+	his own libraries in addition to the libraries globally
+	installed by the system administrator.  The per-process Known
+	Package Table is mapped keep-on-exec, so changes to it remain
+	visible across an exec. There are builtin shell commands to
+	add and remove entries.
+
+	Finally, there is a per-process Loaded Package Table, which
+	contains the package name to module name translations for
+	modules that have been explicitly loaded into the process.
+	This allows a loaded module to resolve symbols exported by a
+	main program or another explicitly-loaded module.  Entries are
+	added to and removed from the Loaded Package Table by the
+	loader when modules are explicitly loaded and unloaded.
+	
+	In More Detail
+	--------------
+	Symbol resolution is performed by the format-independent
+	manager, with the aid of advice from the format-dependent
+	manager.  As with all other information obtained from the
+	object file, the symbol resolution advice is obtained from the
+	object file by the format-dependent manager, and returned to
+	the format-independent loader in a canonical format.  Thus,
+	for each unresolved import symbol, the format-dependent
+	manager simply builds a record containing the package name and
+	symbol name of the unresolved symbol to return to the
+	format-dependent loader.  Conceptually, the call looks like this:
+
+	  get_import_symbol (1)	==> { "malloc_lib", "malloc" }
+	
+	The format of the information in the object file, and how it is
+	obtained, is format-dependent.
+	
+	Once the format-independent loader has obtained the package
+	name and symbol name information from the object module, it
+	must determine the pathname of the library containing the
+	specified package.  It does this by looking the package name
+	up in the Known Package Table.  It looks first in the
+	loaded package table, then the per-process known package
+	table, and finally in the global known package table.
+	
+	All the known package tables simply map package names
+	to full library pathnames:
+	
+	  malloc_lib		==> /lib/libc.a
+	
+	The lookup in the table is easy: it simply hashes the package
+	name into the table to determine the full pathname of the
+	library to be loaded.
+
+	Package and symbol names are looked up first in	the loaded
+	package table, then in the per-process known package table,
+	then in the global known package table.  This permits
+	explicitly-loaded modules to provide package name translations
+	for other explicitly-loaded modules, and allows a process to
+	easily override some or all of the symbol names in a given
+	package.
+
+	Tools
+	-----
+	Needless to say, convenient tools are needed to manage the
+	known package tables.  One such tool could be a command
+	equivalent to the "inlib" command; saying:
+	
+	inlib /users/luser/mymalloclib.a
+	
+	would create entries in the per-process known package
+	table for all packages and symbols exported by mymalloclib.a.
+	The same command could be used by the system administrator
+	with a flag telling it to install the library in the global
+	known package table.  This would normally be done at
+	system boot time.
+	
+	In addition, there clearly must be tools to create the package
+	name stamps on the object files to begin with.  This is a part
+	of the linker's job.  When an object package is linked against
+	a shared library, the linker looks up the unresolved symbols
+	against the list of symbols exported by the shared library and
+	produces the symbol name to package name stamp on the object
+	package.  In order to do this, it must be able to determine the
+	name of the package to which the exported symbol belongs.
+	
+	This implies that the list of exported symbols in the object
+	file must include a package name.  How does the linker
+	determine which package an exported symbol belongs to?  This
+	information can come from one of two places:
+
+	  1) It can be specified on the linker command line, perhaps
+	     as part of the command that specifies which symbols are
+	     to be exported.  This is a pain, and is easy to get
+	     wrong, but doesn't require source or compiler mods.
+	  2) We could add a #pragma to C to specify the package name.
+	     This is cleaner, and may eventually be possible to tie in
+	     with version control, but it requires compiler and source
+	     modifications.
+	
+	For OSF/1, all package names will be specified by command line
+	arguments to the linker at the time the module is linked.  The
+	pragmas will be considered for a future release.
+
+      3. Loader Switch Operations
+
+	The format-independent loader calls the format-dependent
+	routines through the "loader switch", which is a table of
+	procedure pointers.  See the note on the loader switch for
+	details on the loader switch operations.
+
+	The loader switch is a statically-initialized external data
+	structure in the format-independent loader.  This implies that
+	format-dependent managers for all known object module types
+	are bound in to the loader.
+
+      4. Pre-Loading
+
+	For performance, the loader caches a good deal of information.
+	The most important such information is completely pre-loaded
+	shared libraries, already relocated to a run-time address and
+	with their unresolved symbols fully resolved.  Such a
+	pre-loaded library can be used simply by mapping its regions
+	(copy-on-write for the data regions) into the target process'
+	address space, and by copying the loader data structures that
+	describe it.  Since pre-loaded libraries are pre-loaded to a
+	fixed address, if there are address conflicts then the
+	pre-loaded library cannot be used and the library must be
+	manually loaded.
+
+	The decision about which libraries to pre-load is a policy
+	issue.  For this release, all pre-loading will probably have
+	to be done explicitly (by system administrator command).  This
+	is needed because of security implications with pre-loaded
+	libraries.  In the current scheme, a pre-loaded library must
+	have all its imported symbol references fully resolved during
+	the pre-loading phase.  This avoids having to keep around
+	relocation information for pre-loaded libraries.
+
+	A program will find its pre-loaded libraries by looking in a
+	cache (in a mapped file) of pre-loaded library information.
+	This cache will be maintained by the pre-load process.
+
+	The actual loader code used to pre-load libraries is the same
+	code used to load program modules and shared libraries.  Some
+	details remain to be worked out.
+
+   C. exec
+
+	exec() call itself is located in a user mode library.  It does the
+	following operations:
+
+	- pre-validate the program being exec'ed as much as possible.  This
+	  may include running the loader's recognizer on it to ensure that
+	  it's a recognized object type and can be mapped, etc.
+	- it may run a list of "atexec" handlers, to permit user-space
+	  libraries to clean up their state before the exec.
+	- call a kernel exec_with_loader routine.  It takes as arguments:
+	  - a file to run in the new, clean address space as the loader.
+	    Normally, this file name can be specified as NULL, in
+	    which case the system-standard loader will be used.  It
+	    can be explicitly specified, to permit replacing it for
+	    debugging, etc.
+	  - flags for the loader
+	  - the file to load
+	  - the arguments
+	  - the environment
+
+	- the kernel exec routine does essentially what the current
+	  kernel exec routine does -- manipulate address space, file
+	  descriptors, signal state, sysV IPC state, and so forth.  It
+	  handles setuid (setuid programs must be loaded by the
+	  default loader).  It loads the loader (which must be in the
+	  recognized format -- eg. 413), and passes control to its
+	  entry point, with arguments of the file being loaded ands
+	  its arguments and environment.
+
+	- The control returns to the user space at the loader's exec entry
+	  point, and it does the rest of the exec.  This includes loading the
+	  libraries, calling their initialization routines if any, loading
+	  the program, and passing control to its entry point.  The loader
+	  remains mapped in the process' address space, so that it can be
+	  called on future exec's.  (This means that the loader has
+	  to set up region tables and exported symbol lists for itself, so
+	  that routines in the loader can be called from the loaded program.) 
+
+	See the documents on exec support for more information.
+
+   D. Kernel Loader
+
+	The basic architecture here is to perform all kernel module
+	loading from within a user-space process.  The user-space
+	process will be a privileged process that manages the entire
+	kernel, including the kernel's exported symbol tables, loaded
+	module and region lists, and so forth.  It will manipulate
+	the kernel's address space using the Mach virtual-memory calls
+	(which allow one process to manage another process' address
+	space, given appropriate privilege).
+
+	The actual loader code used to load kernel modules is the same
+	code used to load program modules and shared libraries.  Some
+	details remain to be worked out.
+
+   E. Unload
+
+	The OSF/1 loader supports only ``dumb'' or ``unsafe'' unload.
+	It does not try to maintain reference counts on loaded
+	modules; if the user requests to unload a module, the module
+	is unloaded irrespective of whether references to the module
+	exist in other modules.  No attempt is made to find
+	outstanding references and ``unsnap'' them.
+
+	Given this, unloading is a relatively simple process,
+	involving unmapping the module's regions and throwing away
+	its data structures.  This is a format-dependent operation,
+	just like mapping the module's regions.  The module's
+	termination routines are called before it is unloaded.
+
+   F. Resolved Issues
+
+	This is a list of issues that were unresolved as of the
+	previous design review, but have since been resolved.
+
+	1) internationalization -- do symbols need to be multibyte?
+	   [ The loader needs to be 8-bit safe.  As long as it only
+	     ever compares strings for equality, multibyte strings
+	     will work just the same as normal strings. ]
+	2) How are hookable globals handled?
+	   [ They're not.  An application that wants to interpose its
+	     own symbols must bind all its library routines in. ]
+	3) do we need to support #! (interpreter) files in the general-purpose
+	   loader, or are they specific to exec?
+	   [ #! symbols are specific to exec. ]
+	4) What about ETXTBUSY -- do we need to support it?  How?
+	   [ Just like Sun and System V Release 4.0 -- EXTXBUSY is not
+	     supported. ]
+	5) How do the data and bss regions of libraries need to be laid out?
+	   Do they have to take into account programs like Emacs that want to
+	   dump all the data?
+	   [ No.  Instead, we will try to support a "gcore"-style
+	     facility that produces a core file in a Mach-O format
+	     that can be re-started.  This is a topic for a future
+	     release. ]
+	6) What about execute-only files -- how do these work?  Maybe an
+	   O_EXEC flag to open that disallows read or write but permits mmap?
+	   Or, for exec, kernel could pass open file desc. to exec-loader
+	   (doesn't solve shared lib or callable loader issues).
+	   [ Execute-only is supported only for statically-bound
+	     programs in the default object file format, which can be
+	     loaded entirely by the kernel and don't use shared
+	     libraries.  The user-space loader must have read access
+	     to a file to be able to load it. ]
+	7) What effect, if any, do threads have on this?  What happens when
+	   you exec when there are multiple threads?  How about loading in a
+	   multi-thread environment (just a single global lock around the
+	   per-process data structures?)
+	   [ I don't believe we're going to try to solve the multiple
+	     thread problem in general right now.  If a multithreaded
+	     program calls exec(), the other threads in the same task
+	     will be killed.  The loader will keep a single global
+	     loader lock per process to protect all loader data
+	     structures. ]
+	8) Is there any reason to support loading multiple instances of a
+	   single object module?  If so, how does symbol resolution work in
+	   this case?
+	   [ There is no way to load multiple instances of a given
+	     object module, just like in Sun or AIX. ]
+	9) The issue of exactly how the kernel exec code determines
+	   the pathname of the loader program is still open.
+	   [ The pathname is passed in, but may be NULL to indicate
+             that the default loader is to be used.  The default
+             loader must always be used for setuid programs. ]

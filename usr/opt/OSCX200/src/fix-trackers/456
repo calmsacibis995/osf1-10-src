@@ -1,0 +1,89 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210192317.AA18255@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2692) close XBUG #5554: Xlib: (Xsi) stack allocation problem in multitasking environment
+Date: Mon, 19 Oct 92 19:17:20 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5554
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d18236	Mon Oct 19 19:15:56 1992
+--- lib/X/Xsi/XlcLoad.c	Mon Oct 19 18:20:24 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlcLoad.c,v 1.42 92/06/27 21:54:57 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlcLoad.c,v 1.43 92/10/19 18:20:07 rws Exp $
+   */
+  
+  /*
+***************
+*** 396,405 ****
+      Codeset        *ccs;
+  {
+      char            buf[MAXLINEBUF];
+!     Range           cnv[MAXSPLITS];
+      int             num = 0,
+                      i, lastnum;
+  
+      ccs->cds_msbon = 0;     /* use msb on */
+      for (i = 1, ccs->cds_cnvindex[0] = 0; i <= num_cs; i++) {
+          lastnum = num;
+--- 396,408 ----
+      Codeset        *ccs;
+  {
+      char            buf[MAXLINEBUF];
+!     Range          *cnv;
+      int             num = 0,
+                      i, lastnum;
+  
++     if ( ! ( cnv = (Range *)Xmalloc(MAXSPLITS*sizeof(Range))))
++ 	return False;
++ 
+      ccs->cds_msbon = 0;     /* use msb on */
+      for (i = 1, ccs->cds_cnvindex[0] = 0; i <= num_cs; i++) {
+          lastnum = num;
+***************
+*** 431,438 ****
+      }
+  
+      ccs->cds_cnvlist = (Range *) Xmalloc((unsigned)sizeof(Range) * num);
+!     if (!ccs->cds_cnvlist)
+  	return False;
+  #ifdef  FASTCOPY
+      /* not used */
+      (void) bcopy((char *)cnv, (char *)ccs->cds_cnvlist,
+--- 434,443 ----
+      }
+  
+      ccs->cds_cnvlist = (Range *) Xmalloc((unsigned)sizeof(Range) * num);
+!     if (!ccs->cds_cnvlist) {
+! 	Xfree((char *)cnv);
+  	return False;
++     }
+  #ifdef  FASTCOPY
+      /* not used */
+      (void) bcopy((char *)cnv, (char *)ccs->cds_cnvlist,
+***************
+*** 445,450 ****
+--- 450,456 ----
+          ccs->cds_cnvlist[i].cs_end = cnv[i].cs_end;
+      }
+  #endif
++     Xfree((char *)cnv);
+      return True;
+  
+  }

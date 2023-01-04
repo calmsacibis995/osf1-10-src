@@ -1,0 +1,109 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204092222.AA17864@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2443) close XBUG #5126: fontlib: Speedo cleans up memory never allocated
+Date: Thu, 09 Apr 92 18:22:50 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: Speedo cleans up memory that was never allocated
+        ### bug number:   5126
+        ### area:         fontlib
+        ### severity:     low
+
+*** /tmp/da17740	Thu Apr  9 18:16:05 1992
+--- fonts/lib/font/Speedo/spfile.c	Thu Apr  9 18:13:47 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfile.c,v 1.5 92/03/25 18:45:45 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfile.c,v 1.6 92/04/09 18:13:03 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 154,159 ****
+--- 154,162 ----
+      if (!spmf)
+  	return AllocError;
+      bzero(spmf, sizeof(SpeedoMasterFontRec));
++     spmf->entry = NULL;
++     spmf->f_buffer = NULL;
++     spmf->c_buffer = NULL;
+  
+      /* open font */
+      spmf->fname = (char *) xalloc(strlen(filename) + 1);
+***************
+*** 265,271 ****
+  	return;
+      if (spmf->state & MasterFileOpen)
+  	fclose(spmf->fp);
+!     spmf->entry->u.scalable.extra->private = (pointer) 0;
+      xfree(spmf->fname);
+      xfree(spmf->f_buffer);
+      xfree(spmf->c_buffer);
+--- 268,275 ----
+  	return;
+      if (spmf->state & MasterFileOpen)
+  	fclose(spmf->fp);
+!     if (spmf->entry)
+! 	spmf->entry->u.scalable.extra->private = NULL;
+      xfree(spmf->fname);
+      xfree(spmf->f_buffer);
+      xfree(spmf->c_buffer);
+*** /tmp/da17762	Thu Apr  9 18:16:07 1992
+--- fonts/lib/font/Speedo/spfuncs.c	Thu Apr  9 18:13:51 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfuncs.c,v 1.5 91/09/16 11:42:30 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfuncs.c,v 1.6 92/04/09 18:13:45 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 102,108 ****
+      char		*fileName;
+      FontScalablePtr	vals;
+  {
+!     SpeedoFontPtr spf;
+      char        fullName[MAXFONTNAMELEN];
+      int         err;
+  
+--- 102,108 ----
+      char		*fileName;
+      FontScalablePtr	vals;
+  {
+!     SpeedoFontPtr spf = NULL;
+      char        fullName[MAXFONTNAMELEN];
+      int         err;
+  
+***************
+*** 113,119 ****
+  
+      err = get_font_info(pFontInfo, fullName, fileName, entry, &spf);
+  
+!     close_sp_font(spf);
+      return err;
+  }
+  
+--- 113,121 ----
+  
+      err = get_font_info(pFontInfo, fullName, fileName, entry, &spf);
+  
+!     if (spf)
+! 	close_sp_font(spf);
+! 
+      return err;
+  }
+  

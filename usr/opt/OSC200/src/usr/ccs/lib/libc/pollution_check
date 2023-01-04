@@ -1,0 +1,216 @@
+#!/usr/bin/ksh -p
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# Check pollution of non-ANSI, unreserved global symbols.
+#
+# USAGE: pollution_check object | library
+#
+# Notes:
+# - ANSI_symbol_list must be in the same directory as pollution_check or the same
+#   directory in the backing tree, and must contain the complete list of ANSI symbols.
+# - Added exception for "ldr_process_context" since this is needed by the loader and
+#   must not be weak.
+# - "common" storage class symbols are ignored since weak symbols don't work
+#   for them.
+# - "nil" storage class symbols are ignored since they are used by the compiler
+#   and don't cause pollution.
+# - Default exit from this script is intentionally 0 even though a warning
+#   may have been issued.  We don't want to stop the build because of these.
+#
+if [ $# -ne 1 ]
+then
+    echo 'USAGE: pollution_check object | library'
+    exit 1
+fi
+obj="$1"
+#
+# assume that ANSI_symbol_list is in the same directory as pollution_check
+# or in that same directory in the backing tree.
+#
+exec_dir=`dirname "$0"`
+ansi_list="$exec_dir"/ANSI_symbol_list
+if [ ! -f "$ansi_list" ]
+then
+    ansi_list=`(cd "$exec_dir" ; genloc ANSI_symbol_list)`
+    if [ ! -f "$ansi_list" ]
+    then
+       echo '**Error**: ANSI_symbol_list must be in same directory as the pollution_check'
+       echo 'script or the same directory in the backing tree.'
+       exit 1
+    fi
+fi
+#
+# set up temp files
+#
+tempdir="/tmp/${$}_output_dir"
+mkdir -p "$tempdir"
+if [ "$?" -ne 0 ]
+then
+    echo '**Error**: Problems creating temp directory in /tmp.'
+    exit 1
+fi
+tempfile0="${tempdir}"/tempfile0
+tempfile1="${tempdir}"/tempfile1
+tempfile2="${tempdir}"/tempfile2
+tempfile3="${tempdir}"/tempfile3
+reslist="${tempdir}"/reslist
+reslist2="${tempdir}"/reslist2
+#
+# assume the ANSI list begins with :
+#
+sed '1,/^:/d' "$ansi_list" | sort -u > "$reslist"
+cat "$reslist" | sed 's/^/0 /' | sort +1 > "$reslist2"
+#
+# set up exit trap
+#
+trap 'rm -rf "$tempdir" ; exit $exitstat' 0 1 2
+exitstat=1
+#
+#
+# First identify all undefined, non-ANSI, unreserved global symbols
+# for which there are no defined global counterparts anywhere else
+# in the object/lib.  These will be ignored because they could be
+# used by external programs.
+#
+nm -Bgou "$obj" | expand | tr -s ' ' ' ' | cut -d' ' -f3 | grep -v '^_' | sort -u | \
+comm -13 "$reslist" - | sort -u > "$tempfile1"
+nm -Bog "$obj" | expand | tr -s ' ' ' ' | egrep -v '^[^ ]* [UV] ' | sed 's/: /:/' | \
+cut -d' ' -f2- | egrep '^[ABCDEGRST] [^.]+' | cut -d' ' -f2 | grep -v '^_' | \
+sort -u | comm -23 "$tempfile1" - | sort -u > "$tempfile2"
+#
+# Next, we add the list of common storage class symbols to be weeded out.
+#
+nm -Bog "$obj" | expand | tr -s ' ' ' ' | egrep -v '^[^ ]* [UV] ' | sed 's/: /:/' | \
+cut -d' ' -f2- | egrep '^[BCES] [^.]+' | cut -d' ' -f2 | grep -v '^_' | sort -u | \
+comm -13 "$reslist" - | sort -u >> "$tempfile2"
+sort -u "$tempfile2" > "$tempfile0"
+#
+# perform different actions depending on file type
+#
+filetype=`file "$obj" | expand | tr -s ' ' ' ' | cut -d' ' -f3`
+if [ "$filetype" = "archive" ]
+then
+#
+# For .a libs:
+# We currently don't have a tool to identify weak symbols in archives, so we
+# identify matching weak/strong pairs by joining them on common addresses.
+# Then we take what's left and weed out any items on the ANSI list. 
+# What remains should be any non-ANSI global symbols which are not in the
+# reserved name space (don't begin with _,__,_<caps>), and do not have
+# weak/strong counterparts.
+#
+# Append filename to address to get correct matches.  Otherwise addresses
+# would be relative to modules.
+#
+   rm -rf "$tempfile1" "$tempfile2" "$tempfile3"
+   nm -Bog "$obj" | expand | tr -s ' ' ' ' | egrep -v '^[^ ]* [UV] ' | sed 's/: /:/' | \
+   egrep '^[^ ]+ [ABDGRST] [^.]+' | sed 's/ [^ ] / /g' | grep -v ' _' | sort -u  > "$tempfile1"
+   nm -Bog "$obj" | expand | tr -s ' ' ' ' | egrep -v '^[^ ]* [UV] ' | sed 's/: /:/' | \
+   egrep '^[^ ]+ [ABDGRST] [^.]+' | sed 's/ [^ ] / /g' | grep ' _' | sort -u > "$tempfile2"
+# add any ANSI symbols found in object which can also be strong counterparts of weak symbols
+   cat "$tempfile1" | cut -d' ' -f1,2 | sort +1 | join -j 2 - "$reslist2" | \
+   awk '{ print $2, $1 }' >> "$tempfile2"
+   cat "$tempfile2" | sort -u | join -a1 "$tempfile1" - | egrep -v '^[^ ]+ [^ ]+ [^ ]+' | \
+   cut -d' ' -f2 | sort -u | comm -13 "$reslist" - | egrep -v '^ldr_process_context$' | sort -u | \
+   comm -13 "$tempfile0" - | sort -u > "$tempfile3"
+
+   if [ -s "$tempfile3" ]
+   then
+      echo '**Warning**: The following non-ANSI, unreserved global symbols do not have'
+      echo 'weak/strong counterparts and may cause name space pollution:'
+      echo ''
+      cat "$tempfile3"
+      echo ''
+   fi
+else
+#
+# For .so libs or object files: use stdump which identifies weak symbols
+# for more accurate results.  Identify non-ANSI, unreserved global symbols that
+# are not weak symbols.
+#
+   rm -rf "$tempfile2" "$tempfile1"
+   stdump -b "$obj" | sed '1,/^Externals table:/d' | sed 's/[)(]//g' | tr -s ' ' ' ' | \
+   cut -d' ' -f4- | egrep -v 'Undefined ' | egrep -v ' scNil ' | egrep -v '^[^ ]* \.' | \
+   sort -u > "$tempfile1"
+   egrep -v '^[^ ]* _' "$tempfile1" | cut -d' ' -f2- | grep -v ' weakext$' | cut -d' ' -f1 | \
+   sort -u | comm -13 "$reslist" - | sort -u | comm -13 "$tempfile0" - | \
+   egrep -v '^ldr_process_context$' | sort -u > "$tempfile2"
+   if [ -s "$tempfile2" ]
+   then
+      echo '**Warning**: The following non-ANSI, unreserved global symbols are not'
+      echo 'weak symbols and may cause name space pollution:'
+      echo ''
+      cat "$tempfile2"
+      echo ''
+   fi
+#
+# Identify non-ANSI, unreserved, global weak symbols that have no corresponding
+# reserved strong symbols.
+# 
+   rm -rf "$tempfile2" "$tempfile3"
+   egrep -v '^[^ ]* _' "$tempfile1" | grep ' weakext$' | cut -d' ' -f1,2 | sort -u > "$tempfile2"
+   egrep '^[^ ]* _' "$tempfile1" | grep -v ' weakext$' | cut -d' ' -f1,2 > "$tempfile3"
+# add any ANSI symbols found in object which can also be strong counterparts of weak symbols
+   cat "$tempfile1" | grep -v ' weakext$' | cut -d' ' -f1,2 | sort +1 | join -j 2 - "$reslist2" | \
+   awk '{ print $2, $1 }' >> "$tempfile3"
+   rm -rf "$tempfile1"
+   sort -u "$tempfile3" | join -a1 "$tempfile2" - | egrep -v '^[^ ]+ [^ ]+ [^ ]+' | \
+   cut -d' ' -f2 | sort -u | comm -13 "$reslist" - | sort -u > "$tempfile1"
+   if [ -s "$tempfile1" ]
+   then
+      echo '**Warning**: The following non-ANSI, unreserved global symbols are'
+      echo 'weak symbols but do not have corresponding reserved strong symbols.'
+      echo 'This may be a problem related to name space pollution.'
+      echo ''
+      cat "$tempfile1"
+      echo ''
+   fi
+fi
+#
+# Look for references to non-ANSI, non-reserved global symbols
+#
+rm -rf "$tempfile3"
+if [ "$filetype" = "archive" ]
+then
+   nm -Bgou "$obj" | expand | tr -s ' ' ' ' | cut -d' ' -f3- | grep -v '^_' | sort -u | \
+   comm -13 "$reslist" - | comm -13 "$tempfile0" - | egrep -v '^ldr_process_context$' | \
+   sort -u > "$tempfile3"
+else
+   nm -Bgu "$obj" | expand | tr -s ' ' ' ' | sed 's/^ //' | cut -d' ' -f2- | grep -v '^_' | \
+   grep -v '^\.' | sort -u | comm -13 "$reslist" - | comm -13 "$tempfile0" - | \
+   egrep -v '^ldr_process_context$' | sort -u > "$tempfile3"
+fi
+if [ -s "$tempfile3" ]
+then
+   echo '**Warning**: Found references to the following non-ANSI,'
+   echo 'unreserved global symbols:'
+   echo ''
+   cat "$tempfile3"
+   echo ''
+   echo 'These references should be replaced with reserved versions which do not'
+   echo 'cause name space pollution.'
+fi
+exitstat=0
+exit $exitstat

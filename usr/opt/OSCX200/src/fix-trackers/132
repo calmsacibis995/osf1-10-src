@@ -1,0 +1,2324 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202112108.AA17616@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2355) Huge cfb diff, part 3 of 3
+Date: Tue, 11 Feb 92 16:08:01 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+*** /tmp/,RCSt1a16444	Tue Feb 11 15:13:27 1992
+--- server/ddx/cfb/cfbmskbits.h	Thu Dec 19 14:41:46 1991
+***************
+*** 26,32 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbmskbits.h,v 4.19 91/07/05 10:53:09 rws Exp $ */
+  
+  extern unsigned int cfbstarttab[];
+  extern unsigned int cfbendtab[];
+--- 26,32 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbmskbits.h,v 4.21 91/12/19 14:41:39 keith Exp $ */
+  
+  extern unsigned int cfbstarttab[];
+  extern unsigned int cfbendtab[];
+***************
+*** 82,94 ****
+   * ==========================================================================
+   */
+  
+  #define PPW	4
+- #define PLST	3
+- #define PIM	0x03
+  #define PWSH	2
+! #define PSZ	8
+! #define PMSK	0xFF
+  
+  /* the following notes use the following conventions:
+  SCREEN LEFT				SCREEN RIGHT
+  in this file and maskbits.c, left and right refer to screen coordinates,
+--- 82,120 ----
+   * ==========================================================================
+   */
+  
++ #define PLST	(PPW-1)
++ #define PIM	PLST
++ #define PMSK	((1 << PSZ) - 1)
++ 
++ #if PSZ == 4
++ #define PPW	8
++ #define PWSH	3
++ #endif
++ 
++ #if PSZ == 8
+  #define PPW	4
+  #define PWSH	2
+! #define PIXEL_ADDR
+! #define FOUR_BIT_CODE
+! #define PixelType   unsigned char
+! #endif
+  
++ #if PSZ == 16
++ #define PPW	2
++ #define PWSH	1
++ #define PIXEL_ADDR
++ #define PixelType   unsigned short
++ #endif
++ 
++ #if PSZ == 32
++ #define PPW	1
++ #define PWSH	0
++ #undef PMSK
++ #define PMSK	0xFFFFFFFF
++ #define PIXEL_ADDR
++ #define PixelType   unsigned long
++ #endif
++ 
+  /* the following notes use the following conventions:
+  SCREEN LEFT				SCREEN RIGHT
+  in this file and maskbits.c, left and right refer to screen coordinates,
+***************
+*** 221,229 ****
+--- 247,272 ----
+   * Note that the shift direction is independent of the byte ordering of the 
+   * machine.  The following is portable code.
+   */
++ #if PPW == 8
+  #define PFILL(p) ( ((p)&PMSK)          | \
+  		   ((p)&PMSK) <<   PSZ | \
+  		   ((p)&PMSK) << 2*PSZ | \
++ 		   ((p)&PMSK) << 3*PSZ | \
++ 		   ((p)&PMSK) << 4*PSZ | \
++ 		   ((p)&PMSK) << 5*PSZ | \
++ 		   ((p)&PMSK) << 6*PSZ | \
++ 		   ((p)&PMSK) << 7*PSZ )
++ #define PFILL2(p, pf) { \
++     pf = (p) & PMSK; \
++     pf |= (pf << PSZ); \
++     pf |= (pf << 2*PSZ); \
++     pf |= (pf << 4*PSZ); \
++ }
++ #endif
++ #if PPW == 4
++ #define PFILL(p) ( ((p)&PMSK)          | \
++ 		   ((p)&PMSK) <<   PSZ | \
++ 		   ((p)&PMSK) << 2*PSZ | \
+  		   ((p)&PMSK) << 3*PSZ )
+  #define PFILL2(p, pf) { \
+      pf = (p) & PMSK; \
+***************
+*** 230,235 ****
+--- 273,291 ----
+      pf |= (pf << PSZ); \
+      pf |= (pf << 2*PSZ); \
+  }
++ #endif
++ #if PPW == 2
++ #define PFILL(p) ( ((p)&PMSK)          | \
++ 		   ((p)&PMSK) <<   PSZ )
++ #define PFILL2(p, pf) { \
++     pf = (p) & PMSK; \
++     pf |= (pf << PSZ); \
++ }
++ #endif
++ #if PPW == 1
++ #define PFILL(p)	(p)
++ #define PFILL2(p,pf)	(pf = (p))
++ #endif
+  
+  /*
+   * Reduced raster op - using precomputed values, perform the above
+***************
+*** 423,438 ****
+      }
+  #endif /* GETLEFTBITS_ALIGNMENT == 4 */
+  
+- #if (PPW*PSZ==32)
+- #define GET_VALID_BITS_FROM_LONG(l) (l)
+- #else
+- #define GET_VALID_BITS_FROM_LONG(l) ((l)&((1L<<(PPW*PSZ))-1))
+- #endif
+- 
+  /*
+   * getstipplepixels( psrcstip, x, w, ones, psrcpix, destpix )
+   *
+!  * Converts bits to pixels in a reasonable way.  Takes w (1 <= w <= 4)
+   * bits from *psrcstip, starting at bit x; call this a quartet of bits.
+   * Then, takes the pixels from *psrcpix corresponding to the one-bits (if
+   * ones is TRUE) or the zero-bits (if ones is FALSE) of the quartet
+--- 479,488 ----
+      }
+  #endif /* GETLEFTBITS_ALIGNMENT == 4 */
+  
+  /*
+   * getstipplepixels( psrcstip, x, w, ones, psrcpix, destpix )
+   *
+!  * Converts bits to pixels in a reasonable way.  Takes w (1 <= w <= PPW)
+   * bits from *psrcstip, starting at bit x; call this a quartet of bits.
+   * Then, takes the pixels from *psrcpix corresponding to the one-bits (if
+   * ones is TRUE) or the zero-bits (if ones is FALSE) of the quartet
+***************
+*** 456,465 ****
+  { \
+      unsigned int q; \
+      int m; \
+!     if ((m = ((x) - ((PPW*PSZ)-4))) > 0) { \
+          q = (*(psrcstip)) << m; \
+  	if ( (x)+(w) > (PPW*PSZ) ) \
+! 	    q |= GET_VALID_BITS_FROM_LONG(*((psrcstip)+1)) >> ((PPW*PSZ)-m); \
+      } \
+      else \
+          q = (*(psrcstip)) >> -m; \
+--- 506,515 ----
+  { \
+      unsigned int q; \
+      int m; \
+!     if ((m = ((x) - ((PPW*PSZ)-PPW))) > 0) { \
+          q = (*(psrcstip)) << m; \
+  	if ( (x)+(w) > (PPW*PSZ) ) \
+! 	    q |= *((psrcstip)+1) >> ((PPW*PSZ)-m); \
+      } \
+      else \
+          q = (*(psrcstip)) >> -m; \
+***************
+*** 470,476 ****
+  #define getstipplepixels( psrcstip, xt, w, ones, psrcpix, destpix ) \
+  { \
+      unsigned int q; \
+!     q = GET_VALID_BITS_FROM_LONG(*(psrcstip)) >> (xt); \
+      if ( ((xt)+(w)) > (PPW*PSZ) ) \
+          q |= (*((psrcstip)+1)) << ((PPW*PSZ)-(xt)); \
+      q = QuartetBitsTable[(w)] & ((ones) ? q : ~q); \
+--- 520,526 ----
+  #define getstipplepixels( psrcstip, xt, w, ones, psrcpix, destpix ) \
+  { \
+      unsigned int q; \
+!     q = *(psrcstip) >> (xt); \
+      if ( ((xt)+(w)) > (PPW*PSZ) ) \
+          q |= (*((psrcstip)+1)) << ((PPW*PSZ)-(xt)); \
+      q = QuartetBitsTable[(w)] & ((ones) ? q : ~q); \
+*** /tmp/,RCSt1a16493	Tue Feb 11 15:13:51 1992
+--- server/ddx/cfb/cfbpixmap.c	Thu Dec 19 14:17:08 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: cfbpixmap.c,v 5.7 91/07/18 23:36:46 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: cfbpixmap.c,v 5.8 91/12/19 14:17:05 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 31,131 ****
+  #include "Xmd.h"
+  #include "servermd.h"
+  #include "pixmapstr.h"
+  #include "cfbmskbits.h"
+  
+! #include "cfb.h"
+! #include "mi.h"
+  
+  extern void mfbXRotatePixmap(), mfbYRotatePixmap();
+  
+- #if (BITMAP_BIT_ORDER == MSBFirst)
+- static int masktab[32] = 
+-     {
+-         0x00000000,
+-         0x80000000,
+-         0xC0000000,
+-         0xE0000000,
+-         0xF0000000,
+-         0xF8000000,
+-         0xFC000000,
+-         0xFE000000,
+-         0xFF000000,
+-         0xFF800000,
+-         0xFFC00000,
+-         0xFFE00000,
+-         0xFFF00000,
+-         0xFFF80000,
+-         0xFFFC0000,
+-         0xFFFE0000,
+-         0xFFFF0000,
+-         0xFFFF8000,
+-         0xFFFFC000,
+-         0xFFFFE000,
+-         0xFFFFF000,
+-         0xFFFFF800,
+-         0xFFFFFC00,
+-         0xFFFFFE00,
+-         0xFFFFFF00,
+-         0xFFFFFF80,
+-         0xFFFFFFC0,
+-         0xFFFFFFE0,
+-         0xFFFFFFF0,
+-         0xFFFFFFF8,
+-         0xFFFFFFFC,
+-         0xFFFFFFFE
+-     };
+- #else
+- static int masktab[32] =
+-         {
+-         0x00000000,
+-         0x00000001,
+-         0x00000003,
+-         0x00000007,
+-         0x0000000F,
+-         0x0000001F,
+-         0x0000003F,
+-         0x0000007F,
+-         0x000000FF,
+-         0x000001FF,
+-         0x000003FF,
+-         0x000007FF,
+-         0x00000FFF,
+-         0x00001FFF,
+-         0x00003FFF,
+-         0x00007FFF,
+-         0x0000FFFF,
+-         0x0001FFFF,
+-         0x0003FFFF,
+-         0x0007FFFF,
+-         0x000FFFFF,
+-         0x001FFFFF,
+-         0x003FFFFF,
+-         0x007FFFFF,
+-         0x00FFFFFF,
+-         0x01FFFFFF,
+-         0x03FFFFFF,
+-         0x07FFFFFF,
+-         0x0FFFFFFF,
+-         0x1FFFFFFF,
+-         0x3FFFFFFF,
+-         0x7FFFFFFF
+-         };
+- #endif
+- 
+  PixmapPtr
+! cfbCreatePixmap (pScreen, width, height, bitsPerPixel)
+      ScreenPtr	pScreen;
+      int		width;
+      int		height;
+!     int		bitsPerPixel;
+  {
+      register PixmapPtr pPixmap;
+      int size;
+  
+!     if (bitsPerPixel != 1 && bitsPerPixel != PSZ)
+! 	return NullPixmap;
+! 
+!     size = PixmapBytePad(width, bitsPerPixel);
+      pPixmap = (PixmapPtr)xalloc(sizeof(PixmapRec) + (height * size));
+      if (!pPixmap)
+  	return NullPixmap;
+--- 31,57 ----
+  #include "Xmd.h"
+  #include "servermd.h"
+  #include "pixmapstr.h"
++ #include "mi.h"
++ #include "cfb.h"
+  #include "cfbmskbits.h"
+  
+! extern unsigned int endtab[];
+  
+  extern void mfbXRotatePixmap(), mfbYRotatePixmap();
+  
+  PixmapPtr
+! cfbCreatePixmap (pScreen, width, height, depth)
+      ScreenPtr	pScreen;
+      int		width;
+      int		height;
+!     int		depth;
+  {
+      register PixmapPtr pPixmap;
+      int size;
++     int bitsPerPixel;
+  
+!     bitsPerPixel = BitsPerPixel(depth);
+!     size = PixmapBytePad(width, depth);
+      pPixmap = (PixmapPtr)xalloc(sizeof(PixmapRec) + (height * size));
+      if (!pPixmap)
+  	return NullPixmap;
+***************
+*** 132,138 ****
+      pPixmap->drawable.type = DRAWABLE_PIXMAP;
+      pPixmap->drawable.class = 0;
+      pPixmap->drawable.pScreen = pScreen;
+!     pPixmap->drawable.depth = bitsPerPixel;
+      pPixmap->drawable.bitsPerPixel = bitsPerPixel;
+      pPixmap->drawable.id = 0;
+      pPixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+--- 58,64 ----
+      pPixmap->drawable.type = DRAWABLE_PIXMAP;
+      pPixmap->drawable.class = 0;
+      pPixmap->drawable.pScreen = pScreen;
+!     pPixmap->drawable.depth = depth;
+      pPixmap->drawable.bitsPerPixel = bitsPerPixel;
+      pPixmap->drawable.id = 0;
+      pPixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+***************
+*** 209,215 ****
+      if (rep*width != 32)
+          return;
+   
+!     mask = masktab[width];
+   
+      p = (unsigned int *)(pPixmap->devPrivate.ptr);
+      for (h=0; h < pPixmap->drawable.height; h++)
+--- 135,141 ----
+      if (rep*width != 32)
+          return;
+   
+!     mask = endtab[width];
+   
+      p = (unsigned int *)(pPixmap->devPrivate.ptr);
+      for (h=0; h < pPixmap->drawable.height; h++)
+***************
+*** 316,322 ****
+  	register unsigned int *pwTmp;
+  	int size, tsize;
+  
+! 	tsize = PixmapBytePad(pPix->drawable.width - rot, PSZ);
+  	pwTmp = (unsigned int *) ALLOCATE_LOCAL(pPix->drawable.height * tsize);
+  	if (!pwTmp)
+  	    return;
+--- 242,248 ----
+  	register unsigned int *pwTmp;
+  	int size, tsize;
+  
+! 	tsize = PixmapBytePad(pPix->drawable.width - rot, pPix->drawable.depth);
+  	pwTmp = (unsigned int *) ALLOCATE_LOCAL(pPix->drawable.height * tsize);
+  	if (!pwTmp)
+  	    return;
+*** /tmp/,RCSt1a16512	Tue Feb 11 15:13:57 1992
+--- server/ddx/cfb/cfbply1rct.c	Thu Dec 19 14:17:10 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cfbply1rct.c,v 1.9 91/07/09 16:09:23 rws Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: cfbply1rct.c,v 1.10 91/12/19 14:17:07 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 202,209 ****
+  	    	l = x2;
+  	    	r = x1;
+      	    }
+  	    c = l & PIM;
+! 	    addr = (unsigned long *) (((char *) addrl) + (l - c));
+  	    if (c + nmiddle < PPW)
+  	    {
+  	    	mask = SCRRIGHT (bits,c) ^ SCRRIGHT (bits,c+nmiddle);
+--- 202,219 ----
+  	    	l = x2;
+  	    	r = x1;
+      	    }
++ #if PPW > 1
+  	    c = l & PIM;
+! 	    l -= c;
+! #endif
+! #if PWSH > 2
+! 	    l = l >> (PWSH - 2);
+! #endif
+! #if PWSH < 2
+! 	    l = l << (2 - PWSH);
+! #endif
+! 	    addr = (unsigned long *) (((char *) addrl) + l);
+! #if PPW > 1
+  	    if (c + nmiddle < PPW)
+  	    {
+  	    	mask = SCRRIGHT (bits,c) ^ SCRRIGHT (bits,c+nmiddle);
+***************
+*** 218,230 ****
+--- 228,243 ----
+  	    	    nmiddle += c - PPW;
+  	    	    addr++;
+  	    	}
++ #endif
+  	    	nmiddle >>= PWSH;
+  		while (--nmiddle >= 0) {
+  		    RROP_SOLID(addr); addr++;
+  		}
++ #if PPW > 1
+  	    	if (mask = ~SCRRIGHT(bits, r & PIM))
+  	    	    RROP_SOLID_MASK(addr,mask);
+  	    }
++ #endif
+  	    if (!--h)
+  		break;
+  	    addrl = AddrYPlus (addrl, 1);
+*** /tmp/,RCSt1a16531	Tue Feb 11 15:14:04 1992
+--- server/ddx/cfb/cfbpntwin.c	Tue Feb 11 15:04:26 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: cfbpntwin.c,v 5.15 92/02/11 15:04:23 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 43,48 ****
+--- 44,50 ----
+      int		what;
+  {
+      register cfbPrivWin	*pPrivWin;
++     WindowPtr	pBgWin;
+  
+      pPrivWin = (cfbPrivWin *)(pWin->devPrivates[cfbWindowPrivateIndex].ptr);
+  
+***************
+*** 50,56 ****
+      case PW_BACKGROUND:
+  	switch (pWin->backgroundState) {
+  	case None:
+! 	    return;
+  	case ParentRelative:
+  	    do {
+  		pWin = pWin->parent;
+--- 52,58 ----
+      case PW_BACKGROUND:
+  	switch (pWin->backgroundState) {
+  	case None:
+! 	    break;
+  	case ParentRelative:
+  	    do {
+  		pWin = pWin->parent;
+***************
+*** 57,63 ****
+  	    } while (pWin->backgroundState == ParentRelative);
+  	    (*pWin->drawable.pScreen->PaintWindowBackground)(pWin, pRegion,
+  							     what);
+! 	    return;
+  	case BackgroundPixmap:
+  	    if (pPrivWin->fastBackground)
+  	    {
+--- 59,65 ----
+  	    } while (pWin->backgroundState == ParentRelative);
+  	    (*pWin->drawable.pScreen->PaintWindowBackground)(pWin, pRegion,
+  							     what);
+! 	    break;
+  	case BackgroundPixmap:
+  	    if (pPrivWin->fastBackground)
+  	    {
+***************
+*** 65,71 ****
+  				  (int)REGION_NUM_RECTS(pRegion),
+  				  REGION_RECTS(pRegion),
+  				  pPrivWin->pRotatedBackground);
+- 		return;
+  	    }
+  	    else
+  	    {
+--- 67,72 ----
+***************
+*** 74,80 ****
+  				   REGION_RECTS(pRegion),
+  				   pWin->background.pixmap,
+  				   (int) pWin->drawable.x, (int) pWin->drawable.y);
+- 		return;
+  	    }
+  	    break;
+  	case BackgroundPixel:
+--- 75,80 ----
+***************
+*** 82,88 ****
+  			     (int)REGION_NUM_RECTS(pRegion),
+  			     REGION_RECTS(pRegion),
+  			     pWin->background.pixel);
+! 	    return;
+      	}
+      	break;
+      case PW_BORDER:
+--- 82,88 ----
+  			     (int)REGION_NUM_RECTS(pRegion),
+  			     REGION_RECTS(pRegion),
+  			     pWin->background.pixel);
+! 	    break;
+      	}
+      	break;
+      case PW_BORDER:
+***************
+*** 92,98 ****
+  			     (int)REGION_NUM_RECTS(pRegion),
+  			     REGION_RECTS(pRegion),
+  			     pWin->border.pixel);
+- 	    return;
+  	}
+  	else if (pPrivWin->fastBorder)
+  	{
+--- 92,97 ----
+***************
+*** 100,119 ****
+  			      (int)REGION_NUM_RECTS(pRegion),
+  			      REGION_RECTS(pRegion),
+  			      pPrivWin->pRotatedBorder);
+- 	    return;
+  	}
+! 	else if (pWin->border.pixmap->drawable.width >= PPW/2)
+  	{
+  	    cfbFillBoxTileOdd ((DrawablePtr)pWin,
+  			       (int)REGION_NUM_RECTS(pRegion),
+  			       REGION_RECTS(pRegion),
+  			       pWin->border.pixmap,
+! 			       (int) pWin->drawable.x, (int) pWin->drawable.y);
+! 	    return;
+  	}
+  	break;
+      }
+-     miPaintWindow (pWin, pRegion, what);
+  }
+  
+  /*
+--- 99,120 ----
+  			      (int)REGION_NUM_RECTS(pRegion),
+  			      REGION_RECTS(pRegion),
+  			      pPrivWin->pRotatedBorder);
+  	}
+! 	else
+  	{
++ 	    for (pBgWin = pWin;
++ 		 pBgWin->backgroundState == ParentRelative;
++ 		 pBgWin = pBgWin->parent);
++ 
+  	    cfbFillBoxTileOdd ((DrawablePtr)pWin,
+  			       (int)REGION_NUM_RECTS(pRegion),
+  			       REGION_RECTS(pRegion),
+  			       pWin->border.pixmap,
+! 			       (int) pBgWin->drawable.x,
+!  			       (int) pBgWin->drawable.y);
+  	}
+  	break;
+      }
+  }
+  
+  /*
+***************
+*** 188,194 ****
+      	pdst = pdstBase + pBox->y1 * widthDst;
+      	h = pBox->y2 - pBox->y1;
+  	w = pBox->x2 - pBox->x1;
+! #if PPW == 4
+  	if (w == 1)
+  	{
+  	    register char    *pdstb = ((char *) pdst) + pBox->x1;
+--- 189,195 ----
+      	pdst = pdstBase + pBox->y1 * widthDst;
+      	h = pBox->y2 - pBox->y1;
+  	w = pBox->x2 - pBox->x1;
+! #if PSZ == 8
+  	if (w == 1)
+  	{
+  	    register char    *pdstb = ((char *) pdst) + pBox->x1;
+***************
+*** 246,252 ****
+  		}
+  	    }
+  	}
+! #if PPW == 4
+  	}
+  #endif
+      }
+--- 247,253 ----
+  		}
+  	    }
+  	}
+! #if PSZ == 8
+  	}
+  #endif
+      }
+*** /tmp/,RCSt1a16550	Tue Feb 11 15:14:11 1992
+--- server/ddx/cfb/cfbpolypnt.c	Thu Dec 19 14:17:14 1991
+***************
+*** 15,21 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbpolypnt.c,v 5.13 91/07/14 13:51:14 keith Exp $ */
+  
+  #include "X.h"
+  #include "gcstruct.h"
+--- 15,21 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbpolypnt.c,v 5.14 91/12/19 14:17:12 keith Exp $ */
+  
+  #include "X.h"
+  #include "gcstruct.h"
+***************
+*** 57,66 ****
+      register long   c1, c2;
+      register unsigned long   ClipMask = 0x80008000;
+      register unsigned long   xor;
+! #if PPW == 4
+!     register unsigned char   *addrb;
+!     register int    nbwidth;
+!     unsigned char   *addrbt;
+  #else
+      register unsigned long    *addrl;
+      register int    nlwidth;
+--- 57,66 ----
+      register long   c1, c2;
+      register unsigned long   ClipMask = 0x80008000;
+      register unsigned long   xor;
+! #ifdef PIXEL_ADDR
+!     register PixelType   *addrp;
+!     register int    npwidth;
+!     PixelType	    *addrpt;
+  #else
+      register unsigned long    *addrl;
+      register int    nlwidth;
+***************
+*** 93,125 ****
+      }
+      off = *((int *) &pDrawable->x);
+      off -= (off & 0x8000) << 1;
+! #if PPW == 4
+!     cfbGetByteWidthAndPointer(pDrawable, nbwidth, addrb);
+!     addrb = addrb + pDrawable->y * nbwidth + pDrawable->x;
+      if (rop == GXcopy)
+      {
+! 	if (!(nbwidth & (nbwidth - 1)))
+  	{
+! 	    nbwidth = ffs(nbwidth) - 1;
+! 	    PointLoop(*(addrb + (intToY(pt) << nbwidth) + intToX(pt)) = xor;)
+  	}
+  #ifdef sun
+! 	else if (nbwidth == 1152)
+  	{
+  	    register int    y;
+! 	    PointLoop(y = intToY(pt); *(addrb + (y << 10) + (y << 7) + intToX(pt)) = xor;)
+  	}
+  #endif
+  	else
+  	{
+! 	    PointLoop(*(addrb + intToY(pt) * nbwidth + intToX(pt)) = xor;)
+  	}
+      }
+      else
+      {
+  	and = devPriv->and;
+! 	PointLoop(  addrbt = addrb + intToY(pt) * nbwidth + intToX(pt);
+! 		    *addrbt = DoRRop (*addrbt, and, xor);)
+      }
+  #else
+      cfbGetLongWidthAndPointer(pDrawable, nlwidth, addrl);
+--- 93,125 ----
+      }
+      off = *((int *) &pDrawable->x);
+      off -= (off & 0x8000) << 1;
+! #ifdef PIXEL_ADDR
+!     cfbGetPixelWidthAndPointer(pDrawable, npwidth, addrp);
+!     addrp = addrp + pDrawable->y * npwidth + pDrawable->x;
+      if (rop == GXcopy)
+      {
+! 	if (!(npwidth & (npwidth - 1)))
+  	{
+! 	    npwidth = ffs(npwidth) - 1;
+! 	    PointLoop(*(addrp + (intToY(pt) << npwidth) + intToX(pt)) = xor;)
+  	}
+  #ifdef sun
+! 	else if (npwidth == 1152)
+  	{
+  	    register int    y;
+! 	    PointLoop(y = intToY(pt); *(addrp + (y << 10) + (y << 7) + intToX(pt)) = xor;)
+  	}
+  #endif
+  	else
+  	{
+! 	    PointLoop(*(addrp + intToY(pt) * npwidth + intToX(pt)) = xor;)
+  	}
+      }
+      else
+      {
+  	and = devPriv->and;
+! 	PointLoop(  addrpt = addrp + intToY(pt) * npwidth + intToX(pt);
+! 		    *addrpt = DoRRop (*addrpt, and, xor);)
+      }
+  #else
+      cfbGetLongWidthAndPointer(pDrawable, nlwidth, addrl);
+*** /tmp/,RCSt1a16569	Tue Feb 11 15:14:17 1992
+--- server/ddx/cfb/cfbpush8.c	Thu Dec 19 18:36:49 1991
+***************
+*** 15,22 ****
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  */
+! /* $XConsortium: cfbpush8.c,v 5.9 91/04/10 11:41:54 keith Exp $ */
+  
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+--- 15,24 ----
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  */
+! /* $XConsortium: cfbpush8.c,v 5.10 91/12/19 18:36:46 keith Exp $ */
+  
++ #if PSZ == 8
++ 
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+***************
+*** 28,35 ****
+  #include	"cfb.h"
+  #include	"cfbmskbits.h"
+  #include	"cfb8bit.h"
+- 
+- #if PPW == 4
+  
+  extern void mfbPushPixels();
+  
+--- 30,35 ----
+*** /tmp/,RCSt1a16588	Tue Feb 11 15:14:25 1992
+--- server/ddx/cfb/cfbrctstp8.c	Thu Dec 19 18:36:32 1991
+***************
+*** 18,25 ****
+  
+  */
+  
+! /* $XConsortium: cfbrctstp8.c,v 1.13 91/04/10 11:41:33 keith Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+  #include "servermd.h"
+--- 18,27 ----
+  
+  */
+  
+! /* $XConsortium: cfbrctstp8.c,v 1.14 91/12/19 18:36:29 keith Exp $ */
+  
++ #if PSZ == 8
++ 
+  #include "X.h"
+  #include "Xmd.h"
+  #include "servermd.h"
+***************
+*** 32,40 ****
+  #include "cfb.h"
+  #include "cfbmskbits.h"
+  #include "cfb8bit.h"
+- 
+- #if (PPW == 4)
+- 
+  
+  void
+  cfb8FillRectOpaqueStippled32 (pDrawable, pGC, nBox, pBox)
+--- 34,39 ----
+*** /tmp/,RCSt1a16607	Tue Feb 11 15:14:33 1992
+--- server/ddx/cfb/cfbrrop.c	Wed Dec 11 14:04:27 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cfbrrop.c,v 1.4 91/01/27 13:03:00 keith Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: cfbrrop.c,v 1.5 91/12/11 14:03:14 rws Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 202,215 ****
+      /* check for some special cases to reduce computation */
+      if (and == 0)
+  	rrop = GXcopy;
+      else if (and == ~0)
+  	rrop = GXxor;
+      else if (xor == 0)
+  	rrop = GXand;
+!     else if (and | xor == ~0)
+  	rrop = GXor;
+-     else if (and == ~0 && xor == 0)
+- 	rrop = GXnoop;
+      else
+  	rrop = GXset;   /* rop not reduced */
+      return rrop;
+--- 202,217 ----
+      /* check for some special cases to reduce computation */
+      if (and == 0)
+  	rrop = GXcopy;
++     /* nothing checks for GXnoop
++     else if (and == ~0 && xor == 0)
++ 	rrop = GXnoop;
++     */
+      else if (and == ~0)
+  	rrop = GXxor;
+      else if (xor == 0)
+  	rrop = GXand;
+!     else if (and ^ xor == ~0)
+  	rrop = GXor;
+      else
+  	rrop = GXset;   /* rop not reduced */
+      return rrop;
+*** /tmp/,RCSt1a16645	Tue Feb 11 15:14:47 1992
+--- server/ddx/cfb/cfbscrinit.c	Mon Dec 30 09:37:02 1991
+***************
+*** 25,31 ****
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.19 91/06/28 12:40:07 keith Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+--- 25,31 ----
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.23 91/12/30 09:35:27 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+***************
+*** 46,94 ****
+  extern RegionPtr cfbCopyPlane();
+  extern Bool mfbAllocatePrivates();
+  
+- extern int defaultColorVisualClass;
+  
+- #define _BP 8
+- #define _RZ ((PSZ + 2) / 3)
+- #define _RS 0
+- #define _RM ((1 << _RZ) - 1)
+- #define _GZ ((PSZ - _RZ + 1) / 2)
+- #define _GS _RZ
+- #define _GM (((1 << _GZ) - 1) << _GS)
+- #define _BZ (PSZ - _RZ - _GZ)
+- #define _BS (_RZ + _GZ)
+- #define _BM (((1 << _BZ) - 1) << _BS)
+- #define _CE (1 << _RZ)
+- 
+- static VisualRec visuals[] = {
+- /* vid  class        bpRGB cmpE nplan rMask gMask bMask oRed oGreen oBlue */
+- #ifndef STATIC_COLOR
+-     0,  PseudoColor, _BP,  1<<PSZ,   PSZ,  0,   0,   0,   0,   0,   0,
+-     0,  DirectColor, _BP, _CE,       PSZ,  _RM, _GM, _BM, _RS, _GS, _BS,
+-     0,  GrayScale,   _BP,  1<<PSZ,   PSZ,  0,   0,   0,   0,   0,   0,
+-     0,  StaticGray,  _BP,  1<<PSZ,   PSZ,  0,   0,   0,   0,   0,   0,
+- #endif
+-     0,  StaticColor, _BP,  1<<PSZ,   PSZ,  _RM, _GM, _BM, _RS, _GS, _BS,
+-     0,  TrueColor,   _BP, _CE,       PSZ,  _RM, _GM, _BM, _RS, _GS, _BS
+- };
+- 
+- #define	NUMVISUALS	((sizeof visuals)/(sizeof visuals[0]))
+- 
+- static  VisualID VIDs[NUMVISUALS];
+- 
+- static DepthRec depths[] = {
+- /* depth	numVid		vids */
+-     1,		0,		NULL,
+-     8,		NUMVISUALS,	VIDs
+- };
+- 
+- #define NUMDEPTHS	((sizeof depths)/(sizeof depths[0]))
+- 
+- int cfbWindowPrivateIndex;
+- int cfbGCPrivateIndex;
+- 
+- static unsigned long cfbGeneration = 0;
+- 
+  miBSFuncRec cfbBSFuncRec = {
+      cfbSaveAreas,
+      cfbRestoreAreas,
+--- 46,52 ----
+***************
+*** 98,103 ****
+--- 56,81 ----
+  };
+  
+  Bool
++ cfbCloseScreen (index, pScreen)
++     int		index;
++     ScreenPtr	pScreen;
++ {
++     int	    d;
++     DepthPtr	depths = pScreen->allowedDepths;
++ 
++     for (d = 0; d < pScreen->numDepths; d++)
++ 	xfree (depths[d].vids);
++     xfree (depths);
++     xfree (pScreen->visuals);
++ #ifdef CFB_NEED_SCREEN_PRIVATE
++     xfree (pScreen->devPrivates[cfbScreenPrivateIndex].ptr);
++ #else
++     xfree (pScreen->devPrivate);
++ #endif
++     return TRUE;
++ }
++ 
++ Bool
+  cfbSetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width)
+      register ScreenPtr pScreen;
+      pointer pbits;		/* pointer to screen bitmap */
+***************
+*** 106,128 ****
+      int width;			/* pixel width of frame buffer */
+  {
+      int	i;
+  
+!     if (cfbGeneration != serverGeneration)
+!     {
+! 	/*  Set up the visual IDs */
+! 	for (i = 0; i < NUMVISUALS; i++) {
+! 	    visuals[i].vid = FakeClientID(0);
+! 	    VIDs[i] = visuals[i].vid;
+! 	}
+! 	cfbGeneration = serverGeneration;
+!     }
+!     if (!mfbAllocatePrivates(pScreen,
+! 			     &cfbWindowPrivateIndex, &cfbGCPrivateIndex))
+  	return FALSE;
+-     if (!AllocateWindowPrivate(pScreen, cfbWindowPrivateIndex,
+- 			       sizeof(cfbPrivWin)) ||
+- 	!AllocateGCPrivate(pScreen, cfbGCPrivateIndex, sizeof(cfbPrivGC)))
+- 	return FALSE;
+      pScreen->defColormap = FakeClientID(0);
+      /* let CreateDefColormap do whatever it wants for pixels */ 
+      pScreen->blackPixel = pScreen->whitePixel = (Pixel) 0;
+--- 84,93 ----
+      int width;			/* pixel width of frame buffer */
+  {
+      int	i;
++     extern RegionPtr	(*cfbPuntCopyPlane)();
+  
+!     if (!cfbAllocatePrivates(pScreen, (int *) 0, (int *) 0))
+  	return FALSE;
+      pScreen->defColormap = FakeClientID(0);
+      /* let CreateDefColormap do whatever it wants for pixels */ 
+      pScreen->blackPixel = pScreen->whitePixel = (Pixel) 0;
+***************
+*** 166,190 ****
+      int dpix, dpiy;		/* dots per inch */
+      int width;			/* pixel width of frame buffer */
+  {
+!     int	i;
+  
+!     if (defaultColorVisualClass < 0)
+!     {
+! 	i = 0;
+!     }
+!     else
+!     {
+! 	for (i = 0;
+! 	     (i < NUMVISUALS) && (visuals[i].class != defaultColorVisualClass);
+! 	     i++)
+! 	    ;
+! 	if (i >= NUMVISUALS)
+! 	    i = 0;
+!     }
+!     return miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
+! 			8, NUMDEPTHS, depths,
+! 			visuals[i].vid, NUMVISUALS, visuals,
+! 			&cfbBSFuncRec);
+  }
+  
+  /* dts * (inch/dot) * (25.4 mm / inch) = mm */
+--- 131,165 ----
+      int dpix, dpiy;		/* dots per inch */
+      int width;			/* pixel width of frame buffer */
+  {
+!     int	i, j;
+! #ifdef CFB_NEED_SCREEN_PRIVATE
+!     pointer oldDevPrivate;
+! #endif
+!     VisualPtr	visuals;
+!     DepthPtr	depths;
+!     int		nvisuals;
+!     int		ndepths;
+!     int		rootdepth;
+!     VisualID	defaultVisual;
+  
+!     rootdepth = 0;
+!     if (!cfbInitVisuals (&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1<<(PSZ-1)))
+! 	return FALSE;
+! #ifdef CFB_NEED_SCREEN_PRIVATE
+!     oldDevPrivate = pScreen->devPrivate;
+! #endif
+!     if (! miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
+! 			rootdepth, ndepths, depths,
+! 			defaultVisual, nvisuals, visuals,
+! 			&cfbBSFuncRec))
+! 	return FALSE;
+! #ifdef CFB_NEED_SCREEN_PRIVATE
+!     pScreen->devPrivates[cfbScreenPrivateIndex].ptr = pScreen->devPrivate;
+!     pScreen->devPrivate = oldDevPrivate;
+! #endif
+!     /* smash miScreenClose */
+!     pScreen->CloseScreen = cfbCloseScreen;
+!     return TRUE;
+  }
+  
+  /* dts * (inch/dot) * (25.4 mm / inch) = mm */
+*** /tmp/,RCSt1a16686	Tue Feb 11 15:15:02 1992
+--- server/ddx/cfb/cfbsolid.c	Thu Dec 19 18:37:01 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cfbsolid.c,v 1.5 91/07/11 21:48:24 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: cfbsolid.c,v 1.6 91/12/19 18:36:58 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 132,138 ****
+      	pdstRect = pdstBase + pBox->y1 * widthDst;
+      	h = pBox->y2 - pBox->y1;
+  	w = pBox->x2 - pBox->x1;
+! #if PPW == 4
+  	if (w == 1)
+  	{
+  	    register char    *pdstb = ((char *) pdstRect) + pBox->x1;
+--- 132,138 ----
+      	pdstRect = pdstBase + pBox->y1 * widthDst;
+      	h = pBox->y2 - pBox->y1;
+  	w = pBox->x2 - pBox->x1;
+! #if PSZ == 8
+  	if (w == 1)
+  	{
+  	    register char    *pdstb = ((char *) pdstRect) + pBox->x1;
+***************
+*** 187,193 ****
+  		}
+  	    }
+  	}
+! #if PPW == 4
+  	}
+  #endif
+      }
+--- 187,193 ----
+  		}
+  	    }
+  	}
+! #if PSZ == 8
+  	}
+  #endif
+      }
+***************
+*** 248,254 ****
+  	w = *pwidth++;
+  	if (!w)
+  	    continue;
+! #if PPW == 4
+  	if (w <= 4)
+  	{
+  	    register char   *addrb;
+--- 248,254 ----
+  	w = *pwidth++;
+  	if (!w)
+  	    continue;
+! #if PSZ == 8
+  	if (w <= 4)
+  	{
+  	    register char   *addrb;
+*** /tmp/,RCSt1a16705	Tue Feb 11 15:15:09 1992
+--- server/ddx/cfb/cfbteblt8.c	Mon Jan 27 19:18:13 1992
+***************
+*** 17,24 ****
+  purpose.  It is provided "as is" without express or implied warranty.
+  */
+  
+! /* $XConsortium: cfbteblt8.c,v 5.14 91/04/10 11:41:38 keith Exp $ */
+  
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+--- 17,26 ----
+  purpose.  It is provided "as is" without express or implied warranty.
+  */
+  
+! /* $XConsortium: cfbteblt8.c,v 5.17 92/01/27 19:12:22 eswu Exp $ */
+  
++ #if PSZ == 8
++ 
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+***************
+*** 33,40 ****
+  #include	"cfbmskbits.h"
+  #include	"cfb8bit.h"
+  
+- #if (PPW == 4)
+- 
+  /*
+   * this code supports up to 5 characters at a time.  The performance
+   * differences between 4 and 5 is usually small (~7% on PMAX) and
+--- 35,40 ----
+***************
+*** 45,53 ****
+  
+  #ifndef NGLYPHS
+  #define NGLYPHS 4
+- #endif
+- 
+- #if NGLYPHS == 4
+  #define DO_COMMON
+  #endif
+  
+--- 45,50 ----
+***************
+*** 76,104 ****
+  typedef unsigned int	*glyphPointer;
+  #endif
+  
+! #define GetBitsL    c = BitLeft (*leftChar++, lshift)
+! 
+  #define GetBits1S   c = BitRight(*char1++, xoff1)
+  #define GetBits1L   GetBitsL | BitRight(*char1++, xoff1)
+  #define GetBits1U   c = *char1++
+! #define GetBits2S   GetBits1S | BitRight(*char2++, xoff2)
+! #define GetBits2L   GetBits1L | BitRight(*char2++, xoff2)
+! #define GetBits2U   GetBits1U | BitRight(*char2++, xoff2)
+! #define GetBits3S   GetBits2S | BitRight(*char3++, xoff3)
+! #define GetBits3L   GetBits2L | BitRight(*char3++, xoff3)
+! #define GetBits3U   GetBits2U | BitRight(*char3++, xoff3)
+! #define GetBits4S   GetBits3S | BitRight(*char4++, xoff4)
+! #define GetBits4L   GetBits3L | BitRight(*char4++, xoff4)
+! #define GetBits4U   GetBits3U | BitRight(*char4++, xoff4)
+! #define GetBits5S   GetBits4S | BitRight(*char5++, xoff5)
+! #define GetBits5L   GetBits4L | BitRight(*char5++, xoff5)
+! #define GetBits5U   GetBits4U | BitRight(*char5++, xoff5)
+  
+  #else
+  
+- typedef unsigned char	*glyphPointer;
+- 
+  #define USE_LEFTBITS
+  
+  #define GetBitsL    WGetBitsL
+  #define GetBits1S   WGetBits1S
+--- 73,114 ----
+  typedef unsigned int	*glyphPointer;
+  #endif
+  
+! #define GetBitsL       c = BitLeft (*leftChar++, lshift)
+! #define NGetBits1S(r)   c = BitRight(*char1++ r, xoff1)
+! #define NGetBits1L(r)   GetBitsL | BitRight(*char1++ r, xoff1)
+! #define NGetBits1U(r)   c = *char1++ r
+! #define NGetBits2S(r)   NGetBits1S(| BitRight(*char2++ r, widthGlyph))
+! #define NGetBits2L(r)   NGetBits1L(| BitRight(*char2++ r, widthGlyph))
+! #define NGetBits2U(r)   NGetBits1U(| BitRight(*char2++ r, widthGlyph))
+! #define NGetBits3S(r)   NGetBits2S(| BitRight(*char3++ r, widthGlyph))
+! #define NGetBits3L(r)   NGetBits2L(| BitRight(*char3++ r, widthGlyph))
+! #define NGetBits3U(r)   NGetBits2U(| BitRight(*char3++ r, widthGlyph))
+! #define NGetBits4S(r)   NGetBits3S(| BitRight(*char4++ r, widthGlyph))
+! #define NGetBits4L(r)   NGetBits3L(| BitRight(*char4++ r, widthGlyph))
+! #define NGetBits4U(r)   NGetBits3U(| BitRight(*char4++ r, widthGlyph))
+! #define NGetBits5S(r)   NGetBits4S(| BitRight(*char5++ r, widthGlyph))
+! #define NGetBits5L(r)   NGetBits4L(| BitRight(*char5++ r, widthGlyph))
+! #define NGetBits5U(r)   NGetBits4U(| BitRight(*char5++ r, widthGlyph))
+  #define GetBits1S   c = BitRight(*char1++, xoff1)
+  #define GetBits1L   GetBitsL | BitRight(*char1++, xoff1)
+  #define GetBits1U   c = *char1++
+! #define GetBits2S   NGetBits1S(| BitRight(*char2++, widthGlyph))
+! #define GetBits2L   NGetBits1L(| BitRight(*char2++, widthGlyph))
+! #define GetBits2U   NGetBits1U(| BitRight(*char2++, widthGlyph))
+! #define GetBits3S   NGetBits2S(| BitRight(*char3++, widthGlyph))
+! #define GetBits3L   NGetBits2L(| BitRight(*char3++, widthGlyph))
+! #define GetBits3U   NGetBits2U(| BitRight(*char3++, widthGlyph))
+! #define GetBits4S   NGetBits3S(| BitRight(*char4++, widthGlyph))
+! #define GetBits4L   NGetBits3L(| BitRight(*char4++, widthGlyph))
+! #define GetBits4U   NGetBits3U(| BitRight(*char4++, widthGlyph))
+! #define GetBits5S   NGetBits4S(| BitRight(*char5++, widthGlyph))
+! #define GetBits5L   NGetBits4L(| BitRight(*char5++, widthGlyph))
+! #define GetBits5U   NGetBits4U(| BitRight(*char5++, widthGlyph))
+  
+  #else
+  
+  #define USE_LEFTBITS
++ #define ALL_LEFTBITS
+  
+  #define GetBitsL    WGetBitsL
+  #define GetBits1S   WGetBits1S
+***************
+*** 306,321 ****
+      register unsigned long  leftMask, rightMask;
+      register int	    hTmp;
+      register int	    xoff1;
+-     register int	    xoff2;
+- #if NGLYPHS >= 3
+-     register int	    xoff3;
+- #endif
+- #if NGLYPHS >= 4
+-     register int	    xoff4;
+- #endif
+- #if NGLYPHS >= 5
+-     register int	    xoff5;
+- #endif
+      register glyphPointer   char1;
+      register glyphPointer   char2;
+  #if NGLYPHS >= 3
+--- 316,321 ----
+***************
+*** 327,332 ****
+--- 327,335 ----
+  #if NGLYPHS >= 5
+      register glyphPointer   char5;
+  #endif
++ #ifdef ALL_LEFTBITS
++     int xoff2, xoff3, xoff4, xoff5;
++ #endif
+  
+      FontPtr		pfont = pGC->font;
+      unsigned long	*dstLine;
+***************
+*** 399,425 ****
+  	    hTmp = h;
+  	    dstLine = pdstBase + (x >> 2);
+  	    xoff1 = x & 0x3;
+- 	    xoff2 = xoff1 + widthGlyph;
+- #if NGLYPHS >= 3
+- 	    xoff3 = xoff2 + widthGlyph;
+- #endif
+- #if NGLYPHS >= 4
+- 	    xoff4 = xoff3 + widthGlyph;
+- #endif
+- #if NGLYPHS >= 5
+- 	    xoff5 = xoff4 + widthGlyph;
+- #endif
+  	    char1 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  	    char2 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  #if NGLYPHS >= 3
+  	    char3 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  #endif
+  #if NGLYPHS >= 4
+  	    char4 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  #endif
+  #if NGLYPHS >= 5
+  	    char5 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  #endif
+  	    oldRightChar = LastChar;
+  	    dst = dstLine;
+  	    if (xoff1)
+--- 402,430 ----
+  	    hTmp = h;
+  	    dstLine = pdstBase + (x >> 2);
+  	    xoff1 = x & 0x3;
+  	    char1 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
+  	    char2 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
++ #ifdef ALL_LEFTBITS
++ 	    xoff2 = xoff1 + widthGlyph;
++ #endif
+  #if NGLYPHS >= 3
+  	    char3 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
++ #ifdef ALL_LEFTBITS
++ 	    xoff3 = xoff2 + widthGlyph;
+  #endif
++ #endif
+  #if NGLYPHS >= 4
+  	    char4 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
++ #ifdef ALL_LEFTBITS
++ 	    xoff4 = xoff3 + widthGlyph;
+  #endif
++ #endif
+  #if NGLYPHS >= 5
+  	    char5 = (glyphPointer) FONTGLYPHBITS(pglyphBase, *ppci++);
++ #ifdef ALL_LEFTBITS
++ 	    xoff5 = xoff4 + widthGlyph;
+  #endif
++ #endif
+  	    oldRightChar = LastChar;
+  	    dst = dstLine;
+  	    if (xoff1)
+***************
+*** 559,562 ****
+  	}
+      }
+  }
+! #endif /* PPW == 4 */
+--- 564,567 ----
+  	}
+      }
+  }
+! #endif /* PSZ == 8 */
+*** /tmp/,RCSt1a16811	Tue Feb 11 15:15:51 1992
+--- server/ddx/cfb/cfbwindow.c	Tue Feb 11 15:04:29 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: cfbwindow.c,v 5.13 92/02/11 15:04:25 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 98,103 ****
+--- 99,106 ----
+  
+      if (!pWin->borderIsPixel &&	pPrivWin->fastBorder)
+      {
++ 	while (pWin->backgroundState == ParentRelative)
++ 	    pWin = pWin->parent;
+  	cfbXRotatePixmap(pPrivWin->pRotatedBorder,
+  		      pWin->drawable.x - pPrivWin->oldRotate.x);
+  	cfbYRotatePixmap(pPrivWin->pRotatedBorder,
+***************
+*** 183,190 ****
+--- 186,213 ----
+      register unsigned long index;
+      register cfbPrivWin *pPrivWin;
+      int width;
++     WindowPtr	pBgWin;
+  
+      pPrivWin = (cfbPrivWin *)(pWin->devPrivates[cfbWindowPrivateIndex].ptr);
++ 
++     /*
++      * When background state changes from ParentRelative and
++      * we had previously rotated the fast border pixmap to match
++      * the parent relative origin, rerotate to match window
++      */
++     if (mask & (CWBackPixmap | CWBackPixel) &&
++ 	pWin->backgroundState != ParentRelative &&
++ 	pPrivWin->fastBorder &&
++ 	pPrivWin->oldRotate.x != pWin->drawable.x ||
++ 	pPrivWin->oldRotate.y != pWin->drawable.y)
++     {
++ 	cfbXRotatePixmap(pPrivWin->pRotatedBorder,
++ 		      pWin->drawable.x - pPrivWin->oldRotate.x);
++ 	cfbYRotatePixmap(pPrivWin->pRotatedBorder,
++ 		      pWin->drawable.y - pPrivWin->oldRotate.y);
++ 	pPrivWin->oldRotate.x = pWin->drawable.x;
++ 	pPrivWin->oldRotate.y = pWin->drawable.y;
++     }
+      while(mask)
+      {
+  	index = lowbit (mask);
+***************
+*** 191,261 ****
+  	mask &= ~index;
+  	switch(index)
+  	{
+! 	  case CWBackPixmap:
+! 	      if (pWin->backgroundState == None)
+! 	      {
+! 		  pPrivWin->fastBackground = FALSE;
+! 	      }
+! 	      else if (pWin->backgroundState == ParentRelative)
+! 	      {
+! 		  pPrivWin->fastBackground = FALSE;
+! 	      }
+! 	      else if (((width = (pWin->background.pixmap->drawable.width * PSZ)) <= 32) &&
+! 		       !(width & (width - 1)))
+! 	      {
+! 		  cfbCopyRotatePixmap(pWin->background.pixmap,
+! 				      &pPrivWin->pRotatedBackground,
+! 				      pWin->drawable.x,
+! 				      pWin->drawable.y);
+! 		  if (pPrivWin->pRotatedBackground)
+! 		  {
+! 		      pPrivWin->fastBackground = TRUE;
+! 		      pPrivWin->oldRotate.x = pWin->drawable.x;
+! 		      pPrivWin->oldRotate.y = pWin->drawable.y;
+! 		  }
+! 		  else
+! 		  {
+! 		      pPrivWin->fastBackground = FALSE;
+! 		  }
+! 	      }
+! 	      else
+! 	      {
+! 		  pPrivWin->fastBackground = FALSE;
+! 	      }
+! 	      break;
+  
+! 	  case CWBackPixel:
+! 	      pPrivWin->fastBackground = FALSE;
+! 	      break;
+  
+! 	  case CWBorderPixmap:
+! 	      if (((width = (pWin->border.pixmap->drawable.width * PSZ)) <= 32) &&
+! 		  !(width & (width - 1)))
+! 	      {
+! 		  cfbCopyRotatePixmap(pWin->border.pixmap,
+! 				      &pPrivWin->pRotatedBorder,
+! 				      pWin->drawable.x,
+! 				      pWin->drawable.y);
+! 		  if (pPrivWin->pRotatedBorder)
+! 		  {
+! 		      pPrivWin->fastBorder = TRUE;
+! 		      pPrivWin->oldRotate.x = pWin->drawable.x;
+! 		      pPrivWin->oldRotate.y = pWin->drawable.y;
+! 		  }
+! 		  else
+! 		  {
+! 		      pPrivWin->fastBorder = FALSE;
+! 		  }
+! 	      }
+! 	      else
+! 	      {
+! 		  pPrivWin->fastBorder = FALSE;
+! 	      }
+! 	      break;
+! 	    case CWBorderPixel:
+! 	      pPrivWin->fastBorder = FALSE;
+! 	      break;
+! 
+  	}
+      }
+      return (TRUE);
+--- 214,296 ----
+  	mask &= ~index;
+  	switch(index)
+  	{
+! 	case CWBackPixmap:
+! 	    if (pWin->backgroundState == None)
+! 	    {
+! 		pPrivWin->fastBackground = FALSE;
+! 	    }
+! 	    else if (pWin->backgroundState == ParentRelative)
+! 	    {
+! 		pPrivWin->fastBackground = FALSE;
+! 		/* Rotate border to match parent origin */
+! 		if (pPrivWin->pRotatedBorder) {
+! 		    for (pBgWin = pWin->parent;
+! 			 pBgWin->backgroundState == ParentRelative;
+! 			 pBgWin = pBgWin->parent);
+! 		    cfbXRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pWin->drawable.x - pPrivWin->oldRotate.x);
+! 		    cfbYRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pWin->drawable.y - pPrivWin->oldRotate.y);
+! 		}
+! 	    }
+! 	    else if (((width = (pWin->background.pixmap->drawable.width * PSZ)) <= 32) &&
+! 		     !(width & (width - 1)))
+! 	    {
+! 		cfbCopyRotatePixmap(pWin->background.pixmap,
+! 				    &pPrivWin->pRotatedBackground,
+! 				    pWin->drawable.x,
+! 				    pWin->drawable.y);
+! 		if (pPrivWin->pRotatedBackground)
+! 		{
+! 		    pPrivWin->fastBackground = TRUE;
+! 		    pPrivWin->oldRotate.x = pWin->drawable.x;
+! 		    pPrivWin->oldRotate.y = pWin->drawable.y;
+! 		}
+! 		else
+! 		{
+! 		    pPrivWin->fastBackground = FALSE;
+! 		}
+! 	    }
+! 	    else
+! 	    {
+! 		pPrivWin->fastBackground = FALSE;
+! 	    }
+! 	    break;
+  
+! 	case CWBackPixel:
+! 	    pPrivWin->fastBackground = FALSE;
+! 	    break;
+  
+! 	case CWBorderPixmap:
+! 	    if (((width = (pWin->border.pixmap->drawable.width * PSZ)) <= 32) &&
+! 		!(width & (width - 1)))
+! 	    {
+! 		for (pBgWin = pWin;
+! 		     pBgWin->backgroundState == ParentRelative;
+! 		     pBgWin = pBgWin->parent);
+! 		cfbCopyRotatePixmap(pWin->border.pixmap,
+! 				    &pPrivWin->pRotatedBorder,
+! 				    pBgWin->drawable.x,
+! 				    pBgWin->drawable.y);
+! 		if (pPrivWin->pRotatedBorder)
+! 		{
+! 		    pPrivWin->fastBorder = TRUE;
+! 		    pPrivWin->oldRotate.x = pBgWin->drawable.x;
+! 		    pPrivWin->oldRotate.y = pBgWin->drawable.y;
+! 		}
+! 		else
+! 		{
+! 		    pPrivWin->fastBorder = FALSE;
+! 		}
+! 	    }
+! 	    else
+! 	    {
+! 		pPrivWin->fastBorder = FALSE;
+! 	    }
+! 	    break;
+! 	 case CWBorderPixel:
+! 	    pPrivWin->fastBorder = FALSE;
+! 	    break;
+  	}
+      }
+      return (TRUE);
+*** /tmp/,RCSt1a16830	Tue Feb 11 15:15:58 1992
+--- server/ddx/cfb/cfbzerarc.c	Thu Dec 19 14:17:30 1991
+***************
+*** 15,21 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbzerarc.c,v 5.18 91/04/10 11:41:47 keith Exp $ */
+  
+  /* Derived from:
+   * "Algorithm for drawing ellipses or hyperbolae with a digital plotter"
+--- 15,21 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: cfbzerarc.c,v 5.19 91/12/19 14:17:28 keith Exp $ */
+  
+  /* Derived from:
+   * "Algorithm for drawing ellipses or hyperbolae with a digital plotter"
+***************
+*** 34,40 ****
+  #include "mizerarc.h"
+  #include "cfbrrop.h"
+  
+! #if PPW == 4
+  
+  extern void miPolyArc(), miZeroPolyArc();
+  
+--- 34,40 ----
+  #include "mizerarc.h"
+  #include "cfbrrop.h"
+  
+! #ifdef PIXEL_ADDR
+  
+  extern void miPolyArc(), miZeroPolyArc();
+  
+***************
+*** 47,78 ****
+      miZeroArcRec info;
+      Bool do360;
+      register int x;
+!     unsigned char *addrb;
+!     register unsigned char *yorgb, *yorgob;
+      RROP_DECLARE
+      register int yoffset;
+!     int nbwidth, dyoffset;
+      register int y, a, b, d, mask;
+      register int k1, k3, dx, dy;
+  
+!     cfbGetByteWidthAndPointer(pDraw,nbwidth, addrb)
+  
+      RROP_FETCH_GC (pGC);
+      do360 = miZeroArcSetup(arc, &info, TRUE);
+!     yorgb = addrb + ((info.yorg + pDraw->y) * nbwidth);
+!     yorgob = addrb + ((info.yorgo + pDraw->y) * nbwidth);
+      info.xorg += pDraw->x;
+      info.xorgo += pDraw->x;
+      MIARCSETUP();
+!     yoffset = y ? nbwidth : 0;
+      dyoffset = 0;
+      mask = info.initialMask;
+      if (!(arc->width & 1))
+      {
+  	if (mask & 2)
+! 	    RROP_SOLID((yorgb + info.xorgo));
+  	if (mask & 8)
+! 	    RROP_SOLID((yorgob + info.xorgo));
+      }
+      if (!info.end.x || !info.end.y)
+      {
+--- 47,78 ----
+      miZeroArcRec info;
+      Bool do360;
+      register int x;
+!     PixelType *addrp;
+!     register PixelType *yorgp, *yorgop;
+      RROP_DECLARE
+      register int yoffset;
+!     int npwidth, dyoffset;
+      register int y, a, b, d, mask;
+      register int k1, k3, dx, dy;
+  
+!     cfbGetPixelWidthAndPointer(pDraw,npwidth, addrp)
+  
+      RROP_FETCH_GC (pGC);
+      do360 = miZeroArcSetup(arc, &info, TRUE);
+!     yorgp = addrp + ((info.yorg + pDraw->y) * npwidth);
+!     yorgop = addrp + ((info.yorgo + pDraw->y) * npwidth);
+      info.xorg += pDraw->x;
+      info.xorgo += pDraw->x;
+      MIARCSETUP();
+!     yoffset = y ? npwidth : 0;
+      dyoffset = 0;
+      mask = info.initialMask;
+      if (!(arc->width & 1))
+      {
+  	if (mask & 2)
+! 	    RROP_SOLID((yorgp + info.xorgo));
+  	if (mask & 8)
+! 	    RROP_SOLID((yorgop + info.xorgo));
+      }
+      if (!info.end.x || !info.end.y)
+      {
+***************
+*** 81,99 ****
+      }
+      if (do360 && (arc->width == arc->height) && !(arc->width & 1))
+      {
+! 	register int xoffset = nbwidth;
+! 	unsigned char *yorghb = yorgb + (info.h * nbwidth) + info.xorg;
+! 	unsigned char *yorgohb = yorghb - info.h;
+  
+! 	yorgb += info.xorg;
+! 	yorgob += info.xorg;
+  	yorghb += info.h;
+  	while (1)
+  	{
+! 	    RROP_SOLID(yorgb + yoffset + x);
+! 	    RROP_SOLID(yorgb + yoffset - x);
+! 	    RROP_SOLID(yorgob - yoffset - x);
+! 	    RROP_SOLID(yorgob - yoffset + x);
+  	    if (a < 0)
+  		break;
+  	    RROP_SOLID(yorghb - xoffset - y);
+--- 81,99 ----
+      }
+      if (do360 && (arc->width == arc->height) && !(arc->width & 1))
+      {
+! 	register int xoffset = npwidth;
+! 	PixelType *yorghb = yorgp + (info.h * npwidth) + info.xorg;
+! 	PixelType *yorgohb = yorghb - info.h;
+  
+! 	yorgp += info.xorg;
+! 	yorgop += info.xorg;
+  	yorghb += info.h;
+  	while (1)
+  	{
+! 	    RROP_SOLID(yorgp + yoffset + x);
+! 	    RROP_SOLID(yorgp + yoffset - x);
+! 	    RROP_SOLID(yorgop - yoffset - x);
+! 	    RROP_SOLID(yorgop - yoffset + x);
+  	    if (a < 0)
+  		break;
+  	    RROP_SOLID(yorghb - xoffset - y);
+***************
+*** 100,123 ****
+  	    RROP_SOLID(yorgohb - xoffset + y);
+  	    RROP_SOLID(yorgohb + xoffset + y);
+  	    RROP_SOLID(yorghb + xoffset - y);
+! 	    xoffset += nbwidth;
+! 	    MIARCCIRCLESTEP(yoffset += nbwidth;);
+  	}
+! 	yorgb -= info.xorg;
+! 	yorgob -= info.xorg;
+  	x = info.w;
+! 	yoffset = info.h * nbwidth;
+      }
+      else if (do360)
+      {
+  	while (y < info.h || x < info.w)
+  	{
+! 	    MIARCOCTANTSHIFT(dyoffset = nbwidth;);
+! 	    RROP_SOLID(yorgb + yoffset + info.xorg + x);
+! 	    RROP_SOLID(yorgb + yoffset + info.xorgo - x);
+! 	    RROP_SOLID(yorgob - yoffset + info.xorgo - x);
+! 	    RROP_SOLID(yorgob - yoffset + info.xorg + x);
+! 	    MIARCSTEP(yoffset += dyoffset;, yoffset += nbwidth;);
+  	}
+      }
+      else
+--- 100,123 ----
+  	    RROP_SOLID(yorgohb - xoffset + y);
+  	    RROP_SOLID(yorgohb + xoffset + y);
+  	    RROP_SOLID(yorghb + xoffset - y);
+! 	    xoffset += npwidth;
+! 	    MIARCCIRCLESTEP(yoffset += npwidth;);
+  	}
+! 	yorgp -= info.xorg;
+! 	yorgop -= info.xorg;
+  	x = info.w;
+! 	yoffset = info.h * npwidth;
+      }
+      else if (do360)
+      {
+  	while (y < info.h || x < info.w)
+  	{
+! 	    MIARCOCTANTSHIFT(dyoffset = npwidth;);
+! 	    RROP_SOLID(yorgp + yoffset + info.xorg + x);
+! 	    RROP_SOLID(yorgp + yoffset + info.xorgo - x);
+! 	    RROP_SOLID(yorgop - yoffset + info.xorgo - x);
+! 	    RROP_SOLID(yorgop - yoffset + info.xorg + x);
+! 	    MIARCSTEP(yoffset += dyoffset;, yoffset += npwidth;);
+  	}
+      }
+      else
+***************
+*** 124,130 ****
+      {
+  	while (y < info.h || x < info.w)
+  	{
+! 	    MIARCOCTANTSHIFT(dyoffset = nbwidth;);
+  	    if ((x == info.start.x) || (y == info.start.y))
+  	    {
+  		mask = info.start.mask;
+--- 124,130 ----
+      {
+  	while (y < info.h || x < info.w)
+  	{
+! 	    MIARCOCTANTSHIFT(dyoffset = npwidth;);
+  	    if ((x == info.start.x) || (y == info.start.y))
+  	    {
+  		mask = info.start.mask;
+***************
+*** 131,163 ****
+  		info.start = info.altstart;
+  	    }
+  	    if (mask & 1)
+! 		RROP_SOLID(yorgb + yoffset + info.xorg + x);
+  	    if (mask & 2)
+! 		RROP_SOLID(yorgb + yoffset + info.xorgo - x);
+  	    if (mask & 4)
+! 		RROP_SOLID(yorgob - yoffset + info.xorgo - x);
+  	    if (mask & 8)
+! 		RROP_SOLID(yorgob - yoffset + info.xorg + x);
+  	    if ((x == info.end.x) || (y == info.end.y))
+  	    {
+  		mask = info.end.mask;
+  		info.end = info.altend;
+  	    }
+! 	    MIARCSTEP(yoffset += dyoffset;, yoffset += nbwidth;);
+  	}
+      }
+      if ((x == info.start.x) || (y == info.start.y))
+  	mask = info.start.mask;
+      if (mask & 1)
+! 	RROP_SOLID(yorgb + yoffset + info.xorg + x);
+      if (mask & 4)
+! 	RROP_SOLID(yorgob - yoffset + info.xorgo - x);
+      if (arc->height & 1)
+      {
+  	if (mask & 2)
+! 	    RROP_SOLID(yorgb + yoffset + info.xorgo - x);
+  	if (mask & 8)
+! 	    RROP_SOLID(yorgob - yoffset + info.xorg + x);
+      }
+  }
+  
+--- 131,163 ----
+  		info.start = info.altstart;
+  	    }
+  	    if (mask & 1)
+! 		RROP_SOLID(yorgp + yoffset + info.xorg + x);
+  	    if (mask & 2)
+! 		RROP_SOLID(yorgp + yoffset + info.xorgo - x);
+  	    if (mask & 4)
+! 		RROP_SOLID(yorgop - yoffset + info.xorgo - x);
+  	    if (mask & 8)
+! 		RROP_SOLID(yorgop - yoffset + info.xorg + x);
+  	    if ((x == info.end.x) || (y == info.end.y))
+  	    {
+  		mask = info.end.mask;
+  		info.end = info.altend;
+  	    }
+! 	    MIARCSTEP(yoffset += dyoffset;, yoffset += npwidth;);
+  	}
+      }
+      if ((x == info.start.x) || (y == info.start.y))
+  	mask = info.start.mask;
+      if (mask & 1)
+! 	RROP_SOLID(yorgp + yoffset + info.xorg + x);
+      if (mask & 4)
+! 	RROP_SOLID(yorgop - yoffset + info.xorgo - x);
+      if (arc->height & 1)
+      {
+  	if (mask & 2)
+! 	    RROP_SOLID(yorgp + yoffset + info.xorgo - x);
+  	if (mask & 8)
+! 	    RROP_SOLID(yorgop - yoffset + info.xorg + x);
+      }
+  }
+  
+*** /tmp/,RCSt1a16868	Tue Feb 11 15:16:13 1992
+--- server/ddx/cfb/stipmips.s	Thu Dec 19 14:17:35 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: stipmips.s,v 1.8 90/12/02 12:13:05 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: stipmips.s,v 1.9 91/12/19 14:17:31 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 52,58 ****
+  
+  	
+  /*
+!  * stipplestack(addr, stipple, value, stride, Count, Shift)
+   *               4       5       6      7     16(sp) 20(sp)
+   *
+   *  Apply successive 32-bit stipples starting at addr, addr+stride, ...
+--- 52,58 ----
+  
+  	
+  /*
+!  * cfbStippleStack(addr, stipple, value, stride, Count, Shift)
+   *               4       5       6      7     16(sp) 20(sp)
+   *
+   *  Apply successive 32-bit stipples starting at addr, addr+stride, ...
+***************
+*** 89,100 ****
+  #define NextBits	$206
+  
+  #ifdef TETEXT
+! #define	stipplestack	stipplestackte
+  #endif
+  
+! 	.globl	stipplestack
+! 	.ent	stipplestack 2
+! stipplestack:
+  	.frame	$sp, 0, $31
+  	lw	count, Count			/* fetch stack params */
+  	la	sbase,CaseBegin			/* load up switch table */
+--- 89,100 ----
+  #define NextBits	$206
+  
+  #ifdef TETEXT
+! #define	cfbStippleStack	cfbStippleStackTE
+  #endif
+  
+! 	.globl	cfbStippleStack
+! 	.ent	cfbStippleStack 2
+! cfbStippleStack:
+  	.frame	$sp, 0, $31
+  	lw	count, Count			/* fetch stack params */
+  	la	sbase,CaseBegin			/* load up switch table */
+***************
+*** 275,278 ****
+  	nop
+  	nop
+  					
+! 	.end	stipplestack
+--- 275,278 ----
+  	nop
+  	nop
+  					
+! 	.end	cfbStippleStack
+*** /tmp/,RCSt1a16887	Tue Feb 11 15:16:20 1992
+--- server/ddx/cfb/stipple68k.s	Thu Dec 19 14:17:37 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: stipple68k.s,v 1.1 91/02/23 12:43:38 rws Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: stipple68k.s,v 1.2 91/12/19 14:17:34 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 28,34 ****
+   */
+  
+  #ifdef TETEXT
+! #define _stipplestack _stipplestackte
+  #endif
+  
+  
+--- 28,34 ----
+   */
+  
+  #ifdef TETEXT
+! #define _cfbStippleStack _cfbStippleStackTE
+  #endif
+  
+  
+***************
+*** 63,70 ****
+  
+  .text
+  	.even
+! 	.globl _stipplestack
+! _stipplestack:
+  	moveml	PushMask,sp@-
+  	movel	sp@(arg0),addr
+  	movel	sp@(arg1),stipple
+--- 63,70 ----
+  
+  .text
+  	.even
+! 	.globl _cfbStippleStack
+! _cfbStippleStack:
+  	moveml	PushMask,sp@-
+  	movel	sp@(arg0),addr
+  	movel	sp@(arg1),stipple
+*** /tmp/,RCSt1a16906	Tue Feb 11 15:16:27 1992
+--- server/ddx/cfb/stipsparc.s	Thu Dec 19 14:17:39 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: stipsparc.s,v 1.6 91/06/12 17:03:24 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: stipsparc.s,v 1.7 91/12/19 14:17:37 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 49,55 ****
+  #endif
+  
+  /*
+!  * stipplestack(addr, stipple, value, stride, Count, Shift)
+   *               4       5       6      7     16(sp) 20(sp)
+   *
+   *  Apply successive 32-bit stipples starting at addr, addr+stride, ...
+--- 49,55 ----
+  #endif
+  
+  /*
+!  * cfbStippleStack(addr, stipple, value, stride, Count, Shift)
+   *               4       5       6      7     16(sp) 20(sp)
+   *
+   *  Apply successive 32-bit stipples starting at addr, addr+stride, ...
+***************
+*** 82,94 ****
+  #define NextBits	LY5
+  
+  #ifdef TETEXT
+! #define	_stipplestack	_stipplestackte
+  #endif
+  
+  	.seg	"text"
+  	.proc	16
+! 	.globl	_stipplestack
+! _stipplestack:
+  	save	%sp,-64,%sp
+  	sethi	%hi(CaseBegin),sbase		/* load up switch table */
+  	or	sbase,%lo(CaseBegin),sbase
+--- 82,94 ----
+  #define NextBits	LY5
+  
+  #ifdef TETEXT
+! #define	_cfbStippleStack	_cfbStippleStackTE
+  #endif
+  
+  	.seg	"text"
+  	.proc	16
+! 	.globl	_cfbStippleStack
+! _cfbStippleStack:
+  	save	%sp,-64,%sp
+  	sethi	%hi(CaseBegin),sbase		/* load up switch table */
+  	or	sbase,%lo(CaseBegin),sbase
+*** /dev/null	Tue Feb 11 14:58:45 1992
+--- server/ddx/cfb/stipsparc32.s	Thu Dec 19 14:18:06 1991
+***************
+*** 0 ****
+--- 1,270 ----
++ /*
++  * $XConsortium: stipsparc32.s,v 1.1 91/12/19 14:17:39 keith Exp $
++  *
++  * Copyright 1990 Massachusetts Institute of Technology
++  *
++  * Permission to use, copy, modify, distribute, and sell this software and its
++  * documentation for any purpose is hereby granted without fee, provided that
++  * the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of M.I.T. not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission.  M.I.T. makes no representations about the
++  * suitability of this software for any purpose.  It is provided "as is"
++  * without express or implied warranty.
++  *
++  * M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL M.I.T.
++  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
++  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
++  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++  *
++  * Author:  Keith Packard, MIT X Consortium
++  */
++ 
++ /*
++  * SPARC assembly code for optimized text rendering.
++  *
++  * Other stippling could be done in assembly, but the payoff is
++  * not nearly as large.  Mostly because large areas are heavily
++  * optimized already.
++  */
++ 
++ /* not that I expect to ever see an LSB SPARC, but ... */
++ #ifdef LITTLE_ENDIAN
++ # define BitsR		sll
++ # define BitsL		srl
++ # define WO(o)		3-o
++ # define FourBits(dest,bits)	and	bits, 0xf, dest
++ #else
++ # define BitsR		srl
++ # define BitsL		sll
++ # define WO(o)		o
++ # define FourBits(dest,bits)	srl	bits, 28, dest
++ #endif
++ 
++ /*
++  * cfb32StippleStack(addr, stipple, value, stride, Count, Shift)
++  *               4       5       6      7     16(sp) 20(sp)
++  *
++  *  Apply successive 32-bit stipples starting at addr, addr+stride, ...
++  *
++  *  Used for text rendering, but only when no data could be lost
++  *  when the stipple is shifted left by Shift bits
++  */
++ /* arguments */
++ #define addr	%i0
++ #define stipple	%i1
++ #define value	%i2
++ #define stride	%i3
++ #define count	%i4
++ #define shift	%i5
++ 
++ /* local variables */
++ #define atemp	%l0
++ #define bits	%l1
++ #define lshift	%l2
++ #define sbase	%l3
++ #define stemp	%l4
++ 
++ #define CASE_SIZE	5	/* case blocks are 2^5 bytes each */
++ #define CASE_MASK	0x1e0	/* first case mask */
++ 
++ #define ForEachLine	LY1
++ #define NextLine	LY2
++ #define CaseBegin	LY3
++ #define ForEachBits	LY4
++ #define NextBits	LY5
++ 
++ #ifdef TETEXT
++ #define	_cfb32StippleStack	_cfb32StippleStackTE
++ #endif
++ 
++ 	.seg	"text"
++ 	.proc	16
++ 	.globl	_cfb32StippleStack
++ _cfb32StippleStack:
++ 	save	%sp,-64,%sp
++ 	sethi	%hi(CaseBegin),sbase		/* load up switch table */
++ 	or	sbase,%lo(CaseBegin),sbase
++ 
++ 	mov	4,lshift			/* compute offset within */
++ 	sub	lshift, shift, lshift		/*  stipple of remaining bits */
++ #ifdef LITTLE_ENDIAN
++ 	inc	CASE_SIZE, shift		/* first shift for LSB */
++ #else
++ 	inc	28-CASE_SIZE, shift		/* first shift for MSB */
++ #endif
++ 	/* do ... while (--count > 0); */
++ ForEachLine:
++ 	ld	[stipple],bits			/* get stipple bits */
++ 	mov	addr,atemp			/* set up for this line */
++ #ifdef TETEXT
++ 	/* Terminal emulator fonts are expanded and have many 0 rows */
++ 	tst	bits
++ 	bz	NextLine			/* skip out early on 0 */
++ #endif
++ 	add	addr, stride, addr		/* step for the loop */
++ 	BitsR	bits, shift, stemp		/* get first bits */
++ 	and	stemp, CASE_MASK, stemp		/* compute first jump */
++ 	BitsL	bits, lshift, bits		/* set remaining bits */
++ 	jmp	sbase+stemp			/*  ... */
++ 	tst	bits
++ 
++ ForEachBits:
++ 	inc	16, atemp
++ ForEachBits1:
++ 	FourBits(stemp, bits)			/* compute jump for */
++ 	sll	stemp, CASE_SIZE, stemp		/*  these four bits */
++ 	BitsL	bits, 4, bits			/* step for remaining bits */
++ 	jmp	sbase+stemp			/* jump */
++ 	tst	bits
++ CaseBegin:
++ 	bnz,a	ForEachBits1			/* 0 */
++ 	inc	16, atemp
++ NextLine:
++ 	deccc	1, count
++ NextLine1:
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 	nop
++ 
++ 	bnz	ForEachBits			/* 1 */
++ 	st	value, [atemp+WO(12)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 	nop
++ 					
++ 	bnz	ForEachBits			/* 2 */
++ 	st	value, [atemp+WO(8)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 	nop
++ 					
++ 	st	value, [atemp+WO(8)]		/* 3 */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	bnz	ForEachBits			/* 4 */
++ 	st	value, [atemp+WO(4)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 	nop
++ 					
++ 	st	value, [atemp+WO(4)]		/* 5 */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	st	value, [atemp+WO(4)]		/* 6 */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(8)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	st	value, [atemp+WO(4)]		/* 7 */
++ 	st	value, [atemp+WO(8)]
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	b	NextLine1
++ 	deccc	1, count
++ 	nop
++ 	nop
++ 					
++ 	bnz	ForEachBits			/* 8 */
++ 	st	value, [atemp+WO(0)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 	nop
++ 					
++ 	st	value, [atemp+WO(0)]		/* 9 */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	st	value, [atemp+WO(0)]		/* a */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(8)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	st	value, [atemp+WO(0)]		/* b */
++ 	st	value, [atemp+WO(8)]
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	b	NextLine1
++ 	deccc	1, count
++ 	nop
++ 	nop
++ 					
++ 	st	value, [atemp+WO(0)]		/* c */
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(4)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
++ 					
++ 	st	value, [atemp+WO(0)]		/* d */
++ 	st	value, [atemp+WO(4)]
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	b	NextLine1
++ 	deccc	1, count
++ 	nop
++ 	nop
++ 					
++ 	st	value, [atemp+WO(0)]		/* e */
++ 	st	value, [atemp+WO(4)]
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(8)]
++ 	b	NextLine1
++ 	deccc	1, count
++ 	nop
++ 	nop
++ 					
++ 	st	value, [atemp+WO(0)]		/* f */
++ 	st	value, [atemp+WO(4)]
++ 	st	value, [atemp+WO(8)]
++ 	bnz	ForEachBits
++ 	st	value, [atemp+WO(12)]
++ 	deccc	1, count
++ 	bnz,a	ForEachLine
++ 	inc	4, stipple
++ 	ret
++ 	restore
+*** /dev/null	Tue Feb 11 15:55:44 1992
+--- server/ddx/cfb16/Imakefile	Sat Dec 28 13:33:48 1991
+***************
+*** 0 ****
+--- 1,5 ----
++ XCOMM $XConsortium: Imakefile,v 1.1 91/12/28 13:32:27 rws Exp $
++ #define PixelSize	16
++ #define LinkDirectory ../cfb
++ 
++ #include "../cfb/Imakefile"
+*** /dev/null	Tue Feb 11 15:55:44 1992
+--- server/ddx/cfb32/Imakefile	Sat Dec 28 13:34:06 1991
+***************
+*** 0 ****
+--- 1,5 ----
++ XCOMM $XConsortium: Imakefile,v 1.1 91/12/28 13:32:46 rws Exp $
++ #define PixelSize	32
++ #define LinkDirectory ../cfb
++ 
++ #include "../cfb/Imakefile"

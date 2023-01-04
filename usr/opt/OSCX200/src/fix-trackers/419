@@ -1,0 +1,1083 @@
+Path: news!news.crl.dec.com!rdg.dec.com!decvax.dec.com!pa.dec.com!nobody
+Message-Id: <9208112220.AA26844@expo.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2647) late addendum to seq: 2538, Xlib: BSD 4.4 socket address incompatibility
+Date: Tue, 11 Aug 92 18:20:57 EDT
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Previous fix set the BSD4.4 sun_len field incorrectly. This also fixes
+socket addresses in places other than xlib and updates config/ibm.cf
+to AIX V3.2 (which has the BSD4.4 networking).
+
+*** /tmp/dRjUDM2	Tue Aug 11 15:18:53 1992
+--- config/Project.tmpl	Mon Aug 10 17:52:44 1992
+***************
+*** 1,6 ****
+  XCOMM -------------------------------------------------------------------------
+  XCOMM X Window System Build Parameters
+! XCOMM $XConsortium: Project.tmpl,v 1.151 92/06/28 17:41:17 rws Exp $
+  
+  /*****************************************************************************
+   *                                                                           *
+--- 1,6 ----
+  XCOMM -------------------------------------------------------------------------
+  XCOMM X Window System Build Parameters
+! XCOMM $XConsortium: Project.tmpl,v 1.152 92/08/10 17:47:45 eswu Exp $
+  
+  /*****************************************************************************
+   *                                                                           *
+***************
+*** 214,224 ****
+  #if (SystemV || SystemV4) && !HasSockets
+  #define ConnectionFlags -DSTREAMSCONN
+  #else
+- #if HasBSD44Sockets
+- #define ConnectionFlags -DTCPCONN -DUNIXCONN -DBSD44SOCKETS
+- #else
+  #define ConnectionFlags -DTCPCONN -DUNIXCONN
+- #endif
+  #endif
+  #endif
+  #ifndef FontOSDefines
+--- 214,220 ----
+*** /tmp/dN0YDmb	Tue Aug 11 15:18:55 1992
+--- config/ibm.cf	Mon Aug 10 19:22:43 1992
+***************
+*** 1,9 ****
+! XCOMM platform:  $XConsortium: ibm.cf,v 1.29 91/07/28 22:39:58 rws Exp $
+  
+  #ifdef RsArchitecture
+! #define OSName		AIX 3.1.5
+  #define OSMajorVersion	3
+! #define OSMinorVersion	1
+  #else
+  #ifdef RtArchitecture
+  #ifdef AIXArchitecture
+--- 1,9 ----
+! XCOMM platform:  $XConsortium: ibm.cf,v 1.32 92/08/10 19:16:28 eswu Exp $
+  
+  #ifdef RsArchitecture
+! #define OSName		AIX 3.2.0
+  #define OSMajorVersion	3
+! #define OSMinorVersion	2
+  #else
+  #ifdef RtArchitecture
+  #ifdef AIXArchitecture
+***************
+*** 27,32 ****
+--- 27,36 ----
+  
+  #define ProjectRoot		/usr/local
+  
++ #if OSMajorVersion >= 3 && OSMinorVersion >= 2
++ #define HasBSD44Sockets		YES
++ #endif
++ 
+  #define SystemV			YES
+  #define LnCmd			ln -s
+  #define HasSockets		YES
+***************
+*** 34,40 ****
+  #define ExecableScripts		YES
+  #define Malloc0ReturnsNull	YES
+  #define CppCmd			/usr/lpp/X11/Xamples/util/cpp/cpp
+! #define StandardDefines         -DSYSV -DAIXV3
+  #define ExpandManNames		YES
+  #define XibmServer 		YES
+  #define ibmIncludeSKYWAY	YES
+--- 38,51 ----
+  #define ExecableScripts		YES
+  #define Malloc0ReturnsNull	YES
+  #define CppCmd			/usr/lpp/X11/Xamples/util/cpp/cpp
+! #define StandardDefines         -DSYSV -DAIXV3 -D_ALL_SOURCE
+! 
+! /*
+!  * -D__STR31__ disables inlining of memcpy to work around optimization bug
+!  * in XLC v1.2.0.7. Bug report filed as PMR 8X196, branch 060.
+!  */
+! #define OptimizedCDebugFlags	-O -D__STR31__
+! 
+  #define ExpandManNames		YES
+  #define XibmServer 		YES
+  #define ibmIncludeSKYWAY	YES
+*** /tmp/dRFcB4o	Tue Aug 11 15:18:57 1992
+--- clients/xdm/Imakefile	Mon Aug 10 20:52:20 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.59 92/04/15 10:44:36 rws Exp $
+  #define IHaveSubdirs
+  #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+  
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.61 92/08/10 20:47:30 eswu Exp $
+  #define IHaveSubdirs
+  #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+  
+***************
+*** 24,29 ****
+--- 24,33 ----
+  #endif
+  #endif
+  
++ #if HasBSD44Sockets
++ SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
++ 
+     XDMCONFIGDIR = XdmConfigurationSubdirectory
+          SUBDIRS = $(XDMCONFIGDIR)
+  
+***************
+*** 91,96 ****
+--- 95,101 ----
+  SingleProgramTarget(xdmshell,$(OBJS2),NullParameter,NullParameter)
+  SingleProgramTarget(sessreg,$(OBJS4),NullParameter,NullParameter)
+  #if BuildChooser
++ SpecialCObjectRule(chooser, $(ICONFIGFILES), $(SOCK_DEFINES))
+  NormalProgramTarget(chooser,$(OBJS3),$(DEPLIBS3),$(LIBS3),NullParameter)
+  SaberProgramTarget(chooser,$(SRCS3),$(OBJS3),$(LIBS3),NullParameter)
+  InstallProgram(chooser,$(XDMDIR))
+***************
+*** 97,103 ****
+  InstallAppDefaults(Chooser)
+  #endif
+  
+! SpecialObjectRule(resource.o, $(ICONFIGFILES), $(RES_DEFINES))
+  
+  XCOMM these files depend on HASXDMAUTH
+  auth.o policy.o: $(ICONFIGFILES)
+--- 102,110 ----
+  InstallAppDefaults(Chooser)
+  #endif
+  
+! SpecialCObjectRule(resource, $(ICONFIGFILES), $(RES_DEFINES))
+! SpecialCObjectRule(socket, $(ICONFIGFILES), $(SOCK_DEFINES))
+! SpecialCObjectRule(xdmcp, $(ICONFIGFILES), $(SOCK_DEFINES))
+  
+  XCOMM these files depend on HASXDMAUTH
+  auth.o policy.o: $(ICONFIGFILES)
+*** /tmp/dRmgDM2	Tue Aug 11 15:18:58 1992
+--- clients/xdm/chooser.c	Mon Aug 10 20:52:19 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: chooser.c,v 1.13 92/04/21 18:42:13 gildea Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: chooser.c,v 1.14 92/08/10 20:47:27 eswu Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 503,508 ****
+--- 503,511 ----
+  #endif
+  	    in_addr = *((struct sockaddr_in *) &broad_addr);
+  	    in_addr.sin_port = htons (XDM_UDP_PORT);
++ #ifdef BSD44SOCKETS
++ 	    in_addr.sin_len = sizeof(in_addr);
++ #endif
+  	    RegisterHostaddr ((struct sockaddr *)&in_addr, sizeof (in_addr),
+  			      BROADCAST_QUERY);
+  	}
+***************
+*** 530,535 ****
+--- 533,541 ----
+  	    bcopy (hostent->h_addr, &in_addr.sin_addr, 4);
+  	}
+  	in_addr.sin_port = htons (XDM_UDP_PORT);
++ #ifdef BSD44SOCKETS
++ 	in_addr.sin_len = sizeof(in_addr);
++ #endif
+  	RegisterHostaddr ((struct sockaddr *)&in_addr, sizeof (in_addr),
+  			  QUERY);
+      }
+***************
+*** 613,618 ****
+--- 619,627 ----
+  	family = (xdm[0] << 8) + xdm[1];
+  	switch (family) {
+  	case AF_INET:
++ #ifdef BSD44SOCKETS
++ 	    in_addr.sin_len = sizeof(in_addr);
++ #endif
+  	    in_addr.sin_family = family;
+  	    bcopy (xdm + 2, &in_addr.sin_port, 2);
+  	    bcopy (xdm + 4, &in_addr.sin_addr.s_addr, 4);
+*** /tmp/dRHkDM2	Tue Aug 11 15:19:00 1992
+--- clients/xdm/socket.c	Mon Aug 10 20:52:16 1992
+***************
+*** 1,7 ****
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: socket.c,v 1.29 91/08/25 10:47:56 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: socket.c,v 1.30 92/08/10 20:47:23 eswu Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 56,61 ****
+--- 56,64 ----
+      RegisterCloseOnFork (xdmcpFd);
+      /* zero out the entire structure; this avoids 4.4 incompatibilities */
+      bzero ((char *) &sock_addr, sizeof (sock_addr));
++ #ifdef BSD44SOCKETS
++     sock_addr.sin_len = sizeof(sock_addr);
++ #endif
+      sock_addr.sin_family = AF_INET;
+      sock_addr.sin_port = htons ((short) request_port);
+      sock_addr.sin_addr.s_addr = htonl (INADDR_ANY);
+*** /tmp/dNYsCzR	Tue Aug 11 15:19:02 1992
+--- clients/xdm/xdmcp.c	Mon Aug 10 11:09:16 1992
+***************
+*** 1,7 ****
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: xdmcp.c,v 1.6 92/03/24 10:30:37 gildea Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: xdmcp.c,v 1.8 92/08/10 11:05:48 gildea Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 227,232 ****
+--- 227,235 ----
+      case FamilyInternet:
+  	addr = (struct sockaddr *) &in_addr;
+  	bzero ((char *) &in_addr, sizeof (in_addr));
++ #ifdef BSD44SOCKETS
++ 	in_addr.sin_len = sizeof(in_addr);
++ #endif
+  	in_addr.sin_family = AF_INET;
+  	in_addr.sin_port = htons ((short) XDM_UDP_PORT);
+  	if (address->length != 4)
+***************
+*** 455,460 ****
+--- 458,466 ----
+  			goto badAddress;
+  		    }
+  		    bzero ((char *) &in_addr, sizeof (in_addr));
++ #ifdef BSD44SOCKETS
++ 		    in_addr.sin_len = sizeof(in_addr);
++ #endif
+  		    in_addr.sin_family = AF_INET;
+  		    bcopy (clientAddress.data, &in_addr.sin_addr, 4);
+  		    bcopy (clientPort.data, (char *) &in_addr.sin_port, 2);
+***************
+*** 475,481 ****
+--- 481,492 ----
+  		    bcopy (clientAddress.data, un_addr.sun_path, clientAddress.length);
+  		    un_addr.sun_path[clientAddress.length] = '\0';
+  		    client = (struct sockaddr *) &un_addr;
++ #ifdef BSD44SOCKETS
++ 		    un_addr.sun_len = strlen(un_addr.sun_path);
++ 		    clientlen = SUN_LEN(&un_addr);
++ #else
+  		    clientlen = sizeof (un_addr);
++ #endif
+  		}
+  		break;
+  #endif
+***************
+*** 1052,1057 ****
+--- 1063,1070 ----
+  			connectionAddress->data[2],
+  			connectionAddress->data[3]);
+  		local_name = dotted;
++ 		LogError ("Cannot convert Internet address %s to host name\n",
++ 			  dotted);
+  	    }
+  	    if (!getString (name, strlen (local_name)))
+  		break;
+*** /tmp/dRJwB4o	Tue Aug 11 15:19:04 1992
+--- extensions/lib/PEX/cp/Imakefile	Mon Aug 10 20:51:40 1992
+***************
+*** 1,5 ****
+  XCOMM
+! XCOMM $XConsortium: Imakefile,v 5.15 91/07/22 23:09:04 rws Exp $
+  XCOMM
+  XCOMM 
+  XCOMM Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium
+--- 1,5 ----
+  XCOMM
+! XCOMM $XConsortium: Imakefile,v 5.16 92/08/10 20:46:45 eswu Exp $
+  XCOMM
+  XCOMM 
+  XCOMM Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium
+***************
+*** 29,34 ****
+--- 29,39 ----
+  #define PexPhigsCDebugFlags LibraryCDebugFlags
+  #endif
+  
++ #if HasBSD44Sockets
++    SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
++ 
++ 
+    CCOPTIONS = PexCCOptions
+  CDEBUGFLAGS = PexPhigsCDebugFlags
+      DEFINES = PexPhigsDefines
+***************
+*** 69,73 ****
+--- 74,81 ----
+  #ifdef HPArchitecture
+  SpecialObjectRule(hpext.o, $(IRULESRC)/$(MACROFILE), $(EXT_DEFINES))
+  #endif
++ 
++ SpecialCLibObjectRule(cp_ccom,$(ICONFIGFILES),$(SOCK_DEFINES))
++ SpecialCLibObjectRule(phigsmon,$(ICONFIGFILES),$(SOCK_DEFINES))
+  
+  DependTarget()
+*** /tmp/dRq0DM2	Tue Aug 11 15:19:06 1992
+--- extensions/lib/PEX/cp/cp_ccom.c	Mon Aug 10 20:51:43 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cp_ccom.c,v 5.18 91/07/26 20:11:11 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: cp_ccom.c,v 5.19 92/08/10 20:46:50 eswu Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 1336,1342 ****
+--- 1336,1347 ----
+      }
+      tmpnam(name.sun_path);
+      name.sun_family = AF_UNIX;
++ #ifdef BSD44SOCKETS /* unlikely */
++     name.sun_len = strlen(name.sun_path);
++     socket_size = SUN_LEN(&name);
++ #else
+      socket_size = sizeof(name.sun_family) + strlen(name.sun_path) + 1;
++ #endif
+      if (bind(fd, &name, socket_size) < 0 ||
+  	listen(fd, 1) < 0 ||
+  	connect(sv[0], &name, socket_size) < 0 ||
+***************
+*** 1374,1379 ****
+--- 1379,1387 ----
+  
+      /* Port number of 6100 is arbitrary, (100 above the X server port). */
+      bzero ((char *)&insock, sizeof (insock));
++ #ifdef BSD44SOCKETS /* unlikely */
++     insock.sin_len = sizeof(insock);
++ #endif
+      insock.sin_family = AF_INET;
+      port_num = 6100;
+      insock.sin_port = htons((unsigned short)(port_num));
+***************
+*** 1414,1424 ****
+--- 1422,1449 ----
+  #endif
+  
+  #ifdef DEBUG
++ 
++ #ifdef BSD44SOCKETS
+  #define Connect(fd,addr) {\
+      struct sockaddr_un	un_addr; \
+  \
+      strcpy (un_addr.sun_path, addr);\
++     un_addr.sun_len = strlen(un_addr.sun_path);\
++     un_addr.sun_family = AF_UNIX;\
+      fd = socket (AF_UNIX, SOCK_STREAM, 0);\
++     if (connect (fd, &un_addr, SUN_LEN(&un_addr)))\
++     {\
++ 	perror ("phigsmon connect");\
++ 	abort ();\
++     }\
++ }
++ #else /* !BSD44SOCKETS */
++ #define Connect(fd,addr) {\
++     struct sockaddr_un	un_addr; \
++ \
++     strcpy (un_addr.sun_path, addr);\
++     un_addr.sun_family = AF_UNIX;\
++     fd = socket (AF_UNIX, SOCK_STREAM, 0);\
+      if (connect (fd, &un_addr, sizeof (short) + strlen (addr)))\
+      {\
+  	perror ("phigsmon connect");\
+***************
+*** 1425,1430 ****
+--- 1450,1457 ----
+  	abort ();\
+      }\
+  }
++ #endif /* !BSD44SOCKETS */
++ 
+      Connect (cph->data.client.sfd, DEBUG_PHIGSMON_SOCKET_COMMAND);
+      Connect (cph->erh->data.client.sfd, DEBUG_PHIGSMON_SOCKET_ERROR);
+      if (read (cph->data.client.sfd, &pid, sizeof (pid)) != sizeof (pid))
+*** /tmp/dRL4CAI	Tue Aug 11 15:19:09 1992
+--- extensions/lib/PEX/cp/phigsmon.c	Mon Aug 10 20:51:46 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: phigsmon.c,v 5.8 91/06/19 10:46:34 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: phigsmon.c,v 5.9 92/08/10 20:46:54 eswu Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 380,391 ****
+--- 380,409 ----
+      
+  
+  #ifdef DEBUG
++ #ifdef BSD44SOCKETS
+  #define Make(rendezvous,addr) {\
+  	struct sockaddr_un	un_addr; \
+   \
+  	unlink (addr); \
+  	strcpy (un_addr.sun_path, addr); \
++ 	un_addr.sun_len = strlen(un_addr.sun_path); \
++ 	un_addr.sun_family = AF_UNIX; \
+  	rendezvous = socket (AF_UNIX, SOCK_STREAM, 0); \
++ 	if (bind (rendezvous, &un_addr, SUN_LEN(&un_addr)) == -1) \
++ 	{ \
++ 	    perror ("phigs debug bind"); \
++ 	    abort (); \
++ 	} \
++ 	listen (rendezvous, 5); \
++ }
++ #else
++ #define Make(rendezvous,addr) {\
++ 	struct sockaddr_un	un_addr; \
++  \
++ 	unlink (addr); \
++ 	strcpy (un_addr.sun_path, addr); \
++ 	un_addr.sun_family = AF_UNIX; \
++ 	rendezvous = socket (AF_UNIX, SOCK_STREAM, 0); \
+  	if (bind (rendezvous, &un_addr, sizeof (short) + strlen (addr)) == -1) \
+  	{ \
+  	    perror ("phigs debug bind"); \
+***************
+*** 393,398 ****
+--- 411,417 ----
+  	} \
+  	listen (rendezvous, 5); \
+  }
++ #endif
+  
+  #define Get(fd,rendezvous) { \
+  	struct sockaddr_un	un_addr; \
+*** /tmp/dRs8CAI	Tue Aug 11 15:19:10 1992
+--- fonts/lib/font/fc/Imakefile	Mon Aug 10 17:55:31 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.11 91/08/22 14:18:23 rws Exp $
+  XCOMM
+  XCOMM Make file for font handling routines
+  XCOMM
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.13 92/08/10 17:50:38 eswu Exp $
+  XCOMM
+  XCOMM Make file for font handling routines
+  XCOMM
+***************
+*** 10,19 ****
+              OBJS = fsconvert.o fserve.o fsio.o
+           DEFINES = $(SIGNAL_DEFINES)
+      CONN_DEFINES = ConnectionFlags
+  
+  SubdirLibraryRule($(OBJS))
+  NormalLibraryObjectRule()
+! SpecialObjectRule(fsio.o,$(ICONFIGFILES),$(CONN_DEFINES))
+  
+  NormalLintTarget($(SRCS))
+  
+--- 10,22 ----
+              OBJS = fsconvert.o fserve.o fsio.o
+           DEFINES = $(SIGNAL_DEFINES)
+      CONN_DEFINES = ConnectionFlags
++ #if HasBSD44Sockets
++     SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
+  
+  SubdirLibraryRule($(OBJS))
+  NormalLibraryObjectRule()
+! SpecialCObjectRule(fsio,$(ICONFIGFILES),$(CONN_DEFINES) $(SOCK_DEFINES))
+  
+  NormalLintTarget($(SRCS))
+  
+*** /tmp/dNeAAkZ	Tue Aug 11 15:19:12 1992
+--- fonts/lib/font/fc/fsio.c	Mon Aug 10 17:55:33 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fsio.c,v 1.23 92/05/14 16:52:27 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+--- 1,4 ----
+! /* $XConsortium: fsio.c,v 1.24 92/08/10 17:50:41 eswu Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+***************
+*** 114,119 ****
+--- 114,122 ----
+  	inaddr->sin_family = AF_INET;
+      }
+      inaddr->sin_port = htons(servernum);
++ #ifdef BSD44SOCKETS
++     inaddr->sin_len = sizeof(*inaddr);
++ #endif
+  
+      return 1;
+  }
+*** /tmp/dRvECZt	Tue Aug 11 15:19:13 1992
+--- fonts/lib/fs/Imakefile	Mon Aug 10 17:50:50 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.10 91/07/24 18:36:33 keith Exp $
+  #if Malloc0ReturnsNull
+          DEFINES = -DMALLOC_0_RETURNS_NULL
+  #endif
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.12 92/08/10 17:45:56 eswu Exp $
+  #if Malloc0ReturnsNull
+          DEFINES = -DMALLOC_0_RETURNS_NULL
+  #endif
+***************
+*** 17,27 ****
+  	FSSetCats.o FSSync.o FSSynchro.o FSlibInt.o
+  
+  CONN_DEFINES = ConnectionFlags
+  
+  NormalLibraryTarget(FS,$(OBJS))
+  
+! SpecialObjectRule(FSlibInt.o,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialObjectRule(FSConnServ.o,$(ICONFIGFILES),$(CONN_DEFINES))
+  
+  LinkFileList(includes,FSlib.h,../../include,../lib/fs)
+  
+--- 17,30 ----
+  	FSSetCats.o FSSync.o FSSynchro.o FSlibInt.o
+  
+  CONN_DEFINES = ConnectionFlags
++ #if HasBSD44Sockets
++ SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
+  
+  NormalLibraryTarget(FS,$(OBJS))
+  
+! SpecialCObjectRule(FSlibInt,$(ICONFIGFILES),$(CONN_DEFINES))
+! SpecialCObjectRule(FSConnServ,$(ICONFIGFILES),$(CONN_DEFINES) $(SOCK_DEFINES))
+  
+  LinkFileList(includes,FSlib.h,../../include,../lib/fs)
+  
+*** /tmp/dNwIDM2	Tue Aug 11 15:19:15 1992
+--- fonts/lib/fs/FSConnServ.c	Mon Aug 10 17:48:52 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: FSConnServ.c,v 1.15 91/11/29 13:47:40 rws Exp $ */
+  
+  /* @(#)FSConnServ.c	4.1	91/05/02
+   * Copyright 1990 Network Computing Devices;
+--- 1,4 ----
+! /* $XConsortium: FSConnServ.c,v 1.16 92/08/10 17:43:09 eswu Exp $ */
+  
+  /* @(#)FSConnServ.c	4.1	91/05/02
+   * Copyright 1990 Network Computing Devices;
+***************
+*** 210,216 ****
+--- 210,221 ----
+  	    (void) strcpy(unaddr.sun_path, X_UNIX_PATH);
+  	    strcat(unaddr.sun_path, server_ptr);
+  	    addr = (struct sockaddr *) & unaddr;
++ #ifdef BSD44SOCKETS
++ 	    unaddr.sun_len = strlen(unaddr.sun_path);
++ 	    addrlen = SUN_LEN(&unaddr);
++ #else
+  	    addrlen = strlen(unaddr.sun_path) + 2;
++ #endif
+  	    /*
+  	     * Open the network connection.
+  	     */
+***************
+*** 295,300 ****
+--- 300,308 ----
+  	    }
+  	    addr = (struct sockaddr *) & inaddr;
+  	    addrlen = sizeof(struct sockaddr_in);
++ #ifdef BSD44SOCKETS
++ 	    inaddr.sin_len = addrlen;
++ #endif
+  	    inaddr.sin_port = server_num;
+  	    inaddr.sin_port = htons(inaddr.sin_port);
+  	    /*
+*** /tmp/dMhMCkR	Tue Aug 11 15:19:16 1992
+--- fonts/server/os/Imakefile	Mon Aug 10 20:54:30 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.8 91/07/16 23:04:52 gildea Exp $
+  #undef ServerDefines
+  #include <Server.tmpl>
+  
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.10 92/08/10 20:49:37 eswu Exp $
+  #undef ServerDefines
+  #include <Server.tmpl>
+  
+***************
+*** 11,22 ****
+  
+  CONN_DEFINES = ConnectionFlags
+  
+  /* ERROR_DEFINES = -DUSE_SYSLOG */
+  
+  NormalLibraryObjectRule()
+  NormalLibraryTarget(os,$(OBJS))
+  
+! SpecialObjectRule(connection.o,$(ICONFIGFILES),$(CONN_DEFINES) $(SIGNAL_DEFINES))
+! SpecialObjectRule(error.o,$(ICONFIGFILES),$(ERROR_DEFINES))
+  
+  DependTarget()
+--- 11,27 ----
+  
+  CONN_DEFINES = ConnectionFlags
+  
++ #if HasBSD44Sockets
++ SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
++ 
+  /* ERROR_DEFINES = -DUSE_SYSLOG */
+  
+  NormalLibraryObjectRule()
+  NormalLibraryTarget(os,$(OBJS))
+  
+! SpecialCObjectRule(connection,$(ICONFIGFILES),$(CONN_DEFINES) $(SIGNAL_DEFINES) $(SOCK_DEFINES))
+! 
+! SpecialCObjectRule(error,$(ICONFIGFILES),$(ERROR_DEFINES))
+  
+  DependTarget()
+*** /tmp/dNiQCzR	Tue Aug 11 15:19:18 1992
+--- fonts/server/os/connection.c	Mon Aug 10 20:54:27 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: connection.c,v 1.19 92/05/18 13:51:29 gildea Exp $ */
+  /*
+   * handles connections
+   */
+--- 1,4 ----
+! /* $XConsortium: connection.c,v 1.20 92/08/10 20:49:33 eswu Exp $ */
+  /*
+   * handles connections
+   */
+***************
+*** 124,129 ****
+--- 124,132 ----
+  #endif				/* SO_REUSEADDR */
+  
+      bzero((char *) &insock, sizeof(insock));
++ #ifdef BSD44SOCKETS
++     insock.sin_len = sizeof(insock);
++ #endif
+      insock.sin_family = AF_INET;
+      insock.sin_port = htons((unsigned short) (ListenPort));
+      insock.sin_addr.s_addr = htonl(INADDR_ANY);
+*** /tmp/dRkcDFW	Tue Aug 11 15:19:21 1992
+--- lib/X/Imakefile	Mon Aug 10 20:55:54 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.133 92/06/28 17:45:35 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.135 92/08/10 20:50:59 eswu Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+***************
+*** 41,46 ****
+--- 41,49 ----
+          RPCDEFS = -DSECURE_RPC
+  #endif
+     CONN_DEFINES = ConnectionFlags
++ #if HasBSD44Sockets
++    SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
+       EDB_DEFINES = -DERRORDB=\"$(LIBDIR)/XErrorDB\"
+       KDB_DEFINES = -DKEYSYMDB=\"$(LIBDIR)/XKeysymDB\"
+       CMS_DEFINES = -DXCMSDB=\"$(LIBDIR)/Xcms.txt\"
+***************
+*** 856,862 ****
+  LinkSourceFile(XwcTextExt.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPer.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPrp.c,Xsi)					@@\
+! SpecialCLibObjectRule(XConnIM,$(ICONFIGFILES),$(CONN_DEFINES))		@@\
+  SpecialCLibObjectRule(XlcLoad,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))		@@\
+  SpecialCLibObjectRule(XLocalIM,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))	@@\
+  SpecialCLibObjectRule(XCrFntSet,$(_NOOP_),$(RCONST_DEFINES))		@@\
+--- 859,865 ----
+  LinkSourceFile(XwcTextExt.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPer.c,Xsi)					@@\
+  LinkSourceFile(XwcTextPrp.c,Xsi)					@@\
+! SpecialCLibObjectRule(XConnIM,$(ICONFIGFILES),$(CONN_DEFINES) $(SOCK_DEFINES))		@@\
+  SpecialCLibObjectRule(XlcLoad,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))		@@\
+  SpecialCLibObjectRule(XLocalIM,$(ICONFIGFILES),$(NLS_DEFINES) $(RCONST_DEFINES))	@@\
+  SpecialCLibObjectRule(XCrFntSet,$(_NOOP_),$(RCONST_DEFINES))		@@\
+***************
+*** 1005,1011 ****
+  
+  SpecialCLibObjectRule(XErrDes,$(ICONFIGFILES),$(EDB_DEFINES))
+  SpecialCLibObjectRule(XStrKeysym,$(ICONFIGFILES),$(KDB_DEFINES))
+! SpecialCLibObjectRule(XConnDis,$(ICONFIGFILES),$(XDMAUTHDEFS) $(RPCDEFS) $(CONN_DEFINES))
+  SpecialCLibObjectRule(XOpenDis,$(ICONFIGFILES),$(BC_DEFINES))
+  SpecialCLibObjectRule(Wrap,$(ICONFIGFILES),$(XDMAUTHDEFS))
+  SpecialCLibObjectRule(Xstreams,$(ICONFIGFILES),$(CONN_DEFINES))
+--- 1008,1014 ----
+  
+  SpecialCLibObjectRule(XErrDes,$(ICONFIGFILES),$(EDB_DEFINES))
+  SpecialCLibObjectRule(XStrKeysym,$(ICONFIGFILES),$(KDB_DEFINES))
+! SpecialCLibObjectRule(XConnDis,$(ICONFIGFILES),$(XDMAUTHDEFS) $(RPCDEFS) $(CONN_DEFINES) $(SOCK_DEFINES))
+  SpecialCLibObjectRule(XOpenDis,$(ICONFIGFILES),$(BC_DEFINES))
+  SpecialCLibObjectRule(Wrap,$(ICONFIGFILES),$(XDMAUTHDEFS))
+  SpecialCLibObjectRule(Xstreams,$(ICONFIGFILES),$(CONN_DEFINES))
+*** /tmp/dRFgCZt	Tue Aug 11 15:19:23 1992
+--- lib/X/XConnDis.c	Mon Aug 10 15:23:44 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XConnDis.c,v 11.90 92/05/07 17:13:51 eswu Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: XConnDis.c,v 11.92 92/08/10 15:17:54 eswu Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 448,461 ****
+      int oaddrlen;			/* length of addr */
+  #endif
+  
+- #ifdef SUN_LEN
+-     unaddr.sun_len = strlen(unaddr.sun_path) + 1;
+- #endif
+      unaddr.sun_family = AF_UNIX;
+      sprintf (unaddr.sun_path, "%s%d", X_UNIX_PATH, idisplay);
+  
+      addr = (struct sockaddr *) &unaddr;
+! #ifdef SUN_LEN
+      addrlen = SUN_LEN(&unaddr);
+  #else
+      addrlen = strlen(unaddr.sun_path) + sizeof(unaddr.sun_family);
+--- 448,461 ----
+      int oaddrlen;			/* length of addr */
+  #endif
+  
+      unaddr.sun_family = AF_UNIX;
+      sprintf (unaddr.sun_path, "%s%d", X_UNIX_PATH, idisplay);
++ #ifdef BSD44SOCKETS
++     unaddr.sun_len = strlen(unaddr.sun_path);
++ #endif
+  
+      addr = (struct sockaddr *) &unaddr;
+! #ifdef BSD44SOCKETS
+      addrlen = SUN_LEN(&unaddr);
+  #else
+      addrlen = strlen(unaddr.sun_path) + sizeof(unaddr.sun_family);
+***************
+*** 584,590 ****
+  
+      addr = (struct sockaddr *) &inaddr;
+      addrlen = sizeof (struct sockaddr_in);
+! #ifdef SUN_LEN
+      inaddr.sin_len = addrlen;
+  #endif
+      inaddr.sin_port = X_TCP_PORT + idisplay;
+--- 584,590 ----
+  
+      addr = (struct sockaddr *) &inaddr;
+      addrlen = sizeof (struct sockaddr_in);
+! #ifdef BSD44SOCKETS
+      inaddr.sin_len = addrlen;
+  #endif
+      inaddr.sin_port = X_TCP_PORT + idisplay;
+*** /tmp/dRmkDM2	Tue Aug 11 15:19:25 1992
+--- lib/X/Xsi/XConnIM.c	Mon Aug 10 21:06:48 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XConnIM.c,v 1.18 92/07/29 13:55:35 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XConnIM.c,v 1.19 92/08/10 21:00:35 eswu Exp $
+   */
+  
+  /*
+***************
+*** 115,120 ****
+--- 115,123 ----
+      if (hp = gethostbyname(im_hostname)) {
+  	bzero((char *)&saddr_in, (int)sizeof(saddr_in));
+  	bcopy(hp->h_addr, (char *)&saddr_in.sin_addr, hp->h_length);
++ #ifdef BSD44SOCKETS
++ 	saddr_in.sin_len = sizeof(saddr_in);
++ #endif
+  	saddr_in.sin_family = AF_INET;
+  	saddr_in.sin_port = htons(port);
+  	if ((sd = socket(AF_INET, SOCK_STREAM, 0)) >= 0) {
+***************
+*** 134,143 ****
+      if (inet_ok == 0) {
+  	saddr.sun_family = AF_UNIX;
+  	strcpy(saddr.sun_path, XIM_UNIX_PATH);
+  	if ((sd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+  	    return(False);
+  	}
+! 	if (connect(sd, &saddr, strlen(saddr.sun_path)+sizeof(saddr.sun_family)) < 0) {
+  	    close(sd);
+  	    return(False);
+  	}
+--- 137,154 ----
+      if (inet_ok == 0) {
+  	saddr.sun_family = AF_UNIX;
+  	strcpy(saddr.sun_path, XIM_UNIX_PATH);
++ #ifdef BSD44SOCKETS
++ 	saddr.sun_len = strlen(saddr.sun_path);
++ #endif
+  	if ((sd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+  	    return(False);
+  	}
+! #ifdef BSD44SOCKETS
+! 	if (connect(sd, &saddr, SUN_LEN(&saddr)) < 0)
+! #else
+! 	if (connect(sd, &saddr, strlen(saddr.sun_path)+sizeof(saddr.sun_family)) < 0)
+! #endif
+! 	{
+  	    close(sd);
+  	    return(False);
+  	}
+*** /tmp/dNnoCzR	Tue Aug 11 15:19:26 1992
+--- server/os/Imakefile	Mon Aug 10 17:51:40 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.55 92/07/26 14:22:15 rws Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.56 92/08/10 17:46:46 eswu Exp $
+  #include <Server.tmpl>
+  
+  #if (SystemV || SystemV4) && !HasSockets
+***************
+*** 53,58 ****
+--- 53,62 ----
+  RPCSRCS =
+  #endif
+  
++ #if HasBSD44Sockets
++    SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
++ 
+  BOOTSTRAPCFLAGS = 
+             SRCS = WaitFor.c access.c connection.c io.c oscolor.c \
+                    osinit.c utils.c auth.c mitauth.c $(FONTSRCS) $(XDMAUTHSRCS) \
+***************
+*** 135,140 ****
+--- 139,146 ----
+  	ar x $(PWLIB) alloca.o
+  #endif /* NEED_ALLOCA_FROM_LIBPW */
+  
++ SpecialCObjectRule(xdmcp,$(ICONFIGFILES),$(SOCK_DEFINES))
++ SpecialCObjectRule(connection,$(ICONFIGFILES),$(SOCK_DEFINES))
+  SpecialCObjectRule(osinit,$(ICONFIGFILES),$(ADM_DEFINES))
+  SpecialCObjectRule(WaitFor,$(ICONFIGFILES),$(EXT_DEFINES))
+  SpecialCObjectRule(fonttype,$(ICONFIGFILES),$(FONT_DEFINES))
+*** /tmp/dMosCzR	Tue Aug 11 15:19:28 1992
+--- server/os/connection.c	Mon Aug 10 17:51:47 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.146 92/06/11 10:38:45 rws Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.147 92/08/10 17:46:55 eswu Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+***************
+*** 190,195 ****
+--- 190,198 ----
+  #endif
+      {
+      bzero ((char *)&insock, sizeof (insock));
++ #ifdef BSD44SOCKETS
++     insock.sin_len = sizeof(insock);
++ #endif
+      insock.sin_family = AF_INET;
+      insock.sin_port = htons ((unsigned short)(X_TCP_PORT + atoi (display)));
+      insock.sin_addr.s_addr = htonl(INADDR_ANY);
+***************
+*** 246,251 ****
+--- 249,257 ----
+  #endif
+      strcpy (unsock.sun_path, X_UNIX_PATH);
+      strcat (unsock.sun_path, display);
++ #ifdef BSD44SOCKETS
++     unsock.sun_len = strlen(unsock.sun_path);
++ #endif
+  #ifdef hpux
+      {  
+          /*    The following is for backwards compatibility
+***************
+*** 273,279 ****
+--- 279,289 ----
+  	Error ("Creating Unix socket");
+  	return -1;
+      } 
++ #ifdef BSD44SOCKETS
++     if (bind(request, (struct sockaddr *)&unsock, SUN_LEN(&unsock)))
++ #else
+      if (bind(request, (struct sockaddr *)&unsock, strlen(unsock.sun_path)+2))
++ #endif
+      {
+  	Error ("Binding Unix socket");
+  	close (request);
+*** /tmp/dNpwDM2	Tue Aug 11 15:19:30 1992
+--- server/os/xdmcp.c	Mon Aug 10 17:51:44 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xdmcp.c,v 1.22 92/05/19 17:22:10 keith Exp $ */
+  /*
+   * Copyright 1989 Network Computing Devices, Inc., Mountain View, California.
+   *
+--- 1,4 ----
+! /* $XConsortium: xdmcp.c,v 1.23 92/08/10 17:46:51 eswu Exp $ */
+  /*
+   * Copyright 1989 Network Computing Devices, Inc., Mountain View, California.
+   *
+***************
+*** 169,174 ****
+--- 169,177 ----
+  	return;
+      bcast = &BroadcastAddresses[NumBroadcastAddresses++];
+      bzero (bcast, sizeof (struct sockaddr_in));
++ #ifdef BSD44SOCKETS
++     bcast->sin_len = addr->sin_len;
++ #endif
+      bcast->sin_family = addr->sin_family;
+      bcast->sin_port = htons (xdm_udp_port);
+      bcast->sin_addr = addr->sin_addr;
+***************
+*** 1123,1128 ****
+--- 1126,1134 ----
+      if (hep->h_length == sizeof (struct in_addr))
+      {
+  	bcopy(hep->h_addr, &ManagerAddress.sin_addr, hep->h_length);
++ #ifdef BSD44SOCKETS
++ 	ManagerAddress.sin_len = sizeof(ManagerAddress);
++ #endif
+  	ManagerAddress.sin_family = AF_INET;
+  	ManagerAddress.sin_port = htons (xdm_udp_port);
+      }
+*** /tmp/dMq0CSM	Tue Aug 11 15:19:32 1992
+--- server/ddx/ibm/AIX/Imakefile	Mon Aug 10 17:54:27 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.3 91/07/16 22:51:08 gildea Exp $
+  #include <Server.tmpl>
+  
+  OSDEP_SRC = AIXV3.c AIXinit.c aixMsg.c aixError.c aixWrap.c
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.4 92/08/10 17:49:34 eswu Exp $
+  #include <Server.tmpl>
+  
+  OSDEP_SRC = AIXV3.c AIXinit.c aixMsg.c aixError.c aixWrap.c
+***************
+*** 30,35 ****
+--- 30,40 ----
+  DEFINES =
+  #endif
+  
++ #if HasBSD44Sockets
++ SOCK_DEFINES = -DBSD44SOCKETS
++ #endif
++ 
++ 
+  INCLUDES = -I. -I../ -I../../../include -I$(INCLUDESRC) -I../common -I../../../../extensions/include -I../../../os
+  
+  #if DebugServer && ProfileServer
+***************
+*** 45,50 ****
+--- 50,57 ----
+  #  endif
+  # endif
+  #endif
++ 
++ SpecialCObjectRule(AIXinit,$(ICONFIGFILES),$(SOCK_DEFINES))
+  
+  all::	$(OTHROBJS)
+  
+*** /tmp/dRr4DM2	Tue Aug 11 15:19:33 1992
+--- server/ddx/ibm/AIX/AIXinit.c	Mon Aug 10 17:54:29 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: AIXinit.c,v 1.3 91/07/16 12:56:15 jap Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: AIXinit.c,v 1.4 92/08/10 17:49:38 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 82,87 ****
+--- 82,90 ----
+      }
+  
+      bzero( (char *)&insock, sizeof insock );
++ #ifdef BSD44SOCKETS
++     insock.sin_len = sizeof(insock);
++ #endif
+      insock.sin_family = AF_INET;
+      insock.sin_addr.s_addr = htonl(INADDR_ANY);
+  

@@ -1,0 +1,214 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: routed.8,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1992/11/10 20:29:48 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Begin Digital-specific information
+.\" Made coding modifications to accommodate tman.
+.\" End Digital-specific information
+.\" 
+.TH routed 8
+.SH NAME
+.PP
+\*Lrouted\*O \- Manages network routing tables
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/routed\*O [\*L-q\*O | \*L-s\*O] [\*L-dgt\*O] [\*Vlogfile\*O]
+.sE
+.PP
+The \*Lrouted\*O daemon manages the network routing tables.
+.PP
+.SH FLAGS
+.PP
+.VL
+.LI "\*L-d\*O"
+Enables additional debugging information, such as bad packets
+received, to be logged.
+.\" Begin Digital-specific information CORRECTION
+.\" Added the same sentence as in -t per QAR 7966.
+The \*Lrouted\*O daemon remains under control of the host
+that started it; therefore, an interrupt from the controlling host
+stops the \*Lrouted\*O process.
+.\" End Digital-specific information CORRECTION
+.LI "\*L-g\*O"
+Causes the routing daemon to run on a gateway host.
+This flag is used on internetwork routers to offer a route to
+the default destination.
+.LI "\*L-q\c\*O"
+Inhibits the \*Lrouted\*O daemon from supplying Routing
+Information Protocol (RIP) data.
+The \*L-q\*O flag conflicts with the \*L-s\*O flag.
+Do not use the \*L-q\*O and \*L-s\*O flags together.
+.LI "\*L-s\c\*O"
+Causes \*Lrouted\*O to supply RIP information even if it is
+not functioning as an Internet router.
+The \*L-s\*O flag conflicts with the \*L-q\*O flag.
+Do not use the \*L-s\*O and \*L-q\*O flags together.
+.LI "\*L-t\*O"
+Causes all packets sent or received to be written to standard
+output.
+The \*Lrouted\*O daemon remains under control of the host
+that started it; therefore, an interrupt from the controlling host
+stops the \*Lrouted\*O process.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "routed"
+.iX "daemon" "routed"
+.iX "routed daemon"
+.iX "managing" "network routing tables"
+.iX "networks" "managing routing tables"
+.iX "tables" "network routing"
+.iX "servers" "routed"
+Use the \*Lrouted\*O daemon to manage the RIP only.
+Use \*Lgated\*O to manage RIP plus other protocols.
+.PP
+When \*Lrouted\*O starts, it finds any interfaces to directly connected
+hosts and networks that are configured into the system and marked as
+\*Lup\*O.  If multiple interfaces are present, \*Lrouted\*O assumes
+that the local host forwards packets between networks.
+The \*Lrouted\*O daemon transmits an RIP request
+packet on each interface (using a broadcast packet if the interface
+supports it) and then enters a loop, listening for RIP routing
+requests and response packets from other hosts.
+In addition, if \*Lrouted\*O is to
+supply RIP information to other hosts, it periodically
+sends RIP update packets (containing copies of its routing tables) to
+any directly connected hosts and networks.
+.PP
+When \*Lrouted\*O receives a RIP request packet and can supply RIP
+routing information, (the \*L-s\*O flag is set),
+it generates a reply (response packet) based on the information
+maintained in the kernel routing tables.  The response packet contains a
+list of known routes, each marked with a \*Vhop count metric\*O
+(the number of host-to-host connections in the route).
+The metric for each route is relative to the sending host.
+A metric of 16 or greater is considered to be infinite, or beyond reach.
+.SS Updating Routing Tables
+If RIP processing is enabled,
+\*Lrouted\*O uses information contained in the RIP response and update
+packets from other hosts to update its routing tables.
+However, \*Lrouted\*O uses the information in the RIP routing
+packet to update the tables only if at least one of the
+following conditions exists:
+.ML
+.LI
+No routing table entry exists for the destination network or host,
+and the metric associated with the route is finite (that is, the metric
+is less than 16).
+.LI
+The source host of the packet is the router in the
+existing routing table entry.
+.LI
+The routing table entry is old and the new information is about a
+route that is at least as efficient as the existing route.
+.LI
+The new route is shorter than the one that is currently stored in
+the routing tables.  (Note that \*Lrouted\*O determines
+relative route length by comparing the new metric with the one stored in
+the routing table.)
+.LE
+.PP
+When \*Lrouted\*O updates its internal routing tables, it generates an RIP
+update packet to all directly connected hosts and networks.
+Before updating the kernel routing tables, \*Lrouted\*O pauses for a
+brief period to allow any unstable conditions to stabilize.
+.PP
+Besides processing incoming RIP packets, \*Lrouted\*O also checks the
+internal routing table entries periodically.  The metric for any entry
+that has not been updated for 3 minutes is set to infinity and marked
+for deletion.  The deletion is delayed for 60 seconds so that
+information about the invalidated route can be distributed throughout
+the network.  A host that acts as an RIP router supplies its routing
+tables to all directly connected hosts and networks every 30 seconds.
+.SS Using Gateways
+In addition to managing routes to directly connected hosts and
+networks, \*Lrouted\*O maintains information about \*Vdistant\*O
+and \*Vexternal\*O gateways.  At startup, \*Lrouted\*O
+reads the \*L/etc/gateways\*O file to learn about these gateways.
+.PP
+The \*L/etc/gateways\*O file contains information
+about routes through distant and external
+gateways to hosts and networks that can be advertised through RIP.
+These routes are either static routes to specific
+destinations, or default routes that apply when a static route to a
+destination is unspecified.
+.PP
+Gateways that supply RIP routing
+information are marked \*Lactive\*O in the \*L/etc/gateways\*O file.
+The \*Lrouted\*O daemons distributes RIP routing information
+to active gateways; if
+no RIP routing information is received from the gateway for a period
+of time, \*Lrouted\*O deletes the associated route from the routing tables.
+.PP
+Gateways that do not exchange RIP routing information are
+marked \*Lpassive\*O in the \*L/etc/gateways\*O file.
+\*LRouted\*O maintains information about
+\*Vpassive\*O gateways indefinitely, and includes information about them
+in any RIP routing information transmitted.
+.PP
+Gateways are identified as \*Vexternal\*O to inform \*Lrouted\*O that
+another routing process installs the route.
+.PP
+Information about \*Vexternal\*O gateways is not maintained in the routing
+tables.  Note that routes through external gateways must be to networks only.
+.PP
+If a \*Vlogfile\*O is specified, \*Lrouted\*O writes information about its
+actions to the specified log file.  The log contains information about any
+changes to the routing tables and a history of recent
+route change messages sent and received that are related to changed routes.
+.SS Signals
+The following signals have the specified effect when
+sent to the \*Lrouted\*O process using the \*Lkill\*O(1) command:
+.VL
+.LI "\*LSIGUSR1\*O"
+Displays internal routing tables.
+.LI "\*LSIGHUP\*O, \*LSIGTERM\*O, or \*LSIGQUIT\*O"
+Broadcasts RIP packets with hop counts set to infinity.
+Essentially, these signals disable the local host as a router.
+On a second \*LSIGHUP\*O, \*LSIGTERM\*O, or \*LSIGQUIT\*O,
+\*Lrouted\*O terminates.
+.LE
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/sbin/routed\*O"
+Specifies the command path
+.LI "\*L/etc/gateways\*O"
+Routes through distant and external gateways
+.LI "\*L/etc/networks\*O"
+Contains the network name database
+.LE
+.SH CAUTIONS
+.PP
+.AL
+.LI
+The \*Lgated\*O and \*Lrouted\*O daemons should not both be run on the same
+host, as this may produce unpredictable results.
+.LI
+Routes through external gateways must be to networks only.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lroute\*O(8)
+.EQ
+delim off
+.EN

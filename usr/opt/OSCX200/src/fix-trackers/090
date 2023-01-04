@@ -1,0 +1,952 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112302353.AA23132@exhume.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2313) close XBUG #4778, #4818, #4819: Replace mode, Proprietary OC, Server fault
+Date: Mon, 30 Dec 91 18:53:51 EST
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+
+	Subject: PEX: Server fault inquiring contents of OCnil in miStruct.c
+	### bug number:   4778
+	### area:         pex
+	### severity:     high
+	### comments:
+
+
+	Subject: PEX BUG: Replace mode will trash memory
+	### bug number:   4818
+	### area:         pex
+	### severity:     high
+	### comments:     accompanies other bugs with server core dump potential
+
+
+	Subject: PEX bug: Handling of Proprietary OCs not implemented
+	### bug number:   4819
+	### area:         pex
+	### severity:     high
+	### comments:     accompanies other bugs with server crash potential
+
+
+
+Please note that for the fixes on Replace mode trashing memory I have chosen
+for the time being to just make the GET_DD_STORAGE macro in pexOCParse.c
+(mi/level2) has been made to do an Xrealloc call when the pointer is not 
+NULL in order to prevent memory from being trashed. A more robust solution would
+be to have this macro and the associated parse routine headers modified to
+return the actual amount of memory allocated, and then add an additional field
+to the miGenericStr structure. I have decided not to make this type of change
+to the internal interface at this time. I think it would be more apropriate to
+do so when 5.1 (or 6.0 depending upon what happens with SI work) code is
+made available.
+
+
+*** /tmp/,RCSt1a01807	Thu Dec 26 17:54:52 1991
+--- extensions/server/PEX/ddpex/mi/include/mipex.h	Thu Dec 26 17:53:13 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: mipex.h,v 5.1 91/02/16 09:54:57 rws Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: mipex.h,v 5.3 91/12/26 17:52:06 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 42,50 ****
+  #define MI_BACKGROUND 0
+  #define MI_FOREGROUND 1
+  
+! /* see if OC (or element) is in range of PEX OCs */
+! #define	MI_IS_PEX_OC(ocnum)	(((ocnum) > PEXOCAll) && ((ocnum) < PEXMaxOC))
+  
+  /**  redefine ASSURE even if it's already defined **/
+  #ifdef ASSURE
+  #undef ASSURE
+--- 42,59 ----
+  #define MI_BACKGROUND 0
+  #define MI_FOREGROUND 1
+  
+! /* high bit mask for proprietary OCs */
+! #define MI_OC_HIGHBIT 0x8000
+  
++ /* a redefinable location for use in branching on proprietary OCs */
++ #define MI_OC_PROP 0
++ 
++ /* see if propietary bit is set in OC Type */
++ #define MI_HIGHBIT_ON(octype)   ((octype) & MI_OC_HIGHBIT)
++ 
++ /* see if OC Type (or element) is in range of PEX OCs */
++ #define	MI_IS_PEX_OC(octype)  (((octype) > PEXOCAll) && ((octype) <= PEXMaxOC))
++ 
+  /**  redefine ASSURE even if it's already defined **/
+  #ifdef ASSURE
+  #undef ASSURE
+***************
+*** 189,200 ****
+  
+  /*
+   * MI_ROUND_LISTHEADERCOUNT is used by the clip routines to round up the 
+!  * header block count by 15 - in other words to allocated headerblocks
+!  * in increment of 15 and thus reduce calls to Xrealloc.
+   * Note that this doesn't work for beans w/ negative numbers (although
+   * allocating a negative number of header blocks doesn't work well either!).
+   */
+! #define MI_ROUND_LISTHEADERCOUNT(val) (((val) & ~15) + 15)
+  
+  /* 
+   * MI_ALLOCLISTHEADER insures that there are numlists headers in the
+--- 198,209 ----
+  
+  /*
+   * MI_ROUND_LISTHEADERCOUNT is used by the clip routines to round up the 
+!  * header block count by 16 - in other words to allocated headerblocks
+!  * in increment of 16 and thus reduce calls to Xrealloc.
+   * Note that this doesn't work for beans w/ negative numbers (although
+   * allocating a negative number of header blocks doesn't work well either!).
+   */
+! #define MI_ROUND_LISTHEADERCOUNT(val) (((val) + 15) & ~15)
+  
+  /* 
+   * MI_ALLOCLISTHEADER insures that there are numlists headers in the
+*** /tmp/,RCSt1a01816	Thu Dec 26 17:54:54 1991
+--- extensions/server/PEX/ddpex/mi/include/miStrMacro.h	Thu Dec 26 17:53:16 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miStrMacro.h,v 5.1 91/02/16 09:54:43 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: miStrMacro.h,v 5.2 91/12/26 17:53:13 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 108,121 ****
+  		i++, ptemp = MISTR_NEXT_EL(ptemp));			\
+  	(OFFSET) = i;							\
+      }
+!     
+  #define	MISTR_DEL_ONE_EL(PSTRUCT, PPREV, PEL)	{			\
+      MISTR_NEXT_EL(PPREV) = MISTR_NEXT_EL(PEL);				\
+      MISTR_PREV_EL(MISTR_NEXT_EL(PEL)) = (PPREV);			\
+!     if (MI_IS_PEX_OC(MISTR_EL_TYPE(PEL)))				\
+! 	DestroyCSSElementTable[MISTR_EL_TYPE(PEL)]((PSTRUCT), (PEL));	\
+      else								\
+! 	DestroyCSSElementTable[0]((PSTRUCT), (PEL)); }
+  
+  #define	MISTR_INSERT_ONE_EL(PPREV, PEL)				\
+  	MISTR_NEXT_EL(PEL) = MISTR_NEXT_EL(PPREV);		\
+--- 108,124 ----
+  		i++, ptemp = MISTR_NEXT_EL(ptemp));			\
+  	(OFFSET) = i;							\
+      }
+!    
+! /* Must check Proprietary and in Range to avoid Null function ptrs */
+  #define	MISTR_DEL_ONE_EL(PSTRUCT, PPREV, PEL)	{			\
+      MISTR_NEXT_EL(PPREV) = MISTR_NEXT_EL(PEL);				\
+      MISTR_PREV_EL(MISTR_NEXT_EL(PEL)) = (PPREV);			\
+!     if (MI_HIGHBIT_ON(MISTR_EL_TYPE(PEL)))				\
+! 	(*DestroyCSSElementTable[MI_OC_PROP])((PSTRUCT), (PEL));        \
+      else								\
+!       if (MI_IS_PEX_OC(MISTR_EL_TYPE(PEL)))				\
+! 	(*DestroyCSSElementTable[MISTR_EL_TYPE(PEL)])((PSTRUCT), (PEL));\
+!     }
+  
+  #define	MISTR_INSERT_ONE_EL(PPREV, PEL)				\
+  	MISTR_NEXT_EL(PEL) = MISTR_NEXT_EL(PPREV);		\
+***************
+*** 126,131 ****
+--- 129,135 ----
+  /* PSTRUCT is structure handle; DDSTRUCT is dd structure header */
+  /* first can't be 0, last can't be more than number in structure */
+  /* inclusive delete, does not update structure header info */
++ /* Must check Proprietary and in Range to avoid Null function ptrs */
+  #define	MISTR_DEL_ELS(PSTRUCT, DDSTRUCT, FIRST, LAST)		\
+      if ((int)((LAST) - (FIRST)) >= 0) {				\
+  	register int	num;					\
+***************
+*** 134,144 ****
+  	pe = MISTR_PREV_EL(pe1);				\
+  	for (num = (FIRST); num <= (LAST); num++) {		\
+  	    pe2 = MISTR_NEXT_EL(pe1);				\
+! 	    if (MI_IS_PEX_OC(MISTR_EL_TYPE(pe1)))		\
+! 		(*DestroyCSSElementTable[MISTR_EL_TYPE(pe1)])	\
+! 				((PSTRUCT), pe1);		\
+  	    else						\
+! 		(*DestroyCSSElementTable[0])((PSTRUCT), pe1);	\
+  	    pe1 = pe2;					\
+  	}							\
+  	MISTR_NEXT_EL(pe) = pe1;				\
+--- 138,150 ----
+  	pe = MISTR_PREV_EL(pe1);				\
+  	for (num = (FIRST); num <= (LAST); num++) {		\
+  	    pe2 = MISTR_NEXT_EL(pe1);				\
+! 	    if (MI_HIGHBIT_ON(MISTR_EL_TYPE(pe1)))		\
+! 		(*DestroyCSSElementTable[MI_OC_PROP])           \
+! 				       ((PSTRUCT), pe1);	\
+  	    else						\
+! 		if (MI_IS_PEX_OC(MISTR_EL_TYPE(pe1)))		\
+! 		  (*DestroyCSSElementTable[MISTR_EL_TYPE(pe1)])	\
+! 				((PSTRUCT), pe1);		\
+  	    pe1 = pe2;					\
+  	}							\
+  	MISTR_NEXT_EL(pe) = pe1;				\
+*** /tmp/,RCSt1a01901	Thu Dec 26 18:01:42 1991
+--- extensions/server/PEX/ddpex/mi/level2/pexOCParse.c	Thu Dec 26 18:00:39 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: pexOCParse.c,v 5.3 91/07/12 17:54:19 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexOCParse.c,v 5.4 91/12/26 17:59:11 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 96,102 ****
+  	*ppExecuteOC =							\
+  	    (miGenericElementPtr) Xalloc((unsigned long)((SIZE)		\
+  					+ sizeof(miGenericElementStr)));\
+! 	if (!(*ppExecuteOC)) return (BadAlloc);	}			\
+      (DD_ST) = (TYPE *)((*ppExecuteOC)+1);
+  
+  #define GET_MORE_STORAGE(DD_ST, TYPE, SIZE)			\
+--- 96,107 ----
+  	*ppExecuteOC =							\
+  	    (miGenericElementPtr) Xalloc((unsigned long)((SIZE)		\
+  					+ sizeof(miGenericElementStr)));\
+!     }			                                                \
+!     else {                                                              \
+! 	*ppExecuteOC = (miGenericElementPtr) Xrealloc(*ppExecuteOC,     \
+! 	        (unsigned long)((SIZE) + sizeof(miGenericElementStr))); \
+!     }			                                                \
+!     if (!(*ppExecuteOC)) return (BadAlloc);	                        \
+      (DD_ST) = (TYPE *)((*ppExecuteOC)+1);
+  
+  #define GET_MORE_STORAGE(DD_ST, TYPE, SIZE)			\
+***************
+*** 2200,2205 ****
+--- 2205,2227 ----
+  		    pPEXOC->length * sizeof(CARD32));
+  
+      bcopy(  (char *)pPEXOC, (char *)dstAttrib,
++ 	    (int)(pPEXOC->length * sizeof(CARD32)));
++ 
++     OC_PARSER_RETURN(pPEXOC);
++ }
++ 
++ 
++ OC_PARSER_FUNC_HEADER(PropOC)
++ {
++     /** This handles storing ProprietaryOC 
++      **/
++ 
++     ddElementInfo  *dstPropOC;
++ 
++     GET_DD_STORAGE( dstPropOC, ddElementInfo,
++ 		    pPEXOC->length * sizeof(CARD32));
++ 
++     bcopy(  (char *)pPEXOC, (char *)dstPropOC,
+  	    (int)(pPEXOC->length * sizeof(CARD32)));
+  
+      OC_PARSER_RETURN(pPEXOC);
+*** /tmp/,RCSt1a01910	Thu Dec 26 18:01:45 1991
+--- extensions/server/PEX/ddpex/mi/level2/miCopy.c	Thu Dec 26 18:00:43 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miCopy.c,v 5.4 91/09/06 14:36:15 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: miCopy.c,v 5.5 91/12/26 18:00:39 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 1064,1066 ****
+--- 1064,1076 ----
+      return(Success);
+  }
+  
++ 
++ OC_COPY_FUNC_HEADER(PropOC)
++ {
++     COPY_DECL(PropOC, pexElementInfo);
++ 
++     DST_STORE_AND_COPY(	dstPropOC, pexElementInfo,
++ 			srcPropOC->length * sizeof(CARD32));
++ 
++     return(Success);
++ }
+*** /tmp/,RCSt1a01919	Thu Dec 26 18:01:47 1991
+--- extensions/server/PEX/ddpex/mi/level2/miLvl2Tab.c	Thu Dec 26 18:00:51 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miLvl2Tab.c,v 5.2 91/05/31 07:24:36 jap Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: miLvl2Tab.c,v 5.3 91/12/26 18:00:42 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 154,159 ****
+--- 154,160 ----
+  	parseGdp(),
+  	parseGdp2D(),
+  	parseSetAttribute(),
++ 	parsePropOC(),
+  	parseSOFAS(),
+  	parsePSurfaceChars(),
+  	parseSetMCVolume(),
+***************
+*** 160,166 ****
+  	parseSetMCVolume2D();
+  
+  ocTableType	ParseOCTable[] = {
+!     NULL,		/* 0 dummy entry */
+      parseSetAttribute,		/* 1 marker type */
+      parseSetAttribute,		/* 2 marker scale */
+      parseColourIndexOC,		/* 3 marker colour index */
+--- 161,167 ----
+  	parseSetMCVolume2D();
+  
+  ocTableType	ParseOCTable[] = {
+!     parsePropOC,	        /* 0 dummy entry */
+      parseSetAttribute,		/* 1 marker type */
+      parseSetAttribute,		/* 2 marker scale */
+      parseColourIndexOC,		/* 3 marker colour index */
+***************
+*** 273,279 ****
+  			destroyNurbSurface();
+  
+  destroyTableType	DestroyOCTable[] = {
+!     NULL,			/* 0 dummy entry */
+      destroyOC_PEX,		/* 1 marker type */
+      destroyOC_PEX,		/* 2 marker scale */
+      destroyOC_PEX,		/* 3 marker colour index */
+--- 274,280 ----
+  			destroyNurbSurface();
+  
+  destroyTableType	DestroyOCTable[] = {
+!     destroyOC_PEX,		/* 0 entry for proprietary OCs */
+      destroyOC_PEX,		/* 1 marker type */
+      destroyOC_PEX,		/* 2 marker scale */
+      destroyOC_PEX,		/* 3 marker colour index */
+***************
+*** 367,375 ****
+      destroyOC_PEX,		/* 91 fill area 3d with data */
+      destroyOC_PEX,		/* 92 fill area set 3d */
+      destroyOC_PEX,		/* 93 fill area set 2d */
+!     destroyOC_PEX,	/* 94 fill area set 3d with data */
+      destroyOC_PEX,		/* 95 triangle strip */
+!     destroyOC_PEX,	/* 96 quadrilateral mesh */
+      destroySOFAS,		/* 97 set of fill area sets */
+      destroyNurbSurface,		/* 98 non-uniform b spline surface */
+      destroyOC_PEX,		/* 99 cell array 3d */
+--- 368,376 ----
+      destroyOC_PEX,		/* 91 fill area 3d with data */
+      destroyOC_PEX,		/* 92 fill area set 3d */
+      destroyOC_PEX,		/* 93 fill area set 2d */
+!     destroyOC_PEX,	        /* 94 fill area set 3d with data */
+      destroyOC_PEX,		/* 95 triangle strip */
+!     destroyOC_PEX,        	/* 96 quadrilateral mesh */
+      destroySOFAS,		/* 97 set of fill area sets */
+      destroyNurbSurface,		/* 98 non-uniform b spline surface */
+      destroyOC_PEX,		/* 99 cell array 3d */
+***************
+*** 736,741 ****
+--- 737,743 ----
+      copyMCVolume(),
+      copyQuadrilateralMesh(),
+      copySetAttribute(),
++     copyPropOC(),
+      copySOFAS(),
+      copyText(),
+      copyText2D(),
+***************
+*** 744,750 ****
+  
+  
+  ocTableType	CopyOCTable[] = {
+!     NULL,			/* 0 dummy entry */
+      copySetAttribute,		/* 1 marker type */
+      copySetAttribute,		/* 2 marker scale */
+      copyColourIndexOC,		/* 3 marker colour index */
+--- 746,752 ----
+  
+  
+  ocTableType	CopyOCTable[] = {
+!     copyPropOC,			/* 0 dummy entry */
+      copySetAttribute,		/* 1 marker type */
+      copySetAttribute,		/* 2 marker scale */
+      copyColourIndexOC,		/* 3 marker colour index */
+***************
+*** 881,886 ****
+--- 883,889 ----
+      inquirePSurfaceChars(),
+      inquireQuadrilateralMesh(),
+      inquireSetAttribute(),
++     inquirePropOC(),
+      inquireSOFAS(),
+      inquireText(),
+      inquireText2D(),
+***************
+*** 890,896 ****
+  
+  
+  ocTableType	InquireOCTable[] = {
+!     NULL,			/* 0 dummy entry */
+      inquireSetAttribute,	/* 1 marker type */
+      inquireSetAttribute,	/* 2 marker scale */
+      inquireColourIndexOC,	/* 3 marker colour index */
+--- 893,899 ----
+  
+  
+  ocTableType	InquireOCTable[] = {
+!     inquirePropOC,		/* 0 dummy entry */
+      inquireSetAttribute,	/* 1 marker type */
+      inquireSetAttribute,	/* 2 marker scale */
+      inquireColourIndexOC,	/* 3 marker colour index */
+***************
+*** 1005,1011 ****
+  
+  
+  ocTableType	ReplaceOCTable[] = {
+!     NULL,			/* 0 dummy entry */
+      parseSetAttribute,		/* 1 marker type */
+      parseSetAttribute,		/* 2 marker scale */
+      parseColourIndexOC,		/* 3 marker colour index */
+--- 1008,1014 ----
+  
+  
+  ocTableType	ReplaceOCTable[] = {
+!     parsePropOC,		/* 0 dummy entry */
+      parseSetAttribute,		/* 1 marker type */
+      parseSetAttribute,		/* 2 marker scale */
+      parseColourIndexOC,		/* 3 marker colour index */
+***************
+*** 1030,1036 ****
+      parseSetAttribute,		/* 22 line type */
+      parseSetAttribute,		/* 23 line width */
+      parseColourIndexOC,		/* 24 line colour index */
+!     parseColourOC,			/* 25 line colour */
+      parseSetAttribute,		/* 26 curve approximation method */
+      parseSetAttribute,		/* 27 polyline interpolation method */
+      parseSetAttribute,		/* 28 line bundle index */
+--- 1033,1039 ----
+      parseSetAttribute,		/* 22 line type */
+      parseSetAttribute,		/* 23 line width */
+      parseColourIndexOC,		/* 24 line colour index */
+!     parseColourOC,		/* 25 line colour */
+      parseSetAttribute,		/* 26 curve approximation method */
+      parseSetAttribute,		/* 27 polyline interpolation method */
+      parseSetAttribute,		/* 28 line bundle index */
+*** /tmp/,RCSt1a01928	Thu Dec 26 18:01:49 1991
+--- extensions/server/PEX/ddpex/mi/level2/miInquire.c	Thu Dec 26 18:00:55 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miInquire.c,v 5.2 91/07/12 17:55:15 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: miInquire.c,v 5.3 91/12/26 18:00:51 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 1315,1320 ****
+--- 1315,1335 ----
+  
+      bcopy(  (char *)srcAttrib, (char *)dstAttrib,
+  	    (int)(srcAttrib->length * sizeof(CARD32)));
++ 
++     return(Success);
++ }
++ 
++ OC_INQ_FUNC_HEADER(PropOC)
++ {
++     /** The function Handles Proprietary Vendor OCs
++      **/
++ 
++     ddElementInfo  *dstPropOC, *srcPropOC;
++ 
++     GET_INQ_STORAGE( dstPropOC, ddElementInfo, srcPropOC, ddElementInfo);
++ 
++     bcopy(  (char *)srcPropOC, (char *)dstPropOC,
++ 	    (int)(srcPropOC->length * sizeof(CARD32)));
+  
+      return(Success);
+  }
+*** /tmp/,RCSt1a01989	Thu Dec 26 18:05:30 1991
+--- extensions/server/PEX/ddpex/mi/level4/miStruct.c	Thu Dec 26 18:05:02 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miStruct.c,v 5.2 91/07/01 08:41:33 rws Exp $ */
+  
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: miStruct.c,v 5.3 91/12/26 18:03:59 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 1253,1264 ****
+  	MISTR_FIND_EL(pheader, offset1, pel);
+  
+  	for (i = offset1; i <= offset2; i++) {
+! 	    if (MI_IS_PEX_OC(MISTR_EL_TYPE(pel)))
+! 		err = (*InquireCSSElementTable[MISTR_EL_TYPE(pel)])
+! 						(pel, pBuffer, &(pBuffer->pBuf));
+! 	    else
+! 		err = (*InquireCSSElementTable[0])
+! 						(pel, pBuffer, &(pBuffer->pBuf));
+  	    if (err != Success) {
+  		*pNumOCs = i - offset1;
+  		return (err);
+--- 1253,1271 ----
+  	MISTR_FIND_EL(pheader, offset1, pel);
+  
+  	for (i = offset1; i <= offset2; i++) {
+! 	    /* Propreitary calls (and OCNil) through 0th Table Entry */
+! 	    if (MI_HIGHBIT_ON(MISTR_EL_TYPE(pel)))
+! 		err = (*InquireCSSElementTable[MI_OC_PROP])
+! 				      (pel, pBuffer, &(pBuffer->pBuf));
+! 	    else {
+! 		/* not Proprietary see if valid PEX OC */
+! 		if (MI_IS_PEX_OC(MISTR_EL_TYPE(pel)))
+! 		    err = (*InquireCSSElementTable[MISTR_EL_TYPE(pel)])
+! 				      (pel, pBuffer, &(pBuffer->pBuf));
+! 		else
+! 		    err = !Success;
+! 	    }
+! 
+  	    if (err != Success) {
+  		*pNumOCs = i - offset1;
+  		return (err);
+***************
+*** 1600,1621 ****
+  
+  		    && (preplel != MISTR_ZERO_EL(pstruct))) {
+  
+! 			if (MI_IS_PEX_OC(poc->elementType))
+! 			    err = (*ReplaceCSSElementTable[poc->elementType])
+! 						(pStruct, preplel, poc);
+! 			else
+! 			    err = (*ReplaceCSSElementTable[0])
+! 						(pStruct, preplel, poc);
+  		} else
+  		    err = !Success;
+  
+  		if (err != Success) {	/* create new el */
+! 		    if (MI_IS_PEX_OC(poc->elementType))
+! 			err = (*CreateCSSElementTable[poc->elementType])
+  						(pStruct, poc, &pnewel);
+! 		    else
+! 			err = (*CreateCSSElementTable[0])
+! 						(pStruct, poc, &pnewel);
+  
+  		if (err != Success) break;
+  
+--- 1607,1649 ----
+  
+  		    && (preplel != MISTR_ZERO_EL(pstruct))) {
+  
+! 		      /*
+! 		       * *  Replace calls Parse functions which now 
+! 		       * *  do size checking via Xrealloc
+! 		       */
+! 
+! 			/* Propreitary OC (and OCNil) through 0th Table Entry */
+! 			if (MI_HIGHBIT_ON(poc->elementType))
+! 			    err = (*ReplaceCSSElementTable[MI_OC_PROP])
+! 						(pStruct, preplel, poc );
+!                         else {
+! 			    /* not Proprietary see if valid PEX OC */
+! 			    if (MI_IS_PEX_OC(poc->elementType))
+! 			      err = (*ReplaceCSSElementTable[poc->elementType])
+! 						    (pStruct, preplel, poc);
+! 			    else
+! 			      /* Bad Element Type Exit Now */
+! 			      err = !Success;
+! 			      break;
+! 			}
+  		} else
++ 		    /* Bad Replace */
+  		    err = !Success;
+  
+  		if (err != Success) {	/* create new el */
+! 		    /* Propreitary OC (and OCNil) through 0th Table Entry */
+! 		    if (MI_HIGHBIT_ON(poc->elementType))
+! 			err = (*CreateCSSElementTable[MI_OC_PROP])
+  						(pStruct, poc, &pnewel);
+! 		    else {
+! 			/* not Proprietary see if valid PEX OC */
+! 			if (MI_IS_PEX_OC(poc->elementType))
+! 			    err = (*CreateCSSElementTable[poc->elementType])
+! 						    (pStruct, poc, &pnewel);
+! 			else
+! 			    /* Bad Element Type */
+! 			    err = !Success;
+! 		    }
+  
+  		if (err != Success) break;
+  
+***************
+*** 1643,1654 ****
+  	    for (   count = 0, poc = pOCs, pprevel = MISTR_CURR_EL_PTR(pstruct);
+  		    numOCs > 0;
+  		    numOCs--, pprevel = pnewel, poc += poc->length) {
+- 		if (MI_IS_PEX_OC(poc->elementType))
+- 		    err = (*CreateCSSElementTable[poc->elementType])
+- 					(pStruct, poc, &pnewel);
+- 		else
+- 		    err = (*CreateCSSElementTable[0]) (pStruct, poc, &pnewel);
+  
+  		if (err != Success) break;
+  
+  		count++;
+--- 1671,1691 ----
+  	    for (   count = 0, poc = pOCs, pprevel = MISTR_CURR_EL_PTR(pstruct);
+  		    numOCs > 0;
+  		    numOCs--, pprevel = pnewel, poc += poc->length) {
+  
++ 		/* Propreitary OC (and OCNil) through 0th Table Entry */
++ 		if (MI_HIGHBIT_ON(poc->elementType))
++ 		    err = (*CreateCSSElementTable[MI_OC_PROP]) 
++ 						 (pStruct, poc, &pnewel);
++ 		else {
++ 		    /* not Proprietary see if valid PEX OC */
++ 		    if (MI_IS_PEX_OC(poc->elementType))
++ 			err = (*CreateCSSElementTable[poc->elementType])
++ 					    (pStruct, poc, &pnewel);
++ 		    else
++ 			/* Bad Element Type */
++ 			err = !Success;
++ 		}
++ 
+  		if (err != Success) break;
+  
+  		count++;
+***************
+*** 1915,1926 ****
+  	pdestprev = &pfirst;
+  
+  	for (i = src_low, count = 0; i <= src_high; i++) {
+! 		if (MI_IS_PEX_OC(MISTR_EL_TYPE(psrcel)))
+  			err4 = (*CopyCSSElementTable[MISTR_EL_TYPE(psrcel)])
+  				(psrcel, pDestStruct, &pdestel);
+! 		else
+! 			err4 = (*CopyCSSElementTable[0])
+! 				(psrcel, pDestStruct, &pdestel);
+  
+  		if (err4 != Success)
+  			break;
+--- 1952,1971 ----
+  	pdestprev = &pfirst;
+  
+  	for (i = src_low, count = 0; i <= src_high; i++) {
+! 
+! 		/* Propreitary OC (and OCNil) through 0th Table Entry */
+! 		if (MI_HIGHBIT_ON(MISTR_EL_TYPE(psrcel)))
+! 			err4 = (*CopyCSSElementTable[MI_OC_PROP])
+! 				(psrcel, pDestStruct, &pdestel);
+! 		else {
+! 		    /* not Proprietary see if valid PEX OC */
+! 		    if (MI_IS_PEX_OC(MISTR_EL_TYPE(psrcel)))
+  			err4 = (*CopyCSSElementTable[MISTR_EL_TYPE(psrcel)])
+  				(psrcel, pDestStruct, &pdestel);
+! 		    else
+! 			/* Bad Element Type - Problem if you get here */
+! 			err4 = !Success;
+! 		}
+  
+  		if (err4 != Success)
+  			break;
+*** /tmp/,RCSt1a02007	Thu Dec 26 18:05:34 1991
+--- extensions/server/PEX/ddpex/mi/level4/css_tbls.c	Thu Dec 26 18:05:07 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: css_tbls.c,v 5.1 91/02/16 09:56:11 rws Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: css_tbls.c,v 5.2 91/12/26 18:05:04 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 47,53 ****
+  extern ddpex4rtn inquireCSS_Exec_Struct();
+  
+  cssTableType    CreateCSSElementTable[] = {
+! 	createCSS_Plain,	/* 0 All */
+  	createCSS_Plain,	/* 1 MarkerType */
+  	createCSS_Plain,	/* 2 MarkerScale */
+  	createCSS_Plain,	/* 3 MarkerColourIndex */
+--- 47,53 ----
+  extern ddpex4rtn inquireCSS_Exec_Struct();
+  
+  cssTableType    CreateCSSElementTable[] = {
+! 	createCSS_Plain,	/* 0 Propietary */
+  	createCSS_Plain,	/* 1 MarkerType */
+  	createCSS_Plain,	/* 2 MarkerScale */
+  	createCSS_Plain,	/* 3 MarkerColourIndex */
+***************
+*** 154,160 ****
+  };
+  
+  cssTableType    DestroyCSSElementTable[] = {
+! 	destroyCSS_Plain,	/* 0 All */
+  	destroyCSS_Plain,	/* 1 MarkerType */
+  	destroyCSS_Plain,	/* 2 MarkerScale */
+  	destroyCSS_Plain,	/* 3 MarkerColourIndex */
+--- 154,160 ----
+  };
+  
+  cssTableType    DestroyCSSElementTable[] = {
+! 	destroyCSS_Plain,	/* 0 Propietary */
+  	destroyCSS_Plain,	/* 1 MarkerType */
+  	destroyCSS_Plain,	/* 2 MarkerScale */
+  	destroyCSS_Plain,	/* 3 MarkerColourIndex */
+***************
+*** 261,267 ****
+  };
+  
+  cssTableType    CopyCSSElementTable[] = {
+! 	copyCSS_Plain,		/* 0 All */
+  	copyCSS_Plain,		/* 1 MarkerType */
+  	copyCSS_Plain,		/* 2 MarkerScale */
+  	copyCSS_Plain,		/* 3 MarkerColourIndex */
+--- 261,267 ----
+  };
+  
+  cssTableType    CopyCSSElementTable[] = {
+! 	copyCSS_Plain,		/* 0 Propietary */
+  	copyCSS_Plain,		/* 1 MarkerType */
+  	copyCSS_Plain,		/* 2 MarkerScale */
+  	copyCSS_Plain,		/* 3 MarkerColourIndex */
+***************
+*** 368,374 ****
+  };
+  
+  cssTableType    ReplaceCSSElementTable[] = {
+! 	replaceCSS_Plain,	/* 0 All */
+  	replaceCSS_Plain,	/* 1 MarkerType */
+  	replaceCSS_Plain,	/* 2 MarkerScale */
+  	replaceCSS_Plain,	/* 3 MarkerColourIndex */
+--- 368,374 ----
+  };
+  
+  cssTableType    ReplaceCSSElementTable[] = {
+! 	replaceCSS_Plain,	/* 0 Propietary */
+  	replaceCSS_Plain,	/* 1 MarkerType */
+  	replaceCSS_Plain,	/* 2 MarkerScale */
+  	replaceCSS_Plain,	/* 3 MarkerColourIndex */
+***************
+*** 475,481 ****
+  };
+  
+  cssTableType    InquireCSSElementTable[] = {
+! 	inquireCSS_Plain,	/* 0 All */
+  	inquireCSS_Plain,	/* 1 MarkerType */
+  	inquireCSS_Plain,	/* 2 MarkerScale */
+  	inquireCSS_Plain,	/* 3 MarkerColourIndex */
+--- 475,481 ----
+  };
+  
+  cssTableType    InquireCSSElementTable[] = {
+! 	inquireCSS_Plain,	/* 0 Propietary */
+  	inquireCSS_Plain,	/* 1 MarkerType */
+  	inquireCSS_Plain,	/* 2 MarkerScale */
+  	inquireCSS_Plain,	/* 3 MarkerColourIndex */
+*** /tmp/,RCSt1a02061	Thu Dec 26 18:17:04 1991
+--- extensions/server/PEX/ddpex/mi/level4/css_plain.c	Thu Dec 26 18:15:55 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: css_plain.c,v 5.2 91/10/24 18:39:46 hersh Exp $ */
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+--- 1,4 ----
+! /* $XConsortium: css_plain.c,v 5.4 91/12/26 18:15:31 hersh Exp $ */
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+  
+***************
+*** 30,36 ****
+   */
+  
+  #include "ddpex.h"
+- #include "miStruct.h"
+  #include "miStrMacro.h"
+  
+  extern ocTableType ParseOCTable[];
+--- 30,35 ----
+***************
+*** 44,50 ****
+  
+  #define PEX_EL_TYPE(POC) ((ddElementInfo *)(POC))->elementType
+  
+- #define OC_RANGE(ELTYPE) ((PEXOCAll < (ELTYPE) ) && ( PEXMaxOC >=(ELTYPE)))
+  
+  ddpex4rtn
+  createCSS_Plain(pStruct, pPEXOC, ppCSSElement)
+--- 43,48 ----
+***************
+*** 61,72 ****
+  
+  	/*
+  	 * Parse into server native format
+  	 */
+! 	if (OC_RANGE(PEX_EL_TYPE(pPEXOC)))
+  		err = (*ParseOCTable[PEX_EL_TYPE(pPEXOC)])
+  			(pPEXOC, ppCSSElement);
+- 	else
+- 		err = !Success;
+  
+  	if (err != Success)
+  		return (PEXERR(PEXOutputCommandError));
+--- 59,72 ----
+  
+  	/*
+  	 * Parse into server native format
++ 	 * If we make it here OC is either proprietary or valid PEXOC
++ 	 * still need to check proprietary to avoid Null Function Ptrs
+  	 */
+! 	if (MI_HIGHBIT_ON(PEX_EL_TYPE(pPEXOC)))
+! 		err = (*ParseOCTable[MI_OC_PROP]) (pPEXOC, ppCSSElement);
+! 	else
+  		err = (*ParseOCTable[PEX_EL_TYPE(pPEXOC)])
+  			(pPEXOC, ppCSSElement);
+  
+  	if (err != Success)
+  		return (PEXERR(PEXOutputCommandError));
+***************
+*** 99,106 ****
+  
+  	/*
+  	 * Free the parsed format
+  	 */
+! 	(*DestroyOCTable[(int) (pCSSElement->element.elementType)])
+  		(pCSSElement);
+  
+  	return (err);
+--- 99,113 ----
+  
+  	/*
+  	 * Free the parsed format
++ 	 * If we make it here OC is either proprietary or valid PEXOC
++ 	 * still need to check proprietary to avoid Null Function Ptrs
++ 	 * even though we use the same destroy routine
+  	 */
+! 
+! 	if (MI_HIGHBIT_ON(pCSSElement->element.elementType))
+! 	    (*DestroyOCTable[MI_OC_PROP]) (pCSSElement);
+! 	else 
+! 	    (*DestroyOCTable[(int) (pCSSElement->element.elementType)])
+  		(pCSSElement);
+  
+  	return (err);
+***************
+*** 119,126 ****
+  
+  	*ppDestCSSElement = (miGenericElementPtr) NULL;
+  
+! 	err = (*CopyOCTable[(int) (pSrcCSSElement->element.elementType)])
+! 		(pSrcCSSElement, ppDestCSSElement);
+  	if (err != Success)
+  		return (err);
+  
+--- 126,142 ----
+  
+  	*ppDestCSSElement = (miGenericElementPtr) NULL;
+  
+! 	/*
+! 	 * If we make it here OC is either proprietary or valid PEXOC
+! 	 * still need to check proprietary to avoid Null Function Ptrs
+! 	*/
+! 	if (MI_HIGHBIT_ON(pSrcCSSElement->element.elementType))
+! 	    err = (*CopyOCTable[MI_OC_PROP])
+! 		    (pSrcCSSElement, ppDestCSSElement);
+! 	else 
+! 	    err = (*CopyOCTable[(int) (pSrcCSSElement->element.elementType)])
+! 		    (pSrcCSSElement, ppDestCSSElement);
+! 
+  	if (err != Success)
+  		return (err);
+  
+***************
+*** 144,151 ****
+  {
+  	ddpex4rtn       err = Success;
+  
+! 	err = (*ReplaceOCTable[(int) (pCSSElement->element.elementType)])
+! 		(pPEXOC, &pCSSElement);
+  
+  	if (err == Success) {
+  		pCSSElement->pStruct = pStruct;
+--- 160,174 ----
+  {
+  	ddpex4rtn       err = Success;
+  
+! 	/*
+! 	 * If we make it here OC is either proprietary or valid PEXOC
+! 	 * still need to check proprietary to avoid Null Function Ptrs
+! 	*/
+! 	if (MI_HIGHBIT_ON(pCSSElement->element.elementType))
+! 	    err = (*ReplaceOCTable[MI_OC_PROP]) (pPEXOC, &pCSSElement);
+! 	else 
+! 	    err = (*ReplaceOCTable[(int) (pCSSElement->element.elementType)])
+! 		    (pPEXOC, &pCSSElement);
+  
+  	if (err == Success) {
+  		pCSSElement->pStruct = pStruct;
+***************
+*** 163,169 ****
+  {
+  	ddpex4rtn       err = Success;
+  
+! 	err = (*InquireOCTable[(int) (pCSSElement->element.elementType)])
+! 		(pCSSElement, pBuf, ppPEXOC);
+  	return (err);
+  }
+--- 186,199 ----
+  {
+  	ddpex4rtn       err = Success;
+  
+! 	/*
+! 	 * If we make it here OC is either proprietary or valid PEXOC
+! 	 * still need to check proprietary to avoid Null Function Ptrs
+! 	*/
+! 	if (MI_HIGHBIT_ON(pCSSElement->element.elementType))
+! 	    err = (*InquireOCTable[MI_OC_PROP]) (pCSSElement, pBuf, ppPEXOC);
+! 	else 
+! 	    err = (*InquireOCTable[(int) (pCSSElement->element.elementType)])
+! 		    (pCSSElement, pBuf, ppPEXOC);
+  	return (err);
+  }
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts
+
+------- End of Unsent Draft
+
+------- End of Unsent Draft

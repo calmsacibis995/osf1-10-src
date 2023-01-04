@@ -1,0 +1,198 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ *
+ * HISTORY
+ */
+#ifndef SFBMULTICOMPILE_TMPL
+#define SFBMULTICOMPILE_TMPL
+
+/*
+ * This rules file mainly describes how to generate pairs of
+ * compilations, for 8 and 32-bit depths.  It also enables 
+ * automatic accumulation of source file names.  This entails
+ * hackery on mips, where we have to deposit a distinguished
+ * name into the makefile, associate the source names with
+ * it, and then post-process the makefile itself to get the
+ * right result.
+ * Finally, this file defines how to compile a file exactly 
+ * once.
+ */
+
+/*
+ * Hack to stifle warnings due to asm("mb").
+ */
+#define ARule() 2>&1 | fold -w 256 | awk -f filter.awk
+
+#define ObjectCompileTmp(options)	$(RM) $@			@@\
+	$(CC) -c $(CFLAGS) options $*.c ARule()
+
+#define AsmObjectCompile(options)	$(RM) $@			@@\
+	$(CC) -c $(CFLAGS) options $*.s
+
+#define SpecialCObjectRuleTmp(objs,depends,options)			@@\
+objs:   depends                                                         @@\
+	@NotifyVMS(depends,$*.c,options)				@@\
+	ObjectCompileTmp(options)
+
+
+#ifndef MipsArchitecture
+/* this macro does the actual accumulation on alpha */
+#define ACCUM_SRCS(new) MULTICOMPILE_SRCS_EXPANDED=$(MULTICOMPILE_SRCS_EXPANDED) new
+#define ACCUM_LNKS(new) MULTICOMPILE_LINKS=$(MULTICOMPILE_LINKS) new
+
+/* this macro is called by the Imakefile, for the benefit of mips only */
+#define AccumulateSrcs(a,b,c)
+#define AccumulateLinks(a)
+
+#else
+
+/* deposit name and sources */
+#define ACCUM_SRCS(new) YYY_multicompile= new
+#define ACCUM_LNKS(new) WWW_links=new
+
+/* called from Imakefile, this leaves two tags used by the post-processor */
+#define AccumulateSrcs(a,b,c)						@@\
+a = _multicompileY							@@\
+b = _copyZ								@@\
+c = _linkW
+
+#endif
+
+/*
+ * Used for compiling a given file for different depths: 8-bit packed, and
+ * 32-bit.
+ */
+#define SHALLOW_DEFS	-DFFBSRCPIXELBITS=8 -DFFBSRCDEPTHBITS=8 \
+			-DFFBPIXELBITS=8 -DFFBDEPTHBITS=8 -DPSZ=8
+#define DEEP_DEFS	-DFFBSRCPIXELBITS=32 -DFFBSRCDEPTHBITS=32 \
+			-DFFBPIXELBITS=32 -DFFBDEPTHBITS=32 -DPSZ=32
+
+/*
+ * Used when both of the two result objects have names which are different
+ * from the source file.
+ */
+#define ffbObjectFromSpecialSource(dst,src,flags)			@@\
+ACCUM_SRCS(dst.c dst/**/32.c)						@@\
+ACCUM_LNKS(dst.c dst/**/32.c)						@@\
+dst.c:  src.c                                                           @@\
+	$(RM) $@                                                        @@\
+	$(LN) src.c dst.c						@@\
+									@@\
+SpecialCObjectRuleTmp(dst.o,src.c,flags SHALLOW_DEFS)           	@@\
+									@@\
+depend:: dst.c								@@\
+                                                                        @@\
+clean::                                                                 @@\
+	$(RM) dst.c							@@\
+                                                                        @@\
+dst/**/32.c : src.c							@@\
+	$(RM) $@                                                        @@\
+	$(LN) src.c dst/**/32.c						@@\
+                                                                        @@\
+SpecialCObjectRuleTmp(dst/**/32/**/.o,src.c,flags DEEP_DEFS)		@@\
+                                                                        @@\
+depend:: dst/**/32.c                                                	@@\
+                                                                        @@\
+clean::                                                                 @@\
+	$(RM) dst/**/32.c						@@\
+
+
+
+/*
+ * Used when one of the two result objects is derived directly (without
+ * intervening link) from the source file, and has no suffix appended;
+ * the other has the suffix '32'.
+ */
+#define ffbObjectFromSameSource(dst, src, flags)			@@\
+ACCUM_SRCS(dst.c dst/**/32.c)                                           @@\
+ACCUM_LNKS(dst/**/32.c)							@@\
+SpecialCObjectRuleTmp(dst.o,src.c,flags SHALLOW_DEFS -DFFB_DEPTH_INDEPENDENT)@@\
+                                                                        @@\
+dst/**/32.c : src.c                                                 	@@\
+	$(RM) $@                                                        @@\
+	$(LN) src.c dst/**/32.c                                     	@@\
+                                                                        @@\
+SpecialCObjectRuleTmp(dst/**/32/**/.o,src.c,flags DEEP_DEFS)		@@\
+                                                                        @@\
+depend:: dst/**/32.c                                                	@@\
+                                                                        @@\
+clean::                                                                 @@\
+	$(RM) dst/**/32.c
+
+/*
+ * Just one compilation per source, but special flags.
+ */
+#define ffbObject(src, flags)						@@\
+SpecialCObjectRuleTmp(src.o,src.c,flags)
+
+/*
+ * Just one compilation, but src is a link to something else.
+ */
+#define ffbObjectFromLinkedSrc(srcRoot,objRoot,flags)			@@\
+									@@\
+includes::								@@\
+	-$(RM) objRoot.c						@@\
+	$(LN) srcRoot.c objRoot.c					@@\
+                                                                        @@\
+SpecialCObjectRuleTmp(objRoot.o,srcRoot.c,flags)
+
+/*
+ * Just one compilation, but src is a link to an asm file.
+ * NB: we are currently linking both .c and .s, and lying to vms
+ * about the source of the .o, because our .s's don't currently
+ * compile on vms.
+ */
+#define ffbObjectFromLinkedAsmSrc(srcRoot,objRoot,flags)		@@\
+                                                                        @@\
+includes::								@@\
+	-$(RM) objRoot.s objRoot.c					@@\
+	$(LN) srcRoot.s objRoot.s					@@\
+	$(LN) srcRoot.c objRoot.c					@@\
+                                                                        @@\
+objRoot.o : objRoot.s							@@\
+	@NotifyVMS(srcRoot.c,objRoot.c,flags)				@@\
+	AsmObjectCompile(flags)
+
+/*
+ * General purpose variable number recompilation.
+ */
+#define NotifyVMS(srcRoot, src, flags) echo src from srcRoot with flags >> vmsbuild_Special
+
+#define CompileNTimes(src,trigger,cORs,dependencies,constantFlags,varFlags,varArgs)	@@\
+clean::										@@\
+	@-$(RM) vmsbuild_Special						@@\
+										@@\
+trigger: dependencies src.cORs							@@\
+	@FFBDI=-DFFB_DEPTH_INDEPENDENT ; export FFBDI ; \			@@\
+	for k in varArgs ;  do \						@@\
+                (set $$1 $$k ; \						@@\
+                sfx=$$1 ; shift ; \						@@\
+		fileTag=cORs ; \						@@\
+		Src=src ; \							@@\
+		echo "$(CC) -c constantFlags varFlags $$FFBDI  $$@ -o $$Src$$sfx.o $$Src$$sfx.$$fileTag";\@@\
+		NotifyVMS(src.c, $$Src$$sfx.$$fileTag, varFlags $$FFBDI $$@) ; \@@\
+		$(RM) $$Src$$sfx.[o$$fileTag] ; $(LN) src.$$fileTag $$Src$$sfx.$$fileTag ; \@@\
+                $(CC) -c constantFlags varFlags $$FFBDI $$@ -o $$Src$$sfx.o $$Src$$sfx.$$fileTag ARule());\@@\
+		FFBDI= ; export FFBDI ; \					@@\
+        done
+
+#endif /* SFBMULTICOMPILE_TMPL */

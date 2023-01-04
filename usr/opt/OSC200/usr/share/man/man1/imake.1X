@@ -1,0 +1,229 @@
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: imake.1X,v $ $Revision: 1.2.6.3 $ (DEC) $Date: 1993/12/14 18:04:21 $
+.\" 
+.\" $XConsortium: imake.man,v 1.16 91/07/31 23:44:36 gildea Exp $
+.TH imake 1X "" "" "" "X11R5"
+.SH NAME
+imake \- C preprocessor interface to the make utility
+.SH SYNOPSIS
+\f3imake\fP [ \f3\-D\fP\f2define\fP ] [ \f3\-I\fP\f2dir\fP ]
+[ \f3\-T\fP\f2template\fP ]
+[ \f3\-f\fP \f2filename\fP ] [ \f3\-s\fP \f2filename\fP ] 
+.br
+[ \f3\-e\fP ] [ \f3\-v\fP ]
+.SH DESCRIPTION
+.I Imake
+is used to 
+generate \f2Makefiles\fP from a template, a set of \f2cpp\fP macro functions,
+and a per-directory input file called an \f2Imakefile\fP.  This allows machine
+dependencies (such has compiler options, alternate command names, and special
+\f2make\fP rules) to be kept separate from the descriptions of the
+various items to be built.
+.SH OPTIONS
+The following command line options may be passed to \f2imake\fP:
+.TP 8
+.B \-D\f2define\fP
+This option is passed directly to \f2cpp\fP.  It is typically used to set
+directory-specific variables.  For example, the X Window System uses this
+flag to set \f2TOPDIR\fP to the name of the directory containing the top
+of the core distribution and \f2CURDIR\fP to the name of the current 
+directory, relative to the top.
+.TP 8
+.B \-I\f2directory\fP
+This option is passed directly to \f2cpp\fP.  It is typically used to 
+indicate the directory in which the \f2imake\fP template and configuration
+files may be found.
+.TP 8
+.B \-T\f2template\fP
+This option specifies the name of the master template file (which is usually
+located in the directory specified with \f2\-I\fP) used by \f2cpp\fP.
+The default is \f2Imake.tmpl\fP.
+.TP 8
+.B \-f \f2filename\fP
+This option specifies the name of the per-directory input file.  The default
+is \f2Imakefile\fP.
+.TP 8
+.B \-s \f2filename\fP
+This option specifies the name of the \f2make\fP description file to be 
+generated but \f2make\fP should not be invoked.
+If the \f2filename\fP is a dash (\-), the 
+output is written to \f2stdout\fP.  The default is to generate, but
+not execute, a \f2Makefile\fP.
+.TP 8
+.B \-e
+This option indicates the \f2imake\fP should execute the generated
+\f2Makefile\fP.  The default is to leave this to the user.
+.TP 8
+.B \-v
+This option indicates that \f2imake\fP should print the \f2cpp\fP command line 
+that it is using to generate the \f2Makefile\fP.
+.SH "HOW IT WORKS"
+\f2Imake\fP invokes \f2cpp\fP with any \f2\-I\fP or \f2\-D\fP flags passed
+on the command line and passes it the following 3 lines:
+.sp
+.nf
+		#define IMAKE_TEMPLATE "Imake.tmpl"
+		#define INCLUDE_IMAKEFILE "Imakefile"
+		#include IMAKE_TEMPLATE
+.fi
+.sp
+where \f2Imake.tmpl\fP and \f2Imakefile\fP may be overridden by the 
+\f2\-T\fP and \f2\-f\fP command options, respectively.
+.PP
+The IMAKE_TEMPLATE typically
+reads in a file containing machine-dependent parameters 
+(specified as \f2cpp\fP symbols), a site-specific parameters file,
+a file defining variables,
+a file
+containing \f2cpp\fP macro functions for generating \f2make\fP rules, and
+finally the \f2Imakefile\fP (specified by INCLUDE_IMAKEFILE) in the current 
+directory.  The \f2Imakefile\fP uses the macro functions to indicate what
+targets should be built; \f2imake\fP takes care of generating the appropriate
+rules.
+.PP
+.I Imake
+configuration files contain two types of variables, imake variables
+and make variables.  The imake variables are interpreted by cpp when
+.I imake
+is run.  By convention they are mixed case.  The make variables are
+written into the
+.I Makefile
+for later interpretation by
+.I make.
+By convention make variables are upper case.
+.PP
+The rules file (usually named \f2Imake.rules\fP in the configuration
+directory) contains a variety of \f2cpp\fP macro functions that are
+configured according to the current platform.  \f2Imake\fP replaces 
+any occurrences of the string ``@@'' with a newline to allow macros that
+generate more than one line of \f2make\fP rules.  
+For example, the macro
+.ta 1i 1.6i 3.75i
+.nf
+
+#define	program_target(program, objlist)	@@\e
+program:	objlist		@@\e
+	$(CC)  \-o  $@  objlist  $(LDFLAGS)
+
+.fi
+when called with
+.I "program_target(foo, foo1.o  foo2.o)"
+will expand to
+.nf
+
+foo:	foo1.o  foo2.o
+	$(CC)  \-o  $@  foo1.o  foo2.o  $(LDFLAGS)
+
+.fi
+.PP
+On systems whose \f2cpp\fP reduces multiple tabs and spaces to a single
+space, \f2imake\fP attempts to put back any necessary tabs (\f2make\fP is
+very picky about the difference between tabs and spaces).  For this reason,
+colons (:) in command lines must be preceded by a backslash (\\).
+.SH "USE WITH THE X WINDOW SYSTEM"
+The X Window System uses \f2imake\fP extensively, for both full builds within
+the source tree and external software.  As mentioned above, two special
+variables, \f2TOPDIR\fP and \f2CURDIR,\fP are set to make referencing files
+using relative path names easier.  For example, the following command is
+generated automatically to build the \f2Makefile\fP in the directory
+\f2lib/X/\fP (relative to the top of the sources):
+.sp
+.nf
+	%  ../.././config/imake  \-I../.././config  \\
+		\-DTOPDIR=../../.   \-DCURDIR=./lib/X
+.fi
+.sp
+When building X programs outside the source tree, a special symbol
+\f2UseInstalled\fP is defined and \f2TOPDIR\fP and
+\f2CURDIR\fP are omitted.  If the configuration files have been
+properly installed, the script \f2xmkmf\fP(1) may be used.
+.SH "INPUT FILES"
+Here is a summary of the files read by
+.I imake
+as used by X.
+The indentation shows what files include what other files.
+.nf
+.sp
+.ta 2i
+    Imake.tmpl	generic variables
+        site.def	site-specific, BeforeVendorCF defined
+        *.cf	machine-specific
+            *Lib.rules	shared library rules
+        site.def	site-specific, AfterVendorCF defined
+        Project.tmpl	X-specific variables
+            *Lib.tmpl	shared library variables
+        Imake.rules	rules
+    Imakefile
+        Library.tmpl	library rules
+        Server.tmpl	server rules
+.fi
+.LP
+Note that \f2site.def\fP gets included twice, once before the
+\f2*.cf\fP file and once after.  Although most site customizations
+should be specified after the \f2*.cf\fP file, some, such as the
+choice of compiler, need to be specified before, because other
+variable settings may depend on them.
+.LP
+The first time \f2site.def\fP is included, the variable BeforeVendorCF
+is defined, and the second time, the variable AfterVendorCF is
+defined.  All code in \f2site.def\fP should be inside an #ifdef for
+one of these symbols.
+.SH FILES
+.ta 3i
+/usr/tmp/tmp-imake.\f2nnnnnn\fP	temporary input file for cpp
+.br
+/usr/tmp/tmp-make.\f2nnnnnn\fP	temporary input file for make
+.br
+/lib/cpp	default C preprocessor
+.DT
+.SH "SEE ALSO"
+make(1), xmkmf(1)
+.br
+S. I. Feldman,
+.I
+Make \(em A Program for Maintaining Computer Programs
+.SH "ENVIRONMENT VARIABLES"
+The following environment variables may be set, however their use is not
+recommended as they introduce dependencies that are not readily apparent
+when \f2imake\fP is run:
+.TP 5
+.B IMAKEINCLUDE
+If defined, this should be a valid include argument for the
+C preprocessor.  E.g., ``\-I/usr/include/local''.
+Actually, any valid
+.I cpp
+argument will work here.
+.TP 5
+.B IMAKECPP
+If defined, this should be a valid path to a preprocessor program.
+E.g. ``/usr/local/cpp''.
+By default,
+.I imake
+will use /lib/cpp.
+.TP 5
+.B IMAKEMAKE
+If defined, this should be a valid path to a make program,
+such as ``/usr/local/make''.
+By default,
+.I imake
+will use whatever
+.I make
+program is found using
+.I execvp(2).
+This variable is only used if the ``\-e'' option is specified.
+.SH "AUTHOR"
+Todd Brunhoff, Tektronix and MIT Project Athena; Jim Fulton, MIT X Consortium
+.EQ
+delim off
+.EN

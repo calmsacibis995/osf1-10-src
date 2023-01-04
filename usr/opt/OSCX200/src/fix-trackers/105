@@ -1,0 +1,2098 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9201241908.AA06017@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2328) close XBUG #4589, #4882: sequence lost, invisible errors, sync replies
+Date: Fri, 24 Jan 92 14:07:59 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: Xlib: XLoadQueryFont fails when # of requests wraps at 0xffff 
+### bug number:   4589
+### area:         Xlib
+### severity:     low
+### comments:     
+
+Subject: Xlib: invisible errors and synchronous replies
+### bug number:   4882
+### area:         Xlib
+### severity:     low
+### comments:   
+
+Please note that the following patch adds a new file, so you need to
+remake the Xlib Makefile.  It also changes Xlib.h, which means your
+entire world will eventually recompile.  Sorry about that.  The
+change to Xlib.h should be binary compatible with existing client code.
+If you discover otherwise, please let us know ASAP.
+
+*** /tmp/,RCSt1005817	Fri Jan 24 13:50:08 1992
+--- lib/X/Imakefile	Sun Jan 19 17:33:42 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.129 91/12/17 17:54:51 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.130 92/01/19 17:33:38 rws Exp $
+  #define DoNormalLib NormalLibX
+  #define DoSharedLib SharedLibX
+  #define DoDebugLib DebugLibX
+***************
+*** 408,413 ****
+--- 408,414 ----
+  	XWinEvent.c \
+  	XWindow.c \
+  	XWrBitF.c \
++ 	XlibAsync.c \
+  	XlibInt.c \
+  	Xrm.c \
+  	Xstreams.c \
+***************
+*** 531,536 ****
+--- 532,538 ----
+  	XWinEvent.o \
+  	XWindow.o \
+  	XWrBitF.o \
++ 	XlibAsync.o \
+  	XlibInt.o \
+  	Xrm.o \
+  	Xstreams.o \
+*** /tmp/,RCSt1005709	Fri Jan 24 13:49:05 1992
+--- lib/X/Xlib.h	Sun Jan 19 15:04:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Xlib.h,v 11.215 91/07/22 15:42:38 rws Exp $ */
+  /* 
+   * Copyright 1985, 1986, 1987, 1991 by the Massachusetts Institute of Technology
+   *
+--- 1,4 ----
+! /* $XConsortium: Xlib.h,v 11.217 92/01/19 15:00:17 rws Exp $ */
+  /* 
+   * Copyright 1985, 1986, 1987, 1991 by the Massachusetts Institute of Technology
+   *
+***************
+*** 511,521 ****
+  	struct _XKeytrans *key_bindings; /* for XLookupString */
+  	Font cursor_font;	   /* for XCreateFontCursor */
+  	struct _XDisplayAtoms *atoms; /* for XInternAtom */
+! 	struct {		   /* for XReconfigureWMWindow */
+! 	    long sequence_number;
+! 	    int (*old_handler)();
+! 	    Bool succeeded;
+! 	} reconfigure_wm_window;
+  	unsigned long flags;	   /* internal connection flags */
+  	unsigned int mode_switch;  /* keyboard group modifiers */
+  	struct _XContextDB *context_db; /* context database */
+--- 511,517 ----
+  	struct _XKeytrans *key_bindings; /* for XLookupString */
+  	Font cursor_font;	   /* for XCreateFontCursor */
+  	struct _XDisplayAtoms *atoms; /* for XInternAtom */
+! 	struct _XInternalAsync *async_handlers; /* for internal async */
+  	unsigned long flags;	   /* internal connection flags */
+  	unsigned int mode_switch;  /* keyboard group modifiers */
+  	struct _XContextDB *context_db; /* context database */
+*** /tmp/,RCSt1005799	Fri Jan 24 13:49:58 1992
+--- lib/X/Xlibint.h	Sun Jan 19 17:32:53 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Xlibint.h,v 11.91 91/07/22 15:43:08 rws Exp $ */
+  /* Copyright 1984, 1985, 1987, 1989  Massachusetts Institute of Technology */
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: Xlibint.h,v 11.95 92/01/19 17:32:49 rws Exp $ */
+  /* Copyright 1984, 1985, 1987, 1989  Massachusetts Institute of Technology */
+  
+  /*
+***************
+*** 14,21 ****
+  */
+  
+  /*
+!  *	XlibInternal.h - Header definition and support file for the internal
+!  *	support routines (XlibInternal) used by the C subroutine interface
+   *	library (Xlib) to the X Window System.
+   *
+   *	Warning, there be dragons here....
+--- 14,21 ----
+  */
+  
+  /*
+!  *	Xlibint.h - Header definition and support file for the internal
+!  *	support routines used by the C subroutine interface
+   *	library (Xlib) to the X Window System.
+   *
+   *	Warning, there be dragons here....
+***************
+*** 167,173 ****
+             *(dpy->bufptr+1) =  0;\
+             *(dpy->bufptr+2) =  0;\
+             *(dpy->bufptr+3) =  1;\
+!              dpy->request += 1;\
+               dpy->bufptr += 4;\
+           }
+  #else /* else does not require alignment on 64-bit boundaries */
+--- 167,173 ----
+             *(dpy->bufptr+1) =  0;\
+             *(dpy->bufptr+2) =  0;\
+             *(dpy->bufptr+3) =  1;\
+!              dpy->request++;\
+               dpy->bufptr += 4;\
+           }
+  #else /* else does not require alignment on 64-bit boundaries */
+***************
+*** 412,433 ****
+  }
+  
+  
+- 
+- 
+- 
+  #ifdef MUSTCOPY
+  
+! /* a little bit of magic */
+  #define OneDataCard32(dpy,dstaddr,srcvar) \
+    { dpy->bufptr -= 4; Data32 (dpy, (char *) &(srcvar), 4); }
+  
+- #define STARTITERATE(tpvar,type,start,endcond,decr) \
+-   { register char *cpvar; \
+-   for (cpvar = (char *) start; endcond; cpvar = NEXTPTR(cpvar,type), decr) { \
+-     type dummy; bcopy (cpvar, (char *) &dummy, SIZEOF(type)); \
+-     tpvar = (type *) cpvar;
+- #define ENDITERATE }}
+- 
+  #else
+  
+  /* srcvar must be a variable for large architecture version */
+--- 412,423 ----
+  }
+  
+  
+  #ifdef MUSTCOPY
+  
+! /* for when 32-bit alignment is not good enough */
+  #define OneDataCard32(dpy,dstaddr,srcvar) \
+    { dpy->bufptr -= 4; Data32 (dpy, (char *) &(srcvar), 4); }
+  
+  #else
+  
+  /* srcvar must be a variable for large architecture version */
+***************
+*** 434,445 ****
+  #define OneDataCard32(dpy,dstaddr,srcvar) \
+    { *(unsigned long *)(dstaddr) = (srcvar); }
+  
+! #define STARTITERATE(tpvar,type,start,endcond,decr) \
+!   for (tpvar = (type *) start; endcond; tpvar++, decr) {
+! #define ENDITERATE }
+  
+! #endif /* MUSTCOPY - used machines whose C structs don't line up with proto */
+  
+  /*
+   * This structure is private to the library.
+   */
+--- 424,454 ----
+  #define OneDataCard32(dpy,dstaddr,srcvar) \
+    { *(unsigned long *)(dstaddr) = (srcvar); }
+  
+! #endif /* MUSTCOPY */
+  
+! typedef struct _XInternalAsync {
+!     struct _XInternalAsync *next;
+!     Bool (*handler)();
+!     XPointer data;
+! } _XAsyncHandler;
+  
++ typedef struct _XAsyncEState {
++     unsigned long min_sequence_number;
++     unsigned long max_sequence_number;
++     unsigned char error_code;
++     unsigned char major_opcode;
++     unsigned short minor_opcode;
++     unsigned char last_error_received;
++     int error_count;
++ } _XAsyncErrorState;
++ 
++ #define DeqAsyncHandler(dpy,handler) { \
++     if (dpy->async_handlers == (handler)) \
++ 	dpy->async_handlers = (handler)->next; \
++     else \
++ 	_XDeqAsyncHandler(dpy, handler); \
++     }
++ 
+  /*
+   * This structure is private to the library.
+   */
+***************
+*** 491,496 ****
+--- 500,507 ----
+  extern unsigned long _XSetLastRequestRead();	/* update dpy->last_request_read */
+  extern int _XGetHostname();		/* get name of this machine */
+  extern Screen *_XScreenOfWindow ();	/* get Screen pointer for window */
++ extern Bool _XAsyncErrorHandler ();	/* internal error handler */
++ extern char *_XGetAsyncReply();		/* get async reply */
+  
+  extern int (*XESetCreateGC(
+  #if NeedFunctionPrototypes
+*** /tmp/,RCSt1005668	Fri Jan 24 13:48:36 1992
+--- lib/X/XOpenDis.c	Thu Jan  9 18:54:09 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XOpenDis.c,v 11.123 91/12/20 16:04:29 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986	*/
+--- 1,5 ----
+  /*
+!  * $XConsortium: XOpenDis.c,v 11.124 92/01/09 18:50:17 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986	*/
+***************
+*** 132,138 ****
+  		return(NULL);
+  	}
+  
+! 	/* Initialize as much of the display structure as we can */
+  	dpy->display_name	= fullname;
+  	dpy->keysyms		= (KeySym *) NULL;
+  	dpy->modifiermap	= NULL;
+--- 132,141 ----
+  		return(NULL);
+  	}
+  
+! 	/* Initialize as much of the display structure as we can.
+! 	 * Initialize pointers to NULL so that XFreeDisplayStructure will
+! 	 * work if we run out of memory before we finish initializing.
+! 	 */
+  	dpy->display_name	= fullname;
+  	dpy->keysyms		= (KeySym *) NULL;
+  	dpy->modifiermap	= NULL;
+***************
+*** 162,179 ****
+  	dpy->db 		= (struct _XrmHashBucketRec *)NULL;
+  	dpy->cursor_font	= None;
+  	dpy->flags		= 0;
+! /* 
+!  * Initialize pointers to NULL so that XFreeDisplayStructure will
+!  * work if we run out of memory
+!  */
+  
+- 	dpy->screens = NULL;
+- 	dpy->vendor = NULL;
+- 	dpy->buffer = NULL;
+- 	dpy->atoms = NULL;
+- 	dpy->error_vec = NULL;
+- 	dpy->context_db = NULL;
+- 
+  /*
+   * Setup other information in this display structure.
+   */
+--- 165,184 ----
+  	dpy->db 		= (struct _XrmHashBucketRec *)NULL;
+  	dpy->cursor_font	= None;
+  	dpy->flags		= 0;
+! 	dpy->async_handlers	= NULL;
+! 	dpy->screens		= NULL;
+! 	dpy->vendor		= NULL;
+! 	dpy->buffer		= NULL;
+! 	dpy->atoms		= NULL;
+! 	dpy->error_vec		= NULL;
+! 	dpy->context_db		= NULL;
+! 	dpy->free_funcs		= NULL;
+! 	dpy->pixmap_format	= NULL;
+! 	dpy->cms.clientCmaps	= NULL;
+! 	dpy->cms.defaultCCCs	= NULL;
+! 	dpy->cms.perVisualIntensityMaps = NULL;
+! 	dpy->im_filters		= NULL;
+  
+  /*
+   * Setup other information in this display structure.
+   */
+***************
+*** 603,609 ****
+  	    Xfree ((char *)dpy->error_vec);
+  
+  	_XFreeExtData (dpy->ext_data);
+! 	Xfree ((char *)dpy->free_funcs);
+  
+  	Xfree ((char *)dpy);
+  }
+--- 608,615 ----
+  	    Xfree ((char *)dpy->error_vec);
+  
+  	_XFreeExtData (dpy->ext_data);
+! 	if (dpy->free_funcs)
+! 	    Xfree ((char *)dpy->free_funcs);
+  
+  	Xfree ((char *)dpy);
+  }
+*** /tmp/,RCSt1005727	Fri Jan 24 13:49:18 1992
+--- lib/X/XConnDis.c	Sun Jan 19 15:06:31 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XConnDis.c,v 11.88 91/12/17 17:55:57 rws Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: XConnDis.c,v 11.89 92/01/19 15:02:48 rws Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 676,763 ****
+      return 0;
+  }
+  
+- 
+- 
+- /*
+-  * This is an OS dependent routine which:
+-  * 1) returns as soon as the connection can be written on....
+-  * 2) if the connection can be read, must enqueue events and handle errors,
+-  * until the connection is writable.
+-  */
+- _XWaitForWritable(dpy)
+-     Display *dpy;
+- {
+-     unsigned long r_mask[MSKCNT];
+-     unsigned long w_mask[MSKCNT];
+-     int nfound;
+- 
+-     CLEARBITS(r_mask);
+-     CLEARBITS(w_mask);
+- 
+-     while (1) {
+- 	BITSET(r_mask, dpy->fd);
+-         BITSET(w_mask, dpy->fd);
+- 
+- 	do {
+- 	    nfound = select (dpy->fd + 1, r_mask, w_mask,
+- 			     (char *)NULL, (char *)NULL);
+- 	    if (nfound < 0 && errno != EINTR)
+- 		_XIOError(dpy);
+- 	} while (nfound <= 0);
+- 
+- 	if (_XANYSET(r_mask)) {
+- 	    char buf[BUFSIZE];
+- 	    long pend_not_register;
+- 	    register long pend;
+- 	    register xEvent *ev;
+- 
+- 	    /* find out how much data can be read */
+- 	    if (BytesReadable(dpy->fd, (char *) &pend_not_register) < 0)
+- 		_XIOError(dpy);
+- 	    pend = pend_not_register;
+- 
+- 	    /* must read at least one xEvent; if none is pending, then
+- 	       we'll just block waiting for it */
+- 	    if (pend < SIZEOF(xEvent)) pend = SIZEOF(xEvent);
+- 		
+- 	    /* but we won't read more than the max buffer size */
+- 	    if (pend > BUFSIZE) pend = BUFSIZE;
+- 
+- 	    /* round down to an integral number of XReps */
+- 	    pend = (pend / SIZEOF(xEvent)) * SIZEOF(xEvent);
+- 
+- 	    _XRead (dpy, buf, pend);
+- 
+- 	    /* no space between comma and type or else macro will die */
+- 	    STARTITERATE (ev,xEvent, buf, (pend > 0),
+- 			  (pend -= SIZEOF(xEvent))) {
+- 		if (ev->u.u.type == X_Error)
+- 		    _XError (dpy, (xError *) ev);
+- 		else		/* it's an event packet; enqueue it */
+- 		    _XEnq (dpy, ev);
+- 	    }
+- 	    ENDITERATE
+- 	}
+- 	if (_XANYSET(w_mask))
+- 	    return;
+-     }
+- }
+- 
+- 
+- _XWaitForReadable(dpy)
+-   Display *dpy;
+- {
+-     unsigned long r_mask[MSKCNT];
+-     int result;
+- 	
+-     CLEARBITS(r_mask);
+-     do {
+- 	BITSET(r_mask, dpy->fd);
+- 	result = select(dpy->fd + 1, r_mask,
+- 			(char *)NULL, (char *)NULL, (char *)NULL);
+- 	if (result == -1 && errno != EINTR) _XIOError(dpy);
+-     } while (result <= 0);
+- }
+  
+  
+  static int padlength[4] = {0, 3, 2, 1};	 /* make sure auth is multiple of 4 */
+--- 676,681 ----
+*** /tmp/,RCSt1005745	Fri Jan 24 13:49:27 1992
+--- lib/X/ReconfWM.c	Sun Jan 19 15:14:08 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: ReconfWM.c,v 1.4 91/01/06 11:43:47 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986   */
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: ReconfWM.c,v 1.7 92/01/19 15:10:29 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986   */
+  
+  /*
+***************
+*** 20,27 ****
+  #define AllMaskBits (CWX|CWY|CWWidth|CWHeight|\
+                       CWBorderWidth|CWSibling|CWStackMode)
+  
+- static int restack_error_handler();
+- 
+  Status XReconfigureWMWindow (dpy, w, screen, mask, changes)
+      register Display *dpy;
+      Window w;
+--- 20,25 ----
+***************
+*** 31,37 ****
+  {
+      XConfigureRequestEvent ev;
+      Window root = RootWindow (dpy, screen);
+!     Bool succeeded;
+  
+      /*
+       * Only need to go through the trouble if we are actually changing the
+--- 29,36 ----
+  {
+      XConfigureRequestEvent ev;
+      Window root = RootWindow (dpy, screen);
+!     _XAsyncHandler async;
+!     _XAsyncErrorState async_state;
+  
+      /*
+       * Only need to go through the trouble if we are actually changing the
+***************
+*** 49,65 ****
+       */
+  
+      LockDisplay(dpy);
+-     /*
+-      * Remember the old error handler, set the new one, set the sequence
+-      * number to look for, clear the failure flag, try the request, and
+-      * restore the error handler.
+-      */
+-     dpy->reconfigure_wm_window.old_handler = _XErrorFunction;
+-     _XErrorFunction = restack_error_handler;
+-     dpy->reconfigure_wm_window.sequence_number = NextRequest(dpy);
+-     dpy->reconfigure_wm_window.succeeded = True;
+  
+- 
+      /*
+       * XConfigureWindow (dpy, w, mask, changes);
+       */
+--- 48,54 ----
+***************
+*** 70,75 ****
+--- 59,76 ----
+  	register xConfigureWindowReq *req;
+  
+  	GetReq(ConfigureWindow, req);
++ 
++ 	async_state.min_sequence_number = dpy->request;
++ 	async_state.max_sequence_number = dpy->request;
++ 	async_state.error_code = BadMatch;
++ 	async_state.major_opcode = X_ConfigureWindow;
++ 	async_state.minor_opcode = 0;
++ 	async_state.error_count = 0;
++ 	async.next = dpy->async_handlers;
++ 	async.handler = _XAsyncErrorHandler;
++ 	async.data = (XPointer)&async_state;
++ 	dpy->async_handlers = &async;
++ 
+  	req->window = w;
+  	mask &= AllMaskBits;
+  	req->mask = mask;
+***************
+*** 98,113 ****
+  	(void) _XReply (dpy, (xReply *)&rep, 0, xTrue);
+      }
+  
+!     /*
+!      * Put the world back together; copy the failure code out so that it can
+!      * be accessed once the display is unlocked.
+!      */
+!     _XErrorFunction = dpy->reconfigure_wm_window.old_handler;
+!     succeeded = dpy->reconfigure_wm_window.succeeded;
+!     dpy->reconfigure_wm_window.old_handler = NULL;
+!     dpy->reconfigure_wm_window.sequence_number = 0;
+!     dpy->reconfigure_wm_window.succeeded = False;
+! 
+      UnlockDisplay(dpy);
+      SyncHandle();
+  
+--- 99,105 ----
+  	(void) _XReply (dpy, (xReply *)&rep, 0, xTrue);
+      }
+  
+!     DeqAsyncHandler(dpy, &async);
+      UnlockDisplay(dpy);
+      SyncHandle();
+  
+***************
+*** 115,121 ****
+      /*
+       * If the request succeeded, then everything is okay; otherwise, send event
+       */
+!     if (succeeded) return True;
+  
+      ev.type		= ConfigureRequest;
+      ev.window		= w;
+--- 107,113 ----
+      /*
+       * If the request succeeded, then everything is okay; otherwise, send event
+       */
+!     if (!async_state.error_count) return True;
+  
+      ev.type		= ConfigureRequest;
+      ev.window		= w;
+***************
+*** 131,147 ****
+      return (XSendEvent (dpy, root, False,
+  			SubstructureRedirectMask|SubstructureNotifyMask,
+  			(XEvent *)&ev));
+- }
+- 
+- 
+- static int restack_error_handler (dpy, ev)
+-     Display *dpy;
+-     XErrorEvent *ev;
+- {
+-     if (ev->serial == dpy->reconfigure_wm_window.sequence_number &&
+- 	ev->error_code == BadMatch) {
+- 	dpy->reconfigure_wm_window.succeeded = False;
+- 	return 0;
+-     }
+-     return (*(dpy->reconfigure_wm_window.old_handler))(dpy, ev);
+  }
+--- 123,126 ----
+*** /tmp/,RCSt1005763	Fri Jan 24 13:49:37 1992
+--- lib/X/XFont.c	Sun Jan 19 15:14:12 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XFont.c,v 11.38 91/12/19 18:14:14 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XFont.c,v 11.42 92/01/19 15:10:39 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 16,22 ****
+  #define NEED_REPLIES
+  #include "Xlibint.h"
+  
+! static int _XQueryFont();
+  
+  #if NeedFunctionPrototypes
+  XFontStruct *XLoadQueryFont(
+--- 16,22 ----
+  #define NEED_REPLIES
+  #include "Xlibint.h"
+  
+! static XFontStruct *_XQueryFont();
+  
+  #if NeedFunctionPrototypes
+  XFontStruct *XLoadQueryFont(
+***************
+*** 32,68 ****
+      register long nbytes;
+      Font fid;
+      xOpenFontReq *req;
+!     int seqadj = 1;
+!     int	error_status;
+  
+      LockDisplay(dpy);
+      GetReq(OpenFont, req);
+      nbytes = req->nbytes  = name ? strlen(name) : 0;
+      req->fid = fid = XAllocID(dpy);
+      req->length += (nbytes+3)>>2;
+      Data (dpy, name, nbytes);
+! #ifdef WORD64
+!     /* 
+!      *  If a NoOp is generated, the sequence number will be off
+!      *  by one, so this temporarily adjusts the sequence number.
+!      */
+!     if ((long)dpy->bufptr >> 61) seqadj = 2;
+! #endif
+!     dpy->request -= seqadj;
+!     error_status = _XQueryFont(dpy, fid, &font_result);
+!     dpy->request += seqadj;
+!     if (error_status) {
+! 	font_result = (XFontStruct *) NULL;
+! 	if (error_status == 1) {
+! 	    /* if _XQueryFont returned 1, then the OpenFont request got
+! 	       a BadName error.  This means that the following QueryFont
+! 	       request is guaranteed to get a BadFont error, since the id
+! 	       passed to QueryFont wasn't really a valid font id.  To read
+! 	       and discard this second error, we call _XReply again. */
+! 	    xReply reply;
+! 	    (void) _XReply (dpy, &reply, 0, xFalse);
+!         }
+!     }
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return font_result;
+--- 32,47 ----
+      register long nbytes;
+      Font fid;
+      xOpenFontReq *req;
+!     unsigned long seq;
+  
+      LockDisplay(dpy);
+      GetReq(OpenFont, req);
++     seq = dpy->request;
+      nbytes = req->nbytes  = name ? strlen(name) : 0;
+      req->fid = fid = XAllocID(dpy);
+      req->length += (nbytes+3)>>2;
+      Data (dpy, name, nbytes);
+!     font_result = _XQueryFont(dpy, fid, seq);
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return font_result;
+***************
+*** 77,83 ****
+  
+      LockDisplay(dpy);
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->free_Font != NULL) (*ext->free_Font)(dpy, fs, &ext->codes);
+  	ext = ext->next;
+  	}    
+      GetResReq (CloseFont, fs->fid, req);
+--- 56,62 ----
+  
+      LockDisplay(dpy);
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->free_Font) (*ext->free_Font)(dpy, fs, &ext->codes);
+  	ext = ext->next;
+  	}    
+      GetResReq (CloseFont, fs->fid, req);
+***************
+*** 91,105 ****
+      Xfree ((char *) fs);
+  }
+  
+! /*
+!  * Returns:	0	success
+!  *		1	protocol error
+!  *		2	Xlib memory allocation failed
+!  */
+! static int _XQueryFont (dpy, fid, xfs)	/* Internal-only entry point */
+      register Display *dpy;
+      Font fid;
+!     XFontStruct **xfs;	/* RETURN */
+  {
+      register XFontStruct *fs;
+      register long nbytes;
+--- 70,80 ----
+      Xfree ((char *) fs);
+  }
+  
+! static XFontStruct *
+! _XQueryFont (dpy, fid, seq)
+      register Display *dpy;
+      Font fid;
+!     unsigned long seq;
+  {
+      register XFontStruct *fs;
+      register long nbytes;
+***************
+*** 106,118 ****
+      xQueryFontReply reply;
+      register xResourceReq *req;
+      register _XExtension *ext;
+  
+      GetResReq(QueryFont, fid, req);
+      if (!_XReply (dpy, (xReply *) &reply,
+!        ((SIZEOF(xQueryFontReply) - SIZEOF(xReply)) >> 2), xFalse))
+! 	return 1;
+!     if (! (fs = (XFontStruct *) Xmalloc (sizeof (XFontStruct))))
+! 	return 2;
+      fs->ext_data 		= NULL;
+      fs->fid 			= fid;
+      fs->direction 		= reply.drawDirection;
+--- 81,115 ----
+      xQueryFontReply reply;
+      register xResourceReq *req;
+      register _XExtension *ext;
++     _XAsyncHandler async;
++     _XAsyncErrorState async_state;
+  
++     if (seq) {
++ 	async_state.min_sequence_number = seq;
++ 	async_state.max_sequence_number = seq;
++ 	async_state.error_code = BadName;
++ 	async_state.major_opcode = X_OpenFont;
++ 	async_state.minor_opcode = 0;
++ 	async_state.error_count = 0;
++ 	async.next = dpy->async_handlers;
++ 	async.handler = _XAsyncErrorHandler;
++ 	async.data = (XPointer)&async_state;
++ 	dpy->async_handlers = &async;
++     }
+      GetResReq(QueryFont, fid, req);
+      if (!_XReply (dpy, (xReply *) &reply,
+!        ((SIZEOF(xQueryFontReply) - SIZEOF(xReply)) >> 2), xFalse)) {
+! 	if (seq)
+! 	    DeqAsyncHandler(dpy, &async);
+! 	return (XFontStruct *)NULL;
+!     }
+!     if (seq)
+! 	DeqAsyncHandler(dpy, &async);
+!     if (! (fs = (XFontStruct *) Xmalloc (sizeof (XFontStruct)))) {
+! 	_XEatData(dpy, (unsigned long)(reply.nFontProps * SIZEOF(xFontProp) +
+! 				       reply.nCharInfos * SIZEOF(xCharInfo)));
+! 	return (XFontStruct *)NULL;
+!     }
+      fs->ext_data 		= NULL;
+      fs->fid 			= fid;
+      fs->direction 		= reply.drawDirection;
+***************
+*** 165,171 ****
+  		Xfree((char *) fs);
+  		_XEatData(dpy, (unsigned long)
+  			  (nbytes + reply.nCharInfos * SIZEOF(xCharInfo)));
+! 		return 2;
+  	    }
+  	    _XRead32 (dpy, (char *)fs->properties, nbytes);
+      }
+--- 162,168 ----
+  		Xfree((char *) fs);
+  		_XEatData(dpy, (unsigned long)
+  			  (nbytes + reply.nCharInfos * SIZEOF(xCharInfo)));
+! 		return (XFontStruct *)NULL;
+  	    }
+  	    _XRead32 (dpy, (char *)fs->properties, nbytes);
+      }
+***************
+*** 182,188 ****
+  	    Xfree((char *) fs);
+  	    _XEatData(dpy, (unsigned long)
+  			    (reply.nCharInfos * SIZEOF(xCharInfo)));
+! 	    return 2;
+  	}
+  	    
+  #ifdef MUSTCOPY
+--- 179,185 ----
+  	    Xfree((char *) fs);
+  	    _XEatData(dpy, (unsigned long)
+  			    (reply.nCharInfos * SIZEOF(xCharInfo)));
+! 	    return (XFontStruct *)NULL;
+  	}
+  	    
+  #ifdef MUSTCOPY
+***************
+*** 210,221 ****
+  
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->create_Font != NULL) 
+  		(*ext->create_Font)(dpy, fs, &ext->codes);
+  	ext = ext->next;
+  	}    
+!     *xfs = fs;
+!     return 0;
+  }
+  
+  
+--- 207,217 ----
+  
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->create_Font)
+  		(*ext->create_Font)(dpy, fs, &ext->codes);
+  	ext = ext->next;
+  	}    
+!     return fs;
+  }
+  
+  
+***************
+*** 226,233 ****
+      XFontStruct *font_result;
+  
+      LockDisplay(dpy);
+!     if (_XQueryFont(dpy, fid, &font_result) > 0)
+! 	font_result = (XFontStruct *) NULL;
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return font_result;
+--- 222,228 ----
+      XFontStruct *font_result;
+  
+      LockDisplay(dpy);
+!     font_result = _XQueryFont(dpy, fid, 0L);
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return font_result;
+*** /tmp/,RCSt1005781	Fri Jan 24 13:49:48 1992
+--- lib/X/XcmsCmap.c	Sun Jan 19 15:14:17 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XcmsCmap.c,v 1.11 91/07/25 01:08:28 rws Exp $" */
+  
+  /*
+   * Code and supporting documentation (c) Copyright 1990 1991 Tektronix, Inc.
+--- 1,4 ----
+! /* $XConsortium: XcmsCmap.c,v 1.14 92/01/19 15:10:44 rws Exp $" */
+  
+  /*
+   * Code and supporting documentation (c) Copyright 1990 1991 Tektronix, Inc.
+***************
+*** 35,40 ****
+--- 35,41 ----
+   */
+  
+  #define NEED_EVENTS
++ #define NEED_REPLIES
+  #include "Xlibint.h"
+  #include "Xcmsint.h"
+  #include "Xutil.h"
+***************
+*** 45,56 ****
+  XcmsCmapRec *_XcmsAddCmapRec();
+  static void _XcmsFreeClientCmaps();
+  
+- /*
+-  *      LOCAL VARIABLES
+-  */
+- static unsigned char CreateWindowStatus;
+- 
+- 
+  
+  /************************************************************************
+   *									*
+--- 46,51 ----
+***************
+*** 60,94 ****
+  
+  /*
+   *	NAME
+-  *		CreateWindowErrorHandler
+-  *
+-  *	SYNOPSIS
+-  */
+- /* ARGSUSED */
+- static int
+- CreateWindowErrorHandler(dpy, errorp)
+-     Display *dpy;
+-     XErrorEvent *errorp;
+- /*
+-  *	DESCRIPTION
+-  *		Error Hander used in CmapRecForColormap() to catch
+-  *		errors occuring when creating a window with a foreign
+-  *		colormap.
+-  *
+-  *	RETURNS
+-  *		1
+-  *
+-  */
+- {
+-     if (errorp->request_code == X_CreateWindow) {
+- 	CreateWindowStatus = errorp->error_code;
+-     }
+-     return(1);
+- }	
+- 
+- 
+- /*
+-  *	NAME
+   *		CmapRecForColormap
+   *
+   *	SYNOPSIS
+--- 55,60 ----
+***************
+*** 114,122 ****
+      XVisualInfo visualTemplate;	/* Template of the visual we want */
+      XVisualInfo *visualList;	/* List for visuals that match */
+      int nVisualsMatched;	/* Number of visuals that match */
+-     XSetWindowAttributes windowAttr;
+      Window tmpWindow;
+!     int (*oldErrorHandler)();
+  
+      for (pRec = (XcmsCmapRec *)dpy->cms.clientCmaps; pRec != NULL;
+  	    pRec = pRec->pNext) {
+--- 80,89 ----
+      XVisualInfo visualTemplate;	/* Template of the visual we want */
+      XVisualInfo *visualList;	/* List for visuals that match */
+      int nVisualsMatched;	/* Number of visuals that match */
+      Window tmpWindow;
+!     Visual *vp;
+!     _XAsyncHandler async;
+!     _XAsyncErrorState async_state;
+  
+      for (pRec = (XcmsCmapRec *)dpy->cms.clientCmaps; pRec != NULL;
+  	    pRec = pRec->pNext) {
+***************
+*** 157,164 ****
+       * rigorous process of finding this colormap:
+       *        for each screen
+       *            for each screen's visual types
+!      *                create a window
+!      *                attempt to set the window's colormap to cmap
+       *                if successful
+       *                    Add a CmapRec
+       *                    Create an XcmsCCC
+--- 124,130 ----
+       * rigorous process of finding this colormap:
+       *        for each screen
+       *            for each screen's visual types
+!      *                create a window with cmap specified as the colormap
+       *                if successful
+       *                    Add a CmapRec
+       *                    Create an XcmsCCC
+***************
+*** 167,182 ****
+       *                    continue
+       */
+  
+!     /*
+!      * Before we start into this ugly process, let's sync up.
+!      */
+!     XSync(dpy, False);
+! 
+!     /*
+!      * Setup Temporary Error Handler
+!      */
+!     oldErrorHandler = XSetErrorHandler(CreateWindowErrorHandler);
+! 
+      for (i = 0; i < nScrn; i++) {
+  	visualTemplate.screen = i;
+  	visualList = XGetVisualInfo(dpy, VisualScreenMask, &visualTemplate,
+--- 133,141 ----
+       *                    continue
+       */
+  
+!     async_state.error_code = 0; /* don't care */
+!     async_state.major_opcode = X_CreateWindow;
+!     async_state.minor_opcode = 0;
+      for (i = 0; i < nScrn; i++) {
+  	visualTemplate.screen = i;
+  	visualList = XGetVisualInfo(dpy, VisualScreenMask, &visualTemplate,
+***************
+*** 185,220 ****
+  	    continue;
+  	}
+  
+- 	j = 0;
+- 	windowAttr.colormap = cmap;
+- 
+  	/*
+! 	 * Call routine that attempts to create a window with cmap
+  	 */
+  	do {
+! 	    CreateWindowStatus = Success;
+! 	    tmpWindow = XCreateWindow(dpy, RootWindow(dpy, i),
+! 		    0, 0, 5, 5, 1,
+! 		    (visualList+j)->depth, 
+! 		    CopyFromParent,
+! 		    (visualList+j)->visual, 
+! 		    CWColormap,
+! 		    &windowAttr);
+! 	    XSync(dpy, False);
+! 	} while (CreateWindowStatus != Success && ++j < nVisualsMatched);
+  
+  	/*
+  	 * if successful
+  	 */
+! 	if (CreateWindowStatus == Success) {
+! 	    if ((pRec = _XcmsAddCmapRec(dpy, cmap, tmpWindow,
+! 		    (visualList+j)->visual)) == NULL) {
+  		return((XcmsCmapRec *)NULL);
+- 	    }
+  	    pRec->ccc = XcmsCreateCCC(
+  		    dpy,
+  		    i,			/* screenNumber */
+! 		    (visualList+j)->visual,
+  		    (XcmsColor *)NULL,	/* clientWhitePt */
+  		    (XcmsCompressionProc)NULL,  /* gamutCompProc */
+  		    (XPointer)NULL,	/* gamutCompClientData */
+--- 144,205 ----
+  	    continue;
+  	}
+  
+  	/*
+! 	 * Attempt to create a window with cmap
+  	 */
++ 	j = 0;
+  	do {
+! 	    vp = (visualList+j)->visual;
+! 	    LockDisplay(dpy);
+! 	    {
+! 		register xCreateWindowReq *req;
+  
++ 		GetReq(CreateWindow, req);
++ 		async_state.min_sequence_number = dpy->request;
++ 		async_state.max_sequence_number = dpy->request;
++ 		async_state.error_count = 0;
++ 		async.next = dpy->async_handlers;
++ 		async.handler = _XAsyncErrorHandler;
++ 		async.data = (XPointer)&async_state;
++ 		dpy->async_handlers = &async;
++ 		req->parent = RootWindow(dpy, i);
++ 		req->x = 0;
++ 		req->y = 0;
++ 		req->width = 1;
++ 		req->height = 1;
++ 		req->borderWidth = 0;
++ 		req->depth = (visualList+j)->depth;
++ 		req->class = CopyFromParent;
++ 		req->visual = vp->visualid;
++ 		tmpWindow = req->wid = XAllocID(dpy);
++ 		req->mask = CWColormap;
++ 		req->length++;
++ 		Data32 (dpy, (long *) &cmap, 4);
++ 	    }
++ 	    {
++ 		xGetInputFocusReply rep;
++ 		register xReq *req;
++ 
++ 		GetEmptyReq(GetInputFocus, req);
++ 		(void) _XReply (dpy, (xReply *)&rep, 0, xTrue);
++ 	    }
++ 	    DeqAsyncHandler(dpy, &async);
++ 	    UnlockDisplay(dpy);
++ 	    SyncHandle();
++ 	} while (async_state.error_count > 0 && ++j < nVisualsMatched);
++ 
++ 	Xfree((char *)visualList);
++ 
+  	/*
+  	 * if successful
+  	 */
+! 	if (j < nVisualsMatched) {
+! 	    if ((pRec = _XcmsAddCmapRec(dpy, cmap, tmpWindow, vp)) == NULL)
+  		return((XcmsCmapRec *)NULL);
+  	    pRec->ccc = XcmsCreateCCC(
+  		    dpy,
+  		    i,			/* screenNumber */
+! 		    vp,
+  		    (XcmsColor *)NULL,	/* clientWhitePt */
+  		    (XcmsCompressionProc)NULL,  /* gamutCompProc */
+  		    (XPointer)NULL,	/* gamutCompClientData */
+***************
+*** 221,243 ****
+  		    (XcmsWhiteAdjustProc)NULL,  /* whitePtAdjProc */
+  		    (XPointer)NULL	/* whitePtAdjClientData */
+  		    );
+- 	    XSetErrorHandler(oldErrorHandler);
+  	    XDestroyWindow(dpy, tmpWindow);
+- 	    XFree((XPointer)visualList);
+  	    return(pRec);
+  	}
+- 
+- 	/*
+- 	 * Otherwise continue ....
+- 	 */
+- 	XFree((XPointer)visualList);
+      }
+  
+-     /*
+-      * Unsetup Temporary Error Handler
+-      */
+-     XSetErrorHandler(oldErrorHandler);
+- 
+      return(NULL);
+  }
+  
+--- 206,216 ----
+***************
+*** 377,383 ****
+  	    XcmsFreeCCC(pRec->ccc);
+  	}
+  	*pPrevPtr = pRec->pNext;
+! 	Xfree(pRec);
+      }
+  }
+  
+--- 350,356 ----
+  	    XcmsFreeCCC(pRec->ccc);
+  	}
+  	*pPrevPtr = pRec->pNext;
+! 	Xfree((char *)pRec);
+      }
+  }
+  
+***************
+*** 412,418 ****
+  	    XcmsFreeCCC(pRecFree->ccc);
+  	}
+  	/* Now free the XcmsCmapRec structure */
+! 	Xfree(pRecFree);
+      }
+      dpy->cms.clientCmaps = (XPointer)NULL;
+  }
+--- 385,391 ----
+  	    XcmsFreeCCC(pRecFree->ccc);
+  	}
+  	/* Now free the XcmsCmapRec structure */
+! 	Xfree((char *)pRecFree);
+      }
+      dpy->cms.clientCmaps = (XPointer)NULL;
+  }
+*** /tmp/,RCSt1005835	Fri Jan 24 13:50:25 1992
+--- lib/X/XlibInt.c	Mon Jan 20 12:30:35 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlibInt.c,v 11.156 91/11/08 15:15:12 eswu Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlibInt.c,v 11.160 92/01/20 12:26:01 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+***************
+*** 17,23 ****
+  */
+  
+  /*
+!  *	XlibInternal.c - Internal support routines for the C subroutine
+   *	interface library (Xlib) to the X Window System Protocol V11.0.
+   */
+  #define NEED_EVENTS
+--- 17,23 ----
+  */
+  
+  /*
+!  *	XlibInt.c - Internal support routines for the C subroutine
+   *	interface library (Xlib) to the X Window System Protocol V11.0.
+   */
+  #define NEED_EVENTS
+***************
+*** 28,35 ****
+  #include "Xlibnet.h"
+  #include <stdio.h>
+  
+- static void _EatData32();
+- 
+  /* check for both EAGAIN and EWOULDBLOCK, because some supposedly POSIX
+   * systems are broken and return EWOULDBLOCK when they should return EAGAIN
+   */
+--- 28,33 ----
+***************
+*** 50,63 ****
+  #define EMSGSIZE ERANGE
+  #endif
+  
+  /*
+   * The following routines are internal routines used by Xlib for protocol
+   * packet transmission and reception.
+   *
+!  * XIOError(Display *) will be called if any sort of system call error occurs.
+   * This is assumed to be a fatal condition, i.e., XIOError should not return.
+   *
+!  * XError(Display *, XErrorEvent *) will be called whenever an X_Error event is
+   * received.  This is not assumed to be a fatal condition, i.e., it is
+   * acceptable for this procedure to return.  However, XError should NOT
+   * perform any operations (directly or indirectly) on the DISPLAY.
+--- 48,91 ----
+  #define EMSGSIZE ERANGE
+  #endif
+  
++ #ifdef MUSTCOPY
++ 
++ #define STARTITERATE(tpvar,type,start,endcond) \
++   { register char *cpvar; \
++   for (cpvar = (char *) (start); endcond; ) { \
++     type dummy; bcopy (cpvar, (char *) &dummy, SIZEOF(type)); \
++     tpvar = &dummy;
++ #define ITERPTR(tpvar) cpvar
++ #define RESETITERPTR(tpvar,type,start) cpvar = start
++ #define INCITERPTR(tpvar,type) cpvar += SIZEOF(type)
++ #define ENDITERATE }}
++ 
++ #else
++ 
++ #define STARTITERATE(tpvar,type,start,endcond) \
++   for (tpvar = (type *) (start); endcond; )
++ #define ITERPTR(tpvar) (char *)tpvar
++ #define RESETITERPTR(tpvar,type,start) tpvar = (type *) (start)
++ #define INCITERPTR(tpvar,type) tpvar++
++ #define ENDITERATE
++ 
++ #endif /* MUSTCOPY */
++ 
++ typedef union {
++     xReply rep;
++     char buf[BUFSIZE];
++ } _XAlignedBuffer;
++ 
++ static char *_XAsyncReply();
++ 
+  /*
+   * The following routines are internal routines used by Xlib for protocol
+   * packet transmission and reception.
+   *
+!  * _XIOError(Display *) will be called if any sort of system call error occurs.
+   * This is assumed to be a fatal condition, i.e., XIOError should not return.
+   *
+!  * _XError(Display *, xError *) will be called whenever an X_Error event is
+   * received.  This is not assumed to be a fatal condition, i.e., it is
+   * acceptable for this procedure to return.  However, XError should NOT
+   * perform any operations (directly or indirectly) on the DISPLAY.
+***************
+*** 77,83 ****
+--- 105,203 ----
+  static xReq _dummy_request = {
+  	0, 0, 0
+  };
++ 
+  /*
++  * This is an OS dependent routine which:
++  * 1) returns as soon as the connection can be written on....
++  * 2) if the connection can be read, must enqueue events and handle errors,
++  * until the connection is writable.
++  */
++ static void
++ _XWaitForWritable(dpy)
++     Display *dpy;
++ {
++     unsigned long r_mask[MSKCNT];
++     unsigned long w_mask[MSKCNT];
++     int nfound;
++ 
++     CLEARBITS(r_mask);
++     CLEARBITS(w_mask);
++ 
++     while (1) {
++ 	BITSET(r_mask, dpy->fd);
++         BITSET(w_mask, dpy->fd);
++ 
++ 	do {
++ 	    nfound = select (dpy->fd + 1, r_mask, w_mask,
++ 			     (char *)NULL, (char *)NULL);
++ 	    if (nfound < 0 && errno != EINTR)
++ 		_XIOError(dpy);
++ 	} while (nfound <= 0);
++ 
++ 	if (_XANYSET(r_mask)) {
++ 	    _XAlignedBuffer buf;
++ 	    int pend;
++ 	    register int len;
++ 	    register xReply *rep;
++ 
++ 	    /* find out how much data can be read */
++ 	    if (BytesReadable(dpy->fd, (char *) &pend) < 0)
++ 		_XIOError(dpy);
++ 	    len = pend;
++ 
++ 	    /* must read at least one xEvent; if none is pending, then
++ 	       we'll just block waiting for it */
++ 	    if (len < SIZEOF(xReply)) len = SIZEOF(xReply);
++ 		
++ 	    /* but we won't read more than the max buffer size */
++ 	    if (len > BUFSIZE) len = BUFSIZE;
++ 
++ 	    /* round down to an integral number of XReps */
++ 	    len = (len / SIZEOF(xReply)) * SIZEOF(xReply);
++ 
++ 	    _XRead (dpy, buf.buf, (long) len);
++ 
++ 	    STARTITERATE(rep,xReply,buf.buf,len > 0) {
++ 		if (rep->generic.type == X_Reply) {
++ 		    pend = len;
++ 		    RESETITERPTR(rep,xReply,
++ 				 _XAsyncReply (dpy, rep,
++ 					       ITERPTR(rep), &pend, True));
++ 		    len = pend;
++ 		} else {
++ 		    if (rep->generic.type == X_Error)
++ 			_XError (dpy, (xError *)rep);
++ 		    else	/* must be an event packet */
++ 			_XEnq (dpy, (xEvent *)rep);
++ 		    INCITERPTR(rep,xReply);
++ 		    len -= SIZEOF(xReply);
++ 		}
++ 	    } ENDITERATE
++ 	}
++ 	if (_XANYSET(w_mask))
++ 	    return;
++     }
++ }
++ 
++ 
++ static void
++ _XWaitForReadable(dpy)
++   Display *dpy;
++ {
++     unsigned long r_mask[MSKCNT];
++     int result;
++ 	
++     CLEARBITS(r_mask);
++     do {
++ 	BITSET(r_mask, dpy->fd);
++ 	result = select(dpy->fd + 1, r_mask,
++ 			(char *)NULL, (char *)NULL, (char *)NULL);
++ 	if (result == -1 && errno != EINTR) _XIOError(dpy);
++     } while (result <= 0);
++ }
++ 
++ 
++ /*
+   * _XFlush - Flush the X request buffer.  If the buffer is empty, no
+   * action is taken.  This routine correctly handles incremental writes.
+   * This routine may have to be reworked if int < long.
+***************
+*** 134,140 ****
+  {
+  	register int len;
+  	int pend;
+! 	char buf[BUFSIZE];
+  	register xReply *rep;
+  	
+  	if (mode == QueuedAfterFlush)
+--- 254,260 ----
+  {
+  	register int len;
+  	int pend;
+! 	_XAlignedBuffer buf;
+  	register xReply *rep;
+  	
+  	if (mode == QueuedAfterFlush)
+***************
+*** 185,205 ****
+  	    len = SIZEOF(xReply);
+  	else if (len > BUFSIZE)
+  	    len = BUFSIZE;
+! 	len /= SIZEOF(xReply);
+! 	pend = len * SIZEOF(xReply);
+  #ifdef XCONN_CHECK_FREQ
+  	dpy->conn_checker = 0;
+  #endif
+! 	_XRead (dpy, buf, (long) pend);
+  
+! 	/* no space between comma and type or else macro will die */
+! 	STARTITERATE (rep,xReply, buf, (len > 0), len--) {
+! 	    if (rep->generic.type == X_Error)
+! 		_XError(dpy, (xError *)rep);
+! 	    else   /* must be an event packet */
+! 		_XEnq(dpy, (xEvent *) rep);
+! 	}
+! 	ENDITERATE
+  	return(dpy->qlen);
+  }
+  
+--- 305,332 ----
+  	    len = SIZEOF(xReply);
+  	else if (len > BUFSIZE)
+  	    len = BUFSIZE;
+! 	len = (len / SIZEOF(xReply)) * SIZEOF(xReply);
+  #ifdef XCONN_CHECK_FREQ
+  	dpy->conn_checker = 0;
+  #endif
+! 	_XRead (dpy, buf.buf, (long) len);
+  
+! 	STARTITERATE(rep,xReply,buf.buf,len > 0) {
+! 	    if (rep->generic.type == X_Reply) {
+! 		pend = len;
+! 		RESETITERPTR(rep,xReply,
+! 			     _XAsyncReply (dpy, rep,
+! 					   ITERPTR(rep), &pend, True));
+! 		len = pend;
+! 	    } else {
+! 		if (rep->generic.type == X_Error)
+! 		    _XError (dpy, (xError *)rep);
+! 		else   /* must be an event packet */
+! 		    _XEnq (dpy, (xEvent *)rep);
+! 		INCITERPTR(rep,xReply);
+! 		len -= SIZEOF(xReply);
+! 	    }
+! 	} ENDITERATE
+  	return(dpy->qlen);
+  }
+  
+***************
+*** 209,230 ****
+  _XReadEvents(dpy)
+  	register Display *dpy;
+  {
+! 	char buf[BUFSIZE];
+! 	long pend_not_register; /* because can't "&" a register variable */
+! 	register long pend;
+! 	register xEvent *ev;
+  	Bool not_yet_flushed = True;
+  
+  	do {
+  	    /* find out how much data can be read */
+! 	    if (BytesReadable(dpy->fd, (char *) &pend_not_register) < 0)
+  	    	_XIOError(dpy);
+! 	    pend = pend_not_register;
+  
+  	    /* must read at least one xEvent; if none is pending, then
+  	       we'll just flush and block waiting for it */
+! 	    if (pend < SIZEOF(xEvent)) {
+! 	    	pend = SIZEOF(xEvent);
+  		/* don't flush until we block the first time */
+  		if (not_yet_flushed) {
+  		    int qlen = dpy->qlen;
+--- 336,357 ----
+  _XReadEvents(dpy)
+  	register Display *dpy;
+  {
+! 	_XAlignedBuffer buf;
+! 	int pend;
+! 	register int len;
+! 	register xReply *rep;
+  	Bool not_yet_flushed = True;
+  
+  	do {
+  	    /* find out how much data can be read */
+! 	    if (BytesReadable(dpy->fd, (char *) &pend) < 0)
+  	    	_XIOError(dpy);
+! 	    len = pend;
+  
+  	    /* must read at least one xEvent; if none is pending, then
+  	       we'll just flush and block waiting for it */
+! 	    if (len < SIZEOF(xEvent)) {
+! 	    	len = SIZEOF(xEvent);
+  		/* don't flush until we block the first time */
+  		if (not_yet_flushed) {
+  		    int qlen = dpy->qlen;
+***************
+*** 235,257 ****
+  	    }
+  		
+  	    /* but we won't read more than the max buffer size */
+! 	    if (pend > BUFSIZE)
+! 	    	pend = BUFSIZE;
+  
+  	    /* round down to an integral number of XReps */
+! 	    pend = (pend / SIZEOF(xEvent)) * SIZEOF(xEvent);
+  
+! 	    _XRead (dpy, buf, pend);
+  
+! 	    /* no space between comma and type or else macro will die */
+! 	    STARTITERATE (ev,xEvent, buf, (pend > 0),
+! 			  pend -= SIZEOF(xEvent)) {
+! 		if (ev->u.u.type == X_Error)
+! 		    _XError (dpy, (xError *) ev);
+! 		else  /* it's an event packet; enqueue it */
+! 		    _XEnq (dpy, ev);
+! 	    }
+! 	    ENDITERATE
+  	} while (dpy->head == NULL);
+  }
+  
+--- 362,391 ----
+  	    }
+  		
+  	    /* but we won't read more than the max buffer size */
+! 	    if (len > BUFSIZE)
+! 	    	len = BUFSIZE;
+  
+  	    /* round down to an integral number of XReps */
+! 	    len = (len / SIZEOF(xEvent)) * SIZEOF(xEvent);
+  
+! 	    _XRead (dpy, buf.buf, (long) len);
+  
+! 	    STARTITERATE(rep,xReply,buf.buf,len > 0) {
+! 		if (rep->generic.type == X_Reply) {
+! 		    pend = len;
+! 		    RESETITERPTR(rep,xReply,
+! 				 _XAsyncReply (dpy, rep,
+! 					       ITERPTR(rep), &pend, True));
+! 		    len = pend;
+! 		} else {
+! 		    if (rep->generic.type == X_Error)
+! 			_XError (dpy, (xError *) rep);
+! 		    else   /* must be an event packet */
+! 			_XEnq (dpy, (xEvent *)rep);
+! 		    INCITERPTR(rep,xReply);
+! 		    len -= SIZEOF(xReply);
+! 		}
+! 	    } ENDITERATE
+  	} while (dpy->head == NULL);
+  }
+  
+***************
+*** 420,426 ****
+  
+  /*
+   * _XReadPad - Read bytes from the socket taking into account incomplete
+!  * reads.  If the number of bytes is not 0 mod 32, read additional pad
+   * bytes. This routine may have to be reworked if int < long.
+   */
+  _XReadPad (dpy, data, size)
+--- 554,560 ----
+  
+  /*
+   * _XReadPad - Read bytes from the socket taking into account incomplete
+!  * reads.  If the number of bytes is not 0 mod 4, read additional pad
+   * bytes. This routine may have to be reworked if int < long.
+   */
+  _XReadPad (dpy, data, size)
+***************
+*** 632,640 ****
+  	newseq += 0x10000;
+  	if (newseq > dpy->request) {
+  	    (void) fprintf (stderr, 
+! 	    "Xlib:  sequence lost (0x%lx > 0x%lx) in reply type 0x%x!\n",
+! 	                           newseq, dpy->request, 
+! 				   (unsigned int) rep->type);
+  	    newseq -= 0x10000;
+  	    break;
+  	}
+--- 766,774 ----
+  	newseq += 0x10000;
+  	if (newseq > dpy->request) {
+  	    (void) fprintf (stderr, 
+! 	    "Xlib: sequence lost (0x%lx > 0x%lx) in reply type 0x%x!\n",
+! 			    newseq, dpy->request, 
+! 			    (unsigned int) rep->type);
+  	    newseq -= 0x10000;
+  	    break;
+  	}
+***************
+*** 673,684 ****
+  		 */
+  	        if (rep->generic.sequenceNumber == (cur_request & 0xffff))
+  		    dpy->last_request_read = cur_request;
+! 		else
+! 		    (void) _XSetLastRequestRead(dpy, &rep->generic);
+  		if (extra == 0) {
+  		    if (discard && (rep->generic.length > 0))
+  		       /* unexpectedly long reply! */
+! 		       _EatData32 (dpy, rep->generic.length);
+  		    return (1);
+  		    }
+  		if (extra == rep->generic.length) {
+--- 807,822 ----
+  		 */
+  	        if (rep->generic.sequenceNumber == (cur_request & 0xffff))
+  		    dpy->last_request_read = cur_request;
+! 		else {
+! 		    int pend = SIZEOF(xReply);
+! 		    if (_XAsyncReply(dpy, rep, (char *)rep, &pend, False)
+! 			!= (char *)rep)
+! 			continue;
+! 		}
+  		if (extra == 0) {
+  		    if (discard && (rep->generic.length > 0))
+  		       /* unexpectedly long reply! */
+! 		       _XEatData (dpy, rep->generic.length << 2);
+  		    return (1);
+  		    }
+  		if (extra == rep->generic.length) {
+***************
+*** 695,701 ****
+  		    _XRead (dpy, (char *) (NEXTPTR(rep,xReply)),
+  			    ((long)extra) << 2);
+  		    if (discard)
+! 		        _EatData32 (dpy, rep->generic.length - extra);
+  		    return (1);
+  		    }
+  		/* 
+--- 833,839 ----
+  		    _XRead (dpy, (char *) (NEXTPTR(rep,xReply)),
+  			    ((long)extra) << 2);
+  		    if (discard)
+! 		        _XEatData (dpy, (rep->generic.length - extra) << 2);
+  		    return (1);
+  		    }
+  		/* 
+***************
+*** 723,729 ****
+  			switch ((int)err->errorCode) {
+  			case BadName:
+  			    switch (err->majorCode) {
+- 				case X_OpenFont:
+  				case X_LookupColor:
+  				case X_AllocNamedColor:
+  				    return(0);
+--- 861,866 ----
+***************
+*** 760,766 ****
+--- 897,958 ----
+  	}
+  }   
+  
++ static char *
++ _XAsyncReply(dpy, rep, buf, lenp, discard)
++     Display *dpy;
++     register xReply *rep;
++     char *buf;
++     register int *lenp;
++     Bool discard;
++ {
++     register _XAsyncHandler *async, *next;
++     register int len;
++     register Bool consumed = False;
++     char *nbuf;
+  
++     (void) _XSetLastRequestRead(dpy, &rep->generic);
++     len = SIZEOF(xReply) + (rep->generic.length << 2);
++ 
++     for (async = dpy->async_handlers; async; async = next) {
++ 	next = async->next;
++ 	if (consumed = (*async->handler)(dpy, rep, buf, *lenp, async->data))
++ 	    break;
++     }
++     if (!consumed) {
++ 	if (!discard)
++ 	    return buf;
++ 	(void) fprintf(stderr, 
++ 		       "Xlib: unexpected async reply (sequence 0x%lx)!\n",
++ 		       dpy->last_request_read);
++ 	if (len > *lenp)
++ 	    _XEatData(dpy, len - *lenp);
++     }
++     if (len >= *lenp) {
++ 	buf += *lenp;
++ 	*lenp = 0;
++ 	return buf;
++     }
++     *lenp -= len;
++     buf += len;
++     len = *lenp;
++     nbuf = buf;
++     while (len > SIZEOF(xReply)) {
++ 	if (*buf == X_Reply)
++ 	    return nbuf;
++ 	buf += SIZEOF(xReply);
++ 	len -= SIZEOF(xReply);
++     }
++     if (len > 0 && len < SIZEOF(xReply)) {
++ 	buf = nbuf;
++ 	len = SIZEOF(xReply) - len;
++ 	nbuf -= len;
++ 	bcopy(buf, nbuf, *lenp);
++ 	_XRead(dpy, nbuf + *lenp, (long)len);
++ 	*lenp += len;
++     }
++     return nbuf;
++ }
++ 
+  /* Read and discard "n" 8-bit bytes of data */
+  
+  void _XEatData (dpy, n)
+***************
+*** 779,794 ****
+  }
+  
+  
+- /* Read and discard "n" 32-bit words. */
+- 
+- static void _EatData32 (dpy, n)
+-     Display *dpy;
+-     unsigned long n;
+- {
+-     _XEatData (dpy, n << 2);
+- }
+- 
+- 
+  /*
+   * _XEnq - Place event packets on the display's queue.
+   * note that no squishing of move events in V11, since there
+--- 971,976 ----
+***************
+*** 1254,1270 ****
+  _XDefaultIOError (dpy)
+  	Display *dpy;
+  {
+! 	(void) fprintf (stderr, 
+! 	 "XIO:  fatal IO error %d (%s) on X server \"%s\"\r\n",
+  			errno, _SysErrorMsg (errno), DisplayString (dpy));
+! 	(void) fprintf (stderr, 
+  	 "      after %lu requests (%lu known processed) with %d events remaining.\r\n",
+  			NextRequest(dpy) - 1, LastKnownRequestProcessed(dpy),
+  			QLength(dpy));
+  
+- 	if (errno == EPIPE) {
+- 	    (void) fprintf (stderr,
+- 	 "      The connection was probably broken by a server shutdown or KillClient.\r\n");
+  	}
+  	exit(1);
+  }
+--- 1436,1454 ----
+  _XDefaultIOError (dpy)
+  	Display *dpy;
+  {
+! 	if (errno == EPIPE) {
+! 	    (void) fprintf (stderr,
+! 	"X connection to %s broken (explicit kill or server shutdown).\r\n",
+! 			    DisplayString (dpy));
+! 	} else {
+! 	    (void) fprintf (stderr, 
+! 			"XIO:  fatal IO error %d (%s) on X server \"%s\"\r\n",
+  			errno, _SysErrorMsg (errno), DisplayString (dpy));
+! 	    (void) fprintf (stderr, 
+  	 "      after %lu requests (%lu known processed) with %d events remaining.\r\n",
+  			NextRequest(dpy) - 1, LastKnownRequestProcessed(dpy),
+  			QLength(dpy));
+  
+  	}
+  	exit(1);
+  }
+***************
+*** 1390,1400 ****
+  }
+  
+  /*
+!  * _XError - prepare to upcall user protocol error handler
+   */
+  int _XError (dpy, rep)
+      Display *dpy;
+!     xError *rep;
+  {
+      /* 
+       * X_Error packet encountered!  We need to unpack the error before
+--- 1574,1584 ----
+  }
+  
+  /*
+!  * _XError - upcall internal or user protocol error handler
+   */
+  int _XError (dpy, rep)
+      Display *dpy;
+!     register xError *rep;
+  {
+      /* 
+       * X_Error packet encountered!  We need to unpack the error before
+***************
+*** 1401,1410 ****
+       * giving it to the user.
+       */
+      XEvent event; /* make it a large event */
+  
+      event.xerror.display = dpy;
+      event.xerror.type = X_Error;
+-     event.xerror.serial = _XSetLastRequestRead(dpy, (xGenericReply *)rep);
+      event.xerror.resourceid = rep->resourceID;
+      event.xerror.error_code = rep->errorCode;
+      event.xerror.request_code = rep->majorCode;
+--- 1585,1603 ----
+       * giving it to the user.
+       */
+      XEvent event; /* make it a large event */
++     register _XAsyncHandler *async, *next;
+  
++     event.xerror.serial = _XSetLastRequestRead(dpy, (xGenericReply *)rep);
++ 
++     for (async = dpy->async_handlers; async; async = next) {
++ 	next = async->next;
++ 	if ((*async->handler)(dpy, (xReply *)rep,
++ 			      (char *)rep, SIZEOF(xError), async->data))
++ 	    return 0;
++     }
++ 
+      event.xerror.display = dpy;
+      event.xerror.type = X_Error;
+      event.xerror.resourceid = rep->resourceID;
+      event.xerror.error_code = rep->errorCode;
+      event.xerror.request_code = rep->majorCode;
+*** /tmp/,RCSt1005860	Fri Jan 24 13:50:39 1992
+--- lib/X/XGetWAttrs.c	Mon Jan 20 12:31:28 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XGetWAttrs.c,v 11.23 91/01/06 11:46:21 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XGetWAttrs.c,v 11.24 92/01/20 12:30:57 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 16,72 ****
+  #define NEED_REPLIES
+  #include "Xlibint.h"
+  
+  Status XGetWindowAttributes(dpy, w, attr)
+       register Display *dpy;
+       Window w;
+       XWindowAttributes *attr;
+- 
+  {       
+!     xGetWindowAttributesReply rep;
+!     xGetGeometryReply rep2;
+!     register xResourceReq *req1;
+!     register xResourceReq *req2;
+      register int i;
+      register Screen *sp;
+   
+      LockDisplay(dpy);
+!     GetResReq(GetWindowAttributes, w, req1);
+!     if (!_XReply (dpy, (xReply *)&rep,
+!        (SIZEOF(xGetWindowAttributesReply) - SIZEOF(xReply)) >> 2, xTrue)) {
+! 		UnlockDisplay(dpy);
+! 		SyncHandle();
+!       		return (0);
+! 	}
+!     attr->class = rep.class;
+!     attr->bit_gravity = rep.bitGravity;
+!     attr->win_gravity = rep.winGravity;
+!     attr->backing_store = rep.backingStore;
+!     attr->backing_planes = rep.backingBitPlanes;
+!     attr->backing_pixel = rep.backingPixel;
+!     attr->save_under = rep.saveUnder;
+!     attr->colormap = rep.colormap;
+!     attr->map_installed = rep.mapInstalled;
+!     attr->map_state = rep.mapState;
+!     attr->all_event_masks = rep.allEventMasks;
+!     attr->your_event_mask = rep.yourEventMask;
+!     attr->do_not_propagate_mask = rep.doNotPropagateMask;
+!     attr->override_redirect = rep.override;
+!     attr->visual = _XVIDtoVisual (dpy, rep.visualID);
+!     
+!     GetResReq(GetGeometry, w, req2);
+  
+!     if (!_XReply (dpy, (xReply *)&rep2, 0, xTrue)) {
+  	UnlockDisplay(dpy);
+  	SyncHandle();
+  	return (0);
+  	}
+!     attr->x = cvtINT16toInt (rep2.x);
+!     attr->y = cvtINT16toInt (rep2.y);
+!     attr->width = rep2.width;
+!     attr->height = rep2.height;
+!     attr->border_width = rep2.borderWidth;
+!     attr->depth = rep2.depth;
+!     attr->root = rep2.root;
+      /* find correct screen so that applications find it easier.... */
+      for (i = 0; i < dpy->nscreens; i++) {
+  	sp = &dpy->screens[i];
+--- 16,117 ----
+  #define NEED_REPLIES
+  #include "Xlibint.h"
+  
++ typedef struct _WAttrsState {
++     unsigned long attr_seq;
++     unsigned long geom_seq;
++     XWindowAttributes *attr;
++ } _XWAttrsState;
++ 
++ static Bool
++ _XWAttrsHandler(dpy, rep, buf, len, data)
++     register Display *dpy;
++     register xReply *rep;
++     char *buf;
++     int len;
++     XPointer data;
++ {
++     register _XWAttrsState *state;
++     xGetWindowAttributesReply replbuf;
++     register xGetWindowAttributesReply *repl;
++     register XWindowAttributes *attr;
++ 
++     state = (_XWAttrsState *)data;
++     if (dpy->last_request_read != state->attr_seq) {
++ 	if (dpy->last_request_read == state->geom_seq &&
++ 	    !state->attr &&
++ 	    rep->generic.type == X_Error &&
++ 	    rep->error.errorCode == BadDrawable)
++ 	    return True;
++ 	return False;
++     }
++     if (rep->generic.type == X_Error) {
++ 	state->attr = (XWindowAttributes *)NULL;
++ 	return False;
++     }
++     repl = (xGetWindowAttributesReply *)
++ 	_XGetAsyncReply(dpy, (char *)&replbuf, rep, buf, len,
++ 		     (SIZEOF(xGetWindowAttributesReply) - SIZEOF(xReply)) >> 2,
++ 			True);
++     attr = state->attr;
++     attr->class = repl->class;
++     attr->bit_gravity = repl->bitGravity;
++     attr->win_gravity = repl->winGravity;
++     attr->backing_store = repl->backingStore;
++     attr->backing_planes = repl->backingBitPlanes;
++     attr->backing_pixel = repl->backingPixel;
++     attr->save_under = repl->saveUnder;
++     attr->colormap = repl->colormap;
++     attr->map_installed = repl->mapInstalled;
++     attr->map_state = repl->mapState;
++     attr->all_event_masks = repl->allEventMasks;
++     attr->your_event_mask = repl->yourEventMask;
++     attr->do_not_propagate_mask = repl->doNotPropagateMask;
++     attr->override_redirect = repl->override;
++     attr->visual = _XVIDtoVisual (dpy, repl->visualID);
++     return True;
++ }
++ 
+  Status XGetWindowAttributes(dpy, w, attr)
+       register Display *dpy;
+       Window w;
+       XWindowAttributes *attr;
+  {       
+!     xGetGeometryReply rep;
+!     register xResourceReq *req;
+      register int i;
+      register Screen *sp;
++     _XAsyncHandler async;
++     _XWAttrsState async_state;
+   
+      LockDisplay(dpy);
+!     GetResReq(GetWindowAttributes, w, req);
+  
+!     async_state.attr_seq = dpy->request;
+!     async_state.geom_seq = 0;
+!     async_state.attr = attr;
+!     async.next = dpy->async_handlers;
+!     async.handler = _XWAttrsHandler;
+!     async.data = (XPointer)&async_state;
+!     dpy->async_handlers = &async;
+! 
+!     GetResReq(GetGeometry, w, req);
+! 
+!     async_state.geom_seq = dpy->request;
+! 
+!     if (!_XReply (dpy, (xReply *)&rep, 0, xTrue)) {
+! 	DeqAsyncHandler(dpy, &async);
+  	UnlockDisplay(dpy);
+  	SyncHandle();
+  	return (0);
+  	}
+!     DeqAsyncHandler(dpy, &async);
+!     attr->x = cvtINT16toInt (rep.x);
+!     attr->y = cvtINT16toInt (rep.y);
+!     attr->width = rep.width;
+!     attr->height = rep.height;
+!     attr->border_width = rep.borderWidth;
+!     attr->depth = rep.depth;
+!     attr->root = rep.root;
+      /* find correct screen so that applications find it easier.... */
+      for (i = 0; i < dpy->nscreens; i++) {
+  	sp = &dpy->screens[i];
+*** /dev/null	Fri Jan 24 13:34:03 1992
+--- lib/X/XlibAsync.c	Tue Jan 21 17:07:13 1992
+***************
+*** 0 ****
+--- 1,112 ----
++ /* $XConsortium: XlibAsync.c,v 1.3 92/01/21 17:06:50 rws Exp $ */
++ /*
++ 
++ Copyright 1992 by the Massachusetts Institute of Technology
++ 
++ Permission to use, copy, modify, distribute, and sell this software and its
++ documentation for any purpose is hereby granted without fee, provided that
++ the above copyright notice appear in all copies and that both that
++ copyright notice and this permission notice appear in supporting
++ documentation, and that the name of M.I.T. not be used in advertising or
++ publicity pertaining to distribution of the software without specific,
++ written prior permission.  M.I.T. makes no representations about the
++ suitability of this software for any purpose.  It is provided "as is"
++ without express or implied warranty.
++ 
++ */
++ 
++ #define NEED_REPLIES
++ #include <X11/Xlibint.h>
++ #include <X11/Xos.h>
++ 
++ /*ARGSUSED*/
++ Bool
++ _XAsyncErrorHandler(dpy, rep, buf, len, data)
++     register Display *dpy;
++     register xReply *rep;
++     char *buf;
++     int len;
++     XPointer data;
++ {
++     register _XAsyncErrorState *state;
++ 
++     state = (_XAsyncErrorState *)data;
++     if (rep->generic.type == X_Error &&
++ 	(!state->error_code ||
++ 	 rep->error.errorCode == state->error_code) &&
++ 	(!state->major_opcode ||
++ 	 rep->error.majorCode == state->major_opcode) &&
++ 	(!state->minor_opcode ||
++ 	 rep->error.minorCode == state->minor_opcode) &&
++ 	(!state->min_sequence_number ||
++ 	 (state->min_sequence_number <= dpy->last_request_read)) &&
++ 	(!state->max_sequence_number ||
++ 	 (state->max_sequence_number >= dpy->last_request_read))) {
++ 	state->last_error_received = rep->error.errorCode;
++ 	state->error_count++;
++ 	return True;
++     }
++     return False;
++ }
++ 
++ _XDeqAsyncHandler(dpy, handler)
++     Display *dpy;
++     register _XAsyncHandler *handler;
++ {
++     register _XAsyncHandler **prev;
++     register _XAsyncHandler *async;
++ 
++     for (prev = &dpy->async_handlers;
++ 	 (async = *prev) && (async != handler);
++ 	 prev = &async->next)
++ 	;
++     if (async)
++ 	*prev = async->next;
++ }
++ 
++ char *
++ _XGetAsyncReply(dpy, replbuf, rep, buf, len, extra, discard)
++     register Display *dpy;
++     register char *replbuf;
++     register xReply *rep;
++     char *buf;
++     int len;
++     int extra;
++     Bool discard;
++ {
++     if (extra == 0) {
++ 	if (discard && (rep->generic.length << 2) > len)
++ 	    _XEatData (dpy, (rep->generic.length << 2) - len);
++ 	return (char *)rep;
++     }
++ 
++     if (extra <= rep->generic.length) {
++ 	int size = SIZEOF(xReply) + (extra << 2);
++ 	if (size > len) {
++ 	    bcopy(buf, replbuf, len);
++ 	    _XRead(dpy, replbuf + len, size - len);
++ 	    buf = replbuf;
++ 	    len = size;
++ #ifdef MUSTCOPY
++ 	} else {
++ 	    bcopy(buf, replbuf, size);
++ 	    buf = replbuf;
++ #endif
++ 	}
++ 
++ 	if (discard && rep->generic.length > extra &&
++ 	    (rep->generic.length << 2) > len)
++ 	    _XEatData (dpy, (rep->generic.length << 2) - len);
++ 
++ 	return buf;
++     }
++     /* 
++      *if we get here, then extra > rep->generic.length--meaning we
++      * read a reply that's shorter than we expected.  This is an 
++      * error,  but we still need to figure out how to handle it...
++      */
++     if ((rep->generic.length << 2) > len)
++ 	_XEatData (dpy, (rep->generic.length << 2) - len);
++     _XIOError (dpy);
++     return (char *)rep;
++ }

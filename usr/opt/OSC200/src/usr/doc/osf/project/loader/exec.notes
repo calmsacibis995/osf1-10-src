@@ -1,0 +1,512 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+
+                           Notes on exec()              02/27/90 kwallace
+                           ---------------              -----------------
+                                                        edited 06/18/90
+                                                        -----------------
+
+
+     WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+              IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+              IT IS PROVIDED FOR INFORMATION ONLY.
+
+
+
+
+     1. execve()
+        --------
+     
+     There are seven forms of exec() currently supported in Mach and hence
+     in OSF/1.  They are execl(), execle(), execlp(), exect(), execv(),
+     execve() and execvp().  All forms eventually make a function call to
+     execve().  The only exceptions to this are execle() on the Multimax
+     and exect() in general.  The discussion of these two exceptions is
+     deferred to a later write up.  Therefore the only exec() system call,
+     actually implemented in the kernel, is exeve().  execve() only
+     understands how to load programs that are absolute and have no
+     unresolved external references.  The exeve() system call will remain
+     in the OSF/1 kernel for backward compatibility with absolute programs
+     and possibly for performance.
+     
+     
+     2. exec_with_loader()
+        ------------------
+     
+     In order to load programs with unresolved external references, that is
+     programs that require use of shared libraries, the kernel implements a
+     new system call, exec_with_loader().  exec_with_loader() functions
+     similarly to execve(), except that rather than loading the program, it
+     loads a user-space loader and simply passes the name of the program to
+     the loader.  The expectation is that the loader will then eventually
+     load the program.
+     
+     Just as execve() does, exec_with_loader() manipulates the address
+     space, file descriptors, signal state, System V IPC state, and so
+     forth.  It handles setuid and/or setgid programs; note that these
+     programs must be loaded by the default loader.  exec_with_loader()
+     loads the loader, which must be in the recognized format (e.g.,
+     ZMAGIC).  The mechanism used to pass the program name to the loader is
+     the auxiliary vector (auxv).
+     
+     The kernel variable, execve_uses_loader, can be set to force all calls
+     to execve() to instead call exec_with_loader() using the default
+     loader.  There are an extensive set of tests for exec_with_loader()
+     under src/etc/loader/tests/execwl/.  The tests use a library of test
+     functions found under src/etc/loader/tests/liblt/.
+     
+     
+     
+     3. exec() in the Shared C Library Versus the Archive C Library
+        -----------------------------------------------------------
+     
+     The execl(), execle(), execlp(), execv() and execvp() functions are
+     found in both the shared and the archive versions of the C library and
+     in both libraries they all eventually call execve().  execve() in the
+     archive library is a system call stub that transfers control directly
+     to the kernel.  However, exeve() in the shared library is a function
+     that calls ldr_exec(), as exported by the loader.  In other words,
+     when a program using the shared C library does an exec(), it
+     eventually calls the loader which is already mapped into its address
+     space, to load the new program.
+     
+     ldr_exec() pre-validates the program being exec()'ed as much as
+     possible.  This may include running the loader's recognizer on it to
+     ensure that it is a recognized object type and can be mapped, etc.  It
+     may run a list of atexec() handlers, to permit user-space libraries to
+     clean up their state before the exec().  ldr_exec() eventually calls
+     either exec_with_loader() or execve(), the one in the kernel.
+     ldr_exec() implements a performance optimization that if the program
+     being exec()'ed is absolute, contains no unresolved external
+     references, and is in the system's default object file format (e.g.,
+     Mach-O), then ldr_exec() calls the kernel's execve() to load the
+     program directly, rather than calling exec_with_loader(), which would
+     load the user-space loader, instead of the program.
+     
+     Note that ldr_exec() and the accompanying shared library support are
+     not currently implemented.
+     
+     
+     4. Three Phase exec() in the Shared Library Environment
+        ----------------------------------------------------
+     
+     There are effectively three phases to exec(), in the typical shared
+     library environment.  The base assumption is that a process is running
+     and would like to call exec() to run another program by overlaying its
+     address space.  The three phases are:
+     
+             Phase I    - in user mode
+             Phase II   - in the kernel
+             Phase III  - back in user mode
+     
+     Phase I is implemented by ldr_exec().  In it, the loader does as much
+     pre-validation of the new program as possible.  This checking may be
+     very limited because the current loader may not be as knowledgeable
+     about the new program as the loader that will eventually be loaded.
+     ldr_exec() calls all the atexec() handlers.  It then either calls
+     exec_with_loader(), specifying the default loader, or it calls the
+     kernel's execve(), to load programs that are absolute and contain no
+     unresolved external references, that are in the system's default
+     object file format.
+     
+     Phase II is implemented in the kernel by exec_with_loader().
+     exec_with_loader() performs all the typical kernel exec() processing,
+     such as #! interpretation of shell scripts.  exec_with_loader() then
+     loads the user-space loader and transfers control to it, passing to it
+     all the arguments to the exec_with_loader() call, including the name
+     of the program to be eventually loaded.
+     
+     Phase III is implemented by the user-space loader.  It receives
+     control in its crt0.  The crt0 passes over the auxiliary vector and
+     saves its address in a global variable (_auxv).  It then jumps to
+     main() of the user-space loader.  The user-space loader executes a
+     short bootstrap to initialize the loader.  Among other things, this
+     bootstrap builds a module for the loader itself and sets up region
+     tables and an exported symbol list for the loader itself, so that
+     routines in the loader can be called from the loaded program.  These
+     routines are the loader's application programming interfaces (API) and
+     they include ldr_exec(), load(), unload(), etc.  The loader then loads
+     the program whose name was passed in the auxiliary vector as the name
+     of the program to be loaded.  The loader also loads any object files
+     upon which the program depends, including their dependencies, etc.
+     The loader then calls any initialization functions present in the
+     newly loaded modules.  Lastly, the loader returns the program's entry
+     point as the return value of the loader's main() function.  Control is
+     then passed back to the loader's crt0.  The loader's crt0, then cuts
+     back the stack to it's initial state and then transfer control to the
+     entry point of the program.  Note that the loader remains mapped in
+     the process's address space, so that it can be called on future calls
+     to exec() and any loader API functions.
+     
+     
+     5. Preliminary Manual Page for exec_with_loader()
+        ----------------------------------------------
+
+     exec_with_loader()  Open Software Foundation   exec_with_loader()
+
+
+
+     NAME
+          exec_with_loader - execute a file with a loader
+
+     SYNOPSIS
+          int exec_with_loader (
+               int flags,
+               const char *loader,
+               const char *file,
+               char * const argv[ ],
+               char * const envp[ ] );
+
+     DESCRIPTION
+          The exec_with_loader function replaces the current process
+          image with a new process image, in a manner similar to what
+          the exec functions do.  Both the loader argument and the
+          file argument point to pathnames that identify regular,
+          executable files called new process image files.  Whereas
+          the exec functions construct the new process image from the
+          file identified by the file argument, exec_with_loader
+          instead constructs the new process image from the file
+          identified by the loader argument.  Throughout this manual
+          page, the regular, executable, process image file specified
+          by the loader argument will be referred to as the loader,
+          and the regular, executable, process image file specified by
+          the file argument will be referred to as the file.
+
+          Once exec_with_loader successfully loads the loader, it
+          transfers control to the loader and effectively passes the
+          file argument on to the loader.  Under normal usage, the
+          loader will then load (i.e. merge) the file into the newly
+          constructed process image, along with any object files upon
+          which the program (i.e. the file) depends.  The typical use
+          of exec_with_loader is to load programs that contain
+          unresolved external references, for example, programs that
+          require the use of a shared library.
+
+          The exec_with_loader function implements and preserves all
+          of the semantics of the exec functions, with respect to the
+          file.  These include the handling of the argv and envp
+          arguments, command interpreters, close-on-exec processing,
+          signals, set user ID and set group ID processing, the
+          process attributes and error returns.  Any exeptions to the
+          behavior of the exec functions are documented herein.
+
+          The loader argument may be null, in which case
+          exec_with_loader loads the default loader, found in the file
+          /etc/loader.  exec_with_loader always loads the default
+          loader, even if the loader argument points to a valid loader
+          file, if the set user ID mode bit of the file is set (see
+          chmod()) and the owner ID of the file is not equal to the
+          effective user ID of the process, or if the set group ID
+          mode bit of the file is set and the groupd ID of the file is
+          not equal to the effective group ID of the process.  The
+          setting of the set user ID or set group ID mode bits on the
+          loader have no effect whatsoever.
+
+     RETURN VALUE
+          If exec_with_loader returns to the calling process image, an
+          error has occurred; the return value is -1, and errno is set
+          to indicate the error.  All errors returned by the exec
+          functions apply equally as well to the exec_with_loader
+          function.
+
+     ERRORS
+          The exec_with_loader function will fail if:
+
+               [EACCES]       Search permission is denied for a
+                              directory listed in either file's path
+                              prefix, or either file denies execution
+                              permission, or either file is not a
+                              regular file and the implementation does
+                              not support execution of files of its
+                              type.  Note that the exec_with_loader
+                              function references two files, one
+                              specified by the loader argument and one
+                              specified by the file argument.
+
+               [ENAMETOOLONG] The length of the loader or file
+                              arguments exceeds {PATH_MAX}, or a
+                              pathname component is longer than
+                              {NAME_MAX} and {_POSIX_NO_TRUNC} is in
+                              effect for that file.
+
+               [ENOENT]       One or more components of either file's
+                              pathname does not exist, or the loader
+                              argument or the file argument points to
+                              an empty string.  Note that the
+                              exec_with_loader function references two
+                              files, one specified by the loader
+                              argument and one specified by the file
+                              argument.
+
+               [ENOTDIR]      A component of either file's path prefix
+                              is not a directory.  Note that the
+                              exec_with_loader function references two
+                              files, one specified by the loader
+                              argument and one specified by the file
+                              argument.
+
+               [ENOEXEC]      The file specified by the loader
+                              argument has the appropriate access
+                              permission but is not in the proper
+                              format.
+
+          The exec_with_loader function may fail if:
+
+               [EFAULT]       The loader argument or file argument is
+                              an invalid address.
+
+               [ELOOP]        Too many symbolic links were encountered
+                              in pathname resolution.
+
+               [ENOMEM]       Insufficient memory is available.
+
+               [ETXTBSY]      The file specified by the loader
+                              argument is currently open for writing
+                              by some process.
+
+     RELATED INFORMATION
+          exec()
+
+
+     6. The Auxiliary Vector
+        -------------------
+     
+     Whereas the argument and environment vectors tansmit information from
+     one application program to another, the auxiliary vector transmits
+     information from the operating system to the program.  This vector is
+     an array of the following structures, interpreted according to the
+     a_type member.
+     
+             typedef struct
+             {
+                     int     a_type;
+                     union {
+                             long    a_val;
+                             void    *a_ptr;
+                             void    (*a_fcn)();
+                     } a_un;
+             } auxv_t;
+     
+     The a_type member may take on any of the following values.
+     
+     
+             #define AT_NULL         0
+             #define AT_IGNORE       1
+             #define AT_EXECFD       2
+             #define AT_PHDR         3
+             #define AT_PHENT        4
+             #define AT_PHNUM        5
+             #define AT_PAGESZ       6
+             #define AT_BASE         7
+             #define AT_FLAGS        8
+             #define AT_ENTRY        9
+     
+             #define AT_OSF_BASE             1000
+             #define AT_EXEC_FILENAME        (AT_OSF_BASE+1)
+             #define AT_EXEC_LOADER_FILENAME (AT_OSF_BASE+2)
+             #define AT_EXEC_LOADER_FLAGS    (AT_OSF_BASE+3)
+             #define AT_EXEC_FD              (AT_EXECFD)
+     
+     Explanations for each type are given in the big comment at the end of
+     this section.  The auxiliary vector is variable length and terminates
+     with an entry of type AT_NULL.  Note that each entry is 8 bytes in
+     length.
+     
+     Entry types AT_NULL through AT_ENTRY come directly from the System V
+     ABI.  OSF/1 typically won't generate those entries, with the exception
+     of AT_NULL and possibly AT_PAGESZ, unless someone wants to add ELF
+     support.  The OSF/1 kernel will however, generate entries of type
+     AT_EXEC_FILENAME for programs loaded with execve() and of type
+     AT_EXEC_FILENAME, AT_EXEC_LOADER_FILENAME and AT_EXEC_LOADER_FLAGS,
+     for programs loaded with exec_with_loader().  Thus an auxiliary vector
+     is passed to all programs, regardless as to whether they were loaded
+     with execve() or exec_with_loader().  Note that execve() and
+     exec_with_loader() are the only two system calls implemented in OSF/1
+     that load programs into an address space.
+
+     To some extent, it is possible to tell via which system call the
+     program was loaded, however there is an exception.  For calls to
+     execve(), the kernel will only generate an AT_EXEC_FILENAME type
+     entry.  For calls to exec_with_loader(), the auxiliary vector will
+     contain the two additional loader specific entries of type
+     AT_EXEC_LOADER_FILENAME and AT_EXEC_LOADER_FLAGS.  The exception is
+     that in the near future, we will change execve() to internally call
+     exec_with_loader(), if execve() doesn't recognize the magic number or
+     doesn't believe the file being loaded is a shell script.  The idea
+     here is to pass the file onto the default user mode loader and
+     hopefully it will know how to load the file.
+     
+     The flags in the AT_EXEC_LOADER_FLAGS auxiliary vector entry are
+     defined in <sys/ldr_exec.h>.  The flags are divided into two
+     categories, those reserved for use by the system and those available
+     to applications for their own use.  The two masks,
+     LDR_EXEC_SYSTEM_MASK and LDR_EXEC_USER_MASK, respectively indicate the
+     flags (i.e. the bits) reserved for each of the two categories.  The
+     system flags include LDR_EXEC_SETUID_F, LDR_EXEC_SETGID_F and
+     LDR_EXEC_PTRACE_F.  Upon entry to the loader, the LDR_EXEC_SETUID_F
+     flag indicates that the file specified in the AT_EXEC_FILENAME
+     auxiliary vector entry is marked set user-id and thus the effective
+     user-id of the current process has been set to the user-id of the
+     owner of the file.  Likewise the LDR_EXEC_SETGID_F flag gives a
+     similar indication for set group-id.  The LDR_EXEC_PTRACE_F flag
+     indicates that the current process is being traced, that is, the
+     current process has previously issued a ptrace() system call with
+     request 0.
+
+     Programatically, references to auxv come in one of two flavors.  Either
+     
+             main(argc, argv, envp, auxv)
+                     int argc;
+                     char *argv[], *envp[];
+                     auxv_t *auxv;
+             {
+             }
+     
+     or
+     
+             extern auxv_t *_auxv;
+     
+     The first form can be used in the main() function, where it is the
+     fourth argument to main().  The second from can be used anywhere and
+     the auxiliary vector is found in the global variable _auxv.
+     
+     The following comment explains the purpose and use of the various
+     types of auxiliary vector entries.
+     
+     /*
+      *                       The Auxiliary Vector
+      *
+      * AT_NULL      The auxiliary vector has no fixed length; instead its
+      *              last entry's a_type member has this value.
+      * 
+      * AT_IGNORE    This type indicates the entry has no meaning.  The
+      *              corresponding value of a_un is undefined.
+      * 
+      * AT_EXECFD    exec() or exec_with_loader() may pass control to an
+      *              interpreter program.  When this happens, the system
+      *              places either and entry of type AT_EXECFD or one of
+      *              type AT_PHDR in the auxiliary vector.  The entry for
+      *              type AT_EXECFD uses the a_val member to contain a file
+      *              descriptor open to read the application program's
+      *              object file.
+      * 
+      * AT_PHDR      Under some conditions, the system creates the memory
+      *              image of the application program before passing
+      *              control to the interpreter program.  When this
+      *              happens, the a_ptr member of the AT_PHDR entry tells
+      *              the interpreter where to find the program header table
+      *              in the memory image.  If the AT_PHDR entry is present,
+      *              entries of types AT_PHENT, AT_PHNUM, and AT_ENTRY must
+      *              also be present.  AT_EXEC_LOADER_FILENAME
+      * 
+      * AT_PHENT     The a_val member of this entry holds the size, in
+      *              bytes, of one entry in the program header table to
+      *              which the entry points.
+      * 
+      * AT_PHNUM     The a_val member of this entry holds the number of
+      *              entries in the program header table to which the
+      *              AT_PHDR entry points.
+      * 
+      * AT_PAGESZ    If present, this entry's a_val member gives the system
+      *              page size, in bytes.  The same information also is
+      *              available through sysconf().
+      * 
+      * AT_BASE      The a_ptr member of this entry holds the base address
+      *              at which the interpreter program was loaded into
+      *              memory.
+      * 
+      * AT_FLAGS     If present, the a_val member of this entry holds
+      *              one-bit flags.  Bits with undefined semantics are set
+      *              to zero.  Currently, no flag definitions exist for
+      *              this entry.  Nonetheless, bits under the 0xff000000
+      *              mask are reserved for system semantics.
+      * 
+      * AT_ENTRY     The a_ptr member of this entry holds the entry poiint
+      *              of the application program to which the interpreter
+      *              program should transfer control.
+      * 
+      * AT_EXEC_FILENAME
+      *              The a_ptr member of this entry holds a pointer to a
+      *              character array that contains the filename as passed
+      *              to exec() or exec_with_loader().
+      * 
+      * AT_EXEC_LOADER_FILENAME
+      *              If present, the a_ptr member of this entry holds a
+      *              pointer to a character array that contains the
+      *              filename of the loader as passed to
+      *              exec_with_loader(), or the filename of the default
+      *              loader, if NULL was passed to exec_with_loader() or
+      *              exec() was invoked.
+      * 
+      * AT_EXEC_LOADER_FLAGS
+      *              If present, the a_val member of this entry holds
+      *              one-bit flags intended for use by the loader.  Bits
+      *              with undefined semantics are set to zero.
+      *              Bits under the 0xffff0000 mask are reserved for
+      *              system semantics.
+      */
+     
+
+     7. crt0
+        ----
+     
+     The changes to crt0, for user mode loader support, have been designed
+     such that they can compatibly co-exist with the existing crt0.  In
+     other words, there is no need to have a separate crt0, used only by
+     the loader.  There are principally two changes to crt0 for support of
+     user mode loaders.  The first is auxv, through which user mode loaders
+     can obtain the name of the file to be loaded, the name of the file
+     from which the user mode loader was loaded and a 32-bit word of loader
+     specific flags.  The second has to do with the transfer of control
+     from the user mode loader to the entry point of the loaded file, once
+     the file has been loaded.
+     
+     In the current design, after exec_with_loader() completes, it
+     transfers control to the entry point of the user loader, __start in
+     crt0.  crt0 eventually calls main(), as it always does, not something
+     like ldr_main().  crt0 passes argc, argv, envp and auxv to main().
+     main(), of the loader, is expected to return the entry point of the
+     file just loaded.  The user mode loader should handle any failures and
+     if there is a failure, the user mode loader should NOT return from
+     main().  Once main() returns the entry point to crt0, crt0 transfers
+     control to the entry point, passing to it argc, argv, envp and auxv.
+     If the entry point returns a value, it is assumed to be an exit status
+     that is to be passed to exit(2).
+     
+     A flags word controls whether the second change behavior, namely the
+     transfer of control to an entry point returned by main(), takes place.
+     crt0 contains
+     
+             extern int _ldr_present;
+     
+     _ldr_present is a global variable that should be initialized to a
+     non-zero value by any program, such as a user mode loader, that
+     desires this behavior.  If no initialization is done, _ldr_present is
+     in common (BSS) and takes on the value zero.  Then crt0 will not
+     exhibit the behavior.  Therefore all user mode loaders should contain
+     the following global initialization of _ldr_present.
+     
+             int _ldr_present = 1;
+     
+     The current crt0 does not contain the two necessary changes for
+     support of user mode loaders.  It is important to ensure that the
+     correct crt0 is linked into user mode loaders.  Because this is
+     difficult, at best, to do with gcc and the current build tools and
+     until the necessary changes have been checked into crt0, another flag
+     has been implemented in the new crt0 to help show when the WRONG crt0
+     is being used.  Each user mode loader should contain the following
+     global initialization.
+     
+             extern int _ldr_crt0_request;
+             static int *_lcrp = &_ldr_crt0_request;
+     
+     _ldr_crt0_request is a global variable defined in the new crt0, but
+     not in the old crt0.  This code fragment causes the link of user mode
+     loaders to fail, with an unresolved external reference, if the
+     incorrect crt0 is linked.  Note that _ldr_crt0_request only controls
+     the second change, since auxv is passed to all commands as well as
+     user mode loaders.

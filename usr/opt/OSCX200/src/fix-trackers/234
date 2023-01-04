@@ -1,0 +1,1242 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204141834.AA26977@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2459) close XBUG #5102, #5103, #5104, #5104: Xlib: Ximp patch (part 3 of 3)
+Date: Tue, 14 Apr 92 14:34:04 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+*** /tmp/d26429	Tue Apr 14 14:18:10 1992
+--- lib/X/Ximp/XimpICS.c	Tue Apr 14 13:30:21 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpICS.c,v 1.2 91/10/07 17:48:43 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 1,8 ----
+! /* $XConsortium: XimpICS.c,v 1.3 92/04/14 13:29:14 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+!               Copyright 1991, 1992 by Sony Corporaion
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 8,29 ****
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! not be used in advertising or publicity pertaining to distribution
+! of the software without specific, written prior permission.
+! FUJITSU LIMITED makes no representations about the suitability of
+! this software for any purpose.  It is provided "as is" without
+! express or implied warranty.
+  
+! FUJITSU LIMITED DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+! INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+! IN NO EVENT SHALL FUJITSU LIMITED BE LIABLE FOR ANY SPECIAL, INDIRECT
+! OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+! OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+! OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!                                fujiwara@a80.tech.yk.fujitsu.co.jp
+  
+  ******************************************************************/
+  
+--- 9,32 ----
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! and Sony Corporaion not be used in advertising or publicity
+! pertaining to distribution of the software without specific,
+! written prior permission.
+! FUJITSU LIMITED and Sony Corporaion make no representations about
+! the suitability of this software for any purpose.  It is provided
+! "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SONY CORPORATION DISCLAIM ALL WARRANTIES WITH
+! REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED AND
+! SONY CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+! OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+! TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!           Makoto Wakamatsu     Sony Corporaion
+  
+  ******************************************************************/
+  
+***************
+*** 43,48 ****
+--- 46,52 ----
+  extern void		_Ximp_SetStatusAtr();
+  extern void		_Ximp_SetStatusFont();
+  extern void		_Ximp_IM_SendMessage();
++ extern Bool		_Ximp_XimFilter_Keypress();
+  
+  static Bool		_Ximp_PreSetAttributes();
+  static Bool		_Ximp_StatusSetAttributes();
+***************
+*** 56,77 ****
+  	char		*ret;
+  	int		 change_mask = 0;
+  
+! 	ret = _Ximp_SetICValueData(ic, values, XIMP_SET_IC, &change_mask);
+  
+  	if(   (ic->ximp_icpart->value_mask & XIMP_RES_NAME)
+  	   || (ic->ximp_icpart->value_mask & XIMP_RES_CLASS) )
+  		_Ximp_SetValue_Resource(ic, &change_mask);
+  
+! 	if(ic->ximp_icpart->icid == NULL)
+  		return(ret);
+  
+! 	if(change_mask == XIMP_PRE_SPOTL_MASK) {
+!  		_Ximp_IM_SendMessage(ic, XIMP_MOVE,
+  				ic->ximp_icpart->preedit_attr.SpotLocation.x,
+  				ic->ximp_icpart->preedit_attr.SpotLocation.y,
+  				NULL);
+! 		return(ret);
+  		}
+  	if(change_mask & XIMP_PROP_FOCUS)
+  		_Ximp_SetFocusWindow(ic);
+  	if(!(   (ic->core.input_style & XIMPreeditCallbacks)
+--- 60,100 ----
+  	char		*ret;
+  	int		 change_mask = 0;
+  
+! 	if((ret = _Ximp_SetICValueData(ic, values, XIMP_SET_IC, &change_mask)))
+! 		return(ret);
+  
+  	if(   (ic->ximp_icpart->value_mask & XIMP_RES_NAME)
+  	   || (ic->ximp_icpart->value_mask & XIMP_RES_CLASS) )
+  		_Ximp_SetValue_Resource(ic, &change_mask);
+  
+! 	if(ic->ximp_icpart->icid == NULL) {
+! 		if(change_mask & XIMP_PROP_FOCUS) {
+! 			if(ic->ximp_icpart->filter_mode & 0x1) {
+! 				_XUnregisterFilter (ic->core.im->core.display,
+! 						ic->ximp_icpart->back_focus_win,
+! 						_Ximp_XimFilter_Keypress,
+! 						(XPointer)ic);
+! 				}
+! 			_XRegisterFilterByType (ic->core.im->core.display,
+! 						ic->core.focus_window,
+! 						KeyPress, KeyPress,
+! 						_Ximp_XimFilter_Keypress,
+! 						(XPointer)ic);
+! 			ic->ximp_icpart->filter_mode |= 0x1;
+! 			}
+  		return(ret);
++ 		}
+  
+! 	if(ic->core.input_style & XIMPreeditPosition) {
+! 		if(change_mask == XIMP_PRE_SPOTL_MASK) {
+! 			if(ic->ximp_icpart->input_mode)
+! 			    _Ximp_IM_SendMessage(ic, XIMP_MOVE,
+  				ic->ximp_icpart->preedit_attr.SpotLocation.x,
+  				ic->ximp_icpart->preedit_attr.SpotLocation.y,
+  				NULL);
+! 			return(ret);
+  		}
++ 	}
+  	if(change_mask & XIMP_PROP_FOCUS)
+  		_Ximp_SetFocusWindow(ic);
+  	if(!(   (ic->core.input_style & XIMPreeditCallbacks)
+***************
+*** 94,100 ****
+  	else {
+  		change_mask &= ~(XIMP_PROP_STATUS | XIMP_PROP_STSFONT);
+  		}
+!  	_Ximp_IM_SendMessage(ic, XIMP_SETVALUE, change_mask, NULL, NULL);
+  	return(ret);
+  	}
+  
+--- 117,124 ----
+  	else {
+  		change_mask &= ~(XIMP_PROP_STATUS | XIMP_PROP_STSFONT);
+  		}
+! 	if(change_mask)
+!  		_Ximp_IM_SendMessage(ic, XIMP_SETVALUE, change_mask, NULL, NULL);
+  	return(ret);
+  	}
+  
+***************
+*** 119,126 ****
+  			}
+  		else if(strcmp(p->name, XNClientWindow)==0) {
+  			if(!(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN)) {
+! 				ic->core.client_window = (Window)p->value;
+! 				ic->ximp_icpart->value_mask |= XIMP_CLIENT_WIN;
+  				}
+  			else {
+  				return_name = p->name;
+--- 143,168 ----
+  			}
+  		else if(strcmp(p->name, XNClientWindow)==0) {
+  			if(!(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN)) {
+! 				if(mode == XIMP_SET_IC && (ic->ximp_icpart->icid)) {
+! 					_Ximp_IM_SendMessage(ic, XIMP_DESTROY, NULL, NULL, NULL);
+! 					XDestroyWindow(ic->core.im->core.display,
+! 						       ic->core.client_window);
+! 					ic->core.client_window = (Window)p->value;
+! 					ic->ximp_icpart->value_mask |= XIMP_CLIENT_WIN;
+! 					if(_Ximp_SetOpenXIMP(ic, mode) == False) {
+! 						return_name = p->name;
+! 						break;
+! 						}
+! 					*change_mask = NULL;
+! 					}
+! 				else { /* XIMP_CREATE_IC | (XIMP_SET_IC && XIMP_START_IC) */
+! 					ic->core.client_window = (Window)p->value;
+! 					ic->ximp_icpart->value_mask |= XIMP_CLIENT_WIN;
+! 					if(!(ic->ximp_icpart->proto_mask & XIMP_FOCUS_WIN_MASK)) {
+! 						ic->core.focus_window = ic->core.client_window;
+! 						ic->ximp_icpart->proto_mask |= XIMP_FOCUS_WIN_MASK;
+! 						}
+! 					}
+  				}
+  			else {
+  				return_name = p->name;
+***************
+*** 151,156 ****
+--- 193,199 ----
+  					     new_focus_window,
+  					     dummy_mask);
+  				}
++ 			ic->ximp_icpart->back_focus_win = ic->core.focus_window;
+  			ic->core.focus_window = (Window)p->value;
+  			ic->ximp_icpart->proto_mask |= XIMP_FOCUS_WIN_MASK;
+  			*change_mask                |= XIMP_FOCUS_WIN_MASK;
+***************
+*** 282,287 ****
+--- 325,332 ----
+  		else if(strcmp(p->name, XNFontSet)==0) {
+  			ic->core.preedit_attr.fontset = (XFontSet)p->value;
+  			if(p->value != NULL) {
++ 				if(ic->ximp_icpart->preedit_font)
++ 	    				Xfree(ic->ximp_icpart->preedit_font);
+  				list_ret = XFontsOfFontSet(
+  					ic->core.preedit_attr.fontset,
+  					&struct_list, &name_list);
+***************
+*** 288,294 ****
+  				for(i = 0, len = 0; i < list_ret; i++) {
+  					len += strlen(name_list[i]);
+  					}
+! 				tmp = Xmalloc(len + i);
+  				tmp[0] = NULL;
+  				for(i = 0; i < list_ret; i++) {
+  					strcat(tmp, name_list[i]);
+--- 333,339 ----
+  				for(i = 0, len = 0; i < list_ret; i++) {
+  					len += strlen(name_list[i]);
+  					}
+! 				tmp = Xmalloc(len + i + 1);
+  				tmp[0] = NULL;
+  				for(i = 0; i < list_ret; i++) {
+  					strcat(tmp, name_list[i]);
+***************
+*** 321,326 ****
+--- 366,372 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.preedit_attr.callbacks.start.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
+  			}
+  		else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
+  			ic->core.preedit_attr.callbacks.done.client_data =
+***************
+*** 327,332 ****
+--- 373,379 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.preedit_attr.callbacks.done.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
+  			}
+  		else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
+  			ic->core.preedit_attr.callbacks.draw.client_data =
+***************
+*** 333,338 ****
+--- 380,386 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.preedit_attr.callbacks.draw.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
+  			}
+  		else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
+  			ic->core.preedit_attr.callbacks.caret.client_data =
+***************
+*** 339,344 ****
+--- 387,393 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.preedit_attr.callbacks.caret.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_PRE_CALLBAK;
+  			}
+  		}
+  	return(True);
+***************
+*** 423,428 ****
+--- 472,479 ----
+  		else if(strcmp(p->name, XNFontSet)==0) {
+  			ic->core.status_attr.fontset = (XFontSet)p->value;
+  			if (p->value != NULL) {
++ 				if(ic->ximp_icpart->status_font)
++ 	    				Xfree(ic->ximp_icpart->status_font);
+  				list_ret = XFontsOfFontSet(
+  					ic->core.status_attr.fontset,
+  					&struct_list, &name_list);
+***************
+*** 429,435 ****
+  				for(i = 0, len = 0; i < list_ret; i++) {
+  					len += strlen(name_list[i]);
+  					}
+! 				tmp = Xmalloc(len + i);
+  				tmp[0] = NULL;
+  				for(i = 0; i < list_ret; i++) {
+  					strcat(tmp, name_list[i]);
+--- 480,486 ----
+  				for(i = 0, len = 0; i < list_ret; i++) {
+  					len += strlen(name_list[i]);
+  					}
+! 				tmp = Xmalloc(len + i + 1);
+  				tmp[0] = NULL;
+  				for(i = 0; i < list_ret; i++) {
+  					strcat(tmp, name_list[i]);
+***************
+*** 454,461 ****
+  		else if(strcmp(p->name, XNCursor)==0) {
+  			ic->core.status_attr.cursor = (Cursor)p->value;
+  			attr->Cursor = ic->core.status_attr.cursor;
+! 			ic->ximp_icpart->proto_mask |= XIMP_PRE_CURSOR_MASK;
+! 			*change_mask                |= XIMP_PRE_CURSOR_MASK;
+  			}
+  		else if(strcmp(p->name, XNStatusStartCallback)==0) {
+  			ic->core.status_attr.callbacks.start.client_data =
+--- 505,512 ----
+  		else if(strcmp(p->name, XNCursor)==0) {
+  			ic->core.status_attr.cursor = (Cursor)p->value;
+  			attr->Cursor = ic->core.status_attr.cursor;
+! 			ic->ximp_icpart->proto_mask |= XIMP_STS_CURSOR_MASK;
+! 			*change_mask                |= XIMP_STS_CURSOR_MASK;
+  			}
+  		else if(strcmp(p->name, XNStatusStartCallback)==0) {
+  			ic->core.status_attr.callbacks.start.client_data =
+***************
+*** 462,467 ****
+--- 513,519 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.status_attr.callbacks.start.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
+  			}
+  		else if(strcmp(p->name, XNStatusDoneCallback)==0) {
+  			ic->core.status_attr.callbacks.done.client_data =
+***************
+*** 468,473 ****
+--- 520,526 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.status_attr.callbacks.done.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
+  			}
+  		else if(strcmp(p->name, XNStatusDrawCallback)==0) {
+  			ic->core.status_attr.callbacks.draw.client_data =
+***************
+*** 474,479 ****
+--- 527,533 ----
+  				((XIMCallback *)p->value)->client_data;
+  			ic->core.status_attr.callbacks.draw.callback =
+  				((XIMCallback *)p->value)->callback;
++ 			ic->ximp_icpart->value_mask |= XIMP_STS_CALLBAK;
+  			}
+  		}
+  	return(True);
+*** /tmp/d26448	Tue Apr 14 14:18:19 1992
+--- lib/X/Ximp/XimpMPer.c	Tue Apr 14 13:30:50 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMPer.c,v 1.1 91/07/09 17:37:12 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMPer.c,v 1.2 92/04/14 13:29:43 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26467	Tue Apr 14 14:18:28 1992
+--- lib/X/Ximp/XimpMPrTxt.c	Tue Apr 14 13:30:53 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMPrTxt.c,v 1.2 91/10/07 17:50:17 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMPrTxt.c,v 1.3 92/04/14 13:29:46 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 109,116 ****
+      buf_ptr = buf;
+      for (i = 0; i < count; i++) {
+  	list[i] = str_ptr;
+! 	strcpy(str_ptr, buf_ptr);
+! 	tmp_len = strlen(str_ptr) + 1;
+  	str_ptr += tmp_len;
+  	buf_ptr += tmp_len;
+      }
+--- 109,116 ----
+      buf_ptr = buf;
+      for (i = 0; i < count; i++) {
+  	list[i] = str_ptr;
+! 	strcpy((char *)str_ptr, (char *)buf_ptr);
+! 	tmp_len = strlen((char *)str_ptr) + 1;
+  	str_ptr += tmp_len;
+  	buf_ptr += tmp_len;
+      }
+*** /tmp/d26486	Tue Apr 14 14:18:39 1992
+--- lib/X/Ximp/XimpMTxtPr.c	Tue Apr 14 13:30:56 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMTxtPr.c,v 1.2 91/10/07 17:50:20 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMTxtPr.c,v 1.3 92/04/14 13:29:49 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26511	Tue Apr 14 14:18:50 1992
+--- lib/X/Ximp/XimpPrTxt.c	Tue Apr 14 13:30:59 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpPrTxt.c,v 1.2 91/10/07 17:50:23 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpPrTxt.c,v 1.3 92/04/14 13:29:53 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26538	Tue Apr 14 14:19:03 1992
+--- lib/X/Ximp/XimpRm.c	Tue Apr 14 13:31:02 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpRm.c,v 1.3 92/03/03 11:03:30 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 1,8 ----
+! /* $XConsortium: XimpRm.c,v 1.4 92/04/14 13:29:56 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+!               Copyright 1991, 1992 by Sony Corporaion
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 8,29 ****
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! not be used in advertising or publicity pertaining to distribution
+! of the software without specific, written prior permission.
+! FUJITSU LIMITED makes no representations about the suitability of
+! this software for any purpose.  It is provided "as is" without
+! express or implied warranty.
+  
+! FUJITSU LIMITED DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+! INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+! IN NO EVENT SHALL FUJITSU LIMITED BE LIABLE FOR ANY SPECIAL, INDIRECT
+! OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+! OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+! OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!                                fujiwara@a80.tech.yk.fujitsu.co.jp
+  
+  ******************************************************************/
+  
+--- 9,32 ----
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! and Sony Corporaion not be used in advertising or publicity
+! pertaining to distribution of the software without specific,
+! written prior permission.
+! FUJITSU LIMITED and Sony Corporation make no representations about
+! the suitability of this software for any purpose.  It is provided
+! "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SONY CORPORATION DISCLAIM ALL WARRANTIES WITH
+! REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED AND
+! SONY CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+! OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+! TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+  OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+!           Makoto Wakamatsu     Sony Corporaion
+  
+  ******************************************************************/
+  
+***************
+*** 52,63 ****
+  		strcpy(res_class, "*");
+  	else	{
+  		strcpy(res_class, im->core.res_class);
+! 		strcat(res_name, ".");
+  		}
+  	strcat(res_name, "ximp.");
+  	strcat(res_class, "Ximp.");
+  	}
+  
+  Bool
+  _Ximp_OpenIM_Resource(im)
+  	Ximp_XIM	 im;
+--- 55,174 ----
+  		strcpy(res_class, "*");
+  	else	{
+  		strcpy(res_class, im->core.res_class);
+! 		strcat(res_class, ".");
+  		}
+  	strcat(res_name, "ximp.");
+  	strcat(res_class, "Ximp.");
+  	}
+  
++ 
++ #ifndef	isalnum
++ #define	isalnum(c)	\
++     (('0' <= (c) && (c) <= '9')  || \
++      ('A' <= (c) && (c) <= 'Z')  || \
++      ('a' <= (c) && (c) <= 'z'))
++ #endif
++ 
++ static void	_Ximp_parse( im, event )
++ Ximp_XIM	 im;
++ char		*event;
++ {
++     static Ximp_Key	key;
++     char		*modifier, *detail;
++     char		*ss;
++     int			ii;
++     Bool		exclamation, tilde;
++     Ximp_KeyList	*keylist;
++     static struct {
++ 	char	*name;
++ 	int	len;
++ 	long	mask;
++     } mod[] = {
++ 	{ "Ctrl",	4,	ControlMask	},
++ 	{ "Lock",	4,	LockMask	},
++ 	{ "Caps",	4,	LockMask	},
++ 	{ "Shift",	5,	ShiftMask	},
++ 	{ "Alt",	3,	Mod1Mask	},
++ 	{ "Meta",	4,	Mod1Mask	},
++ 	{ NULL,		0,	0		}};
++     extern char		*_Ximp_Strstr();
++ #define	AllMask	(ControlMask | LockMask | ShiftMask | Mod1Mask)
++ 
++     if( (ss = _Ximp_Strstr( event, "<Key>" )) == NULL )
++ 	return;
++     detail = ss + 5;
++     *ss = NULL;
++ 
++     modifier = event;
++     key.modifier = 0;
++     key.modifier_mask = 0;
++     key.keysym = XK_VoidSymbol;
++     exclamation = False;
++     do {
++ 	while( *modifier == ' '  ||  *modifier == '\t' )
++ 	    modifier++;
++ 	if( *modifier == NULL )
++ 	    break;
++ 	if( strncmp( modifier, "None", 4 ) == 0 ) {
++ 	    if( key.modifier_mask != 0  ||  exclamation )
++ 		return;
++ 	    key.modifier_mask = AllMask;
++ 	    modifier += 4;
++ 	}
++ 	else {
++ 	    if( *modifier == '!' ) {
++ 		if( key.modifier_mask != 0  ||  exclamation )
++ 		    return;
++ 		key.modifier_mask = AllMask;
++ 		exclamation = True;
++ 		modifier++;
++ 		continue;
++ 	    }
++ 	    if( (tilde = (*modifier == '~')) ) {
++ 		modifier++;
++ 		while( *modifier == ' '  ||  *modifier == '\t' )
++ 		    modifier++;
++ 	    }
++ 	    for( ii = 0; mod[ii].name != NULL; ii++ ) {
++ 		if( strncmp( modifier, mod[ii].name, mod[ii].len ) == 0 ) {
++ 		    key.modifier_mask |= mod[ii].mask;
++ 		    if( !tilde )
++ 			key.modifier |= mod[ii].mask;
++ 		    modifier += mod[ii].len;
++ 		    break;
++ 		}
++ 	    }
++ 	}
++ 	if( mod[ii].name == NULL )
++ 	    return;
++     } while( *modifier != NULL );
++ 
++     while( *detail == ' '  ||  *detail == '\t' )
++ 	detail++;
++     for( ss = detail; isalnum(*ss)  ||  *ss == '_'; ss++ );
++     *ss = NULL;
++     if( (key.keysym = XStringToKeysym( detail )) != NoSymbol ) {
++ 	if( !(keylist = im->ximp_impart->process_start_keys) ) {
++ 	    if( (keylist = (Ximp_KeyList *)Xcalloc(1, sizeof(Ximp_KeyList))) == NULL )
++ 		return;
++ 	    if((keylist->keys_list = (Ximp_Key *)Xmalloc(sizeof(Ximp_Key))) == NULL) {
++ 		Xfree( keylist );
++ 		return;
++ 	    }
++ 	}
++ 	else {
++ 	    Ximp_Key	*keys_list;
++ 	    if( (keys_list = (Ximp_Key *)Xrealloc(keylist->keys_list, sizeof(Ximp_Key) * (keylist->count_keys + 1))) == NULL )
++ 		return;
++ 	    keylist->keys_list = keys_list;
++ 	}
++ 	keylist->keys_list[keylist->count_keys] = key;
++ 	keylist->count_keys++;
++ 	im->ximp_impart->process_start_keys = keylist;
++     }
++ }
++ 
++ 
+  Bool
+  _Ximp_OpenIM_Resource(im)
+  	Ximp_XIM	 im;
+***************
+*** 68,73 ****
+--- 179,185 ----
+  	XrmValue	 value;
+  	Bool		 ret = False;
+  	KeySym		 keysym = NoSymbol;
++ 	Ximp_KeyList	*keylist;
+  
+  	if(im->core.rdb == NULL)
+  		return(ret);
+***************
+*** 87,97 ****
+  				str_type, &value) == True) { 
+  				keysym = XStringToKeysym(value.addr);
+  				}
+! 			if(keysym == NoSymbol)
+! 				ret = False;
+! 			else {
+! 				im->ximp_impart->def_startkeysym = keysym;
+! 				ret = True;
+  				}
+  			}
+  		}
+--- 199,246 ----
+  				str_type, &value) == True) { 
+  				keysym = XStringToKeysym(value.addr);
+  				}
+! 			ret = False;
+! 			if(keysym != NoSymbol) {
+! 				if((keylist = (Ximp_KeyList *)Xmalloc(sizeof(Ximp_KeyList))) != NULL ) {
+! 					if((keylist->keys_list = (Ximp_Key *)Xmalloc(sizeof(Ximp_Key)))!= NULL) {
+! 						keylist->count_keys = 1;
+! 						keylist->keys_list[0].modifier = 0;
+! 						keylist->keys_list[0].modifier_mask = 0;
+! 						keylist->keys_list[0].keysym = keysym;
+! 						im->ximp_impart->process_start_keys = keylist;
+! 						ret = True;
+! 						}
+! 					else
+! 						Xfree(keylist);
+! 					}
+! 				}
+! 
+! 			/* ProcessStartKeys */
+! 			_Ximp_Get_resource_name(im, res_name, res_class);
+! 			strcat(res_name, "processStartKeys");
+! 			strcat(res_class, "ProcessStartKeys");
+! 			if(XrmGetResource(im->core.rdb, res_name, res_class,
+! 						str_type, &value)  == True) {
+! 				char	*string, *ss, c;
+! 				char	*line;
+! 
+! 				if( (line = Xmalloc(value.size)) != NULL ) {
+! 					string = value.addr;
+! 					do {
+! 						ss = line;
+! 						while( (c = *string) != NULL ) {
+! 							string++;
+! 							if( c == '\n' )
+! 								break;
+! 							*ss++ = c;
+! 							}
+! 						*ss = NULL;
+! 						_Ximp_parse( im, line );
+! 					} while( *string != NULL );
+! 					Xfree( line );
+! 					if( im->ximp_impart->process_start_keys )
+! 						ret = True;
+! 					}
+  				}
+  			}
+  		}
+*** /tmp/d26565	Tue Apr 14 14:19:17 1992
+--- lib/X/Ximp/XimpSJIS.c	Tue Apr 14 13:31:05 1992
+***************
+*** 1,26 ****
+! /* $XConsortium: XimpSJIS.c,v 1.3 91/10/07 17:50:33 rws Exp $ */
+! /*
+!  * Copyright 1991 Sony Corporation
+!  *
+!  * Permission to use, copy, modify, distribute, and sell this software and its
+!  * documentation for any purpose is hereby granted without fee, provided that
+!  * the above copyright notice appear in all copies and that both that
+!  * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of Sony not be used in advertising or
+!  * publicity pertaining to distribution of the software without specific,
+!  * written prior permission.  Sony makes no representations about the
+!  * suitability of this software for any purpose.  It is provided "as is"
+!  * without express or implied warranty.
+!  *
+!  * SONY DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+!  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL SONY
+!  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+!  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+!  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
+!  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+!  *
+!  * Author: Masaki Takeuchi, Sony Corporation
+!  */
+  
+  #include "Xlibint.h"
+  #include "Xlcint.h"
+--- 1,30 ----
+! /* $XConsortium: XimpSJIS.c,v 1.4 92/04/14 13:29:59 rws Exp $ */
+! /******************************************************************
+! 
+!               Copyright 1991, 1992 Sony Corporation
+! 
+! Permission to use, copy, modify, distribute, and sell this software
+! and its documentation for any purpose is hereby granted without fee,
+! provided that the above copyright notice appear in all copies and
+! that both that copyright notice and this permission notice appear
+! in supporting documentation, and that the name of Sony not be used
+! in advertising or publicity pertaining to distribution of the
+! software without specific, written prior permission.
+! Sony makes no representations about the suitability of this software
+! for any purpose.  It is provided "as is" without express or implied
+! warranty.
+!  
+! SONY DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+! ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT
+! SHALL SONY BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+! OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+! TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+! PERFORMANCE OF THIS SOFTWARE.
+! 
+!   Author: Masaki Takeuchi       Sony Corporation
+! 
+! ******************************************************************/
+  
+  #include "Xlibint.h"
+  #include "Xlcint.h"
+*** /tmp/d26588	Tue Apr 14 14:19:27 1992
+--- lib/X/Ximp/XimpTxtEsc.c	Tue Apr 14 13:31:09 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpTxtEsc.c,v 1.1 91/07/09 17:37:28 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpTxtEsc.c,v 1.2 92/04/14 13:30:02 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 112,118 ****
+  		break;
+  
+  	    if (char_length < 2)
+! 		width += XTextWidth(font, xchar_buf, tmp_len);
+              else
+  		width += XTextWidth16(font, xchar2b_buf, tmp_len);
+  
+--- 112,118 ----
+  		break;
+  
+  	    if (char_length < 2)
+! 		width += XTextWidth(font, (char *)xchar_buf, tmp_len);
+              else
+  		width += XTextWidth16(font, xchar2b_buf, tmp_len);
+  
+*** /tmp/d26611	Tue Apr 14 14:19:38 1992
+--- lib/X/Ximp/XimpTxtExt.c	Tue Apr 14 13:31:12 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpTxtExt.c,v 1.3 91/10/10 20:41:43 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpTxtExt.c,v 1.4 92/04/14 13:30:06 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 117,123 ****
+  		break;
+  
+  	    if (char_length < 2)
+! 		XTextExtents(font, xchar_buf, tmp_len, &direction,
+  			     &tmp_ascent, &tmp_descent, &tmp_overall);
+              else
+  		XTextExtents16(font, xchar2b_buf, tmp_len, &direction,
+--- 117,123 ----
+  		break;
+  
+  	    if (char_length < 2)
+! 		XTextExtents(font, (char *)xchar_buf, tmp_len, &direction,
+  			     &tmp_ascent, &tmp_descent, &tmp_overall);
+              else
+  		XTextExtents16(font, xchar2b_buf, tmp_len, &direction,
+*** /tmp/d26639	Tue Apr 14 14:19:52 1992
+--- lib/X/Ximp/XimpTxtPer.c	Tue Apr 14 13:31:15 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpTxtPer.c,v 1.3 91/10/10 20:41:46 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpTxtPer.c,v 1.4 92/04/14 13:30:08 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26659	Tue Apr 14 14:20:02 1992
+--- lib/X/Ximp/XimpTxtPr.c	Tue Apr 14 13:31:18 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpTxtPr.c,v 1.2 91/10/07 17:50:45 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpTxtPr.c,v 1.3 92/04/14 13:30:11 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26681	Tue Apr 14 14:20:13 1992
+--- lib/X/Ximp/XimpWPer.c	Tue Apr 14 13:31:34 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWPer.c,v 1.1 91/07/09 17:37:39 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWPer.c,v 1.2 92/04/14 13:30:27 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26700	Tue Apr 14 14:20:23 1992
+--- lib/X/Ximp/XimpWPrTxt.c	Tue Apr 14 13:31:37 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWPrTxt.c,v 1.2 91/10/07 17:50:54 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWPrTxt.c,v 1.3 92/04/14 13:30:30 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26721	Tue Apr 14 14:20:34 1992
+--- lib/X/Ximp/XimpWTxtPr.c	Tue Apr 14 13:31:40 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWTxtPr.c,v 1.2 91/10/07 17:50:57 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWTxtPr.c,v 1.3 92/04/14 13:30:33 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26740	Tue Apr 14 14:20:44 1992
+--- lib/X/Ximp/XimpXConv.c	Tue Apr 14 13:31:42 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpXConv.c,v 1.2 91/07/30 14:27:58 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpXConv.c,v 1.3 92/04/14 13:30:36 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26760	Tue Apr 14 14:20:55 1992
+--- lib/X/Ximp/Ximpint.c	Tue Apr 14 13:31:45 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: Ximpint.c,v 1.3 91/10/10 20:41:48 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, by Fuji Xerox Co.,Ltd.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 1,7 ----
+! /* $XConsortium: Ximpint.c,v 1.4 92/04/14 13:30:39 rws Exp $ */
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by Fuji Xerox Co.,Ltd.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 178,184 ****
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, buffer, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);
+--- 178,184 ----
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, (char *)buffer, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);
+***************
+*** 223,229 ****
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, look, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);
+--- 223,229 ----
+      int i;
+      unsigned char c;
+  
+!     count = XLookupString(event, (char *)look, nbytes, &symbol, status);
+      if (keysym) *keysym = symbol;
+      if ((nbytes == 0) || (symbol == NoSymbol)) {
+  	return(count);

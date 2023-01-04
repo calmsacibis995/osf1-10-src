@@ -1,0 +1,140 @@
+.\"
+.\" *****************************************************************
+.\" *                                                               *
+.\" *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+.\" *                                                               *
+.\" *   All Rights Reserved.  Unpublished rights  reserved  under   *
+.\" *   the copyright laws of the United States.                    *
+.\" *                                                               *
+.\" *   The software contained on this media  is  proprietary  to   *
+.\" *   and  embodies  the  confidential  technology  of  Digital   *
+.\" *   Equipment Corporation.  Possession, use,  duplication  or   *
+.\" *   dissemination of the software and media is authorized only  *
+.\" *   pursuant to a valid written license from Digital Equipment  *
+.\" *   Corporation.                                                *
+.\" *                                                               *
+.\" *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+.\" *   by the U.S. Government is subject to restrictions  as  set  *
+.\" *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+.\" *   or  in  FAR 52.227-19, as applicable.                       *
+.\" *                                                               *
+.\" *****************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" $Header: /usr/sde/x11/rcs/x11/src/./doc/I18N/Xsi/Xlc/XCnvMBToCT.3,v 1.2 91/12/15 12:42:16 devrcs Exp $
+.\" $Date: 91/12/15 12:42:16 $
+.\" Copyright 1990, 1991 by OMRON Corporation.
+.\" Copyright 1991 by the Massachusetts Institute of Technology.
+.TH Xlocale 3X11 "" "June 30, 1990"
+.SH NAME
+.B XConvertMBToCT
+\- conversion from mb string to CT
+.SH SYNOPSIS
+.B int XConvertMBToCT\f2(mb_str, mb_bytes, ct_str, ct_bytes, scanned_bytes)
+.br
+.B char \f2*mb_str\f3;
+.br
+.B int \f2mb_bytes\f3;
+.br
+.B char \f2*ct_str\f3;
+.br
+.B int \f2*ct_bytes\f3;
+.br
+.B int \f2*scanned_bytes\f3;
+.SH ARGUMENTS
+.IP \fImb_str\fP 1i
+In: multibyte string.
+.br
+.IP \fImb_bytes\fP 1i 
+In: length of mb string, counted in bytes.
+.br
+.IP \fIct_str\fP 1i 
+Out: conversion buffer of result CT string.
+.br
+.IP \fIct_bytes\fP 1i 
+In/Out: as "In" it is length of buffer ct_str
+passed by caller; as "Out" it is the returned
+length of converted CT string, both counted in bytes.
+.br
+.IP \fIscanned_bytes\fP 1i 
+Out: scanned number of bytes of mb_str,
+.br
+.SH DESCRIPTION
+The
+.B XConvertMBToCT
+converts the multibyte string encoded in the current locale to CT string.
+After a successful conversion the state designation of CS0 will
+be appended at ct_str if the last state is not CS0.
+And function will automatically
+append a null to ct_str if more room in output buffer ct_str.
+This null character is not counted in length of CT string.
+.PP
+When fucntion returns at any time, scanned_bytes always remembers
+where stopped.
+.PP
+The caller of this funcion has to provide the output buffer ct_str.
+By using scanned_bytes, the caller can break a large
+mb string into pieces, and convert one piece at a time.
+The result of CT string is concatenatable. However concatenation
+may produce reduntant designation sequence.
+.PP
+If the codeset of the current locale is state-dependent and
+the mb_str is passed as NULL pointer, the function will set
+initial state in the current locale.
+Usually, the application should calls it with NULL mb_str for first
+conversion as the following:
+.IP "" "   "
+\f3XConvertMBToCT(NULL, mb_bytes, wc_str,
+            &mb_bytes, &scanned)\f2
+.PP
+The function returns BadBuffer meaning that
+the output buffer ct_str was exhausted. In this case function
+ensure that the ct_str
+stores already converted CT string; ct_bytes stores 
+number of bytes of ct_str; the scanned_bytes stores
+the number of already proccessed mb string. 
+Caller can move mb_str to (mb_str + *scanned_bytes) for next conversion.
+.PP
+The function returns a number greate than zero meaning a BadEncoding,
+the unconvertable codes in mb string were met.
+In this case the function will automatically recover the wrong code
+with the following algorithm:
+.IP "" 2
+If a byte of mb codepoint is wrong, replace it with the mininum byte
+of the character encoded in the current charset.
+.PP
+Then function continues to do conversion.
+.PP
+Both the null character and mb_bytes will terminate the conversion.
+.PP
+All errors are defined less than zero, i.e.:
+.IP "" 2
+#define Success         0
+.IP 
+#define BadBuffer      -1
+.IP
+#define BadTerminate   -2
+.IP
+#define BadEncoding    -3
+.SH RETURNED VALUE
+The
+.B XConvertMBToCT returns the following value:
+.TP
+.B Success
+successful conversion.
+.TP
+.B BadBuffer
+buffer was exhausted
+.TP
+.B BadTerminate
+mb_str terminated at uncomplete codepoint.
+.TP
+.B BadEncoding
+wrong code function can not recover.
+.TP
+.B "> 0"
+unvertable code in wchar string.
+.SH "SEE ALSO"
+Refer to "CT and WC" for their definitions.

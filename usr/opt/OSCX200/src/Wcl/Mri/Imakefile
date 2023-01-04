@@ -1,0 +1,173 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+#ifndef WcTopDir
+#define WcTopDir ..
+#endif
+
+#include "../Wc.tmpl"
+
+XCOMM #########################################################################
+XCOMM # SCCS_data: @(#) Imakefile 1.5 92/06/10 06:16:58
+XCOMM #
+XCOMM # Motif Resource Interpreter - Mri/Imakefile
+XCOMM #
+#if !HasSharedLibraries
+          DEPLIBS = $(WCTOPDIR)/Wc/libWc.a $(WCTOPDIR)/Xmp/libXmp.a
+#endif
+
+   CLIENT_LDFLAGS = $(XMPLDFLAG)
+      CLIENT_LIBS = $(XMPLIB) $(XMLIB)
+DEBUG_CLIENT_LIBS = $(DEBUGXMPLIB) $(DEBUGXMLIB)
+      CLIENT_INCS = XmpLibraryOptions
+
+           CLIENT = Mri
+            CLASS = MRi
+             SRCS = Mri.c
+             OBJS = Mri.o
+
+/* Installed in .../app-defaults/CLIENT
+*/
+         APPDEFS = DemoAll Hello Goodbye Menubar OptMenu Dialogs Traversal \
+                   SetVal ListRC ListTable Form Periodic \
+		   PerTem PT_ColumnLabel PT_DisplayBox \
+                   Popup FSB Modal TableDialog AppShells
+
+     TESTAPPDEFS = TEST Wc Wc2 WcAll WcRem WcLo WcSetVal WcMethods
+
+/* If running Motif 1.0, then the app def files need special pre-processing
+*/
+#if XRelease == 35
+     APPDEF_DEFS = -DMOTIF_100
+#endif
+
+#include "../WcClient.tmpl"
+
+/* Special handling of files with long names.
+*/
+PT_ColumnLabel: PT_ColumnLa.ad
+	$(MAKE) PT_ColumnLa
+	mv PT_ColumnLa PT_ColumnLabel
+
+PT_DisplayBox: PT_DisplayB.ad
+	$(MAKE) PT_DisplayB
+	mv PT_DisplayB PT_DisplayBox
+
+/* Make Demo which can be used only in the build directory to test.
+*/
+CppAppDefIntoDemo(DemoAll.ad,$(APPDEF_DEFS))
+
+/* Make the test app res files, but do not install or pre-process them.
+*/
+all:: Test $(TESTAPPDEFS)
+
+SpecialObjectRule(Test.o,Test.c,-g)
+
+#ifdef NullParameter
+NormalProgramTarget(Test,Test.o,$(DEPLIBS),$(DEBUG_LIBRARIES),NullParameter)
+#else
+NormalProgramTarget(Test,Test.o,$(DEPLIBS),$(DEBUG_LIBRARIES),)
+#endif
+
+clean::
+	rm -f Test Test.o $(TESTAPPDEFS)
+
+XCOMM #########################################################################
+XCOMM # Targets which make it easier to use SaberC
+XCOMM #
+
+/* sources which need no special flags */
+ WCSRC= ../Wc/MapAg.c		../Wc/WcConvert.c	../Wc/WcInvoke.c \
+	../Wc/LoadRes.c		../Wc/WcReg.c		../Wc/WcRegXt.c \
+	../Wc/WcSetValue.c	../Wc/WcTemplate.c	../Wc/WcWarn.c
+XRMSRC= /usr/src/X11R5/mit/lib/X/Xrm.c
+BXTSRC= ../Wc/XtName.c 
+OXTSRC= ../Wc/Xt4GetResL.c	../Wc/XtMacros.c	$(BXTSRC)
+XMPSRC= ../Xmp/Table.c		../Xmp/TableLoc.c	../Xmp/TableVec.c \
+	../Xmp/Xmp.c		../Xmp/XmpRegAll.c
+
+saber:
+	#load -C -I.. -I$(INCROOT) $(WCSRC) $(XMPSRC) Mri.c $(LDOPTIONS) $(LOCAL_LIBRARIES)
+
+saberBuggyXt:
+	#load -C -I.. -I$(INCROOT) $(WCSRC) $(BXTSRC) $(XMPSRC) Mri.c $(LDOPTIONS) $(LOCAL_LIBRARIES)
+
+saberOldXt:
+	#load -C -I.. -I$(INCROOT) $(WCSRC) $(OXTSRC) $(XMPSRC) Mri.c $(LDOPTIONS) $(LOCAL_LIBRARIES)
+
+saberTest:
+	#suppress 570
+	#suppress 761 on ignore
+	#suppress 761 on ignored
+	#suppress 761 on unused
+	#suppress 761 in WcExitACT
+	#suppress 761 in WcSystemCB
+	#suppress 624 in WcFullNameToWidget
+	#suppress 624 in WcSetValueFromString
+	#suppress 624 in XmpTableNewRealLayout
+	#suppress 761 in ../Xmp/Xmp.c
+	#suppress 624 in XmpPopupACT
+	#suppress 761 in Test.c
+	#suppress 765 in Test.c
+	#load -C $(DYN_LINK_FLAGS) $(DEFINES) -I.. -I$(INCROOT) ../Wc/WcActCB.c
+	#load -C $(DYN_LINK_FLAGS) $(DEFINES) -I.. -I$(INCROOT) ../Wc/WcCreate.c
+	#load -C $(DYN_LINK_FLAGS) $(DEFINES) -I.. -I$(INCROOT) ../Wc/WcLateBind.c
+	#load -C -DSUNOS_PRINTF $(DEFINES) -I.. -I$(INCROOT) ../Wc/WcName.c
+	#load -C $(DEFINES) -I.. -I$(INCROOT) $(WCSRC) $(XMPSRC) Test.c $(LDOPTIONS) $(DEBUG_LIBRARIES)
+
+saberTestXrm:
+	#suppress 570
+	#suppress 761 on ignore
+	#suppress 761 on ignored
+	#suppress 761 on unused
+	#suppress 761 in WcExitACT
+	#suppress 761 in WcSystemCB
+	#suppress 624 in WcFullNameToWidget
+	#suppress 624 in WcSetValueFromString
+	#suppress 624 in XmpTableNewRealLayout
+	#suppress 761 in ../Xmp/Xmp.c
+	#suppress 624 in XmpPopupACT
+	#suppress 761 in Test.c
+	#suppress 765 in Test.c
+	#suppress 1027 in /usr/include/unistd.h
+	#suppress 1027 in /usr/include/sys/unistd.h
+	#suppress 624 in $(XRMSRC)
+	#load -C $(DEFINES) -I.. -I$(INCROOT) $(WCSRC) $(XMPSRC) Test.c $(XRMSRC) $(LDOPTIONS) $(DEBUG_LIBRARIES)
+
+saberBuggyXtTest:
+	#suppress 761 on ignore
+	#suppress 761 on ignored
+	#suppress 761 on unused
+	#suppress 761 in WcExitACT
+	#suppress 761 in WcSystemCB
+	#load -C -I.. -I$(INCROOT) $(WCSRC) $(BXTSRC) $(XMPSRC) Test.c $(LDOPTIONS) $(LOCAL_LIBRARIES)
+
+saberOldXtTest:
+	#suppress 761 on ignore
+	#suppress 761 on ignored
+	#suppress 761 on unused
+	#suppress 761 in WcExitACT
+	#suppress 761 in WcSystemCB
+	#load -C -I.. -I$(INCROOT) $(WCSRC) $(OXTSRC) $(XMPSRC) Test.c $(LDOPTIONS) $(LOCAL_LIBRARIES)

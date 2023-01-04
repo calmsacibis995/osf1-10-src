@@ -1,0 +1,274 @@
+.\"
+.\" $XConsortium: p073,v 5.1 91/02/16 09:38:00 rws Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "INCREMENTAL SPATIAL SEARCH" 3P "29 February 1991"
+.SH NAME
+INCREMENTAL SPATIAL SEARCH \- search the structure network for the next 
+occurrence of a graphical output structure element meeting the
+specified search criteria
+.IX "Namesets" "INCREMENTAL SPATIAL SEARCH"
+.IX "Searching" "INCREMENTAL SPATIAL SEARCH"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pincr_spa_search ( ref, dist, sp, mclip_flag, ceil, norm, inv, len, st, error_ind, fp, tot_len )
+Ppoint	*ref;	\fIsearch reference point\fP
+Pfloat	dist;	\fIsearch distance\fP
+Pelem_ref_list	*sp;	\fIstarting path list\fP
+Pclip_ind	mclip_flag;	\fI model clip flag\fP
+Pint	ceil;	\fIsearch ceiling index\fP
+Pfilter_list	*norm;		\fInormal filter list\fP
+Pfilter_list	*inv;		\fIinverted filter list\fP
+Pint	len;	\fIlength of application list\fP
+Pint	st;	\fIstarting position\fP
+Pint	*error_ind;	\fI\s-2OUT\s+2 error indicator\fP
+Pelem_ref_list	*fp;	\fI\s-2OUT\s+2 found path\fP
+Pint	*tot_len;	\fI\s-2OUT\s+2 length of list in \s-2PHIGS\s+2\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2INCREMENTAL SPATIAL SEARCH\s+2 searches a structure network
+for the next occurrence of a graphical output structure element that
+satisfies the specified search criteria.
+.SS C Input Parameters
+.IP \fIref\fP
+A pointer to a Ppoint structure that specifies the \fIx\fP and \fIy\fP
+coordinates, in World Coordinates (WC), of the search reference point.
+The \fIz\fP coordinate is assumed to be zero.
+The Ppoint structure is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pfloat     'u +\w'x;     'u
+.nf
+typedef struct {
+.sp .2
+	Pfloat	x;	/* x coordinate */
+	Pfloat	y;	/* y coordinate */
+.sp .2
+} Ppoint;
+.fi
+.IP \fIdist\fP
+A real value specifying the maximum distance that a selected primitive may be
+from the search reference point.
+.IP \fIsp\fP
+A pointer to a Pelem_ref_list structure that contains the starting search path.
+Pelem_ref_list is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pelem_ref     'u +\w'num_elem_refs;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	num_elem_refs;	/* number of execute references */
+	Pelem_ref	*elem_refs;	/* list of execute references */
+.sp .2
+} Pelem_ref_list;
+.fi
+.IP
+\fIelem_refs\fP is a pointer to a list of \fInum_elem_refs\fR long of Pelem_ref structures
+containing the structure identifier and element number of each execute
+reference structure element in the execute reference list.
+.IP
+Pelem_ref is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pint     'u +\w'struct_id;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	struct_id;	/* structure identifier */
+	Pint	elem_pos;	/* element number */
+.sp .2
+} Pelem_ref;
+.fi
+.IP \fImclip_flag\fP
+Indicates whether model clipping should be performed during the
+incremental spatial search.  Pclip_ind is defined in phigs.h as follows:
+.sp .4
+.ta .5i +1i
+.nf
+typedef enum {
+.sp .2
+	PIND_NO_CLIP,	\fI Do not perform model clipping\fR
+	PIND_CLIP	\fI Perform model clipping\fR
+.sp .2
+} Pclip_ind;
+.fi
+.IP \fIceil\fP
+The search ceiling index defines a position in the starting path list.
+The structure identifier at this position of the list defines a ceiling
+for the search.
+.IP \fInorm\fP
+A pointer to a Pfilter_list structure containing a set of normal filter lists.
+Pfilter_list is defined below.
+.IP \fIinv\fP
+A pointer to a Pfilter_list structure containing a set of inverted filter lists.
+Pfilter_list is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pfilter     'u +\w'num_filters;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	num_filters;	/* number of filters */
+	Pfilter	*filters;	/* list of filters */
+.sp .2
+} Pfilter_list;
+.sp
+.fi
+\fIfilters\fP is a pointer to an array (num_filters) of Pfilter
+structures, that contains an inclusion set and an exclusion set of names.
+.sp .4
+.ta .5i +\w'Pint_list     'u +\w'excl_set;     'u
+.IP
+Pfilter is defined in phigs.h as:
+.sp .4
+.nf
+typedef struct {
+.sp .2
+	Pint_list	incl_set;	/* inclusion set */
+	Pint_list	excl_set;	/* exclusion set */
+.sp .2
+} Pfilter;
+.fi
+.sp .4
+The incl_set contains a set of names for the inclusion set.
+The excl_set contains a set of names for the exclusion set.
+Pint_list is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pint     'u +\w'*integers;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	num_ints;	/* number of Pints in list */
+	Pint	*ints;	/* list of integers */
+.sp .2
+} Pint_list;
+.fi
+.IP \fIlen\fP
+The maximum length of the portion of the found path to be returned.
+.IP \fIst\fP
+The starting position of the portion of the found path to be returned.
+The complete found path is returned if \fIst\fP is set to zero.
+.SS C Output Parameters
+.IP \fIerror_ind\fP
+A pointer to the location to store the error number of any error
+detected by this function.
+.IP \fIfp\fP
+\s-2PHIGS\s+2 stores the found path in the variable pointed to by this
+parameter.
+Pelem_ref_list is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pelem_refs     'u +\w'num_elem_refs;     'u
+.nf
+typedef struct{
+.sp .2
+	Pint	num_elem_refs;	/* number of execute references */
+	Pelem_ref	*elem_refs;	/* list of execute references */
+.sp .2
+} Pelem_ref_list;
+.fi
+.IP
+\fInum_elem_refs\fP specifies the length of the structure path returned.
+.IP
+\fIelem_refs\fP is a pointer to an array of Pelem_ref structures 
+fInum_elem_refs\fP long.
+All but the last of these structures contain the structure identifier and
+element number of each execute reference structure element in the path to
+the selected output primitive.
+.IP
+The application must allocate memory for \fIlen\fR elements in the
+list of \fIelem_refs\fR.
+If the length of the found path is greater than the \fIlen\fP parameter,
+then no found path is returned.
+In this case, \fItot_len\fP will be set to indicate the total length of
+the found path.
+.IP \fItot_len\fP
+A pointer to an integer to contain the total length of the found path.
+.SS Execution
+When \s-2INCREMENTAL SPATIAL SEARCH\s+2 is called, a search begins at
+the element following the position specified by the starting path and
+continues until an ouput primitive meeting the search criteria is found
+or the search ceiling is reached.
+The search is conceptually a traversal with structure elements being
+examined sequentially and matched against the search criteria.
+Element position zero is allowed so that the search may start
+at the first element of the structure.
+.LP
+Search filters are applied to
+control which output primitive structure elements are considered.
+The filters are organized into two lists, the normal and
+the inverted filter lists, which operate in the opposite senses.  
+A structure element is said to be \fIaccepted\fP if it is declared eligible
+when \s-2NAME SET\s+2 is applied to the filters.  To be accepted
+by a filter,
+\s-2NAME SET\s+2 must have at least one name in common with the
+inclusion set
+and no names in common with the exclusion set.  For a structure element
+to be considered a candidate for the search it must be
+accepted by each of the filters in the normal filter list and 
+rejected by each of the filters in the inverted filter list.
+If the normal filter list is empty, then all structure elements 
+satisfy the acceptance criteria for normal filters. 
+If the inverted filter list is empty, all structure elements 
+satisfy the rejection criteria for inverted filters.
+Graphical output structure elements which satisfy the search filters
+are checked for proximity to the reference point.
+.LP
+For \s-2TEXT\s+2 structure elements,
+the only proximity relationship used
+is closeness to the text origin.
+For \s-2ANNOTATION TEXT RELATIVE\s+2 structure elements,
+the only proximity relationship used
+is closeness to the annotation reference point.
+.LP
+The search will continue until either a graphical output structure element
+matches the search criteria or the end of the structure identified by the
+search ceiling is reached.
+If a search is successful, the complete search path is returned as a found
+path.  An unsuccessful search returns a null found path.
+.LP
+The function is incremental in that, having found a match, the
+search may be continued by invoking \s-2INCREMENTAL SPATIAL SEARCH\s+2
+again with the found path as the next starting path.  This allows all
+elements matching the search criteria to be found for a given portion of
+a structure network.
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2*\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 203
+Ignoring function, specified starting path not found in \s-2CSS\s+2
+.IP 204
+Ignoring function, specified search ceiling index out of range
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "ADD NAMES TO SET (3P)"
+.SM "REMOVE NAMES FROM SET (3P)"
+.SM "INCREMENTAL SPATIAL SEARCH 3 (3P)"
+.fi

@@ -1,0 +1,154 @@
+/*
+ * (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ * ALL RIGHTS RESERVED
+ */
+/* 
+ * Mach Operating System
+ * Copyright (c) 1989 Carnegie-Mellon University
+ * Copyright (c) 1988 Carnegie-Mellon University
+ * Copyright (c) 1987 Carnegie-Mellon University
+ * All rights reserved.  The CMU software License Agreement specifies
+ * the terms and conditions for use and redistribution.
+ */
+/*
+ * OSF/1 Release 1.0
+ */
+/*
+ * File:	mach/memory_object.defs
+ *
+ * Abstract:
+ *	Basic Mach external memory management interface declaration.
+ */
+
+subsystem memory_object 2200;
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+#ifdef	KERNEL_USER
+uimport <kern/mig_user_hack.h>;
+#endif	KERNEL_USER
+
+/*
+ *	Initialize the specified memory object, providing
+ *	a reqeust port on which control calls can be made, and
+ *	a name port that identifies this object to callers of
+ *	vm_regions.
+ *	[To allow the mapping of this object to be used, the
+ *	memory manager must call memory_object_set_attributes,
+ *	specifying the "ready" parameter as TRUE.  To reject
+ *	all mappings of this object, the memory manager may
+ *	use memory_object_destroy.]
+ */
+simpleroutine	memory_object_init(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t;
+		memory_object_name	: memory_object_name_t;
+		memory_object_page_size	: vm_size_t);
+
+/*
+ *	Indicates that the specified memory object is no longer
+ *	mapped (or cached -- see memory_object_set_attributes),
+ *	and that further mappings will cause another memory_object_init
+ *	call to be made.  No further calls will be made on
+ *	the memory object by this kernel.
+ *
+ *	[All rights to the control and name ports are included
+ *	in this call.  The memory manager should use port_deallocate
+ *	to release them once they are no longer needed.]
+ */
+simpleroutine	memory_object_terminate(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t = port_all_t, dealloc;
+		memory_object_name	: memory_object_name_t = port_all_t, dealloc);
+
+/*
+ *	Indicates that a copy has been made of the specified range of
+ *	the given original memory object.  The kernel will use the new
+ *	memory object, control and name ports to refer to the new copy
+ *	(once the memory manager has asserted its "ready" attribute).
+ *
+ *	Cached pages from the original memory object at the time of
+ *	the copy operation are handled as follows:
+ *		Readable pages may be silently copied to the new
+ *		 memory object (with all access permissions).
+ *		Pages not copied are locked to prevent write access.
+ *
+ *	This call includes only the new memory object itself; a
+ *	memory_object_init call will be made on the new memory
+ *	object after the actions above are completed.
+ *
+ *	The new memory object is *temporary*, meaning that the
+ *	memory manager should not change its contents or allow
+ *	the memory object to be mapped in another client.  The
+ *	memory manager may use the memory_object_data_unavailable
+ *	call to indicate that the appropriate page of the original
+ *	memory object may be used to fulfill a data request.
+ *
+ *	[Reply should be memory_object_set_attributes on the
+ *	new memory object control port to indicate readiness.]
+ */
+simpleroutine	memory_object_copy(
+		old_memory_object	: memory_object_t;
+		old_memory_control	: memory_object_control_t;
+		offset			: vm_offset_t;
+		length			: vm_size_t;
+		new_memory_object	: memory_object_t = port_all_t, dealloc);
+
+/*
+ *	Request data from this memory object.  At least
+ *	the specified data should be returned with at
+ *	least the specified access permitted.
+ *
+ *	[Reply should be memory_object_data_provided.]
+ */
+simpleroutine	memory_object_data_request(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t;
+		offset			: vm_offset_t;
+		length			: vm_size_t;
+		desired_access		: vm_prot_t);
+
+/*
+ *	Request that the specified portion of this
+ *	memory object be unlocked to allow the specified
+ *	forms of access; the kernel already has the data.
+ *
+ *	[Reply should be memory_object_lock_request.]
+ */
+simpleroutine	memory_object_data_unlock(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t;
+		offset			: vm_offset_t;
+		length			: vm_size_t;
+		desired_access		: vm_prot_t);
+
+/*
+ *	Write back modifications made to this portion of
+ *	the memory object while in memory.
+ *
+ *	Unless explicitly requested by a memory_object_lock_request
+ *	(clean, but not flush),	the kernel will not retain
+ *	the data.
+ *
+ *	[Reply should be vm_deallocate to release the data.]
+ */
+simpleroutine	memory_object_data_write(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t;
+		offset			: vm_offset_t;
+		data			: internal_memory_pointer_t);
+
+/*
+ *	Indicate that a previous memory_object_lock_reqeust has been
+ *	completed.  Note that this call is made on whatever
+ *	port is specified in the memory_object_lock_request; that port
+ *	need not be the memory object port itself.
+ *
+ *	[No reply expected.]
+ */
+simpleroutine	memory_object_lock_completed(
+		memory_object		: memory_object_t;
+		memory_control		: memory_object_control_t;
+		offset			: vm_offset_t;
+		length			: vm_size_t);

@@ -1,0 +1,153 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210272104.AA17044@excon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2712) close XBUG #5595: PEXlib : PEXPatternEntry data structure should use PEXArrayOfColor; typedef PEXTableType not needed
+Date: Tue, 27 Oct 92 16:04:30 EDT
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEXlib : PEXPatternEntry data structure should use PEXArrayOfColor; typedef PEXTableType not needed
+        ### bug number:   5595
+        ### area:         PEXlib
+        ### severity:     medium
+        ### comments:     
+
+*** /tmp/da1700	Tue Oct 27 16:44:40 1992
+--- extensions/lib/PEXlib/PEXlib.h	Tue Oct 27 16:43:00 1992
+***************
+*** 1,7 ****
+  #ifndef _PEXLIB_H_
+  #define _PEXLIB_H_
+  
+! /* $XConsortium: PEXlib.h,v 1.9 92/08/26 13:05:12 mor Exp $ */
+  
+  /******************************************************************************/
+  /*  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Mass.      */
+--- 1,7 ----
+  #ifndef _PEXLIB_H_
+  #define _PEXLIB_H_
+  
+! /* $XConsortium: PEXlib.h,v 1.10 92/10/27 15:42:37 mor Exp $ */
+  
+  /******************************************************************************/
+  /*  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Mass.      */
+***************
+*** 101,107 ****
+  typedef unsigned short  PEXShapeHint;
+  typedef unsigned char   PEXSwitch;
+  typedef unsigned short  PEXTableIndex;
+- typedef unsigned short  PEXTableType;
+  typedef unsigned short  PEXTypeOrTableIndex;
+  
+  #if NeedFunctionPrototypes
+--- 101,106 ----
+***************
+*** 1011,1024 ****
+      PEXColorType        color_type;
+      unsigned short      row_count;
+      unsigned short      col_count;
+!     PEXPointer          colors;  /* pointer to 2D array of colors of type: */
+!                                  /* PEXColorRGB,
+!                                     PEXColorHSV,
+!                                     PEXColorHLS,
+!                                     PEXColorCIE,
+!                                     PEXColorRGB8,
+!                                     PEXColorRGB16,
+!                                     or short (for PEXColorIndexed) */
+  } PEXPatternEntry;
+  
+  typedef PEXColorSpecifier       PEXColorEntry;
+--- 1010,1016 ----
+      PEXColorType        color_type;
+      unsigned short      row_count;
+      unsigned short      col_count;
+!     PEXArrayOfColor     colors;  /* pointer to 2D array of colors */
+  } PEXPatternEntry;
+  
+  typedef PEXColorSpecifier       PEXColorEntry;
+*** /tmp/da1733	Tue Oct 27 16:44:41 1992
+--- extensions/lib/PEXlib/pl_free.c	Tue Oct 27 16:43:42 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_free.c,v 1.6 92/07/16 11:04:44 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: pl_free.c,v 1.7 92/10/27 15:43:30 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+***************
+*** 246,252 ****
+  	PEXPatternEntry *entries = (PEXPatternEntry *) tableEntries;
+  	
+  	for (i = 0; i < numTableEntries; i++)
+! 	    CHECK_AND_FREE ((char *) entries[i].colors);
+  	break;
+      }
+      
+--- 246,252 ----
+  	PEXPatternEntry *entries = (PEXPatternEntry *) tableEntries;
+  	
+  	for (i = 0; i < numTableEntries; i++)
+! 	    CHECK_AND_FREE ((char *) entries[i].colors.indexed);
+  	break;
+      }
+      
+*** /tmp/da1766	Tue Oct 27 16:44:43 1992
+--- extensions/lib/PEXlib/pl_lut.c	Tue Oct 27 16:43:43 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_lut.c,v 1.7 92/08/26 13:06:07 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+--- 1,4 ----
+! /* $XConsortium: pl_lut.c,v 1.8 92/10/27 15:43:42 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+***************
+*** 735,741 ****
+  
+  	    sizeColor = GetColorSize (src->color_type);
+  	    sizeColor *= (src->col_count * src->row_count);
+! 	    COPY_AREA ((char *) src->colors, &dst[1], sizeColor);
+  
+  	    dst = (pexPatternEntry *) ((char *) dst + 
+  		sizeof (pexPatternEntry) + sizeColor);
+--- 735,741 ----
+  
+  	    sizeColor = GetColorSize (src->color_type);
+  	    sizeColor *= (src->col_count * src->row_count);
+! 	    COPY_AREA ((char *) src->colors.indexed, &dst[1], sizeColor);
+  
+  	    dst = (pexPatternEntry *) ((char *) dst + 
+  		sizeof (pexPatternEntry) + sizeColor);
+***************
+*** 1163,1170 ****
+  
+  	    sizeColor = GetColorSize (src->colorType);
+  	    sizeColor *= (src->numx * src->numy);
+! 	    dst->colors = (char *) PEXAllocBuf ((unsigned) sizeColor);
+! 	    COPY_AREA (&src[1], (char *) dst->colors, sizeColor);
+  
+  	    src = (pexPatternEntry *) ((char *) src +
+  		sizeof (pexPatternEntry) + sizeColor);
+--- 1163,1171 ----
+  
+  	    sizeColor = GetColorSize (src->colorType);
+  	    sizeColor *= (src->numx * src->numy);
+! 	    dst->colors.indexed =
+! 		(PEXColorIndexed *) PEXAllocBuf ((unsigned) sizeColor);
+! 	    COPY_AREA (&src[1], (char *) dst->colors.indexed, sizeColor);
+  
+  	    src = (pexPatternEntry *) ((char *) src +
+  		sizeof (pexPatternEntry) + sizeColor);

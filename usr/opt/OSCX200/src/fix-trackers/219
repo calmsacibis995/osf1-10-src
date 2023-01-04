@@ -1,0 +1,138 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9204131819.AA20167@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2444) close XBUG #5132, #5133, #5134: server event processing bugs
+Date: Mon, 13 Apr 92 14:19:49 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: server: passive button grabs activated when confine-to window not viewable
+### bug number:   5132
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: Replaying passive grabbed KeyPress event skips nested passive grab
+### bug number:   5133
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: AllowEvents [A]SyncBoth does not correctly double-thaw
+### bug number:   5134
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d20141	Mon Apr 13 14:12:28 1992
+--- server/dix/events.c	Sat Apr 11 17:28:38 1992
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.56 92/04/06 18:01:39 keith Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.59 92/04/11 17:23:07 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 877,883 ****
+  		{
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = THAWED;
+! 		    else
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+--- 877,883 ----
+  		{
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = THAWED;
+! 		    if (dev->sync.other && SameClient(dev->sync.other, client))
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+***************
+*** 890,896 ****
+  		{
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = FREEZE_BOTH_NEXT_EVENT;
+! 		    else
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+--- 890,896 ----
+  		{
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = FREEZE_BOTH_NEXT_EVENT;
+! 		    if (dev->sync.other && SameClient(dev->sync.other, client))
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+***************
+*** 916,922 ****
+  			continue;
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = THAWED;
+! 		    else
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+--- 916,922 ----
+  			continue;
+  		    if (dev->grab && SameClient(dev->grab, client))
+  			dev->sync.state = THAWED;
+! 		    if (dev->sync.other && SameClient(dev->sync.other, client))
+  			dev->sync.other = NullGrab;
+  		}
+  		ComputeFreezes();
+***************
+*** 1632,1638 ****
+      {
+  	tempGrab.modifierDevice = grab->modifierDevice;
+  	tempGrab.modifiersDetail.exact = xE->u.keyButtonPointer.state;
+! 	if (GrabMatchesSecond(&tempGrab, grab))
+  	{
+  	    (*device->ActivateGrab)(device, grab, currentTime, TRUE);
+   
+--- 1632,1642 ----
+      {
+  	tempGrab.modifierDevice = grab->modifierDevice;
+  	tempGrab.modifiersDetail.exact = xE->u.keyButtonPointer.state;
+! 	if (GrabMatchesSecond(&tempGrab, grab) &&
+! 	    (!grab->confineTo ||
+! 	     (grab->confineTo->realized &&
+! 	      (* grab->confineTo->drawable.pScreen->RegionNotEmpty)
+! 		(&grab->confineTo->borderSize))))
+  	{
+  	    (*device->ActivateGrab)(device, grab, currentTime, TRUE);
+   
+***************
+*** 1697,1703 ****
+    
+  	if ((focus->win == NoneWin) ||
+  	    (i >= spriteTraceGood) ||
+! 	    ((i > 0) && (pWin != spriteTrace[i-1])))
+  	    return FALSE;
+      }
+          
+--- 1701,1707 ----
+    
+  	if ((focus->win == NoneWin) ||
+  	    (i >= spriteTraceGood) ||
+! 	    ((i > checkFirst) && (pWin != spriteTrace[i-1])))
+  	    return FALSE;
+      }
+          

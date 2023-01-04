@@ -1,0 +1,175 @@
+Path: news!nntpd.lkg.dec.com!pa.dec.com!nobody
+Message-Id: <9207302303.AA08217@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2634) close XBUG #5038: server: cfbInitVisuals still uses hardcode bitsPerRGB
+Date: Thu, 30 Jul 92 19:02:57 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5038
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d08143	Thu Jul 30 19:00:00 1992
+--- server/ddx/cfb/cfbcmap.c	Thu Jul 30 10:44:39 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cfbcmap.c,v 4.13 92/02/11 15:04:07 keith Exp $ */
+  /************************************************************
+  Copyright 1987 by Sun Microsystems, Inc. Mountain View, CA.
+  
+--- 1,4 ----
+! /* $XConsortium: cfbcmap.c,v 4.15 92/07/30 10:44:27 rws Exp $ */
+  /************************************************************
+  Copyright 1987 by Sun Microsystems, Inc. Mountain View, CA.
+  
+***************
+*** 313,319 ****
+  
+  extern int defaultColorVisualClass;
+  
+- #define _BP 8
+  #define _RZ(d) ((d + 2) / 3)
+  #define _RS(d) 0
+  #define _RM(d) ((1 << _RZ(d)) - 1)
+--- 313,318 ----
+***************
+*** 391,397 ****
+   */
+  
+  Bool
+! cfbInitVisuals (visualp, depthp, nvisualp, ndepthp, rootDepthp, defaultVisp, sizes)
+      VisualPtr	*visualp;
+      DepthPtr	*depthp;
+      int		*nvisualp, *ndepthp;
+--- 390,396 ----
+   */
+  
+  Bool
+! cfbInitVisuals (visualp, depthp, nvisualp, ndepthp, rootDepthp, defaultVisp, sizes, bitsPerRGB)
+      VisualPtr	*visualp;
+      DepthPtr	*depthp;
+      int		*nvisualp, *ndepthp;
+***************
+*** 398,403 ****
+--- 397,403 ----
+      int		*rootDepthp;
+      VisualID	*defaultVisp;
+      unsigned long   sizes;
++     int		bitsPerRGB;
+  {
+      int		i, j, k;
+      VisualPtr	visual;
+***************
+*** 429,435 ****
+  	    }
+  	    else
+  		vtype = 0;
+! 	    if (!cfbSetVisualTypes (d, vtype, _BP))
+  		return FALSE;
+      	}
+      }
+--- 429,435 ----
+  	    }
+  	    else
+  		vtype = 0;
+! 	    if (!cfbSetVisualTypes (d, vtype, bitsPerRGB))
+  		return FALSE;
+      	}
+      }
+***************
+*** 459,467 ****
+  	d = visuals->depth;
+  	vtype = visuals->visuals;
+  	nvtype = visuals->count;
+! 	vid = (VisualID *) xalloc (nvtype * sizeof (VisualID));
+! 	if (!vid && nvtype)
+! 	    return FALSE;
+  	depth->depth = d;
+  	depth->numVids = nvtype;
+  	depth->vids = (unsigned long *) vid;
+--- 459,471 ----
+  	d = visuals->depth;
+  	vtype = visuals->visuals;
+  	nvtype = visuals->count;
+! 	vid = NULL;
+! 	if (nvtype)
+! 	{
+! 	    vid = (VisualID *) xalloc (nvtype * sizeof (VisualID));
+! 	    if (!vid)
+! 		return FALSE;
+! 	}
+  	depth->depth = d;
+  	depth->numVids = nvtype;
+  	depth->vids = (unsigned long *) vid;
+*** /tmp/d08166	Thu Jul 30 19:00:21 1992
+--- server/ddx/cfb/cfbscrinit.c	Thu Jul 30 10:43:50 1992
+***************
+*** 25,31 ****
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.24 92/03/31 17:52:52 keith Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+--- 25,31 ----
+  THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  ********************************************************/
+! /* $XConsortium: cfbscrinit.c,v 5.25 92/07/30 10:43:43 rws Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+***************
+*** 143,149 ****
+      VisualID	defaultVisual;
+  
+      rootdepth = 0;
+!     if (!cfbInitVisuals (&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1<<(PSZ-1)))
+  	return FALSE;
+  #ifdef CFB_NEED_SCREEN_PRIVATE
+      oldDevPrivate = pScreen->devPrivate;
+--- 143,149 ----
+      VisualID	defaultVisual;
+  
+      rootdepth = 0;
+!     if (!cfbInitVisuals (&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1<<(PSZ-1), 8))
+  	return FALSE;
+  #ifdef CFB_NEED_SCREEN_PRIVATE
+      oldDevPrivate = pScreen->devPrivate;
+*** /tmp/d08187	Thu Jul 30 19:00:48 1992
+--- server/ddx/dec/ws/mdepthinit.c	Thu Jul 30 10:43:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: mdepthinit.c,v 1.2 92/04/16 09:57:12 rws Exp $ */
+  
+  /*
+  
+--- 1,4 ----
+! /* $XConsortium: mdepthinit.c,v 1.3 92/07/30 10:42:32 rws Exp $ */
+  
+  /*
+  
+***************
+*** 175,181 ****
+      extern Bool		cfbCloseScreen(), cfb16CloseScreen(), cfb32CloseScreen();
+  
+      rootdepth = depth;
+!     if (!cfbInitVisuals(&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1 << (bpp - 1)))
+  	return FALSE;
+      rootdepth = depth;
+      oldDevPrivate = pScreen->devPrivate;
+--- 175,181 ----
+      extern Bool		cfbCloseScreen(), cfb16CloseScreen(), cfb32CloseScreen();
+  
+      rootdepth = depth;
+!     if (!cfbInitVisuals(&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1 << (bpp - 1), 8))
+  	return FALSE;
+      rootdepth = depth;
+      oldDevPrivate = pScreen->devPrivate;

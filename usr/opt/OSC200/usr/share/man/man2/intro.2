@@ -1,0 +1,1042 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: intro.2,v $ $Revision: 3.2.7.5 $ (DEC) $Date: 1994/01/11 23:32:10 $
+.\"
+.TH intro 2
+.SH NAME
+.PP
+\*Lintro\*O, \*Lerrno\*O \- Introduction to system calls
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <errno.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "intro(2) keyword"
+.iX "system call" "introduction"
+Section 2 describes the DEC OSF/1 system calls, which are the
+entries into the operating system kernel.
+.\" Removed because it is no longer applicable
+.\".PP
+.\"The
+.\"Section 2 DEC OSF/1 reference pages are
+.\"made up of an OSF-supplied component
+.\"and a Digital-supplied component.
+.\"The title line of an OSF-supplied
+.\"reference page carries an "OSF" label while the Digital-supplied
+.\"reference pages are labeled "Digital".
+.\".PP
+.\"When OSF-supplied code operates differently on Digital platforms or
+.\"has Digital extensions, information is added to the OSF reference page
+.\"and marked as
+.\"\*L[Digital only]\*O.
+.\".PP
+.\"When needed, technical corrections have been made to the OSF-supplied
+.\"reference pages.
+.PP
+The suffixes used on some
+.\"Digital-supplied
+reference pages are used only to allow reference pages
+with the same base name to exist on DEC OSF/1 systems. When used,
+suffixes are made up of one to four letters. See the \*Lman\*O(1)
+reference page for more information on suffixes.
+.SH DEFINITIONS
+.PP
+The following terms are used in Section 2:
+.VL
+.LI "Descriptor"
+An integer assigned by the system when a file is referenced
+by the \*Lopen\*O, \*Ldup\*O, or \*Lpipe\*O calls,
+or a socket is referenced by the \*Lsocket\*O or \*Lsocketpair\*O calls.
+The descriptor uniquely identifies an access path to that file or socket from
+a given process or any of its children.
+.LI "Directory"
+A directory is a special type of file that contains
+references to other files, called links.
+By convention, a directory
+contains at least two links called
+dot (.) and dot-dot (..).  Dot refers to the directory itself
+and dot-dot refers to its parent directory.
+.LI "Effective User Id, Effective Group Id, and Access Groups"
+Access to system resources is governed by the
+effective user ID, the effective group ID, and the
+group access list.
+.IP
+The effective user ID and effective group ID are initially the
+process's real user ID and real group ID respectively.  Either
+can be modified through execution of a set-user-ID or set-group-ID
+file, or possibly by one of its ancestors.  For more information, see
+\*Lexecve\*O(2).
+.IP
+The group access list is an additional set of group IDs
+used only in determining resource accessibility.  Access checks
+are performed as defined under the term File Access Permissions.
+.LI "File Access Permissions"
+Every file in the file system has a set of access permissions.
+These permissions are used in determining whether a process
+may perform a requested operation on the file, such as opening
+a file for writing.  Access permissions are established at the
+time a file is created.  They can be changed with the
+\*Lchmod\*O
+call.
+.IP
+File access is separated into three types: read, write, and
+execute.  Directory files use the execute
+permission to control whether or not the directory can be searched.
+.IP
+File access permissions are interpreted by the system as
+they apply to three different classes of users: the owner
+of the file, those users in the file's group, and anyone else.
+Every file has an independent set of access permissions for
+each of these classes.  When an access check is made, the system
+decides if permission should be granted by checking the access
+information applicable to the caller.
+.IP
+Read, write, and execute/search permissions on
+a file are granted to a process in the following instances:
+.ML
+.LI
+The process's effective user ID is that of the superuser.
+.LI
+The process's effective user ID matches the user ID of the owner
+of the file and the owner permissions allow the access.
+.LI
+The process's effective user ID does not match the user ID of the
+owner of the file, but either the process's effective
+group ID matches the group ID
+of the file or the group ID of the file is in
+the process's group access list
+and the group permissions allow the access.
+.LI
+Neither the effective user ID nor the effective group ID
+and group access list of the process
+match the corresponding user ID and group ID of the file,
+but the permissions for other users allow access.
+.LE
+.IP
+Read, write, and execute/search permissions on a file are not
+granted, as follows:
+.ML
+.LI
+If the process is trying to execute an image and the file
+system is mounted no execute, execute permission is denied.
+.LI
+If the process's effective UID is not root, the
+process is attempting to access a character or block special
+device, and the file system is mounted with nodev,
+access is denied.
+.LI
+If the process's effective UID is not root, the process is trying
+to execute an image with the \*Vsetuid\*O or \*Vsetgid\*O bit
+set in the file's permissions, and the file system is mounted
+nosuid, execute permission is denied.
+.LE
+.LI "Filename"
+.\" Use POSIX and X/Open definition of filename in place of original.  LW
+A name consisting of 1 to {NAME_MAX} bytes used to name an ordinary
+file, special file, or directory.
+.IP
+The characters composing the name can be selected
+from the set of all character values, excluding the slash
+character (/) and the null character (0).  The filenames dot (.) and
+dot-dot (..) have special meaning.
+.IP
+Avoid using asterisks (*), question marks (?), or brackets ([ ])
+as part of filenames because of the special meaning attached to these
+characters by the shell.
+.LI "Parent Process ID"
+A new process is created by a currently active process.  For further
+information, see \*Lfork\*O(2).
+The parent process ID of a process is the process ID of its creator.
+.\" Replaced original pathname definition with POSIX definition.  LW
+.LI "Pathname"
+A pathname is a string that is used to identify a file.  A pathname consists of,
+at most, {PATH_MAX} bytes, including the terminating null character.
+A pathname has an optional beginning slash, followed by zero or more
+filenames separated by slashes.  If the pathname refers to a
+directory, it may also have one or more trailing slashes.  Multiple
+successive slashes are considered the same as one slash.
+.IP
+If a pathname begins with a slash, the path search begins at the
+root directory of the process.  Otherwise, the search begins from
+the current working directory.
+.IP
+The special filename dot (.) refers to the directory specified by
+its predecessor. The special filename dot-dot (..) refers to the
+parent directory of its predecessor directory.  As a special case, in the
+root directory, dot-dot may refer to the root directory itself.
+.IP
+A slash by itself names the root directory.  A null pathname is invalid.
+.LI "Process ID"
+Each active process in the system is uniquely identified by a positive
+integer called a process ID.  The range of this ID is from
+0 to {PROC_MAX}.
+.LI "Process Group ID"
+Each active process is a member of a process group that is identified by
+a positive integer called the process group ID.  This is the process
+ID of the group leader.  This grouping permits the signaling of related
+processes.  For more information see the job control mechanisms described in
+\*Lcsh\*O(1).
+.LI "Real User ID and Real Group ID"
+Each user on the system is identified by a positive integer
+called the real user ID.
+.IP
+Each user is also a member of one or more groups.
+One of these groups is distinguished from others and
+used in implementing accounting facilities.  The positive
+integer corresponding to this group is called
+the real group ID.
+.IP
+All processes have a real user ID and real group ID.
+These are initialized from the equivalent attributes
+of the parent process.
+.LI "Root Directory and Current Working Directory"
+Each process has associated with it a concept of a root directory
+and a current working directory for the purpose of resolving path
+name searches.  A process's root directory does not need to be
+the root directory of the root file system.
+.LI "Session"
+Each process group is a member of a session. A process is considered
+to be a member of the session of which its process group is a member.
+Typically there is one session per login.
+.LI "Sockets and Address Families"
+A socket is an endpoint for communication between processes.
+Each socket has queues for sending and receiving data.
+.IP
+Sockets are typed according to their communications properties.
+These properties determine whether messages sent and received
+at a socket require the name of the partner, if communication
+is reliable, and if the format is used in naming message
+recipients.
+.IP
+Each instance of the system supports some
+collection of socket types.  See
+\*Lsocket\*O(2)
+for more information about the types available and
+their properties.
+.IP
+Each instance of the system supports some number of sets of
+communications protocols.  Each protocol set supports addresses
+of a certain format.  An Address Family is the set of addresses
+for a specific group of protocols.  Each socket has an address
+chosen from the address family in which the socket was created.
+.LI "Special Processes"
+Those processes that have a process ID of 0, 1, and 2 are considered
+special processes.  Process 0 is the scheduler.  Process 1 is the
+initialization process
+\*Linit\*O, which is the ancestor of every other process in the system
+and controls the process structure.
+Process 2 is the exception handler.
+.LI "Superuser"
+A process is recognized as a superuser process and is granted
+special privileges if its effective user ID is 0.
+.LI "tty Group ID"
+Each active process can be a member of a terminal group
+that is identified by a positive integer called the tty group ID.
+This grouping is used to arbitrate between multiple jobs contending
+for the same terminal.  For more information, see \*Lcsh\*O(1) and \*Ltty\*O(7).
+.LE
+.SH RETURN VALUES
+.PP
+Most system calls have one or more return values.
+An error condition is indicated by an otherwise impossible return
+value.  This value is usually \-1.  All return codes and values from
+functions are of type \*Lint\*O unless otherwise noted.
+.PP
+When a function returns an error condition, it also stores an error number in
+the external variable \*Lerrno\*O.  This variable is not cleared on
+successful calls.  Thus, you should test \*Lerrno\*O
+only after an error has occurred. Refer to \*Lerrno\*O(5) for
+information about using the \*Lerrno\*O variable.
+The remainder of this section lists in alphabetical order the
+symbolic codes for \*Lerrno\*O values, along with associated
+messages and explanations.
+Some codes represent more than one type of
+error.  For example, [E2BIG] can indicate that the specified argument
+size has exceeded the system limit of \*LARG_MAX\*O, or that the specified
+number of \*Lsembuf\*O structures has exceeded a predefined limit.
+.VL 4m
+.LI "[E2BIG]   Arg list too long"
+Indicates that the specified argument and environment lists exceed
+the system limit of \*LARG_MAX\*O bytes, or the number of bytes in
+the message exceeds the predefined limit.
+.\" .PP
+.\" The value of \*Lerrno\*O is 7.
+.LI "[EACCES]   Permission denied"
+Indicates that the
+requested operation did not have the proper access permissions.
+This error may also indicate one or more of the following:
+.ML
+.LI
+The named file is not an ordinary file (\*Lacct(\|)\*O).
+.LI
+The operation would cause the parent
+directory or process's information level to float such that it would
+no longer be dominated by the directory or process's sensitivity level.
+.LI
+The requested file is not available for read or write access.
+.LI
+The process is attempting to mount on a multilevel child directory.
+.LI
+The value of the process ID
+argument matches the process ID of a child process of the calling
+process and the child process has successfully executed one of the
+\*Lexec\*O functions (\*Lsetpgid(\|)\*O).
+.LI
+.\" .zA "defect, 7966, R1.1.2, removed reference to defunct setquota interface"
+The function is trying to manipulate two files on two different file systems.
+.\" .zZ "defect, 7966, R1.1.2, removed reference to defunct setquota interface"
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 13.
+.LI "[EADDRINUSE]   Address already in use"
+Indicates that the specified address is already in use.
+.\" .PP
+.\" The value of \*Lerrno\*O is 48.
+.LI "[EADDRNOTAVAIL]   Can't assign requested address"
+Indicates that the specified address is not available from the local machine.
+.\" .PP
+.\" The value of \*Lerrno\*O is 49.
+.LI "[EAFNOSUPPORT]   Address family not supported by protocol family"
+Indicates that the addresses in the specified address family are not
+supported by the protocol family.
+.\" .PP
+.\" The value of \*Lerrno\*O is 47.
+.LI "[EAGAIN]   Operation would block"
+Indicates that the
+requested resource, such as a lock or a process, is temporarily
+unavailable.  This error may also indicate one or both of
+the following:
+.ML
+.LI
+If the \*LO_NONBLOCK\*O
+flag is set for the requested function, the process would be delayed
+in a read or write operation.
+.LI
+The specified time has elapsed (\*Lpthread_cond_timedwait(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 35.
+.LI "[EALREADY]   Operation already in progress"
+Indicates that an operation was attempted on a non-blocking object for
+which an operation was already in progress.
+.\" .PP
+.\" The value of \*Lerrno\*O is 37.
+.LI "[EBADF]   Bad file number"
+Indicates that a socket or file descriptor parameter is invalid.
+.\" .PP
+.\" The value of \*Lerrno\*O is 9.
+.LI "[EBADMSG]   Next message has wrong type"
+Indicates that the next STREAMS message is of the wrong type.
+.\" .PP
+.\" The value of \*Lerrno\*O is 84.
+.LI "[EBADRPC]   RPC structure is bad"
+Indicates that the NFS has encountered a Remote Procedure Call request
+or response that is invalid or that cannot be decoded.
+.\" .PP
+.\" The value of \*Lerrno\*O is 72.
+.LI "[EBUSY]   Device busy"
+Indicates that the requested element is currently unavailable, or the
+associated system limit was exceeded.
+.\" .PP
+.\" The value of \*Lerrno\*O is 16.
+.LI "[ECANCELED]   Operation canceled"
+Indicates that a pending AIO (asynchronous input/output) operation was
+canceled.
+.\" .PP
+.\" DEC loader error; the value of \*Lerrno\*O is 94.
+.LI "[ECHILD]   No child processes"
+Indicates either that the child process does not
+exist, or that the requested child process information is unavailable.
+.\" .PP
+.\" The value of \*Lerrno\*O is 10.
+.\" .LI "[ECLONEME]   Tells open to clone the device"
+.\" Kernel internal use only.  Should be moved within #ifdef KERNEL block in
+.\" errno.h file.  Purpose is to identify a clone driver during an open
+.\" call so that the caller can re-issue the open for cloning.
+.LI "[ECONNABORTED]   Software caused connection abort"
+Indicates that the software caused a connection abort because there is
+no space on the socket's queue and the socket cannot receive
+further connections.
+.\" .PP
+.\" The value of \*Lerrno\*O is 53.
+.LI "[ECONNREFUSED]   Connection refused"
+Indicates that the connection request was refused.
+.\" .PP
+.\" The value of \*Lerrno\*O is 61.
+.LI "[ECONNRESET]   Connection reset by peer"
+Indicates that a connection was forcibly reset (closed) by a peer.
+The situation normally results when a timeout or a reboot causes the
+loss of the connection on the remote socket.
+.\" .PP
+.\" The value of \*Lerrno\*O is 54.
+.LI "[EDEADLK]   Resource deadlock avoided"
+Indicates either a probable deadlock condition, or that the requested
+lock is owned by someone else.
+.\" .PP
+.\" The value of \*Lerrno\*O is 11.
+.LI "[EDESTADDRREQ]   Destination address required"
+Indicates that a required destination address was omitted from an
+operation on a socket.
+.\" .PP
+.\" The value of \*Lerrno\*O is 39.
+.LI "[EDIRTY]   Mounting a dirty fs w/o force"
+.\" Indicates an attempt to mount a dirty file system 
+.\" without using the \*Lforce\*O.
+.\" .PP
+.\" The value of \*Lerrno\*O is 89.
+Indicates an attempt to mount a dirty file system, one on which
+a consistency check has not or cannot be made.  A dirty file system
+can be mounted by force only if the M_FMOUNT flag is included
+on the \*Lmount(\|)\*O call.
+.LI "[EDOM]   Argument out of domain"
+Indicates that x and/or y are either
+Not a Number (NaN), or that they are in some other way unacceptable
+(for example, they exceed system limits).
+.\" .PP
+.\" The value of \*Lerrno\*O is 33.
+.LI "[EDQUOT]   File system quota exceeded"
+A write has failed because the user's disk block quota is exhausted or
+an open that would create a file has failed because the user's inode
+quota is exhausted.
+.\" .PP
+.\" The value of \*Lerrno\*O is 69.
+.\" EDUPPKG commented out; package use changed in DEC OSF/1 loader.  LW
+.\" .LI "[EDUPPKG]   Duplicate package name"
+.\" Indicates a duplicate package name on installation.  Package names
+.\" must be unique.  The only exception is when a local name is to
+.\" override a system-wide one.
+.\" .PP
+.\" The value of \*Lerrno\*O is 90.
+.LI "[EEXIST]   File exists"
+Indicates that the request element (for example, a file or a semaphore)
+already exists.
+.\" .PP
+.\" The value of \*Lerrno\*O is 17.
+.LI "[EFAULT]   Bad address"
+Indicates that the requested address is in some way invalid, for
+example, out of bounds.
+.\" .PP
+.\" The value of \*Lerrno\*O is 14.
+.LI "[EFBIG]   File too large"
+Indicates either that the file size exceeds the process's file size
+limit, or that the requested semaphore number is invalid.  Valid
+semaphore numbers are greater than 0 (zero) and less than the
+specified number of semaphores.
+.\" .PP
+.\" The value of \*Lerrno\*O is 27.
+.\" EFTYPE not returned by DEC OSF/1; do not document; message string
+.\" still in prototype stage, anyway.
+.\" .LI "[EFTYPE]   Error number 79 occurred"
+.\" Indicates that a file's type or format is inappropriate.
+.\" .PP
+.\" The value of \*Lerrno\*O is 79.
+.LI "[EHOSTDOWN]   Host is down"
+Indicates that a socket operation failed because the destination host
+was down.
+.\" .PP
+.\" The value of \*Lerrno\*O is 64.
+.LI "[EHOSTUNREACH]   Host is unreachable"
+Indicates that a socket operation failed because no route could be
+found to the host.
+.\" .PP
+.\" The value of \*Lerrno\*O is 65.
+.LI "[EIDRM]   Identifier removed"
+Indicates that the requested semaphore or message queue ID has been
+removed from the system.
+.\" .PP
+.\" The value of \*Lerrno\*O is 81.
+.LI "[EILSEQ]"
+Indicates that a wide character code does not correspond to a valid
+character or an invalid multibyte character sequence was detected.
+.\" .PP
+.\" The value of \*Lerrno\*O is 116.
+.LI "[EINPROGRESS]   Operation now in progress"
+Indicates that a lengthy operation on a non-blocking object is now in
+progress.
+.\"  errno.h also contains EINPROG, which was added but never used.
+.\"  EINPROG will be discarded; do not document.  LW
+.\" .PP
+.\" The value of \*Lerrno\*O is 36.
+.LI "[EINTR]   Interrupted system call"
+Indicates that an interruptible function's process was interrupted by a
+.\" signal, which it caught.
+signal that the process caught.
+.\" .PP
+.\" The value of \*Lerrno\*O is 4.
+.LI "[EINVAL]   Invalid argument"
+Indicates that an invalid argument was passed
+to the function (such as, the requested argument does not exist or is
+out of bounds or is not a regular file, or that the result would be
+invalid).
+This error may also indicate one or more of the following:
+.ML
+.LI
+The requested socket is not accepting connections (\*Laccept(\|)\*O) or is
+already bound (\*Lbind(\|)\*O).
+.LI
+The specified superblock had a bad
+magic number or a block size that was out of range (\*Lmount(\|)\*O).
+.LI
+The requested parameter is a lock/unlock parameter,
+but the element to be locked is
+already locked/unlocked (\*Lplock(\|)\*O).
+.LI
+The kernel has not been
+compiled with the \*LQUOTA\*O option (\*Lquota(\|)\*O).
+.LI
+An attempt was made to
+to ignore or supply a handler for the \*LSIGKILL\*O, \*LSIGSTOP\*O,
+and \*LSIGCONT\*O signals (\*Lsigaction(\|)\*O).
+.LI
+The requested device was not
+configured as a swap device or does not allow paging (\*Lswapon(\|)\*O).
+.LI
+The requested device is not mounted or local (\*Lmount(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 22.
+.LI "[EIO]   I/O error"
+Indicates one of the following:
+.ML
+.LI
+A read or write physical I/O error.  These errors do not
+always occur with the associated function, but can occur with the
+subsequent function.
+.LI
+The requested parameter does not have an appropriate value, or is
+invalid (\*Lptrace\*O()).
+.LI
+On a terminal, EIO means the following:
+the process is running in the background,
+the process did a \*Lwrite\*O() to its controlling terminal, and
+TOSTOP is set on the terminal, but
+the process is neither ignoring nor blocking SIGTTOU, and
+the process group of the process is orphaned, i.e. a child of pid 1.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 5.
+.LI "[EISCONN]   Socket is already connected"
+Indicates that the socket is already connected.
+.\" .PP
+.\" The value of \*Lerrno\*O is 56.
+.LI "[EISDIR]   Is a directory"
+Indicates either that the request was for a write access to a file
+but the specified filename was actually a directory, or that the
+function was trying to rename a directory as a file.
+.\" .PP
+.\" The value of \*Lerrno\*O is 21.
+.LI "[ELOOP]   Too many levels of symbolic links"
+Indicates that too many links were encountered in translating a pathname.
+.\" .PP
+.\" The value of \*Lerrno\*O is 62.
+.\" 
+.\" SCSI does not currently return EMEDIA to LVM, so this error cannot be
+.\" seen at the user level.  Document in future only if SCSI is changed to 
+.\" return EMEDIA to LVM.  LW 11/30/92
+.\"
+.\" .LI "[EMEDIA]   ???????????????????"
+.\" Indicates for a physical I/O operation that media degradation has 
+.\" caused loss of data.  This
+.\" error can be returned at the user level only by LVM.  The error 
+.\" indicates that LVM cannot return the data or replace the 
+.\" missing data on the damaged media because there is no mirror 
+.\" member available from which to retrieve the data. 
+.LI "[EMFILE]   Too many open files"
+Indicates one or more of the
+following errors:
+.ML
+.LI
+Too many file descriptors are open (exceeding \*LOPEN_MAX\*O).
+.LI
+No space remains in the mount table.
+.LI
+The attempt to attach a shared memory
+region exceeded the maximum number of attached
+regions allowed for any one process.
+.LE
+.IP
+This error indicates that a per process limit has been exceeded.
+See \*L[ENFILE]\*O
+for the case when a system-wide limit has been exceeded.
+.\" .PP
+.\" The value of \*Lerrno\*O is 24.
+.LI "[EMLINK]   Too many links"
+Indicates that the number of links would exceed \*LLINK_MAX\*O.
+.\" .PP
+.\" The value of \*Lerrno\*O is 31.
+.LI "[EMSGSIZE]   Message too long"
+Indicates that the message is too large to be sent all at once, as the
+socket requires.
+.\" .PP
+.\" The value of \*Lerrno\*O is 40.
+.LI "[EMTIMERS]   Too many timers"
+Indicates that the number of timers exceeds the value defined by
+the TIMER_MAX system variable.  This error is available only
+in the realtime kernel.
+.LI "[ENAMETOOLONG]   File name too long"
+Indicates that the pathname argument exceeds \*LPATH_MAX\*O (currently 1024),
+or a pathname component exceeds \*LNAME_MAX\*O (255).
+.\" .PP
+.\" The value of \*Lerrno\*O is 63.
+.LI "[ENETDOWN]   Network is down"
+Indicates that a socket operation has encountered a network that is down.
+.\" .PP
+.\" The value of \*Lerrno\*O is 50.
+.LI "[ENETRESET]   Network dropped connection on reset"
+Indicates that the network connection dropped when the remote host
+reset it by rebooting.
+.\" .PP
+.\" The value of \*Lerrno\*O is 52.
+.LI "[ENETUNREACH]   Network is unreachable"
+Indicates that no route to the network or host exists.
+.\" .PP
+.\" The value of \*Lerrno\*O is 51.
+.LI "[ENFILE]   File table overflow"
+Indicates either that the system file table is full, or that there are
+too many files currently open in the system.
+.\" .PP
+.\" The value of \*Lerrno\*O is 23.
+.sp
+This error indicates that a system-wide limit has been exceeded.
+See \*L[EMFILE]\*O for the case when a per process limit has been exceeded.
+.LI "[ENOBUFS]   No buffer space available"
+Indicates insufficient resources, such as buffers, to complete the call.
+Typically, a call used with sockets has failed due to a shortage of message
+or send/receive buffer space.
+.\" .PP
+.\" The value of \*Lerrno\*O is 55.
+.LI "[ENODATA]   No message on stream head read q"
+Indicates that there is no message on the stream head read queue.
+.\" .PP
+.\" The value of \*Lerrno\*O is 86.
+.LI "[ENODEV]   No such device"
+Indicates one or more of the following errors:
+.ML
+.LI
+The file descriptor refers to an object
+that cannot be mapped.
+.LI
+The requested block-special device file
+does not exist.
+.LI
+A file system is unmounted.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 19.
+.LI "[ENOENT]   No such file or directory"
+Indicates one or more of the following errors:
+.ML
+.LI
+The specified file pathname
+or directory pathname does not exist
+or points to an empty string.
+.LI
+The \*LO_CREAT\*O flag is set and
+the named file or path prefix does not exist (\*Lopen(\|)\*O).
+.LI
+A message queue identifier does not exist for a message key identifier
+and the \*LIPC_CREAT\*O flag is not set for the function (\*Lmsgget(\|)\*O).
+.LI
+A semaphore ID does not exist for a semaphore key identifier and the
+\*LIPC_CREAT\*O flag is not set for the function (\*Lsemget(\|)\*O).
+.LI
+A shared memory region ID does
+not exist for a shared memory region key identifier and
+the \*LIPC_CREAT\*O flag is set for the function (\*Lshmeget(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 2.
+.LI "[ENOEXEC]   Exec format error"
+Indicates that the specified file has appropriate access permissions
+but has an improper format, such as an unrecognizable object file format.
+.\" .PP
+.\" The value of \*Lerrno\*O is 8.
+.LI "[ENOLCK]   No locks available"
+Indicates that the lock table is full because too many regions are already
+locked, or satisfying a lock (or unlock) request would result in the number
+of locked regions in the system exceeding a system-imposed limit.
+.\" .PP
+.\" The value of \*Lerrno\*O is 77.
+.LI "[ENOMEM]   Not enough space"
+Indicates that insufficient memory is available for the requested
+function.  This error may indicate one or more
+of the following errors:
+.ML
+.LI
+Mapped region attribute was
+set and part of the specified address range is already allocated
+(\*Lmmap(\|)\*O).
+.LI
+The specified range is invalid for a process's address
+space or the range specifies one or more unmapped pages
+(\*Lmsync(\|)\*O).
+.LI
+A new semaphore could not be created (\*Lmsem_init(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 12.
+.LI "[ENOMSG]   No message of desired type"
+Indicates that a message of the requested type does not exist and the
+\*LIPC_NOWAIT\*O flag is set.
+.\" .PP
+.\" The value of \*Lerrno\*O is 80.
+.\" ENOPKG commented out; package use changed in DEC OSF/1 loader.  LW
+.\" .LI "[ENOPKG]   Unresolved package name"
+.\" Indicates that the specified package was not found.
+.\" .PP
+.\" The value of \*Lerrno\*O is 92.
+.LI "[ENOPROTOOPT]   Option not supported by protocol"
+Indicates that the requested socket option is unknown and the protocol
+is unavailable.
+.\" .PP
+.\" The value of \*Lerrno\*O is 42.
+.LI "[ENOSPC]   No space left on device"
+Indicates one or more of the following errors:
+.ML
+.LI
+Not enough space to extend
+the file system or device for write operations on a
+file, directory, or both.
+.LI
+The \*Lmadvise(\|)\*O function tried to reserve resources that were not
+available to be reserved.
+.LI
+The system-imposed limit of the maximum
+number of allowed message queue identifiers has been exceeded
+(\*Lmsgget(\|)\*O).
+.LI
+An attempt to create a semaphore ID exceeded the
+system-wide limit on the semaphore table (\*Lsemget(\|)\*O).
+.LI
+An attempt to create a new shared memory region
+ID exceeded the system-wide limit of maximum IDs
+(\*Lshmget(\|)\*O).
+.LI
+The system-defined limit on the number of
+processes using \*LSEM_UNDO\*O was exceeded (\*Lsemop(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 28.
+.LI "[ENOSR]   Out of STREAMS resources"
+Indicates that no more STREAMS resources are available.
+.\" .PP
+.\" The value of \*Lerrno\*O is 82.
+.LI "[ENOSTR]   fd not associated with a stream"
+Indicates that the file descriptor is not associated with a stream.
+.\" .PP
+.\" The value of \*Lerrno\*O is 87.
+.\" The value of \*Lerrno\*O for ENOSTR is changed to ENOTTY, 25, in 
+.\" OSF/1 R1.1 code but not in DEC OSF/1 V1.2. 
+.LI "[ENOSYM]   Unresolved symbol name"
+Indicates that the specified package does not contain the named symbol.
+.\" .PP
+.\" The value of \*Lerrno\*O is 93.
+.LI "[ENOSYS]   Function not implemented"
+Indicates an attempt to use a system call that is not implemented.
+.\" .PP
+.\" The value of \*Lerrno\*O is 78.
+.LI "[ENOTBLK]   Block device required"
+Indicates that the specified parameter is not or does not point to a
+block device.
+.\" .PP
+.\" The value of \*Lerrno\*O is 15.
+.LI "[ENOTCONN]   Socket is not connected"
+Indicates that the socket is not connected.
+.\" .PP
+.\" The value of \*Lerrno\*O is 57.
+.LI "[ENOTDIR]   Not a directory"
+Indicates that a component of the path parameter exists but is not a directory,
+or an operation is being performed
+from a directory to a nonexistent directory.
+.\" .PP
+.\" The value of \*Lerrno\*O is 20.
+.LI "[ENOTEMPTY]   Directory not empty"
+Indicates that a directory is not empty during a file system operation
+that requires an empty directory.
+.\" .PP
+.\" The value of \*Lerrno\*O is 66.
+.LI "[ENOTSOCK]   Socket operation on non-socket"
+Indicates that the specified socket parameter refers to a file, not a socket.
+.\" .PP
+.\" The value of \*Lerrno\*O is 38.
+.\" .LI "[ENOTSUP]   Function not implemented"
+.\" ENOTSUP not returned by DEC OSF/1 code; do not document.
+.LI "[ENOTTY]   Not a typewriter"
+Indicates one or more of the following errors:
+.ML
+.LI
+The file descriptor's file is
+not a terminal.
+.LI
+The calling process does not have a controlling
+terminal.
+.LI
+The controlling terminal is no longer associated with the
+calling process session (\*Ltcsetpgrp(\|)\*O).
+.LI
+The specified open
+descriptor is not associated with a character-special device or the
+specified request does not apply to the kind of object that the
+specified open descriptor references (\*Lioctl(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 25.
+.LI "[ENXIO]   No such device or address"
+Indicates one or more of the following errors:
+.ML
+.LI
+The specified address, major
+device number, or channel is out of valid range.
+.LI
+No more channels
+are available (\*Lopen(\|)\*O).
+.LI
+The named file is a character-special or
+block-special file and the associated device does not exist
+(\*Lopen(\|)\*O).
+.LI
+The \*LO_NONBLOCK\*O flag is set, the named file is FIFO,
+\*OO_WRONLY\*O is set, and no process has the file open for reading
+(\*Lopen(\|)\*O).
+.LI
+The specified tape drive is offline or a disk pack is not loaded in
+the specified disk drive.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 6.
+.LI "[EOPNOTSUPP]   Operation not supported on socket"
+Indicates either that the socket does not support the requested
+operation, or that the socket cannot accept the connection.
+.\" .PP
+.\" The value of \*Lerrno\*O is 45.
+.LI "[EPERM]   Not owner"
+Indicates that the function attempted to perform an operation for
+which it did not have appropriate
+.\" Following 2 lines changed for DEC OSF/1 V1.2; 
+.\" note that text never conditionalized by OSF for SECURITY variants.
+.\"
+.\" privileges (such as the privileges
+.\" allowed by the security options), 
+privileges,
+or the caller was not the
+owner of the requested element or superuser.
+This error
+may also indicate one or both of the following:
+.ML
+.LI
+The calling process was not in the same session as
+the target process (\*Lsetpgid(\|)\*O).
+.LI
+The calling process is already the process
+group leader or the process group ID of a process other than the
+calling process matches the process ID of the calling process
+(\*Lsetsid(\|)\*O).
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 1.
+.LI "[EPFNOSUPPORT]   Protocol family not supported"
+Indicates that the selected protocol family is unconfigured or unimplemented.
+.\" .PP
+.\" The value of \*Lerrno\*O is 46.
+.LI "[EPIPE]   Broken pipe"
+Indicates that an attempt was made to write to a pipe or FIFO that was
+not open for reading by any process.
+.\" .PP
+.\" The value of \*Lerrno\*O is 32.
+.\" .LI "[EPROCLIM]"   This error is not returned in OSF/1, although there are
+.\" some utilities that check for it.  Do not document; systems programmers
+.\" should use EAGAIN for the condition where a user's per process limit
+.\" has been exceeded and EAGAIN is what applications should check for.
+.\" Error might be removed from errno.h.  
+.\"  xxx	/* Too many processes */
+.\" .PP
+.\" The value of \*Lerrno\*O is 67.
+.LI "[EPROCUNAVAIL]   Bad procedure for program"
+Indicates that a Remote Procedure Call (RPC) requested a server to
+perform an unimplemented procedure.  The error is through NFS.
+.\" .PP
+.\" The value of \*Lerrno\*O is 76.
+.LI "[EPROGMISMATCH]   Program version wrong"
+Indicates that a Remote Procedure Call (RPC) requested a server to
+execute an unsupported version of a program.  The error is through NFS.
+.\" .PP
+.\" The value of \*Lerrno\*O is 75.
+.LI "[EPROGUNAVAIL]   RPC program not available"
+Indicates that a Remote Procedure Call (RPC) requested a server to
+execute an unsupported program.  The error is through NFS.
+.\" .PP
+.\" The value of \*Lerrno\*O is 74.
+.LI "[EPROTO]   Error in protocol"
+Indicates an error in STREAMS protocol.
+.\" .PP
+.\" The value of \*Lerrno\*O is 85.
+.LI "[EPROTONOSUPPORT]   Protocol not supported"
+Indicates that either the socket or the protocol is not supported.
+.\" .PP
+.\" The value of \*Lerrno\*O is 43.
+.LI "[EPROTOTYPE]   Protocol wrong type for socket"
+Indicates that the specified protocol does not support the requested
+type of socket.
+.\" .PP
+.\" The value of \*Lerrno\*O is 41.
+.LI "[ERANGE]   Result too large"
+Indicates one or more of the following errors:
+.ML
+.LI
+The result would exceed the system-defined limits or
+cause an overflow (value too
+large) or an underflow (value too small).
+.LI
+A specified parameter
+is greater than 0 (zero) but smaller than the length of the pathname + 1
+(\*Lgetcwd(\|)\*O).
+.LI
+The symbol value cannot be represented as an
+absolute value.
+.LI
+The magnitude of x is such that total or partial
+loss of significance resulted.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 34.
+.LI "[EREMOTE]   Item is not local to host"
+Indicates a server's attempt to handle an NFS request by
+generating a request to another NFS server, which is not allowed.
+.\" .PP
+.\" The value of \*Lerrno\*O is 71.
+.LI "[EROFS]   Read-only file system"
+Indicates one or more of the following errors:
+.ML
+.LI
+The operation requested was to be performed on a
+read-only file system.
+.LI
+An attempt was made to activate a
+paging file on a read-only file system.
+.LI
+The named file resides
+on a read-only file system and the file type requires write access.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 30.
+.LI "[ERPCMISMATCH]   RPC version is wrong"
+Indicates that a Remote Procedure Call (RPC) requested a server to
+use an unsupported version of the RPC mechanism.  The error is through
+NFS.
+.\" .PP
+.\" The value of \*Lerrno\*O is 73.
+.LI "[ESHUTDOWN]   Can't send after socket shutdown"
+Indicates that data cannot be sent to a socket because it has been
+shut down.
+.\" .PP
+.\" The value of \*Lerrno\*O is 58.
+.LI "[ESOCKTNOSUPPORT]   Socket type not supported"
+Indicates that the socket type is not supported.
+.\" .PP
+.\" The value of \*Lerrno\*O is 44.
+.LI "[ESPIPE]   Illegal seek"
+Indicates
+that an invalid seek operation was requested for a pipe
+(FIFO), socket, or multiplexed special file (\*Llseek(\|)\*O).
+.\" .PP
+.\" The value of \*Lerrno\*O is 29.
+.LI "[ESRCH]   No such process"
+Indicates one or more of the following errors:
+.ML
+.LI
+The requested process or child process ID is invalid or not in
+use.
+.LI
+No disk quota is found for the specified user.
+.LI
+The specified thread ID does not refer to an existing thread.
+.LE
+.\" .PP
+.\" The value of \*Lerrno\*O is 3.
+.LI "[ESTALE]   Missing file or filesystem"
+Indicates that the specified process's root or current directory is
+located in a virtual file system that has been unmounted (stale NFS
+file handle).
+.\" .PP
+.\" The value of \*Lerrno\*O is 70.
+.LI "[ETIME]   System call timed out"
+Indicates that a system call timed out in a STREAMS operation.
+.\" .PP
+.\" The value of \*Lerrno\*O is 83.
+.LI "[ETIMEDOUT]   Connection timed out"
+Indicates that the requested attempt at a connection timed out before
+a connection was established.
+.\" .PP
+.\" The value of \*Lerrno\*O is 60.
+.LI "[ETOOMANYREFS]   Too many references; can't splice"
+Indicates that there are too many references to some kernel-level
+object.  The associated resource has presumably run out.
+.\" .PP
+.\" The value of \*Lerrno\*O is 59.
+.\" Commenting out ETXTBSY per Bob Picco.  This error is no longer supported.
+.\" .LI "[ETXTBSY]   Text file busy"
+.\" Indicates either that the requested file is currently opened for writing by
+.\" another process, or that a write access is requested by a pure
+.\" procedure (shared text) file that is being executed.
+.\" .PP
+.\" The value of \*Lerrno\*O is 26.
+.LI "[EUSERS]   Too many users"
+Indicates that there are too many users, as evidenced by a full quota table.
+.\" .PP
+.\" The value of \*Lerrno\*O is 68.
+.LI "[EVERSION]   Version mismatch"
+Indicates a version number mismatch between loader interfaces, such as
+between an old library and a new loader when the way libraries work
+has been changed.
+.\" .PP
+.\" The value of \*Lerrno\*O is 91.
+.LI "[EWOULDBLOCK]   Operation would block"
+Indicates one or more of the following errors:
+.ML
+.LI
+The socket is marked
+nonblocking and no connections are waiting to be accepted.
+.LI
+The socket is marked nonblocking and connection cannot be immediately
+completed.
+.LI
+The file is locked and the function is instructed
+not to block when locking.
+.LI
+The socket is marked as
+nonblocking and no space is available for the specified function.
+.LE
+.IP
+See also \*L[EAGAIN]\*O.
+.\" .PP
+.\" The value of \*Lerrno\*O is 35.
+.LI "[EXDEV]   Cross-device link"
+Indicates either that a hard link was attempted between two file
+systems, or that a filename to be renamed by \*Lrename(\|)\*O is on a
+different file system from the link to which it is to be renamed.
+.\" .PP
+.\" The value of \*Lerrno\*O is 18.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lcc\*O(1), \*Lcsh\*O(1), \*Lintro\*O(3), \*Lperror\*O(3),
+\*Lerrno\*O(5), \*Ltty\*O(7).
+.EQ
+delim off
+.EN

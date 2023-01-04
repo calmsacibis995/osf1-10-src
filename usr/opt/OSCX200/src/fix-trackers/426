@@ -1,0 +1,176 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9208141812.AA21545@expo.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2654) close XBUG #5460: xdm: under AIXV3, ulimits need to be set on login
+Date: Fri, 14 Aug 92 14:12:53 EDT
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        ### bug number:   5460
+        ### area:         xdm
+        ### severity:     low
+        ### comments:     
+
+*** /tmp/da0513	Fri Aug 14 12:35:33 1992
+--- clients/xdm/Imakefile	Fri Aug 14 12:08:26 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.61 92/08/10 20:47:30 eswu Exp $
+  #define IHaveSubdirs
+  #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+  
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.62 92/08/14 12:04:36 eswu Exp $
+  #define IHaveSubdirs
+  #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+  
+***************
+*** 22,27 ****
+--- 22,31 ----
+  #if SystemV
+  SYS_LIBRARIES = -lsec
+  #endif
++ #endif
++ 
++ #if (defined(AIXArchitecture) && (OSMajorVersion >= 3))
++ SYS_LIBRARIES = -ls
+  #endif
+  
+  #if HasBSD44Sockets
+*** /tmp/da0546	Fri Aug 14 12:35:35 1992
+--- clients/xdm/session.c	Fri Aug 14 12:08:29 1992
+***************
+*** 1,7 ****
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: session.c,v 1.57 92/08/06 11:02:28 gildea Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: session.c,v 1.58 92/08/14 12:04:59 eswu Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 29,34 ****
+--- 29,37 ----
+  # include <errno.h>
+  # include <stdio.h>
+  # include <ctype.h>
++ #ifdef AIXV3
++ # include <usersec.h>
++ #endif
+  #ifdef SECURE_RPC
+  # include <rpc/rpc.h>
+  # include <rpc/key_prot.h>
+***************
+*** 189,195 ****
+  	 * Start the clients, changing uid/groups
+  	 *	   setting up environment and running the session
+  	 */
+! 	if (StartClient (&verify, d, &clientPid, greet.password)) {
+  	    Debug ("Client Started\n");
+  	    /*
+  	     * Wait for session to end,
+--- 192,198 ----
+  	 * Start the clients, changing uid/groups
+  	 *	   setting up environment and running the session
+  	 */
+! 	if (StartClient (&verify, d, &clientPid, greet.name, greet.password)) {
+  	    Debug ("Client Started\n");
+  	    /*
+  	     * Wait for session to end,
+***************
+*** 361,370 ****
+  }
+  
+  static Bool
+! StartClient (verify, d, pidp, passwd)
+      struct verify_info	*verify;
+      struct display	*d;
+      int			*pidp;
+      char		*passwd;
+  {
+      char	**f, *home, *getEnv ();
+--- 364,374 ----
+  }
+  
+  static Bool
+! StartClient (verify, d, pidp, name, passwd)
+      struct verify_info	*verify;
+      struct display	*d;
+      int			*pidp;
++     char		*name;
+      char		*passwd;
+  {
+      char	**f, *home, *getEnv ();
+***************
+*** 385,392 ****
+      switch (pid = fork ()) {
+      case 0:
+  	CleanUpChild ();
+- #ifdef NGROUPS_MAX
+  
+  	setgid (verify->groups[0]);
+  	setgroups (verify->ngroups, verify->groups);
+  #else
+--- 389,409 ----
+      switch (pid = fork ()) {
+      case 0:
+  	CleanUpChild ();
+  
++ 	/* Do system-dependent login setup here */
++ 
++ #ifdef AIXV3
++ 	/*
++ 	 * Set the user's credentials: uid, gid, groups,
++ 	 * audit classes, user limits, and umask.
++ 	 */
++ 	if (setpcred(name, NULL) == -1)
++ 	{
++ 	    LogError("can't start session, setpcred failed, errno=%d\n", errno);
++ 	    return (0);
++ 	}
++ #else /* AIXV3 */
++ #ifdef NGROUPS_MAX
+  	setgid (verify->groups[0]);
+  	setgroups (verify->ngroups, verify->groups);
+  #else
+***************
+*** 393,398 ****
+--- 410,417 ----
+  	setgid (verify->gid);
+  #endif
+  	setuid (verify->uid);
++ #endif /* AIXV3 */
++ 
+  #ifdef SECURE_RPC
+  	{
+  	    char    netname[MAXNETNAMELEN+1], secretkey[HEXKEYBYTES+1];
+***************
+*** 435,441 ****
+      case -1:
+  	bzero(passwd, strlen(passwd));
+  	Debug ("StartSession, fork failed\n");
+! 	LogError ("can't start session for %d, fork failed\n", d->name);
+  	return 0;
+      default:
+  	bzero(passwd, strlen(passwd));
+--- 454,461 ----
+      case -1:
+  	bzero(passwd, strlen(passwd));
+  	Debug ("StartSession, fork failed\n");
+! 	LogError ("can't start session for %d, fork failed, errno=%d\n",
+! 		  d->name, errno);
+  	return 0;
+      default:
+  	bzero(passwd, strlen(passwd));

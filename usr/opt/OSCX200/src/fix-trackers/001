@@ -1,0 +1,263 @@
+Initial load
+Path: news.crl.dec.com!nobody
+Return-Path: x-mailer@expo.lcs.mit.edu
+Message-Id: <9111160102.AA11877@extract.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2224) close XBUG #3947: PEX BUG: No check for numLists==0 after the clipping pipeline stage
+Date: Fri, 15 Nov 91 20:02:42 EST
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@export.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX BUG: No check for numLists==0 after the clipping pipeline stage
+        ### bug number:   3947
+        ### area:         pex
+        ### severity:     medium-low
+        ### comments:     
+
+*** /tmp/,RCSt1a11771	Fri Nov 15 19:59:24 1991
+- --- extensions/server/PEX/ddpex/mi/level2/miFillArea.c	Fri Nov 15 19:57:32 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miFillArea.c,v 5.6 91/07/18 18:20:07 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+- --- 1,4 ----
+! /* $XConsortium: miFillArea.c,v 5.7 91/11/15 19:56:56 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 148,153 ****
+- --- 148,156 ----
+          if (status = miClipFillArea(pddc, mc_clist, color_facet,
+                                  &mc_list, &mc_facet, clip_mode))
+              return (status);
++ 
++ 	/* if nothing left after modeling clip, return early */
++ 	if (mc_list->numLists <= 0) return(Success);
+   
+        } else {
+          mc_list = color_list;
+***************
+*** 235,245 ****
+- --- 238,253 ----
+  			      &clip_list, &clip_facet, clip_mode))
+  	    return (status);
+  
++       /* if nothing left after view clip, return early */
++       if (clip_list->numLists <= 0) return(Success);
++ 
+        /* Now cull according to current culling mode */
+        if (pddc->Dynamic->pPCAttr->cullMode) {
+          if (status = miCullFillArea(pddc, clip_list, clip_facet,
+  				    &cull_list, &cull_facet))
+  	    return (status);
++ 
++ 	/* if nothing left after culling, return early */
+  	if (cull_list->numLists <= 0) return(Success);
+  	clip_list = cull_list;
+  	clip_facet = cull_facet;
+*** /tmp/,RCSt1a11781	Fri Nov 15 19:59:26 1991
+- --- extensions/server/PEX/ddpex/mi/level2/miPolyLine.c	Fri Nov 15 19:58:39 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miPolyLine.c,v 5.2 91/05/01 14:36:03 hersh Exp $ */
+  
+  
+  /***********************************************************
+- --- 1,4 ----
+! /* $XConsortium: miPolyLine.c,v 5.3 91/11/15 19:58:36 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 113,119 ****
+- --- 113,122 ----
+        if (status = miClipPolyLines(pddc, mc_clist, &mc_list, clip_mode)) 
+                  return(status);
+  
++       /* if nothing left, return early */
++       if (mc_list->numLists <= 0) return(Success);
+  
++ 
+      } else mc_list = color_list;
+  
+      clip_mode = MI_VCLIP;
+***************
+*** 129,134 ****
+- --- 132,140 ----
+  
+      if (status = miClipPolyLines(pddc, cc_list, &clip_list, clip_mode)) 
+  		return(status);
++ 
++     /* if nothing left, return early */
++     if (clip_list->numLists <= 0) return(Success);
+  
+      /* DEPTH CUEING */
+      if (pddc->Dynamic->pPCAttr->depthCueIndex) {
+*** /tmp/,RCSt1a11790	Fri Nov 15 19:59:28 1991
+- --- extensions/server/PEX/ddpex/mi/level2/miTriStrip.c	Fri Nov 15 19:58:14 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miTriStrip.c,v 5.4 91/07/15 21:15:44 hersh Exp $ */
+  
+  
+  /***********************************************************
+- --- 1,4 ----
+! /* $XConsortium: miTriStrip.c,v 5.5 91/11/15 19:57:53 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 158,163 ****
+- --- 158,166 ----
+  				    &mc_list, &mc_facet, clip_mode))
+              return (status);
+  
++       /* if nothing left after model clip, return early */
++       if (mc_list->numLists <= 0) return(Success);
++ 
+        } else {
+  	mc_list = color_list;
+  	mc_facet = color_facet;
+***************
+*** 254,259 ****
+- --- 257,265 ----
+                &clip_list, &clip_facet, clip_mode))
+  	return (status);
+  
++       /* if nothing left after view clip, return early */
++       if (mc_list->numLists <= 0) return(Success);
++ 
+        /* Note - After View clipping, the triangle strip may have
+         * decomposed into a number of separate triangle strips
+         */
+***************
+*** 263,268 ****
+- --- 269,276 ----
+        if (status = miCullTriStrip(pddc, clip_list, clip_facet,
+                                      &cull_list, &cull_facet))
+            return (status);
++ 
++       /* if nothing left after culling, return early */
+        if (cull_list->numLists <= 0) return(Success);
+        } else {
+  	cull_list = clip_list;
+*** /tmp/,RCSt1a11799	Fri Nov 15 19:59:30 1991
+- --- extensions/server/PEX/ddpex/mi/level2/miText.c	Fri Nov 15 19:58:34 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miText.c,v 5.4 91/05/12 16:11:12 rws Exp $ */
+  
+  
+  /***********************************************************
+- --- 1,4 ----
+! /* $XConsortium: miText.c,v 5.5 91/11/15 19:58:25 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 916,921 ****
+- --- 916,922 ----
+  
+  	  if (status = miClipPolyLines(pddc, mc_path, &mclip_path, MI_MCLIP))
+  	      return (status);
++ 
+        }
+        else {
+  	  mclip_path = text_el.paths->path;
+***************
+*** 965,970 ****
+- --- 966,977 ----
+        if (status = miClipPolyLines(pddc, cc_path, &clip_path, clip_mode))
+            return (status);
+  
++       /* if nothing left, then update pointers and continue */
++       if (clip_path->numLists <= 0) {
++ 	  text_el.paths++;
++ 	  continue;
++       }
++ 
+        /* Transform to DC coordinates */
+  
+        if (status = miTransform(pddc, clip_path, &dc_path, 
+***************
+*** 1230,1235 ****
+- --- 1237,1248 ----
+        if (status = miClipPolyLines(pddc, cc_path, &clip_path, clip_mode))
+            return (status);
+  
++       /* if nothing left, then update pointers and continue */
++       if (clip_path->numLists <= 0) {
++ 	  text_el.paths++;
++ 	  continue;
++       }
++ 
+        /* Transform to DC coordinates */
+  
+        if (status = miTransform(pddc, clip_path, &dc_path, 
+***************
+*** 1573,1578 ****
+- --- 1586,1597 ----
+        if (status = miClipPolyLines(pddc, cc_path, &clip_path, clip_mode))
+            return (status);
+  
++       /* if nothing left, then update pointers and continue */
++       if (clip_path->numLists <= 0) {
++ 	  text_el.paths++;
++ 	  continue;
++       }
++ 
+        /* Transform to DC coordinates */
+  
+        if (status = miTransform(pddc, clip_path, &dc_path, 
+***************
+*** 1980,1985 ****
+- --- 1999,2010 ----
+        clip_mode = MI_VCLIP; 
+        if (status = miClipPolyLines(pddc, cc_path, &clip_path, clip_mode))
+            return (status);
++ 
++       /* if nothing left, then update pointers and continue */
++       if (clip_path->numLists <= 0) {
++ 	  text_el.paths++;
++ 	  continue;
++       }
+  
+        /* Transform to DC coordinates */
+  
+*** /tmp/,RCSt1a11808	Fri Nov 15 19:59:34 1991
+- --- extensions/server/PEX/ddpex/mi/level2/miMarkers.c	Fri Nov 15 19:58:37 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: miMarkers.c,v 5.2 91/05/01 14:40:12 hersh Exp $ */
+  
+  
+  /***********************************************************
+- --- 1,4 ----
+! /* $XConsortium: miMarkers.c,v 5.3 91/11/15 19:58:34 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 111,116 ****
+- --- 111,120 ----
+      /* Note that miClipPointList discards clipped points */
+      if (status = miClipPointList(pddc, cc_list, &clip_list, clip_mode)) 
+  		return(status);
++ 
++     /* if nothing left, return early */
++     if (clip_list->numLists <= 0) return(Success);
++ 
+  
+      /* Transform to DC coordinates */
+      if (status = miTransform(pddc, clip_list, &dc_list, 
+
+- ------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

@@ -1,0 +1,498 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" SCCSID: @(#)ra.4	2.1	3/10/87
+.TH ra 7
+.SH NAME
+.PP
+\*Lra\*O \- MSCP disk interface
+.SH SYNOPSIS
+.PP
+For Q-bus (only for MIPS-based systems):
+.RS 3
+.br
+.B "controller uda0 at uba?"
+.br
+.B "controller uq0 at uda0 csr 0172150 vector uqintr"
+.br
+.B "disk ra0 at uq0 drive 0"
+.RE
+.\"
+.\" Commented out for SILVER, Jim Keegan: 5/19/22
+.\".PP
+.\".B For VAX BI:
+.\".RS 3
+.\".br
+.\".B "controller kdb0 at vaxbi0 node 4"
+.\".br
+.\".B "controller uq0 at kdb0 vector uqintr"
+.\".br
+.\".B "disk ra0 at uq0 drive 0"
+.\".br
+.\".B "controller bvpssp0 at aio1 vector bvpsspintr"
+.\".br
+.\".B "disk ra0 at bvpssp0 drive 0"
+.\".RE
+.PP
+.\"
+.\" Modified for Alpha - Carol Sheridan 8/19/92
+For MSI Bus (only for the DECsystem 5500):
+.br
+.RS 3
+.B "bus msi0 at ibus? vector msi_isr"
+.br
+.B "controller dssc1 at msi0 msinode 1"
+.br
+.B "device disk ra2 at dssc1 drive 2"
+.RE
+.PP
+For XMI/KDM (only for the DEC 7000):
+.br
+.RS 3
+.B "bus xmi0 at iop0 vector xmierror"
+.br
+.B "controller uq0 at xmi? port kdm vector uqintr"
+.br
+.B "device disk ra4 at uq0 drive 4"
+.RE
+.PP
+.\"
+.\" Modified for ALPHA, Carol Sheridan: 8/19/92
+For XMI/CI/HSC (only for the DEC 7000):
+.br
+.RS 3
+.B "bus xmi0 at iop0 vector xmierror"
+.br
+.B "bus ci0 at xmi? port np vector cimna_isr"
+.\"
+.\" Commented out for ALPHA, Carol Sheridan: 8/19/92
+.\".br
+.\".B "adapter ci0 at vaxbi? node?"
+.br
+.B "controller hsc6 at ci0 cinode 6"
+.br
+.B "device disk ra1 at hsc6 drive 1"
+.RE
+.PP
+For ra devices dual ported between two controllers:
+.br
+.RS 3
+.B "device disk ra3 at * drive 3"
+.RE
+.SH DESCRIPTION
+.PP
+.iX "ra interface" "MSCP disk interface"
+.iX "MSCP disk interface"
+.iX "uda interface" "MSCP disk interface"
+.\"
+.\" Commented out for SILVER, Jim Keegan: 5/19/22
+.\"Prior to Version 2.0, this device was referenced by 
+.\".MS uda 4 .
+This is a driver for all DIGITAL MSCP disk controllers.
+All controllers communicate with the host through a packet-oriented
+protocol termed the Mass Storage Control Protocol (MSCP).
+.PP
+The following rules are used to determine the major and minor numbers
+that are associated with an \*Lra\*O
+type disk.  There are two major
+numbers
+for an \*Lra\*O
+type disk, major number 23 and major number 28.
+Major number 23 specifies an \*Lra\*O
+block device,
+while major number 28 specifies the \*Lra\*O
+character device file.
+Each
+major number represents up to 255 disks.  The minor number is
+used to
+represent both the logical unit number and the disk partition.  A disk
+partition
+refers to a designated portion of the physical disk.  To
+refer to both the logical unit number and the disk partition,
+the 20-bit minor number is broken up into two parts.  The
+low
+three bits (bits 0-2) allow for the naming of eight partitions.
+The
+partitions are named a,b,c,d,e,f,g and h.  The upper fourteen
+bits of
+the minor number specify the logical unit number (the maximum
+logical
+unit number supported is 255 with the rest of the logical unit
+number
+field reserved for future use).
+.PP
+The device special file names associated with \*Lra\*O
+disks are based on
+the following conventions, which are closely associated with
+the minor number assigned to the disk.
+The standard device names begin with \*Lra\*O
+for the block special file and \*Lrra\*O
+for the raw (character) special file.
+Following the \*Lra\*O
+is the logical unit number and then a letter, a through h, to represent
+the partition.  Throughout this reference page,
+the question mark (?) character represents
+the logical unit number in the name of the device special file.  For example
+ra?b could represent ra0b, ra1b, and so on.
+.PP
+The following examples illustrate how the logical unit number is
+calculated given the major and minor number of an \*Lra\*O
+disk.  For the
+device
+special file \*Lrra6a\*O,
+the major number is 28 and the minor number
+is 384.
+The partition is represented by the low 3 bits of the number
+384.  The
+low 3 bits will be 0 which specifies the \*La\*O
+partition.  The
+upper 14
+bits of 384 specifies the number 6. The major number is 28.
+Putting all
+these pieces together reveals that the major/minor pair 28/384
+refers to
+the \*La\*O
+partition of logical unit 6.  Similarly,
+the following
+example determines the logical unit number corresponding to the
+major/minor pair 28,386.  The low 3 bits of the minor number
+gives the
+number 2, which is the \*Lc\*O
+partition.  The upper 14 bits of
+the minor
+number gives the number 6.  The major number is 28.  Therefore,
+the
+major/minor pair 28,386 refers to the \*Lc\*O
+partition of
+logical unit
+number 6, or \*Lrra6c\*O.
+.PP
+The disk can be accessed through either the block special file or the
+character special file.  The block special file accesses the disk using
+the file system's normal buffering mechanism.  Reads and writes to the block
+special file can specify any size.  This avoids the need to limit data
+transfers to the size of physical disk records and to calculate offsets
+within disk records.
+The file system may break up large read and write requests into smaller
+fixed size transfers to the disk.
+.PP
+The character special file provides a raw interface which allows for
+direct transmission between the disk and the user's read or write buffer.
+In contrast to the block special file, reads and writes to the raw interface
+must be done on full sectors only.
+For this reason,
+in raw I/O, counts should be multiples of 512 bytes (a disk sector).
+In the same way, \*Lseek\*O
+calls should specify a multiple of 512 bytes.
+A single read or write to the raw interface results in
+exactly one I/O operation,
+consequently raw I/O may be considerably more efficient for large transfers.
+.SS Disk Support
+.iX "MSCP disk interface" "disk support"
+This driver handles all disk drives that may be connected to an MSCP-based
+controller.  Consult the
+.I "DEC OSF/1 Software Product Description"
+to determine which controllers
+are supported for which CPU types and hardware configurations.
+.PP
+The starting location and length (in 512-byte sectors)
+of the disk partitions of each
+drive are shown in the following table.
+Partition sizes can be changed
+by \*Ldisklabel\*O(8).
+.\" For further information, see 
+.\" .MS dkio 4 .
+.PP
+.iX "MSCP disk interface" "partition tables"
+.nf
+.ta 0.5i +\w'000000    'u +\w'000000    'u +\w'000000	'u +\w'000000	 'u
+.PP
+.B "RA60 partitions"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	41968
+	ra?c	0	400176
+	ra?d	242928	52416
+	ra?e	295344	52416
+	ra?f	347760	52416
+	ra?g	82928	160000
+	ra?h	242928	157248
+.PP
+.B "RA70 partitions"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	122880
+	ra?c	0	547041
+	ra?d	0	163840
+	ra?e	0	471040
+	ra?f	471040	76001
+	ra?g	163840	383201
+.PP
+.B "RA71 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	122880
+	ra?c	0	1367310
+	ra?d	778240	204800
+	ra?e	983040	204800
+	ra?f	1187840	179470
+	ra?g	163840	614400
+	ra?h	778240	589070
+.PP
+.B "RA71 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c	0	1367310
+	ra?d	393216	324698
+	ra?e	717914	324698
+	ra?f	1042612	324698
+	ra?g	393216	819200
+	ra?h	1212416	154894
+.PP
+.B "RA72 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	182272
+	ra?c	0	1953300
+	ra?d	1144832	299008
+	ra?e	1443840	299008
+	ra?f	1742848	210452
+	ra?g	223232	921600
+	ra?h	1144832	808468
+.PP
+.B "RA72 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c	0	1953300
+	ra?d	393216	520028
+	ra?e	913244	520028
+	ra?f	1433272	520028
+	ra?g	393216	819200
+	ra?h	1212416	740884
+.PP
+.B "RA73 partitions"
+	disk	start	length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c	0	3920490
+	ra?d	393216	1175552
+	ra?e	1568768	1175552
+	ra?f	2744320	1176170
+	ra?g	393216	819200
+	ra?h	1212416	2708074
+.PP
+.B "RA80 partitions"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	41968
+	ra?c	0	237212
+	ra?d	82928	51428
+	ra?e	134356	51428
+	ra?f	185784	51428
+	ra?g	82928	154284
+	ra?h	0	0
+.PP
+.B "RA81 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	58498
+	ra?c	0	891072
+	ra?d	259458	210538
+	ra?e	469996	210538
+	ra?f	680534	210538
+	ra?g	99458	160000
+	ra?h	259458	631614
+.PP
+.B "RA81 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	ra?a	0	81920
+	ra?b	81920	262144
+	ra?c	0	891072
+	ra?d	344064	182336
+	ra?e	526400	182336
+	ra?f	708736	182336
+	ra?g	344064	547008
+	ra?h	0	0
+.PP
+.B "RA82 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	58498
+	ra?c	0	1216665
+	ra?d	99458	220096
+	ra?e	319554	219735
+	ra?f	539289	437760
+	ra?g	99458	877591
+	ra?h	977049	239616
+.PP
+.B "RA82 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c	0	1216665
+	ra?d	393216	274483
+	ra?e	667699	274483
+	ra?f	942182	274483
+	ra?g	393216	823449
+	ra?h	0	0
+.PP
+.B "RA90 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	118880
+	ra?c	0	2376153
+	ra?d	159840	420197
+	ra?e	580037	420197
+	ra?f	1000234	840393
+	ra?g	159840	1680787
+	ra?h	1840627	535526
+.PP
+.B "RA90 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c	0	2376153
+	ra?d	393216	660979
+	ra?e	1054195	660979
+	ra?f	1715174	660979
+	ra?g	393216	819200
+	ra?h	1212416	1163737
+.PP
+.B "RA92 partitions on MIPS-based systems"
+	disk    start   length
+.sp
+	ra?a    0       40960
+	ra?b    40960	118880
+	ra?c    0       2940951
+	ra?d    159840  420197
+	ra?e    580037  420197
+	ra?f    1000234 840393
+	ra?g    159840  1680787
+	ra?h    1840627 1100324
+.PP
+.B "RA92 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk    start   length
+.sp
+	ra?a	0	131072
+	ra?b	131072	262144
+	ra?c    0       2940951
+	ra?d	393216	660979
+	ra?e	1054195	660979
+	ra?f	1715174	1225777
+	ra?g	393216	819200
+	ra?h	1212416	1728535
+.PP
+.B "RF30 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	41968
+	ra?c	0	293040
+	ra?d	82928	130938
+	ra?e	213866	79173
+	ra?f	0	0
+	ra?g	82928	210112
+	ra?h	0	0
+.PP
+.B "RF31 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	122880
+	ra?c	0	744400
+	ra?d	0	163840
+	ra?e	0	471040
+	ra?f	471040	273360
+	ra?g	163840	580560
+	ra?h	0	0
+.PP
+.B "RF71 partitions on MIPS-based systems"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	122880
+	ra?c	0	781440
+	ra?d	0	163840
+	ra?e	0	471040
+	ra?f	471040	310400
+	ra?g	163840	617600
+	ra?h	0	0
+.PP
+.B "RF72 partitions on MIPS-based systems"
+        disk    start   length
+.sp
+	ra?a	0	40960
+	ra?b	40960	182416
+	ra?c	0	1954050
+	ra?d	1144976	300708
+	ra?e	1445684	300708
+	ra?f	1746392	207658
+	ra?g	223376	921600
+	ra?h	1144976	809074
+.PP
+.B "ESE20 partitions"
+	disk	start	length
+.sp
+	ra?a	0	40960
+	ra?b	40960	42160
+	ra?c	0	245757
+	ra?d	82928	81416
+	ra?e	164344	81413
+	ra?f	0	0
+	ra?g	82928	162829
+	ra?h	0	0
+
+.fi
+.PP
+Usually the ra?a partition is used for the root file system,
+the ra?b partition as a paging area.
+The ra?c partition for pack to pack copying because
+it maps the entire disk.
+.SH FILES
+.PP
+\*L/dev/ra???\*O
+.br
+\*L/dev/rra???\*O
+.SH RELATED INFORMATION
+.PP
+.\" dkio(4), 
+disklabel(8), MAKEDEV(8), uerf(8)
+.iX "MSCP disk interface"
+.EQ
+delim off
+.EN

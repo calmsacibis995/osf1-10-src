@@ -1,0 +1,161 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: pcnfsd.8,v $ $Revision: 3.2.6.2 $ (DEC) $Date: 1993/09/27 19:36:41 $
+.\"
+.\" @(#) @(#)pcnfsd.8c 1.1 9/3/91;
+.TH pcnfsd 8
+.SH NAME
+\*Lpcnfsd\*O, \*Lrpc.pcnfsd\*O \- The (PC)NFS authentication and print request server
+.SH SYNOPSIS
+.PP
+\*L/usr/sbin/rpc.pcnfsd\*O
+.SH DESCRIPTION
+.PP
+.iX "pcnfsd"
+.iX  "pcnfsd command" "pcnfsd adjunct services for PC ONC clients"
+.iX  "servers"  "pcnfsd"  "pcnfsd adjunct services for PC ONC clients"
+The \*Lpcnfsd\*O daemon is an
+.SM RPC
+server that supports ONC clients on PC (DOS, OS/2, Macintosh, and other)
+systems. This reference page describes Version 2 of the
+\*Lpcnfsd\*O server.
+.PP
+The \*Lrpc.pcnfsd\*O daemon is started via \*L/etc/rc.config\*O
+by default. It can be turned off by running \*Lnfssetup\*O
+and by answering 'no' to the appropriate question.
+The \*Lpcnfsd\*O daemon reads the \*L/etc/pcnfsd.conf\*O configuration
+file if present, and then services RPC requests directed to
+program number 150001. This release of the \*Lpcnfsd\*O
+daemon supports both Version 1 and Version 2 of the \*Lpcnfsd\*O
+protocol.
+.PP
+The requests serviced by \*Lpcnfsd\*O
+fall into three categories: authentication, printing, and other. Only the
+authentication and printing services have administrative significance.
+.SS AVAILABILITY
+This program can be redistributed freely.
+.SS AUTHENTICATION
+When \*Lpcnfsd\*O receives a \*LPCNFSD_AUTH\*O or \*LPCNFSD2_AUTH\*O
+request\**, it "logs in" the user by validating the user name and
+password and returning the corresponding UID, GIDs, home directory,
+and umask.
+.PP
+By default, \*Lpcnfsd\*O only allows authentication requests for users
+with UIDs in the range 101 to 60002. (This corresponds in SVR4 to the
+range for non-system accounts.) To override this, you can add a line in
+the following format to the \*L/etc/pcnfsd.conf\*O file. Here each range
+is either of the following forms indicating an inclusive range:
+.oS
+uid
+.sp
+uid-uid
+.oE
+.SS PRINTING
+The \*Lpcnfsd\*O daemon supports a printing model based on the use of NFS to
+transfer the actual print data from the client to the server. The client system
+issues a \*LPCNFSD_PR_INIT\*O or \*LPCNFSD2_PR_INIT\*O
+request, and the server returns the path to a spool directory that
+the client can use and that is exported by NFS.
+The \*Lpcnfsd\*O daemon creates a subdirectory for each of its clients: the
+parent directory is normally \*L/usr/spool/pcnfs\*O
+and the subdirectory is the host name of the client system.
+You must also export the \*L/usr/spool/pcnfs\*O directory to the PC
+clients.  If you want to use a different parent directory, add a
+line of the following format to the \*L/etc/pcnfsd.conf\*O file:
+.RS
+.sp
+\*Lspooldir\*O \*Vpath\*O
+.sp
+.RE
+.PP
+Once a client has mounted the spool directory by using NFS
+and has transferred print data to a file in this directory, the client
+issues a \*LPCNFSD_PR_START\*O or \*LPCNFSD2_PR_START\*O
+request. The \*Lpcnfsd\*O daemon handles this, and most other
+print-related requests, by
+constructing a command based on the printing services of
+the server operating system and by executing the command using the
+identity of the PC user. Since this involves set-user-id privileges,
+\*Lpcnfsd\*O must be run as root.
+.PP
+Every print request from the client includes the name of the printer
+which is to be used. This name corresponds to a printer
+definition in the \*L/etc/printcap\*O
+database. If you want to define a nonstandard way of processing
+print data, you should define a new printer and arrange for the
+client to print to this printer. There are two ways of setting up a new printer.
+The first involves the addition of an entry to \*L/etc/printcap\*O
+and the creation of filters to perform the required processing. This
+is outside the scope of this discussion. In addition, \*Lpcnfsd\*O
+includes a mechanism by which  you can define virtual printers known
+only to \*Lpcnfsd\*O clients. Each printer is defined by a line in the
+\*L/etc/pcnfsd.conf\*O file of the following format:
+.RS
+.sp
+\*Lprinter\*O \*Vname alias-for command\*O
+.sp
+.RE
+The \*Vname\*O variable is the name of the printer you want to define
+and the \*Valias-for\*O variable is the name of a ``real'' printer that
+corresponds to this printer. For
+example, a request to display the queue for \*Vname\*O is translated
+into the corresponding request for the printer \*Valias-for\*O. If you have
+defined a printer in such a way that there is no ``real'' printer to
+which it corresponds, use a single dash (-) for this field. (See the
+definition of the printer \*Ltest\*O
+below for an example.) The \*Vcommand\*O variable is a
+command that will be executed whenever a file is printed on \*Vname\*O.
+This command is executed by the Bourne shell, \*L/bin/sh\*O,
+using the \*L-c\*O option. For complex operations you should
+construct an executable shell program and invoke that in \*Vcommand\*O.
+Within \*Vcommand\*O, the following tokens will be replaced:
+.PP
+.TP 10
+.B Token
+.B Substitution
+.TP
+.B $FILE
+Replaced by the full pathname of the print data file. When
+the command has been executed, the file will be unlinked.
+.TP
+.B $USER
+Replaced by the user name of the user logged in to the client system.
+.TP
+.B $HOST
+Replaced by the host name of the client system.
+.PP
+The printer
+.B test
+is used only for testing. Any file sent to this printer
+will be copied into
+.B /usr/tmp.
+Any request to list the queue, check the status, and so on of printer
+.B test
+will be rejected because the \*Valias-for\*O has been specified as a
+dash (-).
+.SH FILES
+.PP
+.VL 4m
+.LI "\*L/etc/pcnfsd.conf\*O"
+The \*Lpcnfsd\*O configuration file.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Llp\*O(1), \*Llpq\*O(1), \*Llpstat\*O(1)
+.EQ
+delim off
+.EN

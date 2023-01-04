@@ -1,0 +1,183 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205181840.AA23326@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2550) Close XBUG #5240: server: Drawing Faulty Convex Pixmaps into Color Pixmaps Crashes
+Date: Mon, 18 May 92 14:40:08 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   5240
+### area:         server
+### severity:     very high
+### comments:     diffs also include another optimization...
+
+*** /tmp/da3290	Mon May 18 14:38:37 1992
+--- server/ddx/cfb/cfbply1rct.c	Mon May 18 14:38:18 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cfbply1rct.c,v 1.10 91/12/19 14:17:07 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: cfbply1rct.c,v 1.11 92/05/18 14:37:44 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 67,77 ****
+      int		    nmiddle;
+      RROP_DECLARE
+  
+!     if (mode == CoordModePrevious || shape != Convex)
+      {
+  	miFillPolygon (pDrawable, pGC, shape, mode, count, ptsIn);
+  	return;
+      }
+      devPriv = (cfbPrivGC *)(pGC->devPrivates[cfbGCPrivateIndex].ptr);
+      origin = *((int *) &pDrawable->x);
+      origin -= (origin & 0x8000) << 1;
+--- 67,78 ----
+      int		    nmiddle;
+      RROP_DECLARE
+  
+!     if (mode == CoordModePrevious)
+      {
+  	miFillPolygon (pDrawable, pGC, shape, mode, count, ptsIn);
+  	return;
+      }
++     
+      devPriv = (cfbPrivGC *)(pGC->devPrivates[cfbGCPrivateIndex].ptr);
+      origin = *((int *) &pDrawable->x);
+      origin -= (origin & 0x8000) << 1;
+***************
+*** 84,103 ****
+      maxy = 0;
+      vertex2p = (int *) ptsIn;
+      endp = vertex2p + count;
+!     while (count--)
+      {
+! 	c = *vertex2p;
+! 	clip |= (c - vertex1) | (vertex2 - c);
+! 	c = intToY(c);
+! 	if (c < y) 
+! 	{
+! 	    y = c;
+! 	    vertex1p = vertex2p;
+! 	}
+! 	vertex2p++;
+! 	if (c > maxy)
+! 	    maxy = c;
+      }
+      if (y == maxy)
+  	return;
+  
+--- 85,151 ----
+      maxy = 0;
+      vertex2p = (int *) ptsIn;
+      endp = vertex2p + count;
+!     if (shape == Convex)
+      {
+!     	while (count--)
+!     	{
+! 	    c = *vertex2p;
+! 	    clip |= (c - vertex1) | (vertex2 - c);
+! 	    c = intToY(c);
+! 	    if (c < y) 
+! 	    {
+! 	    	y = c;
+! 	    	vertex1p = vertex2p;
+! 	    }
+! 	    vertex2p++;
+! 	    if (c > maxy)
+! 	    	maxy = c;
+!     	}
+      }
++     else
++     {
++ 	int yFlip = 0;
++ 	dx1 = 1;
++ 	x2 = -1;
++ 	x1 = -1;
++     	while (count--)
++     	{
++ 	    c = *vertex2p;
++ 	    clip |= (c - vertex1) | (vertex2 - c);
++ 	    c = intToY(c);
++ 	    if (c < y) 
++ 	    {
++ 	    	y = c;
++ 	    	vertex1p = vertex2p;
++ 	    }
++ 	    vertex2p++;
++ 	    if (c > maxy)
++ 	    	maxy = c;
++ 	    if (c == x1)
++ 		continue;
++ 	    if (dx1 > 0)
++ 	    {
++ 		if (x2 < 0)
++ 		    x2 = c;
++ 		else
++ 		    dx2 = dx1 = (c - x1) >> 31;
++ 	    }
++ 	    else
++ 		if ((c - x1) >> 31 != dx1) 
++ 		{
++ 		    dx1 = ~dx1;
++ 		    yFlip++;
++ 		}
++ 	    x1 = c;
++        	}
++ 	x1 = (x2 - c) >> 31;
++ 	if (x1 != dx1)
++ 	    yFlip++;
++ 	if (x1 != dx2)
++ 	    yFlip++;
++ 	if (yFlip != 2) 
++ 	    clip = 0x8000;
++     }
+      if (y == maxy)
+  	return;
+  
+***************
+*** 163,169 ****
+  		    vertex1p = endp;
+  	    	c = *--vertex1p;
+  	    	Setup (c,x1,vertex1,dx1,dy1,e1,sign1,step1)
+! 	    } while (y == intToY(vertex1));
+  	    h = dy1;
+  	}
+  	else
+--- 211,217 ----
+  		    vertex1p = endp;
+  	    	c = *--vertex1p;
+  	    	Setup (c,x1,vertex1,dx1,dy1,e1,sign1,step1)
+! 	    } while (y >= intToY(vertex1));
+  	    h = dy1;
+  	}
+  	else
+***************
+*** 179,185 ****
+  	    	if (vertex2p == endp)
+  		    vertex2p = (int *) ptsIn;
+  	    	Setup (c,x2,vertex2,dx2,dy2,e2,sign2,step2)
+! 	    } while (y == intToY(vertex2));
+  	    if (dy2 < h)
+  		h = dy2;
+  	}
+--- 227,233 ----
+  	    	if (vertex2p == endp)
+  		    vertex2p = (int *) ptsIn;
+  	    	Setup (c,x2,vertex2,dx2,dy2,e2,sign2,step2)
+! 	    } while (y >= intToY(vertex2));
+  	    if (dy2 < h)
+  		h = dy2;
+  	}

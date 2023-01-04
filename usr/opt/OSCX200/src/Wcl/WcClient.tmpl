@@ -1,0 +1,86 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+XCOMM #########################################################################
+XCOMM # SCCS_data: @(#) WcClient.tmpl 1.2 92/06/10 06:09:53
+XCOMM #
+XCOMM # Wcl Client Template
+XCOMM #
+XCOMM # DEPLIBS,
+XCOMM # CLIENT_LDFLAGS, CLIENT_LIBS, DEBUG_CLIENT_LIBS, CLIENT_INCS,
+XCOMM # CLIENT, CLASS, SRCS, OBJS,
+XCOMM # APPDEFS, APPDEF_DEFS
+XCOMM # all need to be set before including this.
+XCOMM #
+
+       WCL_LIBS = $(WCLIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
+ DEBUG_WCL_LIBS = $(DEBUGWCLIB) $(DEBUGXMULIB) $(DEBUGXTOOLLIB) $(DEBUGXLIB)
+
+  LOCAL_LDFLAGS = $(CLIENT_LDFLAGS) $(WCLDFLAG)
+LOCAL_LIBRARIES = $(CLIENT_LIBS) $(WCL_LIBS)
+DEBUG_LIBRARIES = $(DEBUG_CLIENT_LIBS) $(DEBUG_WCL_LIBS)
+
+/* Need to re-evaluate these Make variables
+*/
+    DEPENDFLAGS = $(CLIENT_INCS)
+         CFLAGS = $(CDEBUGFLAGS) $(CCOPTIONS) $(ALLDEFINES) $(CLIENT_INCS)
+      LDOPTIONS = $(CDEBUGFLAGS) $(CCOPTIONS) $(LOCAL_LDFLAGS) -L$(USRLIBDIR)
+
+
+/* Build and install client and man page
+*/
+ComplexProgramTarget($(CLIENT))
+
+#ifdef UninstalledTestProgram
+/* A Test program is built but not installed.
+*/
+all:: Test
+
+Test.c:	$(CLIENT).c
+	rm -f Test.c ; ln $(CLIENT).c Test.c
+
+clean::
+	rm -rf Test Test.o
+
+SpecialObjectRule(Test.o,Test.c,$(DEBUG_CLIENT_OPTIONS))
+
+#ifdef NullParameter
+NormalProgramTarget(Test,Test.o,$(DEPLIBS),$(DEBUG_LIBRARIES),NullParameter)
+#else
+NormalProgramTarget(Test,Test.o,$(DEPLIBS),$(DEBUG_LIBRARIES),)
+#endif
+#endif /*UninstalledTestProgram*/
+
+#include "AppDef.rules"
+/* The application resource files are created from the *.ad files.
+** This allows for certain widget version and location dependencies.
+** APPDEFS are each cpp'd with -DAPPDEFDIR=$(XAPPLOADDIR)/$(CLIENT)
+** so the final installed location of client resource files can be
+** expanded.  This assumes that minimal initialization resources are
+** in the CLASS resource file, all other stuff in other client resource
+** files.
+*/
+CppAppDefaultsFiles($(CLASS),$(APPDEFS),$(APPDEF_DEFS),$(XAPPLOADDIR)/$(CLIENT))
+

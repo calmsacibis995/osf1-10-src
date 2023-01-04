@@ -1,0 +1,163 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+#
+# Abstract
+#	Common Agent start/stop script
+#
+# Usage:
+#	sh common_agent [ start | stop ]
+#
+# Modification history
+#
+# Date		Author		Comments
+# ----          ------          --------
+# 18-Mar-1993	Pete Burgess	Creation
+#
+#
+
+ARG1=$1
+
+if [ `whoami` != "root" ]; then
+	echo "Must be Super-User." ; exit 1
+fi
+
+#
+
+FDDI_MOM=/usr/sbin/fddi_mom
+
+#
+
+TRN_MOM=/usr/sbin/trn_mom
+
+
+#######################################################################
+#
+# Define ordered list of Common Agent Images to be started/stopped
+# 	order(mold, *moms, pe)
+#  System manager/developers should redefine USER_MOMS to extend ECA system
+#
+USER_MOMS=""
+MIPS_ULTRIX_PROCESSES="/usr/etc/mold /usr/etc/internet_mom $USER_MOMS /usr/etc/snmp_pe"
+ALPHA_OSF1_PROCESSES="/usr/sbin/mold /usr/sbin/internet_mom $FDDI_MOM $TRN_MOM $USER_MOMS /usr/sbin/snmp_pe"
+#######################################################################
+
+# List of socket files to removed
+ECA_SOCKETS="/dev/eca_mold /dev/eca_mom* /dev/eca_snmp_pe"
+
+PLATFORM="`machine | tr a-z A-Z`-`uname`"
+case "$PLATFORM" in
+  "MIPS-ULTRIX") 
+	MIR=/usr/var/kits/ecalocal/mir.dat
+	PLATFORM_PROCESSES="$MIPS_ULTRIX_PROCESSES";;
+  "ALPHA-OSF1") 
+	MIR=/etc/eca/mir.dat
+	PLATFORM_PROCESSES="$ALPHA_OSF1_PROCESSES";;
+  *) echo "Unsupported platform ($PLATFORM)"; exit 1 ;;
+  esac
+
+#
+# Case script parameter 
+#
+case "$ARG1" in
+
+'stop' | 'start')
+#
+# Stop processes if they are currently executing.
+#
+	echo "Stopping Common Agent daemons..."
+	case "$PLATFORM" in
+	  "MIPS-ULTRIX") 
+		proclist="`/bin/ps aux | grep snmpd | grep -v grep | awk '{printf($2\" \") }'`"
+		if [ -n "$proclist" ]; then
+	          echo "Stopping \"snmpd\"" && kill -9 $proclist
+	        fi ;;
+	  *) ;;
+	  esac
+
+	for i in $PLATFORM_PROCESSES; do
+	    j=`basename $i`
+	    case "$PLATFORM" in
+		"ALPHA-OSF1") proclist="`/bin/ps axo pid,comm | grep $j | grep -v grep | awk '{printf($1\" \") }'`" ;;
+		"MIPS-ULTRIX") proclist="`/bin/ps aux | grep $j | grep -v grep | awk '{printf($2\" \") }'`" ;;
+		*) proclist="" ;;
+		esac
+	    if [ -n "$proclist" ]; then
+	      echo "Stopping \"$j\"" && kill -9 $proclist
+	    fi
+	    done
+
+#
+# remove the unix domain sockets from the file system.
+#
+	rm -f $ECA_SOCKETS
+
+	if [ "$ARG1" = "start" ]; then
+#
+# now start up the processes.  start the mold process first, *moms, and finally the pe
+#
+	  echo "Starting Common Agent daemons..."
+
+	  if [ "$ECA_MIR" ]
+	  then
+		if [ -r "$ECA_MIR" ]
+		then
+			echo "Overriding default mir ($MIR) \nwith ECA_MIR ("$ECA_MIR")."
+		else
+			echo "MIR is not accessable:  Invalid ECA_MIR path value ("$ECA_MIR")"
+			exit 1
+		fi
+	  else
+		if [ ! -r $MIR ] ; then
+			echo "MIR ($MIR) is not accessable"
+			exit 1
+		fi
+	  fi
+
+	  for i in $PLATFORM_PROCESSES; do
+		if [ -f $i ]; then
+			echo "Starting `basename \$i`..."
+			$i 
+			if [ $? -ne 0 ] 
+			then
+			    echo "`basename $i` startup failed!"
+			fi
+		else
+			echo "Image, $i, is not found"
+		fi
+		done
+
+	  case "$PLATFORM" in
+	    "MIPS-ULTRIX") sleep 3; tail -1 /usr/spool/mqueue/syslog; echo ""; ;;
+	  esac;
+	fi
+	;;
+*)
+	echo "Usage: $0 {start|stop}" ; exit 1
+	;;
+
+	esac
+
+exit 0
+

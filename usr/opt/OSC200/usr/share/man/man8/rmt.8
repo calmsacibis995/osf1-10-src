@@ -1,0 +1,175 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rmt.8,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1993/01/11 13:15:07 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\" rmt.man
+.\" nm_07.08.90
+.TH rmt 8
+.SH NAME
+.PP
+\*Lrmt\*O \- Allows remote access to magnetic tape devices
+.SH SYNOPSIS
+.PP
+.sS
+\*Lrmt\*O [\*Vdebug-output-file\*O]
+.sE
+.SH DESCRIPTION
+.PP
+.iX "rmt"
+.iX "remote" "access" "read and write"
+.iX "tape" "remote read and write"
+.iX "remote" "server" "rrestore"
+.iX "remote" "server" "rdump"
+.iX "server" "remote" "rdump"
+.iX "server" "remote" "rrestore"
+The \*Lrmt\*O command is started as a server process when requests
+from an \*Lrdump\*O or \*Lrrestore\*O call enter the system to operate
+a storage device through an interprocess communications connection.
+After the remote programs have finished, \*Lrmt\*O exits and will be
+started again at the next request.  The \*Lrmt\*O command is normally
+invoked with an \*Lrexec\*O or \*Lrcmd\*O system call.
+.PP
+This process performs the commands described in the following table
+and responds with a status indication to tell a user the result of the
+commanded process. When the \*Lrmt\*O command is called with a
+filename specified as the \*Vdebug-output-file\*O parameter, all
+status responses are passed to the \*Vdebug-output-file\*O in ASCII
+and in one of two possible formats.  Consequently, a system administrator
+can debug both software and hardware problems associated with
+previously issued backup commands to storage devices.
+.iX "rrestore"
+.iX "rdump"
+.iX "rexec"
+.iX "rcmd"
+.iX "remote" "filename"
+.iX "file" "remote"
+.iX "error" "remote tape access"
+.iX "tape" "remote access"
+.iX "remote" "tape access debug"
+.iX "debug" "remote tape access"
+.PP
+Responses to successful commands are in the format:
+.oS
+A\*Vnumber\*C\en
+.oE
+where \*LA\*O identifies a normal response, \*Vnumber\*O is an integer
+that defines the number of the response as an ASCII integer, and
+\*L\en\*O is a newline in the C-language idiom.
+.PP
+Responses to unsuccessful commands are in the format:
+.oS
+E\*Verror_number  error_message\*C\en
+.oE
+where \*LE\*O identifies a response to an error, \*Verror_number\*O is
+one of the possible error numbers values described in \*Lintro\*O(2),
+\*Verror_message\*O is the corresponding error-message string, which is output
+in response to a call to \*Lperror\*O(3), and \*L\en\*O is a newline.
+.PP
+Debug information returned by \*Lrmt\*O is stored in the named
+\*Vdebug-output-file\*O file. The \*Lrmt\*O command is called from the
+\*Lrdump\*O or \*Lrrestore\*O process with no file argument only when
+the \*Vdebug-output-file\*O parameter is specified.  To activate the
+debug option of \*Lrmt\*O your system administrator should rename the
+original \*Lrmt\*O to \*Lrmt.ORG\*O, for example, and create a new shell
+executable \*Lrmt\*O that calls \*Lrmt.ORG \*Vdebug-output-file\*O.
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.RS 5
+The \*Lrdump\*O command starts remote server \*L/usr/sbin/rmt\*O or
+\*L/etc/rmt\*O on the client machine to access the storage medium.
+Another vendor's \*Lrdump\*O command may fail because \*Lrmt\*O is
+not located in \*L/etc\*O.  To avoid this
+problem, it may be necessary to provide a symbolic link on the DEC OSF/1
+machine pointing to \*L/usr/sbin/rmt\*O as shown in the following example:
+.iS
+ln -s /usr/sbin/rmt /etc/rmt
+.iE
+.sp 6p
+.RE
+.PP
+All numerical arguments of the following commands are transferred as
+ASCII strings:
+.VL
+.LI "\*LO \*Vdevice flag\*O"
+Opens the \*Vdevice\*O, which must be a full pathname. The \*Vflag\*O
+parameter is a flag value suitable for the \*Lopen\*O system call.
+When the \*Vdevice\*O is successfully opened, the response is
+\*LA0\en\*O.
+.LI "\*LC \*Vdevice\*O"
+Closes the current open \*Vdevice\*O.
+When this command is successful, the response is \*LA0\en\*O.
+.LI "\*LL \*Voffset whence\*O"
+Performs a seek operation. The \*Voffset\*O and \*Vwhence\*O
+parameters have the same significance as the \*Voffset\*O and
+\*Vwhence\*O parameters of the \*Llseek\*O system call. When this
+command successfully completes, the response is \*LA\*Vn\*L\en\*O,
+where \*Vn\*O has the same value returned by a normally successful
+\*Llseek\*O system call.
+.LI "\*LW \*Vcount\*O"
+Writes data to the \*Vdevice\*O (see the \*LO\*O command above). The
+\*Lrmt\*O command reads \*Vcount\*O bytes from the connection. This
+process is aborted when an \*LEOF\*O (End-of-File) is detected before
+the number of characters specified by \*Vcount\*O is transferred. The
+response to this command is \*LA\*Vn\*L\en\*O, where \*Vn\*O is the
+number of characters written.
+.LI "\*LR \*Vcount\*O"
+Reads \*Vcount\*O bytes of data from the open device. When the value
+of \*Vcount\*O exceeds the size of the data buffer (10
+kilobytes), the number of characters read is truncated to the data
+buffer size. The \*Lrmt\*O command then does the requested read
+operation. The response to this command is \*LA\*Vn\*L\en\*O, where \*Vn\*O
+is the number of characters read.
+.LI "\*LI \*Voperation count\*O"
+Performs an \*Lioctl\*O system call on the open \*Vdevice\*O.
+The \*Voperation\*O parameter is a value passed to the \*Lmt_op\*O
+member of a type \*Lmtop\*O structure for an \*LMTIOCTOP ioctl\*O
+(magnetic tape operation) command. Valid values for the magnetic tape
+operations are defined in the \*L/usr/include/sys/mtio.h\*O include file.
+The \*Vcount\*O parameter is the value to pass to the \*Lmt_count\*O member
+of the type \*Lmtop\*O structure and specifies the number of operations
+performed on the tape drive. The response to this command is
+\*LA\*Vn\*L\en\*O, where \*Vn\*O is the \*Lcount\*O.
+.LI "\*LS\*O"
+Returns the status of the open \*Vdevice\*O, which is obtained with a
+\*LMTIOCGET ioctl\*O system call. A successful response to this
+command is \*LA\*Vn\*L\en\*O, where \*Vn\*O is the size of the status
+buffer, together with the contents of the status buffer in binary.
+.LE
+.SH "FILES"
+.PP
+.VL
+.LI "\*L/usr/sbin/rmt\*O"
+Specifies the command path
+.LI "\*L/usr/include/errno.h\*O"
+Describes the possible error numbers.
+.LI "\*L/usr/include/sys/mtio.h\*O"
+A header file that defines magnetic tape operations.
+.LE
+.SH "RELATED INFORMATION"
+.PP
+Commands:  \*Lrdump\*O(8), \*Lrrestore\*O(8).
+.PP
+Functions: \*Lrcmd\*O(3), \*Lrexec\*O(3), \*Lopen\*O(2), \*Lioctl\*O(2)
+.EQ
+delim off
+.EN

@@ -1,0 +1,238 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: configpoll,v $ $Revision: 1.1.6.2 $ (DEC) $Date: 1993/10/18 20:14:21 $
+# 
+STDSIGS="1 2 3 15"
+trap '' $STDSIGS  # till we setup fault handler
+BC='\c'
+
+#DEBUG=y ; export DEBUG
+case "$DEBUG" in
+y)
+	MYROOT="/usr/staff/xxx"; UULIB=$MYROOT
+	UUHOME=$MYROOT/spool/uucppublic ; UUSPOOL=$MYROOT/spool/uucp
+	NULL=$MYROOT/dev/null 
+	FILECMD=$MYROOT/file ;  DEV=$MYROOT/dev ;
+	;;
+*)
+	UULIB=/usr/lib/uucp ; UUHOME=/usr/spool/uucppublic
+	UUSPOOL=/usr/spool/uucp ; NULL=/dev/null
+	FILECMD=/usr/bin/file ; TMP=/tmp ; DEV=/dev ;
+	;;
+esac
+
+MYNAME=$UULIB/configpoll
+OPOLL=$UULIB/Poll
+OSYSTEMS=$UULIB/Systems
+
+PATH="$UULIB:/bin:/etc:/usr/bin:";export PATH
+HOSTNAME=`hostname`
+readonly UULIB UUHOME UUSPOOL PATH
+
+MSG_SKIPPED="
+Device skipped...
+"
+## Fault routines ##
+REPEATORDIE='
+	echo " 
+Interrupt !!!  "$BC
+	while :
+	do
+echo  "Enter \"q\" to quit. [q]: "$BC
+	read buff
+	case "$buff" in
+	q|"")
+		exit 5
+		;;
+	esac
+	done
+'
+IGNORE=':'
+# Setup fault handler
+ONINTR=$REPEATORDIE
+trap 'eval "$ONINTR"' $STDSIGS
+
+: ${ADDEDSYSTEM=""}
+: ${ne=ne}  ${a=a}  # plays tricks with the next sentence
+export ne a ADDEDSYSTEM
+
+#***************************************************************************
+CONFIG_POLL="no"; GOOUT="no"; AGAIN="no"
+
+	echo  "------------------------------"
+	echo  "POLL FILE CONFIGURATION"
+	echo  "------------------------------"
+# **************************************************************************
+
+	while :
+	do
+	echo
+	echo  "1. Configure the Poll File "
+	echo  "2. Exit "
+	echo  "
+Please enter the number of your selection (1/2) [1]:  "$BC
+	read VAR
+		case "$VAR" in
+		1|"") CONFIG_POLL="yes"
+			break
+			;;
+		2)	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+			echo  "End of POLL file configuration "
+			echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+			exit 1
+			;;
+		*) continue
+			;;
+		esac
+	done # initial menu while loop
+
+while :
+do
+
+if [ "$CONFIG_POLL" = "yes" ]
+then
+	while :
+	do
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "Enter the name of a remote system: " $BC
+	read RSYSTEM
+		numchars=`echo "$RSYSTEM"|wc -c`
+		set - $numchars; numchars=$1
+		case "$numchars" in
+		"1")	echo "No Blank entry permitted"
+			continue
+			;;
+		[2-9])	break #ok
+			;;
+		10)	break
+			;;
+		11)	break
+			;;
+		12)	break
+			;;
+		13)	break
+			;;
+		14)	break
+			;;
+		15)	break
+			;;
+		*)
+			echo "
+The remote system name must not be greater than fourteen characters.
+"
+			;;
+		esac
+	done # RSYSTEM name question
+# check if the RSYSTEM is in Systems file.
+
+	grep "^$RSYSTEM" $OSYSTEMS > $NULL
+	if [ $? != 0 ]
+	then
+		echo  "-----------------------------------------------"
+		echo  "This \"$RSYSTEM\" system does not exist in the"
+		echo  "\"Systems\" file. You can use uucpsetup -o to"
+		echo  "configure the \"Systems\" file."
+		echo  "-----------------------------------------------"
+		while :
+		do
+		echo 
+		echo  "Do you want to enter another Remote System name (yes/no) [no]:" $BC
+		read ANS
+		case "$ANS" in
+		yes|y) AGAIN="yes"
+			break
+			;;
+		no|n|"") GOOUT="yes"
+			break
+			;;
+		*) continue
+			;;
+		esac
+		done # Do you want to enter another remote system name
+	else
+# check to see if this remote system name occurs in the Poll file
+		grep "^$RSYSTEM" $OPOLL > $NULL
+		if [ $? != 0 ]
+		then
+			echo 
+			echo  "Enter sequence of hourly intervals expressed in digits between 0 and 23"
+			echo  "for example a standard entry in the Poll file looks as follows:"
+			echo  "hera<TAB>0 4 8 12 16 20"
+			echo  "This entry instructs the local system to poll the remote system \"hera\""
+			echo  "every 4 hours."
+			echo
+			echo  "Enter the sequence (only digits between 0 and 23):" $BC
+			read SEQUENCE
+			ENTRY_POLL="$RSYSTEM	$SEQUENCE"
+			if [ -f $OPOLL ]
+			then
+				echo "$ENTRY_POLL" >> $OPOLL
+				echo "++++++++++++++++++++++++++++++++++++++++++++++"
+				echo "Updated \"Poll\" file"
+				echo "++++++++++++++++++++++++++++++++++++++++++++++"
+			else
+				echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+				echo  "No Poll file in /usr/lib/uucp directory"
+				echo  "End of configuration of Poll file."
+				echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+				exit 2
+			fi # if no Poll file
+		else
+			echo 
+			echo  "This \"$RSYSTEM\" system already has an entry in \"Poll\" file."
+		fi # if the RSYSTEM does not exist in Poll file
+	
+		while :
+		do
+		echo 
+		echo  "Do you want to enter another Remote System name (yes/no) [no]:" $BC
+		read ANS
+		case "$ANS" in
+		yes|y) AGAIN="yes"
+			CONFIG_POLL="yes"
+			break
+			;;
+		no|n|"") GOOUT="yes"
+			CONFIG_POLL="no"
+			break
+			;;
+		*) continue
+			;;
+		esac
+		done # Do you want to enter another remote system name
+	fi # end of grep $RSYSTEM if loop
+fi # if CONFIG_POLL = yes
+if [ "$GOOUT" = "yes" ]
+then
+	break
+fi
+#***********************************************************************
+done # CONFIG_POLL = yes
+echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+echo  "End of POLL file configuration "
+echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+exit 0
+#**********************************************************************

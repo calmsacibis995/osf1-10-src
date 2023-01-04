@@ -1,0 +1,560 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: window.1,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/12/17 17:14:29 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+.TH window 1
+.SH NAME
+.PP
+\*Lwindow\*O \- Implements a window environment
+.SH SYNOPSIS
+.PP
+.sS
+\*Lwindow\*O
+\*O[\*L-dft\*O]
+\*O[\*L-c\*O
+\*Vcommand\*O]
+\*O[\*L-e\*O][\*Vescape_character\*O]
+.sE
+.PP
+The \*Lwindow\*O command implements a window environment on ASCII terminals.
+.SH FLAGS
+.PP
+.iX "window command"
+.iX "environment" "window"
+.iX "terminals" "window environment"
+.VL 4m
+.LI "\*L-c\*O \*Vcommand\*O"
+Executes the string \*Vcommand\*O as a long command (see
+\*LLong Commands\*O) before doing anything else.
+.LI "\*L-d\*O"
+Ignores \*L.windowrc\*O and creates the two default windows instead.
+.LI "\*L-e\*O \*Vescape_character\*O"
+Sets the Escape character to \*Vescape_character\*O.  \*Vescape_character\*O
+can be a single character, or in the form
+\*L<Ctrl-\*Vx\*L>\*O, where \*Vx\*O is any character.
+.LI "\*L-f\*O"
+Does not perform any start-up action (Fast option).
+.LI "\*L-t\*O"
+Turns on terse mode (see the \*Lterse\*O command later in this
+reference page).
+.LE
+.SH DESCRIPTION
+.PP
+A window is a rectangular portion of the physical terminal
+screen associated with a set of processes.  Its size and
+position can be changed by the user at any time.  Processes
+communicate with their window in the same way they normally
+interact with a terminal \(em through their standard input, output,
+and diagnostic file descriptors.  The window program handles the
+details of redirecting input and output to and from the
+windows.  At any one time, only one window can receive
+input from the keyboard, but all windows can simultaneously send output
+to the display.
+.gL "window"
+.PP
+Windows can overlap and are framed as necessary.  Each window
+is named by one of the digits 1 to 9.  This 1-character
+identifier, as well as a user-definable label string, are displayed
+with the window on the top edge of its frame.  A window can be
+designated to be in the foreground, in which case it will always be
+on top of all normal, nonforeground windows, and can be covered
+only by other foreground windows.  A window need not be completely
+within the edges of the terminal screen.  Thus, a large window
+(possibly larger than the screen) can be positioned to show only
+a portion of its full size.
+.PP
+Each window has a cursor and a set of control functions.
+Most programmable terminal operations, such as line and
+character deletion and insertion, are supported.  Display modes,
+such as underlining and reverse video, are available if they are
+supported by the terminal.  In addition,
+like terminals with multiple pages of memory,
+each window has a text buffer that can have more lines than the window itself.
+.PP
+When \*Lwindow\*O starts up, the commands (see \*LLong Commands\*O)
+contained in the \*L.windowrc\*O file in the user's home directory are
+executed.  If the file does not exist, two equal-sized windows spanning
+the terminal screen are created by default.
+.SS Process Environment
+With each newly created window, a shell program is spawned with its
+process environment tailored to that window.  Its standard input,
+output, and diagnostic file descriptors are bound to one end of either
+a pseudoterminal (\*Lpty\*O or a UNIX domain socket, \*Lsocketpair\*O.
+If a pseudoterminal is used, then its special
+characters and modes (see the \*Lstty\*O command) are copied from the physical
+terminal.  A \*Ltermcap\*O entry tailored to this window is created
+and passed as environment (\*Lenviron\*O) variable
+\*LTERMCAP\*O.  The \*Ltermcap\*O entry contains the window's size and
+characteristics as well as information from the physical terminal,
+such as the existence of underline, reverse video, and other display
+modes, and the codes produced by the terminal's function keys,
+if any.  In addition, the window size attributes of the pseudoterminal
+are set to reflect the size of this window, and updated whenever
+it is changed by the user.
+In particular, the editor \*Lvi\*O uses this information to redraw its display.
+.gL "pseudoterminal"
+.SS Operation
+During normal execution, \*Lwindow\*O can be in one of two states:
+\*Vconversation mode\*O and \*Vcommand mode\*O.  In conversation mode, the
+terminal's real cursor is placed at the cursor position of a particular
+window (called the \*Vcurrent window\*O),
+and input from the keyboard is sent
+to the process in that window.  The current window is always
+on top of all other windows, except those in foreground.  In addition,
+it is set apart by highlighting its identifier and label in reverse video.
+.PP
+Typing \*Lwindow\*O's Escape character (normally \*L^P\*O) in conversation
+mode switches it into command mode.  In command mode, the top line of
+the terminal screen becomes the command prompt window, and \*Lwindow\*O
+interprets input from the keyboard as commands to manipulate windows.
+.PP
+There are two types of commands:  \*Vshort commands\*O are usually one or two
+keystrokes; \*Vlong commands\*O are strings that are typed in the
+command window (see the \*L:\*O command under \*LShort
+Commands\*O) or read from a file (see
+the built-in function \*Lsource\*O under \*LBuilt-In Functions\*O).
+.SS Short Commands
+The \*V#\*O variable represents one of the digits 1 to 9
+corresponding to the windows 1 to 9.  The sequence \*L^\*VX\*O means
+\*L<Ctrl-\*Vx\*L>\*O, where \*Vx\*O is any character.
+In particular, \*L^^\*O is \*L<Ctrl-^>\*O.  \*Vescape\*O is
+the \*L<Esc>\*O key, or \*L^[\*O.
+.VL 4m
+.LI "\*L#\*O"
+Selects window \*V#\*O as the current window and returns to conversation mode.
+.LI "\*L%#\*O"
+Selects window \*V#\*O, but stays in command mode.
+.LI "\*L^^\*O"
+Selects the previous window and returns to conversation
+mode.  This is useful for toggling between two windows.
+.LI "\*Vescape\*O"
+Returns to conversation mode.
+.LI "\*L^P\*O"
+Returns to conversation mode and writes \*L^P\*O to the
+current window.  Thus, typing two \*L^P\*Os in conversation
+mode sends one to the current window.  If the \*Lwindow\*O
+Escape character is changed to some other character, that
+character takes the place of \*L^P\*O here.
+.LI "\*L?\*O"
+Lists a short summary of commands.
+.LI "\*L^L\*O"
+Redraws the screen.
+.LI "\*Lq\*O"
+Exits \*Lwindow\*O after requesting confirmation.
+.LI "\*L^Z\*O"
+Suspends \*Lwindow\*O.
+.LI "\*Lw\*O"
+Creates a new window.  You are prompted for the positions
+of the upper-left and lower-right corners of the window.
+The cursor is placed on the screen and the keys \*L<h>\*O, \*L<j>\*O,
+\*L<k>\*O, and \*L<l>\*O
+move the cursor left, down, up, and right, respectively.
+The keys \*L<H>\*O, \*L<J>\*O, \*L<K>\*O, and \*L<L>\*O move the cursor to
+the respective limits of the screen.  Typing a number
+before the movement keys
+repeats the movement that number of times.  Pressing \*L<Return>\*O enters
+the cursor position
+as the upper-left corner of the window.  The lower-right corner
+is entered in the same manner.  During this process,
+the placement of the new window is indicated by a rectangular
+box drawn on the screen, corresponding to where the new window
+will be framed.  Pressing \*Vescape\*O (see preceding description)
+at any point cancels this command.
+.IP
+This new window becomes the current window,
+and is given the first available ID.  The default buffer size
+is used (see the built-in function \*Lnline\*O under
+\*LBuilt-In Functions\*O).  Only fully visible
+windows can be created this way.
+.LI "\*Lc#\*O"
+Closes window \*V#\*O.  The process in the window is sent
+the Hangup signal (see the \*Lkill\*O command).  The \*Lcsh\*O command
+should handle this signal correctly and cause no problems.
+.LI "\*Lm#\*O"
+Moves window \*V#\*O to another location.  A box in the shape
+of the window is drawn on
+the screen to indicate the new position of the window, and the same keys as
+those for the \*Lw\*O command are used to position the box.  The
+window can be moved partially off the screen.
+.LI "\*LM#\*O"
+Moves window \*V#\*O to its previous position.
+.LI "\*Ls#\*O"
+Changes the size of window \*V#\*O.  You are prompted
+to enter the new lower-right corner of the window.  A box
+is drawn to indicate the new window size.  The same
+keys used in \*Lw\*O and \*Lm\*O are used to enter the position.
+.LI "\*LS#\*O"
+Changes window \*V#\*O to its previous size.
+.LI "\*L^Y\*O"
+Scrolls the current window up by one line.
+.LI "\*L^E\*O"
+Scrolls the current window down by one line.
+.LI "\*L^U\*O"
+Scrolls the current window up by half the window size.
+.LI "\*L^D\*O"
+Scrolls the current window down by half the window size.
+.LI "\*L^B\*O"
+Scrolls the current window up by the full window size.
+.LI "\*L^F\*O"
+Scrolls the current window down by the full window size.
+.LI "\*Lh\*O"
+Moves the cursor of the current window left by one column.
+.LI "\*Lj\*O"
+Moves the cursor of the current window down by one line.
+.LI "\*Lk\*O"
+Moves the cursor of the current window up by one line.
+.LI "\*Ll\*O"
+Moves the cursor of the current window right by one column.
+.LI "\*L^S\*O"
+Stops output in the current window.
+.LI "\*L^Q\*O"
+Starts output in the current window.
+.LI "\*L:\*O"
+Enters a line to be executed as long commands.  Normal line
+editing characters (erase character, erase word, erase line) are
+supported.
+.LE
+.SS Long Commands
+Long commands are a sequence of statements
+parsed much like a programming language, with a syntax
+similar to that of C.  Numeric and string expressions and variables
+are supported, as well as conditional statements.
+.PP
+There are two data types:  \*Vstring\*O and \*Vnumber\*O.  A string
+is a sequence of letters or digits beginning with
+a letter.  The \*L_\*O (underscore) and \*L\&.\*O (dot) characters are
+considered letters.  Alternately, nonalphanumeric characters can
+be included in strings by escaping them with a \e (backslash).
+In addition, the \e sequences of C are supported,
+both inside and outside quotes (that is, \*L\en\*O is a newline, and
+\*L\er\*O a carriage-return). The following are also legal strings:
+\*Labcde01234\*O, \*L&#$^*&#\*O, \*Lab$#cd\*O, \*Lab\e$\e#cd\*O,
+\*L/usr/bin/window\*O.
+.PP
+A number is an integer value in one of three forms:
+a decimal number, an octal number preceded by 0 (zero),
+or a hexadecimal number preceded by 0x or 0X.  The natural
+machine integer size is used (the signed integer type
+of the C compiler).  As in C, a nonzero number represents
+a Boolean TRUE.
+.PP
+The \*L#\*O (number sign) begins a comment that terminates at the
+end of the line.
+.PP
+A statement is either a conditional or an expression.  Expression
+statements are terminated with a newline or with the \*L;\*O
+(semicolon) character.  To continue
+an expression on the next line, terminate the first line with a \*L\e\*O
+(backslash).
+.SS Conditional Statements
+The \*Lwindow\*O command has a single control structure:
+the fully bracketed \*Lif\*O statement in the following form:
+.iS
+if <\*Vexpression\*L> then
+	<\*Vstatement\*L>
+	. . .
+elsif <\*Vexpression\*L> then
+	<\*Vstatement\*L>
+	. . .
+else
+	<\*Vstatement\*L>
+	. . .
+endif
+\*O\c
+.iE
+.PP
+The \*Lelse\*O and \*Lelsif\*O parts are optional, and the latter
+can be repeated any number of times.  \*Vexpression\*O must be numeric.
+.SS Expressions
+Expressions in \*Lwindow\*O are similar to those in the
+C language, with most C operators supported on numeric
+operands.  In addition, some are overloaded to operate on strings.
+.PP
+When an expression is used as a statement, its value is discarded
+after evaluation.  Therefore, only expressions with side
+effects (assignments and function calls) are useful as statements.
+.PP
+Single-valued (no arrays) variables are supported for both
+numeric and string values.  Some variables are predefined.  They
+are listed as follows:
+.PP
+The operators in order of increasing precedence are as follows:
+.VL 4m
+.LI "<\*Vexpression1\*O> \*L=\*O <\*Vexpression2\*O>"
+Assigns the variable <\*Vexpression1\*O>, which must be
+string valued, to the result of <\*Vexpression2\*O>.  Returns the value of
+<\*Vexpression2\*O>.
+.LI "<\*Vexpression1\*O> \*L?\*O <\*Vexpression2\*O> \*L:\*O <\*Vexpression3\*O>"
+Returns the value of <\*Vexpression2\*O> if <\*Vexpression1\*O>
+evaluates TRUE
+(nonzero numeric value); returns the value of <\*Vexpression3\*O> otherwise.
+Either <\*Vexpression2\*O> and <\*Vexpression3\*O> is evaluated, but not both.
+<\*Vexpression1\*O> must be numeric.
+.LI "<\*Vexpression1\*O> \*L||\*O <\*Vexpression2\*O>"
+Performs a logical OR.  Numeric values only.
+Short circuit evaluation is supported (that is,
+if <\*Vexpression1\*O> evaluates TRUE,
+then <\*Vexpression2\*O> is not evaluated).
+.LI "<\*Vexpression1\*O> \*L&&\*O <\*Vexpression2\*O>"
+Performs a logical AND with short circuit evaluation.  Numeric values only.
+.LI "<\*Vexpression1\*O> \*L|\*O <\*Vexpression2\*O>"
+Performs a bitwise OR.  Numeric values only.
+.LI "<\*Vexpression1\*O> \*L^\*O <\*Vexpression2\*O>"
+Performs a bitwise exclusive OR.  Numeric values only.
+.LI "<\*Vexpression1\*O> \*L&\*O <\*Vexpression2\*O>"
+Performs a bitwise AND.  Numeric values only.
+.LI "<\*Vexpression1\*O> \*L==\*O <\*Vexpression2\*O>\*L,\*O"
+<\*Vexpression1\*O> \*L!=\*O <\*Vexpression2\*O>
+.IP
+Performs a comparison (equal and not equal, respectively).  The Boolean
+result (either 1 or 0) is returned.  The
+operands can be numeric or string valued.  One string operand
+forces the other to be converted to a string if necessary.
+.LI "<\*Vexpression1\*O> \*L<\*O <\*Vexpression2\*O>\*L,\*O"
+<\*Vexpression1\*O> \*L>\*O <\*Vexpression2\*O>\*L,\*O
+.br
+<\*Vexpression1\*O> \*L<=\*O <\*Vexpression2\*O>\*L,\*O
+.br
+<\*Vexpression1\*O> \*L>=\*O <\*Vexpression2\*O>
+.IP
+Performs a less than, greater than, less than or equal to,
+greater than or equal to operation.  Both numeric and string values, with
+automatic conversion as stated previously.
+.LI "<\*Vexpression1\*O> \*L<<\*O <\*Vexpression2\*O>\*L,\*O"
+<\*Vexpression1\*O> \*L>>\*O <\*Vexpression2\*O>
+.IP
+Bit shifts <\*Vexpression1\*O> left (or right) by <\*Vexpression2\*O> bits
+if both operands are numbers.  If <\*Vexpression1\*O> is
+a string, then its first (or last) <\*Vexpression2\*O> characters are
+returned (if <\*Vexpression2\*O> is also a string, then its length is used
+in place of its value).
+.LI "<\*Vexpression1\*O> \*L\(pl\*O <\*Vexpression2\*O>\*L,\*O"
+<\*Vexpression1\*O> \*L-\*O <\*Vexpression2\*O>
+.IP
+Performs addition and subtraction on numbers.  For \*L\(pl\*O, if one
+argument is a string, then the other is converted to a string,
+and the result is the concatenation of the two strings.
+.LI "<\*Vexpression1\*O> \*L*\*O <\*Vexpression2\*O>\*L,\*O"
+<\*Vexpression1\*O> \*L/\*O <\*Vexpression2\*O>\*L,\*O
+.br
+<\*Vexpression1\*O> \*L%\*O <\*Vexpression2\*O>
+.IP
+Performs multiplication, division, modulo.  Numbers only.
+.LI "\*L\-\*O<\*Vexpression\*O>\*L, ~\*O<\*Vexpression\*O>\*L, !\*O<\*Vexpression\*O>\*L,\*O"
+\*L$\*O<\*Vexpression\*O>\*L, $?\*O<\*Vexpression\*O>
+.IP
+Performs unary minus, bitwise complement, and logical complement
+on numbers only (the first three expressions, respectively).
+The operator, \*L$\*O, takes <\*Vexpression\*O> and returns
+the value of the variable of that name.  If <\*Vexpression\*O> is numeric
+with value \*Vn\*O and it appears within an \*Lalias\*O macro
+(described later),
+then it refers to the \*Vn\*Oth argument of the \*Lalias\*O
+invocation.  \*L$?\*O tests for
+the existence of the variable <\*Vexpression\*O>, and returns 1
+if it exists or 0 otherwise.
+.LI "<\*Vexpression\*O>\*L(\*O<\*Vargument_list\*O>\*L)\*O"
+Performs a function call.  <\*Vexpression\*O> must be a
+string that is the unique
+prefix of the name of a built-in \*Lwindow\*O function
+or the full name of a user-defined \*Lalias\*O
+macro.  In the case of a built-in
+function, <\*Vargument_list\*O> can be in one of two forms:
+.iS
+<\*Vexpression1\*O>\*L,\*O <\*Vexpression2\*O>\*L,\*O \&...
+
+\*Vargument1\*O \*L=\*O <\*Vexpression1\*O>\*L,\*O \*Vargument2\*O \*L=\*O <\*Vexpression2\*O>\*L,\*O \&...
+.iE
+\*O\c
+.IP
+The two forms can in fact be intermixed, but the result is
+unpredictable.  Most arguments can be omitted; default values will
+be supplied for them.  Arguments can be unique prefixes
+of the argument names.  The commas separating
+arguments are used only to prevent ambiguity, and can usually be omitted.
+.IP
+Only the first argument form is valid for user-defined aliases.  Aliases
+are defined using the \*Lalias\*O built-in function (described
+later).  Arguments are accessed through a
+variant of the variable mechanism (see \*L$\*O operator previously
+described).
+.IP
+Most functions return a value, but some are used for side effects
+only and so must be used as statements.  When a function or an alias is used
+as a statement, the parentheses surrounding
+the argument list can be omitted.  Aliases return no value.
+.LE
+.SS Built-In Functions
+The arguments are listed by name in their natural
+order.  Optional arguments are in [ ] (brackets).  Arguments
+that have no names are in < > (angle brackets).
+.VL 4m
+.LI "\*Lalias(\*O[<\*Vstring\*O>]\*L,\*O [<\*Vstring_list\*O>]\*L)\*O"
+Lists all currently defined \*Lalias\*O macros, if no argument is given.
+Otherwise, <\*Vstring\*O> is defined as an alias,
+with expansion <\*Vstring_list\*O>.  The previous definition of
+<\*Vstring\*O>, if any, is returned.  Default for <\*Vstring_list\*O>
+is no change.
+.LI "\*Lclose(\*O<\*Vwindow_list\*O>\*L)\*O"
+Closes the windows specified in <\*Vwindow_list\*O>.
+If <\*Vwindow_list\*O>
+is the word \*Lall\*O, all windows are closed.  No value is returned.
+.LI "\*Lcursormodes(\*O[\*Vmodes\*O]\*L)\*O"
+Sets the window cursor to \*Vmodes\*O.  \*Vmodes\*O is the
+bitwise OR of the mode bits defined as the variables \*Lm_ul\*O (underline),
+\*Lm_rev\*O (reverse video), \*Lm_blk\*O (blinking),
+and \*Lm_grp\*O (graphics, terminal dependent).  Return
+value is the previous \*Vmodes\*O.  Default is no change.
+For example, \*Lcursor($m_rev\(br$m_blk)\*O sets
+the window cursors to blinking reverse video.
+.LI "\*Lecho(\*O[\*Vwindow\*O]\*L,\*O [<\*Vstring_list\*O>]\*L)\*O"
+Writes the list of strings, <\*Vstring_list\*O>, to \*Vwindow\*O,
+separated by spaces and terminated with a newline.  The strings are only
+displayed in the window; the processes in the window are not
+involved (see the built-in function
+\*Lwrite\*O, under \*LBuilt-In Functions\*O).  No
+value is returned.  Default is the current window.
+.LI "\*Lescape(\*O[\*Vescape_character\*O]\*L)\*O"
+Sets the Escape character to \*Vescape_character\*O.  Returns the old
+Escape character as a 1-character string.  Default is no
+change.  \*Vescape_character\*O can be a string of a single character, or
+in the form \*L^\*VX\*O, meaning \*L<Ctrl-\*Vx\*L>\*O.
+.LI "\*Lforeground(\*O[\*Vwindow\*O]\*L,\*O [\*Vflag\*O]\*L)\*O"
+Moves \*Vwindow\*O in or out of foreground.  \*Vflag\*O
+can be \*Lon\*O, \*Loff\*O,
+\*Lyes\*O, \*Lno\*O, \*Ltrue\*O, or \*Lfalse\*O, with
+obvious meanings, or it can be a numeric expression, in which case
+a nonzero value is TRUE.  Returns the old foreground flag
+as a number.  Default for \*Vwindow\*O is the current window;
+default for \*Vflag\*O is no change.
+.LI "\*Llabel(\*O[\*Vwindow\*O]\*L,\*O [\*Vlabel\*O]\*L)\*O"
+Sets the label of \*Vwindow\*O to \*Vlabel\*O.  Returns the old
+label as a string.  Default for \*Vwindow\*O is the current
+window; default for \*Vlabel\*O is no change.  To turn
+off a label, set it to an empty string (" ").
+.LI "\*Llist()\*O"
+Lists the identifiers and labels of all windows.  No
+value is returned.
+.LI "\*Lnline(\*O[\*Vnline\*O]\*L)\*O"
+Sets the default buffer size to \*Vnline\*O.  Initially, it is
+48 lines.  Returns the old default buffer size.  Default is
+no change.  Using a very large buffer can slow the program down
+considerably.
+.LI "\*Lselect(\*O[\*Vwindow\*O]\*L)\*O"
+Makes \*Vwindow\*O the current window.  The previous current window
+is returned.  Default is no change.
+.LI "\*Lshell(\*O[<\*Vstring_list\*O>]\*L)\*O"
+Sets the default window shell program to <\*Vstring_list\*O>.  Returns
+the first string in the old shell setting.  Default is no change.  Initially,
+the default shell is taken from the \*LSHELL\*O environment variable.
+.LI "\*Lsource(\*Vfile\*L)\*O"
+Reads and executes the long commands in \*Vfile\*O.  Returns
+-1 if the file cannot be read, 0 otherwise.
+.LI "\*Lterse(\*O[\*Vflag\*O]\*L)\*O"
+Sets terse mode to \*Vflag\*O.  In terse mode, the command window
+stays hidden even in command mode, and errors are reported by
+sounding the terminal's bell.  \*Vflag\*O can take on the same
+values as in \*Lforeground\*O.  Returns the old terse flag.
+Default is no change.
+.LI "\*Lunalias(\*Valias\*L)\*O"
+Undefines \*Valias\*O.  Returns -1 if \*Valias\*O does not exist,
+0 otherwise.
+.LI "\*Lunset(\*Vvariable\*L)\*O"
+Undefines \*Vvariable\*O.  Returns -1 if \*Vvariable\*O does not
+exist, 0 otherwise.
+.LI "\*Lvariables()\*O"
+Lists all variables.  No value is returned.
+.LI "\*Lwindow(\*O[\*Vrow\*O]\*L,\*O [\*Vcolumn\*O]\*L,\*O [\*Vnrow\*O]\*L,\*O [\*Vncolumn\*O]\*L,\*O [\*Vnline\*O]\*L,\*O [\*Vframe\*O]\*L,\*O"
+.LI "[\*Vpty\*O]\*L,\*O [\*Vmapnl\*O]\*L,\*O [\*Vsh\*O]\*L)\*O"
+Opens a window with upper-left corner at \*Vrow\*O (row), \*Vcolumn\*O
+(column) and of size \*Vnrow\*O, \*Vncolumn\*O.  If \*Vnline\*O is specified,
+then that many lines are allocated for the text buffer.  Otherwise,
+the default buffer size is used.  Default values for
+\*Vrow\*O, \*Vcolumn\*O, \*Vnrow\*O, and \*Vncolumn\*O are,
+respectively, the upper, leftmost, lower, or rightmost extremes of the
+screen.  \*Vframe\*O (frame), \*Vpty\*O, and \*Vmapnl\*O (mapnl) are flag values
+interpreted in the same way as the argument to \*Lforeground\*O
+(previously described); they mean,
+respectively, put a frame around this window (default TRUE),
+allocate pseudoterminal for this window rather than \*Lsocketpair\*O (default
+TRUE), and map newline characters in this window to carriage-return
+and linefeed (default TRUE if \*Lsocketpair\*O is used, FALSE otherwise).
+\*Vsh\*O is a list of strings that will be used as the shell
+program to place in the window (default is the program specified
+by \*Lshell\*O).  The created window's identifier is returned as a number.
+.LI "\*Lwrite(\*O[\*Vwindow\*O]\*L,\*O [<\*Vstring_list\*O>]\*L)\*O"
+Sends the list of strings, <\*Vstring_list\*O>, to \*Vwindow\*O,
+separated by spaces but not terminated with a newline.  The strings are
+actually given to the window as input.  No value is returned.  Default
+is the current window.
+.LE
+.SS Predefined Variables
+These variables are for information only.  Redefining them does
+not affect the internal operation of \*Lwindow\*O.
+.VL 4m
+.LI "\*Lbaud\*O"
+The baud rate as a number between 50 and 38,400.
+.LI "\*Lmodes\*O"
+The display modes (reverse video, underline, blinking, graphics)
+supported by the physical terminal.  The value of \*Lmodes\*O is
+the bitwise OR of some of the 1-bit values, \*Lm_blk\*O,
+\*Lm_grp\*O, \*Lm_rev\*O, and \*Lm_ul\*O.  These values are useful
+in setting the window cursor modes (see \*Lcursormodes\*O under
+\*LBuilt-In Functions\*O).
+.LI "\*Lm_blk\*O"
+The blinking mode bit.
+.LI "\*Lm_grp\*O"
+The graphics mode bit (not very useful).
+.LI "\*Lm_rev\*O"
+The reverse video mode bit.
+.LI "\*Lm_ul\*O"
+The underline mode bit.
+.LI "\*Lncol\*O"
+The number of columns on the physical screen.
+.LI "\*Lnrow\*O"
+The number of rows on the physical screen.
+.LI "\*Lterm\*O"
+The terminal type.  The standard name, found in the second name
+field of the terminal's \*LTERMCAP\*O entry, is used.
+.LE
+.SH FILES
+.PP
+.VL 11m
+.LI "\*L~/.windowrc\*O"
+Start-up file.
+.LI "\*L/dev/[pt]ty[pq]?\*O"
+Pseudoterminal devices.
+.LE
+.SH NOTES
+.PP
+The \*Lwindow\*O command was designed to use the \*Ltermcap\*O
+database.  OSF/1 uses the \*Lterminfo\*O database for terminal
+descriptions, however.  There is no way to dynamically set up a
+terminal description in \*Lterminfo\*O.  \*Lwindow\*O sets up a
+\*LTERMCAP\*O environment variable that OSF/1 commands do not use.
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lstty\*O(1).
+.PP
+The \*Lenviron\*O variable.
+.EQ
+delim off
+.EN

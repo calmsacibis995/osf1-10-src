@@ -1,0 +1,1390 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: dbx.1,v $ $Revision: 3.2.6.5 $ (DEC) $Date: 1993/12/21 20:05:03 $
+.\" 
+.TH dbx 1
+.SH NAME
+.PP
+\*Ldbx\*O \- source level debugger
+.SH SYNOPSIS
+.PP
+\*Ldbx \*O[\*L\-I \*Vdir\*O] [\*L\-c \*Vfile\*O] [\*L\-k\*O] [\*L\-i\*O] [\*L\-r\*O] [\*L\-pixie\*O] [\*Vobject\*O [\*Vcore\*O]]
+.SH DESCRIPTION
+.PP
+The
+\*Ldbx\*O
+command invokes a source-level debugger.
+.\" ***FOLLOWING TWO SENTENCES RE-ADDED PER LSW REQUEST***
+You can use \*Ldbx\*O with code produced by the \*Lcc\*O
+and \*Las\*O compilers and with machine code.
+After invoking the \*Ldbx\*O debugger, you issue \*Ldbx\*O commands that
+allow you to examine source files, control program execution, display
+the state of the program, and debug at the machine level.
+.PP
+.iX "dbx command (RISC only)"
+.iX "debugger" "dbx command"
+.iX "debugger" "source-level"
+.PP
+You can use command options to modify some steps that \*Ldbx\*O
+performs during startup. (For information on the available options, see
+the Options section.) Unless you specify the \*L\-r\*O
+option, \*Ldbx\*O prompts you for a command before it begins executing
+your program. The \*Ldbx\*O prompt appears as follows:
+.oS
+(dbx)
+.oE
+To leave \*Ldbx\*O issue the
+\*Lquit\*O command.
+.SS Arguments
+On the command line, the \*Vobject\*O argument names the object file
+that you want
+\*Ldbx\*O
+to read as input. For complete
+\*Ldbx\*O
+support, the object file must contain extended symbol table information.
+The supported compilers each have a
+\*L\-g\*O
+option that produces the symbol table information in the object file.
+.PP
+The extended symbol table contains the name of all
+the source files translated by the compiler to create the object file.
+This information allows you to look at all of the source code that went
+into creating an object file during your debugging session. (The
+extended symbol table also contains other information.)
+.PP
+If your object file does not contain the extended symbol table
+information, use the commands described in the Debugging at the Machine
+Code Level section to debug your program.
+.PP
+If you omit the \*Vobject\*O argument, \*Ldbx\*O
+prompts you for the name of an object file. If you press the Return key,
+\*Ldbx\*O attempts to read a file named \*La.out\*O from the
+current directory. If no \*La.out\*O file exists, \*Ldbx\*O exits.
+.PP
+The \*Vcore\*O argument names a core dump file. You can examine the
+core dump file to determine the state of the program when it failed.
+.SS Initialization File
+During its startup, \*Ldbx\*O reads and executes the commands in an
+initialization file (if present).  By default, \*Ldbx\*O searches for
+the initialization file \*L\&.dbxinit\*O
+in the current directory. If no \*L\&.dbxinit\*O file exists in the
+current directory, \*Ldbx\*O searches your home directory for the file.
+You can use the initialization file to issue setup commands automatically
+when you begin a \*Ldbx\*O session.
+(See the section Predefined dbx Variables for information on the
+debugger variables that you can control in the initialization file.)
+.PP
+.SS Debugger Expressions
+You specify \*Ldbx\*O
+expressions using the C syntax for expressions. The debugger
+supports a subset of the expression syntax.
+For example, you can denote indirection using either an asterisk (*)
+as a prefix or a circumflex (^) as a suffix.
+You can use the field reference operator (.) with pointers
+as well as with records or structures, making the C operator (->)
+unnecessary (although it is supported).
+.PP
+You must enclose array expressions in brackets ([ ]).
+.PP
+You can also specify a register name in an expression.
+You denote registers by \*L$r\*VN\*O where \*VN\*O is the number
+of the register.
+.SS Debugger Name Resolution
+The debugger resolves names by searching for the name in the
+static scope of the current function.  If no name is defined in the
+static scope, the debugger searches the dynamic scope. If neither scope
+yields a defined name, the debugger chooses an arbitrary symbol and
+displays the following message:
+.oS
+[using\ \*Vqualified\.name\*O]
+.oE
+The debugger substitutes the qualified name of the arbitrary symbol for
+\*Vqualified.name\*O in the message.
+.PP
+You can override this name resolution procedure by qualifying
+identifiers with a block name, as in \*Vmodule\*O.\*Vvariable\*O.
+For the C language, the debugger treats a source file as a module named
+from the filename without the \*L\&.c\*O suffix.
+.SS Command Line Editing
+The \*Ldbx\*O monitor provides commands that permit
+command-line editing.
+These commands allow you to correct mistakes without
+re-entering an entire command.
+.\" ***CSH EDITING SUPPORT DIFFERENT PER LSW***
+.\" The editing commands are the same as those used for
+.\" .L csh
+.\" command line editing.  See the
+.\" .MS csh 1
+.\" reference page for a description of the editing commands.
+To enable command-line editing, you must enter the following command
+from the C shell (before you invoke \*Ldbx\*O):
+.oS
+% setenv LINEEDIT
+.oE
+The following commands are used in
+\*Ldbx\*O
+command line editing:
+.VL 8m
+.LI "\*L^A\*O"
+Move the cursor to the beginning of the command line.
+.LI "\*L^B\*O"
+Move the cursor back one character.
+.LI "\*L^C\*O"
+Clear the line.
+.LI "\*L^D\*O"
+Delete the character at the cursor.
+.LI "\*L^E\*O"
+Move the cursor to the end of the line.
+.LI "\*L^F\*O"
+Move the cursor ahead one character.
+.LI "\*L^H\*O"
+Delete the character immediately preceding the cursor.
+.LI "\*L^J\*O"
+Execute the line.
+.LI "\*L^K<\*Vchar\*O>\*O"
+Delete all characters until the cursor is on the specified
+character.
+.LI "\*L^L\*O"
+Redisplay the current line.
+.LI "\*L^M\*O"
+Execute the line.
+.\" ***DIFF BETWEEN "J" AND "M"?***
+.LI "\*L^N\*O"
+Move ahead one line. (This line comes from the history list.)
+.LI "\*L^P\*O"
+Move back one line.  (This line comes from the history list.)
+.LI "\*L^R<\*Vchar\*O>\*O"
+Search back in the current line for the specified character.
+.LI "\*L^T\*O"
+Interchange the two characters immediately preceding the cursor.
+.LI "\*L^U\*O"
+Repeat the next character four times.
+.LI "\*L^W\*O"
+Delete the entire line.
+.LI "\*L^Y\*O"
+Insert immediately before the cursor any text cut with ^K.
+.LI "\*L^Z\*O"
+Try to complete a file or symbol name.
+.LE
+.PP
+\*LNote\*O:
+The notation ^ represents the CTRL key.
+For example, ^A indicates that the CTRL and A keys should be
+pressed simultaneously.
+.SH FLAGS
+.PP
+The \*Ldbx\*O debugger accepts the following options:
+.VL 4m
+.LI "\*L\-c \*Vfile\*O"
+Selects a command file other than
+\*L\&.dbxinit\*O.
+.LI "\*L\-i\*O"
+Invokes
+\*Ldbx\*O
+in interactive mode.  This option causes the debugger to not treat
+source lines beginning with number signs (#) as comments.
+.LI "\*L\-I \*Vdir\*O"
+Adds \*Vdir\*O to the list of directories that
+\*Ldbx\*O
+searches for source files. By default,
+\*Ldbx\*O
+searches the current directory and the directory where \*Vobject\*O is
+located.
+You can specify multiple directories by using multiple
+\*L\-I\*O
+options.
+.LI "\*L\-k\*O"
+Maps memory addresses. This option is useful for kernel debugging.
+(Refer to \*Lkdbx\*O(8) for information on kernel debugging.)
+.LI "\*L\-pixie\*O"
+Reads in output from the
+\*Lpixie\*O
+code profiler utility.
+For this option to work, you must have executable \*Lpixie\*O
+output and the \*Lnonpixie\*O executable file in the same directory.
+The \*Lpixie\*O output must be named \*Vfilename\*O.\*Lpixie\*O, where
+\*Vfilename\*O is the name of the executable file.
+.LI "\*L\-r\*O"
+Executes the object file immediately. If program execution terminates
+with an error, \*Ldbx\*O displays the message that describes the error.
+You can then either invoke the debugger or let the program
+continue exiting. The \*Ldbx\*O debugger reads from \*L/dev/tty\*O
+when you specify the \*L\-r\*O option and standard input is not
+a terminal. If the program executes successfully, \*Ldbx\*O prompts you
+for input.
+.LI "\*L\-remote\*O"
+For use with the \*Lkdebug\*O kernel debugger.  (Refer to
+.MS kdebug 8
+for information on breakpoint kernel debugging.)
+.LI "\*L\-emacs\*O"
+Outputs file and line number information in a format compatible with
+the emacs function \*Lgdb\*O.
+.LI "\*L\-pid \*Vxxx\*O"
+Attaches \*Ldbx\*O to a currently running process specified by process
+id \*Vxxx\*O.
+.LE
+.SS dbx Commands
+The debugger supplies a number of commands that you can issue at the
+dbx prompt.
+.PP
+Multiple commands can be specified on the same command line by
+separating them with a semicolon (;).
+.PP
+You can repeat \*Ldbx\*O commands by pressing carriage return.
+Pressing carriage return repeats the last command issued to
+\*Ldbx\*O.
+(This feature can be turned off by setting the
+\*L$repeatmode\*O
+variable to 0.)
+.PP
+The following sections describe the commands supported by
+\*Ldbx\*O.
+.SS Controlling the Monitor
+Use the following commands to control the \*Ldbx\*O monitor:
+.VL 4m
+.LI "\*L!\*Vstring\*O or \*L!\*Vinteger\*O or \*L!\*V\-integer\*O"
+Executes a command from the history list. You can specify the command
+name in the \*Vstring\*O argument. If you specify an integer,
+\*Ldbx\*O
+executes the command having that number in the history list.
+If you specify
+\*V-integer\*O, the debugger executes the command that you issued
+\*Vinteger\*O commands ago. For example, if you specify -3, the
+debugger issues the command you issued three commands ago. The debugger
+echoes the command on standard output before executing it.
+.LI "\*Lhelp\*O [\*Vtopic\*O]"
+With no argument, displays a list of topics for which help
+information is available.
+If you name a topic, the debugger displays help information
+on that topic.
+.LI "\*Lhistory\*O"
+Displays a list of the previous commands you issued.
+By default, the debugger displays the previous 20 commands.
+You can change the number of commands
+\*Ldbx\*O
+keeps in the history list by using the
+\*Lset\*O
+command to modify the
+\*L$lines\*O debugger variable.
+.IP
+Predefined alias for \*Lhistory\*O command: \*Lh\*O
+.LI "\*Lquit\*O"
+Exit \*Ldbx\*O.
+Predefined alias for \*Lquit\*O command: \*Lq\*O
+.LE
+.SS Controlling dbx
+Use the following commands to control the operation of the
+\*Ldbx\*O
+debugger.
+.VL 4m
+.LI "\*Lalias \*O[\*Vname\*O[(\*Varg1,arg2,...)\*O]\*Vstring\*O]"
+Lists all existing aliases or defines an alias.
+If you omit all arguments to the \*Lalias\*O command,
+\*Ldbx\*O
+displays a list of the existing aliases.
+.IP
+You can supply arguments to define a new alias.
+If you specify a
+\*Ldbx\*O
+command for \*Vstring\*O, the debugger assigns \*Vname\*O as an alias
+for that command. For example, to define an alias rr for the command
+\*Lrerun\*O, issue the following command:
+.oS
+(dbx) \*Lalias rr "rerun"\*O
+.oE
+If you specify parameters in the
+\*Lalias\*O
+command, the debugger substitutes the values you supply on the command
+line when it executes the command. For example, to define halt as an
+alias that sets a stop at a particular line, issue the following
+command:
+.oS
+(dbx) \*Lalias halt(x) "stop at x"\*O
+.oE
+Once you issue this command,
+\*Ldbx\*O
+interprets the following commands as the same:
+.oS
+(dbx) \*Lhalt(12)\*O
+(dbx) \*Lstop at 12\*O
+.oE
+Both commands set a breakpoint at source line 12.
+.IP
+To remove an alias, use the
+\*Lunalias\*O
+command, as shown:
+.oS
+(dbx) \*Lunalias halt\*O
+.oE
+.LI "\*Ldelete \*Vevent-number, ...\*O or \*Ldelete all\*O or \*Ldelete *\*O"
+Deletes the specified breakpoint, trace event, or record
+event from the status list.  The argument
+\*Lall\*O and the argument \*L*\*O
+delete all events from the status list.
+.IP
+Predefined alias for \*Ldelete\*O command: \*Ld\*O
+.LI "\*Llistobj\*O"
+Displays the names of the objects that have been loaded by dbx.
+These objects include the main program and all of the shared
+libraries that are used in the application.
+.LI "\*Lplayback input \*O[\*Vfile\*O]"
+Replays commands that were saved with the \*Lrecord input\*O
+command in a text file.
+If you omit \*Vfile\*O, the debugger reads commands from the
+temporary file it creates by default when you issue the \*Lrecord input\*O
+command.
+.IP
+Predefined alias for \*Lplayback input\*O command: \*Lpi\*O or \*Lsource\*O
+.LI "\*Lplayback output \*O[\*Vfile\*O]"
+Replays debugger output that was saved with the \*Lrecord output\*O
+command. If you omit \*Vfile\*O, the debugger displays output stored in
+a temporary file it creates by default when you issue the
+\*Lrecord output\*O command.
+.IP
+Predefined alias for \*Lplayback output\*O command: \*Lpo\*O
+.LI "\*Lrecord input \*O[\*Vfile\*O]"
+Records all commands you enter at the
+\*Ldbx\*O
+prompt. If you omit \*Vfile\*O, the debugger creates a temporary file
+that it deletes when you exit from the debugger.
+.IP
+The debugger associates an event number with each \*Lrecord\*O
+command you issue.  You use the event number to turn off recording, as
+described with the \*Ldelete\*O
+command.
+.IP
+Predefined alias for \*Lrecord input\*O command: \*Lri\*O
+.LI "\*Lrecord output \*O[\*Vfile\*O]"
+Records all \*Ldbx\*O output. If you omit \*Vfile\*O, the debugger creates
+a temporary file that it deletes when you exit from the debugger.
+To record input and output to the same file, set the
+\*L$rimode\*O debugger variable.
+.IP
+The debugger associates an event number with each
+\*Lrecord\*O command you issue.  You use the event number to turn off
+recording, as described with the \*Ldelete\*O command.
+.IP
+Predefined alias for \*Lrecord output\*O command: \*Lro\*O
+.LI "\*Lsource\*O \*Vfile\*O"
+Executes the \*Ldbx\*O commands from the specified file. This command is an
+alias for the \*Lplayback\*O input command.
+.LI "\*Lstatus\*O\"
+Lists current breakpoints, record events, and trace events.
+.IP
+Predefined alias for \*Lstatus\*O command: \*Lj\*O
+.LI "\*Lset \*O[\*Vvariable\*O = \*Vexpression\*O]"
+Lists existing debugger variables and their values or defines a value
+for the named debugger variable.
+.IP
+Some debugger variables contain either
+a zero or nonzero value that controls
+\*Ldbx\*O
+behavior. For example, when set to a nonzero value, the
+\*L$hexstrings\*O
+variable causes the debugger to display all strings in hexadecimal
+format.  When set to zero, this variable causes the debugger to
+display strings in character format. You can set a variable like
+\*L$hexstrings\*O to a nonzero value as shown:
+.oS
+(dbx) \*Lset $hexstrings = 1\*O
+.oE
+You can disable the variable using the \*Lunset\*O
+command, as shown:
+.oS
+(dbx) \*Lunset $hexstrings\*O
+.oE
+.IP
+You can create a debugger variable using
+a name of your own.  A debugger variable name you create must not
+conflict with the name of any variable in the program you are
+debugging, and it must not begin with a dollar sign ($).
+For information on existing
+debugger variables, see Predefined Debugger Variables. (Use the
+\*Lassign\*O command to change the value of variables in your program.
+See the section Preparing for Program Execution for information
+on the \*Lassign\*O command.)
+.LI "\*Lsetenv \*Vname \*Vstring\*O"
+Sets the environment variable \*Vname\*O to \*Vstring\*O by changing
+the value of an existing environment variable or creating a new one.
+To reset the environment variable, specify a null string. The
+following example shows how to reset the \*LEDITOR\*O environment variable:
+.oS
+(dbx) \*Lsetenv EDITOR ""\*O
+.oE
+.LI "\*Lsh \*O[\*Vshell command\*O]"
+Calls a shell from \*Ldbx\*O
+or executes the specified shell command.
+The \*Lsh\*O command cannot be used in the action list of the \*Lwhen\*O
+and \*Lwheni\*O \*Ldbx\*O commands.
+.LI "\*Ltagvalue \*O(\*Vtagname\*O)"
+Returns the value of \*Vtagname\*O, where \*Vtagname\*O is a tag that
+marks a function or type definition in your program.
+If the tag extends to more than one line or if it contains arguments,
+the debugger issues an error message.
+You can use \*Ltagvalue\*O in commands where you specify a procedure
+or function name.
+.\"ADD BACK IN EXAMPLE WHEN TAGVALUE IS FIXED!!!
+.IP
+For example, if a tag getline is associated with a function, the
+following command is valid:
+.oS
+(dbx) call tagvalue(getline) ()
+.oE
+.IP
+This command causes execution to begin at the location associated with
+the getline tag.
+.IP
+You create tags using the \*Lctags\*O
+command.  See \*Lctags\*O(1) for information. The debugger uses the file
+named in the \*L$tagfile\*O
+variable when resolving references to tags.
+.LI "\*Lunalias \*Vname\*O"
+Removes the specified alias.
+.LI "\*Lunset \*Vvariable\*O"
+Removes the setting of a specified debugger variable.
+.LE
+.SS Examining Source Code
+The following commands allow you to examine your source files during a
+debugging session:
+.VL 4m
+.LI "\*L\*V\|regular expression\*O or \*L?\*Vregular expression\*O"
+Searches forward or backward in the source code for the
+regular expression.
+.LI "\*Ledit \*O[\*Vfile\*O]"
+Invokes an editor on \*Vfile\*O or the current source file if none is
+specified. By default, \*Ldbx\*O invokes the \*Lvi\*O
+editor. You can override the default setting by modifying the
+EDITOR environment variable.
+.LI "\*Lfile \*O[\*Vfile\*O]"
+Changes the current file to \*Vfile\*O, or, if you omit \*Vfile\*O,
+displays the name of the current file.
+.IP
+Predefined alias for \*Lfile\*O command: \*Le\*O
+.LI "\*Lfunc \*O[\*Vexpression\*O]"
+.LI "\*Lfunc \*O[\*Vprocedure\*O]"
+Changes the current procedure or function to the one you specify.
+If you omit \*Vexpression\*O and \*Vprocedure\*O, the debugger
+displays the name of the current procedure or function.
+.IP
+Changing the current function implicitly changes the current
+source file to the one that contains the procedure or function;
+it also changes the current scope used for name resolution.
+.IP
+Predefined alias for \*Lfunc\*O command: \*Lf\*O
+.LI "\*Llist \*O[\*Vsource-line-number\*O[:\*Vinteger\*O]]"
+.LI "\*Llist \*O[\*Vsource-line-number\*O[\*L,\*V source-line-number\*O]]"
+.LI "\*Llist \*O[\*Vprocedure\*O]"
+Lists the lines in the current source file.
+.IP
+If you specify a source line number and an integer, \*Ldbx\*O
+lists beginning from
+\*Vsource-line-number\*O and continuing for \*Vinteger\*O number of
+lines. If you omit \*Vinteger\*O, the debugger displays 10 lines by default.
+.IP
+If you specify two source line numbers separated by a comma,
+the debugger begins the display at the first source line number
+and continues through the second source line number. If you omit the
+second source line number, the debugger displays 10 lines by default.
+.IP
+If you specify a procedure or function name, the debugger displays lines
+in that procedure or function. The debugger displays 10 lines by default.
+.IP
+If you omit all arguments, the debugger begins the display at the
+current line and displays 10 lines by default.
+.IP
+The \*L$listwindow\*O
+debugger variable controls how many lines the debugger displays.
+The default value for \*L$listwindow\*O is 10.
+.\" the following is suppposed to be a nested list, but do to a bug
+.\" in processing, it is coded crudely to make it work for EFT 9/92
+.\".VL 3m
+.\" .LI  "\*Ll\*O"
+.\" List the next 10 lines of source code.
+.\" .LI "\*Lli\*O"
+.\" List the next 10 machine instructions following the current
+.\" machine instruction.
+.\" .LI "\*Lu\*O"
+.\" List the previous 10 lines of source code.
+.\" .LI "\*Lw\*O"
+.\" List the five lines preceding and following the current line.
+.\" .LI "\*LW\*O"
+.\" List the 10 lines preceding and following the current line.
+.\" .LI "\*Lwi\*O"
+.\" List the five machine instruction preceding and following the current
+.\" machine instruction.
+.\" .LE
+.IP
+Predefined aliases for \*Llist\*O command:
+.VL 4m
+.LI "\*Ll\*O"
+The next 10 lines of source code.
+.LI "\*Lli\*O"
+The next 10 machine instructions after the current
+machine instruction.
+.LI "\*Lu\*O"
+The previous 10 lines of source code.
+.LI "\*Lw\*O"
+The five lines before and after the current line.
+.LI "\*LW\*O"
+The 10 lines before and after the current line.
+.LI "\*Lwi\*O"
+The five machine instructions before and after the current one.
+.LE
+.LI "\*Ltag \*Vtagname\*O"
+Sets the current source file or source line to the location specified
+by \*Vtagname\*O.
+.IP
+You create tags using the \*Lctags\*O command. See \*Lctags\*O(1)
+for more information. The debugger uses the tag file
+named in the \*L$tagfile\*O debugger variable to resolve references to tags.
+.LI "\*L\*Luse \*O[\*Vdirectory\*O ...]"
+Displays or sets the list of directories that
+\*Ldbx\*O uses when searching for source files. If you issue
+the \*Luse\*O command
+without arguments, the debugger displays the list of directories it
+searches for source files. To change the directory list, specify the
+names of the directories you want on the list as arguments to the
+\*Luse\*O command. The directories you specify replace any existing directory
+list.
+Give absolute or relative pathnames; ~ is not supported.
+.IP
+The use command looks first for source files in the path consisting
+of the complete source path used when the file was compiled appended to
+the directory specified in the \*Luse\*O command.  If the \*Luse\*O
+command cannot find the source file with that path, it takes the directory
+specified by the \*Luse\*O command and only the filename part of the
+compilation source path.
+.IP
+For example, when you built the program, the sources were in
+/usr/src/project. For some reason, perhaps because of different
+NFS mounting, when you run it, the sources are in \*L/project\*O.
+You enter:
+.oS
+(dbx) use /project
+.oE
+.IP
+The \*Luse\*O command looks for \*L/project/../../src/project/filename.c\*O
+and cannot find it. If you enter the following command, the \*Luse\*O
+command can find the source file:
+.oS
+(dbx) use /project/filename.c
+.oE
+.LI "\*Lwhatis \*Vvariable\*O or \*Lwhatis struct \*Vname\*O"
+Displays the type declaration for \*Vvariable\*O.
+(If \*Vvariable\*O is a
+\*Ldbx\*O keyword, it must be enclosed within parentheses.)
+.LI "\*Lwhereis \*Vvariable\*O"
+Displays the fully qualified name of each occurrence of \*Vvariable\*O.
+The order in which the debugger displays the qualified names is not
+meaningful.  (If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.LI "\*Lwhich \*Vvariable\*O"
+Displays the fully qualified name of \*Vvariable\*O.
+(If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.LE
+.SS Preparing for Program Execution
+Before you execute your program under \*Ldbx\*O
+control, you might want to perform setup tasks, such as
+changing the value of debugger variables, specifying what signals
+your program should recognize or ignore, and setting breakpoints.
+The following commands allow you to perform these tasks:
+.VL 4m
+.LI "\*Laddobj \*Vlib_path\*O"
+Loads shared libraries.
+The \*Vlib_path\*O argument specifies the absolute or relative pathname
+of the shared library. \*Ldbx\*O reads in the shared library's symbol table.
+.IP
+Use this command only for debugging applications that load in
+their own shared libraries instead of using the dynamic loader.
+For applications that do not load their own shared libraries, \*Ldbx\*O
+will obtain the names of the shared libraries from the dynamic loader.
+.IP
+Limitation:
+\*Ldbx\*O
+will not work correctly when a shared library is added with the
+\*Laddobj\*O command and the library is loaded at an address that differs
+from the address at which it was linked.
+.LI "\*Lassign \*Vvariable = expression\*O"
+.LI "\*Lassign \*Vexpression1 = expression2\*O"
+Assigns the value of the specified expression to the specified program variable.
+The program must be running for the
+\*Lassign\*O command to work. (If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.IP
+Use the \*Lset\*O command to set the value of debugger variables.
+.IP
+Predefined alias for \*Lassign\*O command: \*La\*O
+.LI "\*Lcatch \*O[\*Vsignal\*O]"
+Lists all signals that \*Ldbx\*O catches or, if you supply an argument, causes
+\*Ldbx\*O to catch that signal. The signal you specify is added to the list of
+signals \*Ldbx\*O
+catches, so the debugger continues to catch any signals that were
+already on its list. Some signals cannot be caught by any process.
+For a list of signals and information on which signals can be caught,
+see \*Lsignal\*O(3) for more information.
+.LI "\*Lignore \*O[\*Vsignal\*O]"
+Lists all signals that \*Ldbx\*O ignores.  If you specify a signal,
+this command adds the signal to the list of signals the debugger
+ignores. Some signals cannot be ignored by any process. For a list of
+signals and information on which signals can be ignored, see
+\*Lsignal\*O(3) for more information.
+.LI "\*Lpatch \*Vvariable\*O \*L= \*Vexpression\*O \*L\*Lpatch \*Vexpression1 = expression2\*O"
+Patches executable disk files to correct bad data or instructions.
+The text, initialized data, or read-only data areas can be patched.
+The bss segment cannot be patched because it does not exist in disk files.
+.IP
+Examples:
+.sp
+.oS
+patch &main = 0
+patch foo = 20 or patch &foo = 20
+patch 0xnnnnn = 0xnnnnn
+.oE
+.IP
+Limitations: The \*Lpatch\*O command will fail if it is issued against
+a program that is executing.
+.LI "\*Lstop \*Vvariable\*O"
+.LI "\*Lstop \*O[\*Vvariable\*O] \*Lat \*Vsource-line\*O [\*Lif \*Vcondition\*O]"
+.LI "\*Lstop \*O[\*Vvariable\*O] \*Lin \*Vprocedure\*O \*O[\*Lif \*Vcondition\*O]"
+.LI "\*Lstop \*O[\*Vvariable\*O] \*Lif \*Vcondition\*O"
+Stops execution when the specified variable changes value, the
+specified source line is reached, the specified procedure or
+function is called, or the specified condition is true.
+The condition must be a Boolean expression.
+(If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.IP
+If you specify \*Vvariable\*O with a source line number, the debugger
+stops execution when the source line number is reached and the variable
+changes value.
+If you specify \*Vvariable\*O with \*Lin \*Vprocedure\*O,
+the debugger stops execution when it is executing in the named
+procedure or function
+and the named variable changes value.  With \*Lif \*Vcondition\*O, the
+debugger stops execution when the condition is met and the variable
+changes value.
+.IP
+If you specify a condition with \*Lat \*Vsource-line\*O or
+\*Lin \*Vprocedure\*O,
+the debugger stops only if the condition is true.
+.IP
+The debugger associates an event number with each \*Lstop\*O
+command you issue.  You use the event number to remove the breakpoint,
+as described with the \*Ldelete\*O command.
+.IP
+Predefined aliases for \*Lstop\*O command:
+.VL 4m
+.LI "\*Lb\*O"
+Sets a breakpoint at a specified line.
+.LI "\*Lbp\*O"
+Stops in a specified procedure.
+.LE
+.LI "\*Ltrace\*O [\*Lat\*O] \*Vsource-line\*O"
+.LI "\*Ltrace\*O \*Vprocedure\*O"
+.LI "\*Ltrace \*Vvariable \*O[\*Lat \*Vsource-line\*O] [\*Lif \*Vcondition\*O]"
+.LI "\*Ltrace \*Vvariable \*O[\*Lin \*Vprocedure\*O] [\*Lif \*Vcondition\*O]"
+Displays tracing information during program execution.  The
+\*Ldbx\*O debugger associates an event number with each \*Ltrace\*O
+command you issue. You use the event number to turn off tracing,
+as described with the \*Ldelete\*O command.
+(If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.IP
+The first argument to the
+\*Ltrace\*O command specifies what the debugger is to trace.  You
+can specify a source line number, a procedure name, or a variable name.
+.IP
+If you specify a source line number,
+\*Ldbx\*O
+displays the source line immediately prior to executing it. You can
+specify a source line number in a source file that is not the current
+one. To do so, precede the source line number with the source file name
+in quotation marks (" ") followed by a colon (:), as shown in
+the following example:
+.oS
+(dbx) \*Ltrace at "source_file.c":17\*O
+.oE
+The example specifies tracing line 17 in \*Lsource_file.c\*O.
+.IP
+Specifying a procedure or function name causes \*Ldbx\*O
+to display the name of the calling routine, the source line that
+contains the call, and the parameters that are passed to the called
+routine. In addition, \*Ldbx\*O
+notes the return of the named procedure or function and displays the
+return value, if any.  The debugger displays this information each time
+the procedure or function is called.
+.IP
+Specifying a variable name causes \*Ldbx\*O
+to display the name and value of the variable each time it changes.
+Program execution is substantially slower during this form of tracing.
+.IP
+If you specify the \*Lin\*V procedure\*O clause, \*Ldbx\*O
+displays tracing information only while executing the specified
+procedure or function.
+.IP
+The \*Vcondition\*O is a Boolean expression that \*Ldbx\*O
+evaluates prior to displaying any tracing information. The debugger
+displays tracing information only if the condition is true.
+.IP
+Predefined alias for \*Ltrace\*O command: \*Ltr\*O
+.LI "\*Lwhen \*O[\*Vvariable\*O] [\*Lat\*V line\*O] \*L{\*Vcommand_list\*L}\*O"
+.LI "\*Lwhen \*O[\*Vvariable\*O] [\*Lin \*Vprocedure\*O] \*L{\*Vcommand_list\*L}\*O"
+Executes the specified \*Ldbx\*O
+command list. You can separate the commands by commas (,) or
+semi-colons (;).
+.IP
+If you specify \*Vvariable\*O, the debugger executes the command list
+when the value of the variable changes. Specify \*Lat \*Vline\*O or
+\*Lin \*Vprocedure\*O to control which occurrence of the variable
+causes the debugger to execute the command list.
+(If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.LE
+.SS Initiating Program Execution
+The following commands allow you to control program execution:
+.VL 4m
+.LI "\*Lcall \*Vprocedure \*L(\*O[\*Vparameters\*O]\*L)\*O"
+.LI "\*Lprint \*Vprocedure \*L(\*O[\*Vparameters\*O]\*L)\*O"
+Executes the object code associated with the named procedure or function.
+This command passes the specified parameters to the procedure
+or function.
+.IP
+The \*Lprint\*O and \*Lcall\*O commands treat values returned by called
+procedures differently: the \*Lprint\*O command displays them and
+the \*Lcall\*O command does not.
+.LI "\*L[\*O\*Vn\*O] \*Lcont \*O[\*Vsignal\*O]"
+.LI "\*Lcont \*O[\*Vsignal\*O] \*Lto \*Vsource-line\*O"
+.LI "\*Lcont \*O[\*Vsignal\*O] \*Lin \*Vprocedure\*O"
+Continues execution from where it stopped.
+If you specify an integer \*Vn\*O, the
+debugger ignores that number of stops after it resumes program
+execution.
+If you specify \*Vsignal\*O, the process continues as though it
+received the signal.
+.IP
+If you specify \*Lto \*Vsource-line\*O, the debugger continues
+execution until it reaches the specified source line.
+.IP
+If you specify \*Lin \*Vprocedure\*O, the debugger resumes execution in
+the named procedure or function.
+.IP
+Predefined alias for \*Lcont\*O command: \*Lc\*O
+.\".TP 15
+.\"\*Ldebug \*O[\*Vobject \*O[\*Vcore\*O]]
+.\"Terminates the current debugging session and begins debugging
+.\"\*Vobject\*O or displays the name of the current program.
+.\"If you specify \*Vcore\*O, you can use the core file to determine
+.\"the state of your program.
+.\"When you use
+.\"\*Ldebug
+.\"to begin a new debugging session, any options that
+.\"you specified when you invoked
+.\".PN dbx
+.\"remain in effect.  Similarly, any aliases,
+.\".PN dbx
+.\"variables, or environment variables that were defined during
+.\"the first session remain unchanged.
+.\".PP
+.\"If you omit arguments for this command, the debugger displays
+.\"the name of the program you are currently debugging and that
+.\"program's arguments.
+.LI "\*Lgoto \*Vsource-line\*O\*O"
+Branches to the specified source line.
+Execution continues from that point when you issue a \*Lcont\*O command.
+.IP
+Predefined alias for \*Lgoto\*O command: \*Lg\*O
+.LI "\*Lnext \*O[\*Vinteger\*O]"
+Executes up to the next source line.
+.IP
+The \*Lnext\*O command does not step into procedures of functions;
+execution stops at the source line that follows the call.
+If you specify \*Vinteger\*O, the debugger performs the specified
+number of \*Lnext\*O commands.
+.IP
+Predefined alias for \*Lnext\*O command: \*Ln\*O
+.LI "\*Lrerun \*O[\*Varg1, arg2,...\*O] [\*L<\*Vfile1\*O][\*L>\*Vfile2\*O]"
+.LI "\*Lrerun \*O[\*Varg1, arg2,...\*O] [\*L<\*Vfile1][\*L>&\*Vfile2\*O]"
+Reruns the program, using the same arguments that were specified
+with the \*Lrun\*O command.
+If you specify new arguments, \*Lrerun\*O uses those arguments.
+.IP
+You can use angle brackets (< or >) to redirect input or output in the
+usual manner.
+.IP
+Predefined alias for \*Lrerun\*O command: \*Lr\*O
+.LI "\*Lrun \*O[\*Varg1,arg2,...\*O] [\*L<\*Vfile1\*O] [\*L>\*Vfile2\*O]"
+.LI "\*Lrun \*O[\*Varg1,arg2,...\*O] [\*L<\*Vfile1\*O] [\*L>&\*Vfile2\*O]"
+Runs the program, passing it the specified arguments.
+Arguments containing brackets ([]), asterisks (*), or other
+special characters must be enclosed in quotes or escaped
+to avoid parsing errors.
+.IP
+You can use angle brackets (< or >) to redirect input or output in the
+usual manner.
+.LI "\*Lreturn \*O[\*Vprocedure\*O]"
+Executes until a return to \*Vprocedure\*O is executed or until the
+current procedure or function returns if you omit \*Vprocedure\*O.
+.LI "\*Lstep \*O[\*Vinteger\*O]"
+Executes one source line. If the source line contains a call to a
+procedure or function, the \*Lstep\*O
+command stops at the first line of the procedure or function. (The
+debugger does not stop at the first line of a procedure or function if
+you compiled your program without using the \*L\-g\*O option.)
+.IP
+If you specify \*Vinteger\*O, the debugger performs the specified number
+of \*Lstep\*O commands.
+.IP
+Predefined alias for \*Lstep\*O command: \*Ls\*O
+.LE
+.SS Examining Program State
+Use the following commands to determine the state of your program:
+.VL 4m
+.LI "\*Ldump \*O[\*Vprocedure\*O] [\*V\&.\*O]"
+Displays variable information about the named procedure or function, or
+the current procedure or function if you do not specify one.  If you
+specify dot (.), the debugger displays information on
+all procedures or functions in the stack and their variables.
+.LI "\*Ldown \*O[\*Vexpression\*O]"
+Moves the current function down in the stack (based on
+the number of activation levels that you specify).
+The default is one level.
+.LI "\*Lup \*O[\*Vexpression\*O]"
+Moves the current function up in the stack (based on the number
+of activation levels that you specify).  The default is one level.
+.LI "\*Lprint \*Vexpression1,expression2,\&.\&.\&.\*O"
+Displays the value of the specified expression.
+(If a specified expression contains the name of a variable
+that is also a \*Ldbx\*O
+keyword, the variable name must be enclosed within parentheses.)
+.IP
+Predefined alias for \*Lprint\*O command: \*Lp\*O
+.LI "\*Lprintf \*Vformat, arg1,arg2,...\*O"
+Formats an expression as specified. You use the same format
+specifiers for this command as for the \*Lprintf\*O subroutine.
+For information on specifying the format, see \*Lprintf\*O(3).
+(The \*L%s\*O conversion specification is not supported.)
+.IP
+Predefined aliases for \*Lprintf\*O command print the following values:
+.VL 4m
+.LI "\*Lpd\*O"
+The specified expression or variable in decimal.
+.LI "\*Lpo\*O"
+The specified expression or variable in octal.
+.LI "\*Lpx\*O"
+The specified expression or variable in hexadecimal.
+.LE
+.LI "\*Lprintregs\*O\*O"
+Displays all register values.
+.IP
+Predefined alias for \*Lprintregs\*O command: \*Lpr\*O
+.LI "\*Lwhere\*O [\*Vn\*O]\*O"
+Displays a list of the active procedures and functions.
+If you specify \*Vn\*O, the debugger displays only procedures
+and functions in the top \*Vn\*O levels of the stack.
+.IP
+Predefined alias for \*Lwhere\*O command: \*Lt\*O
+.LE
+.SS Attaching to a Running Process
+The \*Ldbx\*O debugger supports \*L\/proc\*O debugging. The major
+advantage of this is that it allows attaching to a running process
+and this can be used to attach to a child process. In order to do
+this, the \*L\/proc\*O filesystem must be mounted.
+The following commands are available to attach to, and detach from,
+a running process:
+.VL 4m
+.LI "\*Lattach\*O \*Vxxx\*O"
+Use this command to attach to a running process where \*Vxxx\*O
+is the proc id of the process you want to attach to. This command
+checks to see if /proc is mounted. If it is mounted, \*Ldbx\*O
+will then look for the proc id in /proc. If the proc id is present,
+\*Ldbx\*O will attempt to open the process, issue a \*Lstop\*O command,
+report the current position, and issue the \*Ldbx>\*O prompt.
+.LI "\*Ldetach\*O \*Vxxx\*O"
+Use this command to detach from a running process where \*Vxxx\*O
+is the proc id of the process you want to detach from.
+.LE
+.SS Debugging at the Machine Code Level
+You can use machine level commands to debug any program, regardless of
+whether the program object file contains extended symbol table
+information.
+.PP
+You can specify symbolic addresses by preceding the name with an
+ampersand (&). You denote registers by \*L$r\*VN\*O, where \*VN\*O
+is the number of the register. Addresses may be expressions made
+up of other addresses and the operators plus (+), minus (-), and
+indirection (unary asterisk, *).
+.PP
+Use the following commands to debug programs at the machine code level:
+.VL 4m
+.LI "\*Vaddress\*L/\*Vcount\*O \*Vmode\*O"
+.LI "\*Vaddress\*L?\*Vcount\*O \*Vmode\*O"
+Searches forward (or backward, if you specify \*L?\*O) and displays
+the contents of \*Vaddress\*O or
+disassembles the code for the instruction \*Vaddress\*O.
+The \*Vcount\*O argument specifies the number of items that the
+debugger displays at the specified address.
+The \*Vmode\*O determines how \*Ldbx\*O displays memory;
+if you omit it, the debugger uses the previous mode.
+The initial mode is X. You can specify the following modes:
+.VL 4m
+.LI "\*Lb\*O"
+Displays a byte in octal.
+.LI "\*Lc\*O"
+Displays a byte as a character.
+.LI "\*Ld\*O"
+Displays a 16-bit value in decimal.
+.LI "\*Ldd\*O"
+Displays a 32-bit value in decimal.
+.LI "\*LD\*O"
+Displays a 64-bit value in decimal.
+.LI "\*Lf\*O"
+Displays a single precision real number.
+.LI "\*Lg\*O"
+Displays a double precision real number.
+.LI "\*Li\*O"
+Displays machine instructions.
+.LI "\*Ln\*O"
+Displays data in typed format.
+.LI "\*Lo\*O"
+Displays a 16-bit value in octal.
+.LI "\*Loo\*O"
+Displays a 32-bit value in octal.
+.LI "\*LO\*O"
+Displays a 64-bit value in octal.
+.LI "\*Ls\*O"
+Displays a string of characters that ends in a null.
+.LI "\*Lx\*O"
+Displays a 16-bit value in hexadecimal.
+.LI "\*Lxx\*O"
+Displays a 32-bit value in hexadecimal.
+.LI "\*LX\*O"
+Displays a 64-bit value in hexadecimal.
+.LE
+.IP
+The debugger maintains the next address to be displayed in dot (.).
+To display the next address, you can use the following command:
+.oS
+(dbx) \*L./\*O
+.oE
+.IP
+The debugger will display the next \*Vcount\*O locations in the
+\*Vmode\*O specified in the previous command.
+.LI "\*Vaddress\*L/\*Vcount\*LM \*Vvalue mask\*O"
+Searches for a 64-bit word that satisfies the mask.
+The debugger starts searching at the specified \*Vaddress\*O.
+The \*Vcount\*O argument specifies the number of words the debugger
+processes during the search. You type the \*LM\*O to specify a match.
+.IP
+The debugger masks the word stored at \*Vaddress\*O
+using the value specified in \*Vmask\*O.
+If the masked value equals \*Vvalue\*O, the debugger displays
+the address of the masked value. Otherwise, the debugger increments
+\*Vaddress\*O and continues to search.
+.LI "[\*Vn\*O] \*Lconti \*O[\*Vsignal\*O]"
+.LI "\*Lconti \*O[\*Vsignal\*O] \*Lto \*Vaddress\*O"
+.LI "\*Lconti \*O[\*Vsignal\*O] \*Lin \*Vprocedure\*O"
+Continues execution of assembly code from where it stopped.
+If you specify an integer \*Vn\*O, the
+debugger ignores that number of stops after it resumes program
+execution.
+If you specify \*Vsignal\*O, the process continues as though
+it received the signal.
+.IP
+If you specify \*Lto\*V address\*O, the debugger continues
+execution until it reaches the specified address.
+.IP
+If you specify \*Lin \*Vprocedure\*O, the debugger resumes
+execution in the named procedure or function.
+.LI "\*Lnexti \*O[\*Vinteger\*O]\*O"
+Executes up to the next machine instruction.
+The \*Lnexti\*O command does not step into procedures or functions;
+execution stops at the machine instruction that follows the call.
+.\" ***DROP THIS DESCRIPTION PER LSW (PARALLEL WITH "NEXT" INFO)***
+.\" If the machine instruction that
+.\" .PN dbx
+.\" executes contains a call to a procedure or function, the debugger
+.\" executes the entire procedure or function. Program execution stops
+.\" following the return from the procedure; that is, execution stops
+.\" prior to execution of the machine instruction that follows the call.
+.IP
+If you specify an integer, the debugger performs \*Vinteger\*O
+\*Lnexti\*O instructions.
+.IP
+Predefined alias for \*Lnexti\*O command: \*Lni\*O
+.LI "\*Lstepi \*O[\*Vinteger\*O]"
+Executes the specified number of machine instructions.  If one of the
+machine instructions contains a call to a procedure or function, the
+debugger stops at the first instruction of the procedure or function.
+The default is to execute one instruction.
+.IP
+Predefined alias for \*Lstepi\*O command: \*Lsi\*O
+.LI "\*Lstopi\*O \*Vvariable\*O"
+.LI "\*Lstopi\*O \*O[\*Vvariable\*O] [\*Lat\*O \*Vaddress\*O] [\*Lif \*Vcondition\*O]"
+.LI "\*Lstopi \*O[\*Vvariable\*O] \*O[\*Lin \*Vprocedure\*O] \*O[\*Lif \*Vcondition\*O]"
+Stops when the specified variable changes value, the specified address
+is reached, the specified condition is true, or the specified procedure
+or function is reached.  (If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.IP
+By combining the arguments, you can cause the debugger to stop, for
+example, only when the occurrence of \*Vvariable\*O at the specified
+address changes value and \*Vcondition\*O is true.
+.LI "\*Ltracei \*Vvariable\*O \*O[\*Lat \*Vaddress\*O] [\*Lif \*Vexpression\*O]"
+.LI "\*Ltracei \*Vvariable\*O [\*Lin \*Vprocedure\*O] \*O[\*Lat \*Vaddress\*O] [\*Lif \*Vexpression\*O]"
+.LI "\*Ltracei \*Vaddress\*O [\*Lif \*Vcondition\*O]"
+Traces the value of \*Vvariable\*O or the execution of a particular
+address. (If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.IP
+When you trace the value of a variable, you can use \*Lat \*Vaddress\*O,
+\*Lin \*Vprocedure\*O, and \*Lif \*Vcondition\*O to control the
+specific variable that is traced.
+.IP
+You can specify a condition when you trace the execution of an address.
+The debugger displays tracing information only when the condition is
+true.
+.LI "\*Lwheni \*O[\*Vvariable\*O] [\*Lat\*V address\*O] \*L{\*Vcommand_list\*O\*L}\*O"
+.LI "\*Lwheni \*O[\*Vvariable\*O] [\*Lin \*Vprocedure\*O] \*L{\*Vcommand_list\*O\*L}\*O"
+Executes the specified \*Ldbx\*O machine command list. You can separate
+the commands by commas (,) or semi-colons (;).
+.IP
+If you specify \*Vvariable\*O, the debugger executes the command list
+when the value of the variable changes. Specify \*Lat \*Vaddress\*O or
+\*Lin \*Vprocedure\*O to control which occurrence of the variable causes
+the debugger to execute the command list.  (If \*Vvariable\*O is a \*Ldbx\*O
+keyword, it must be enclosed within parentheses.)
+.LE
+.SS Predefined dbx Variables
+The debugger contains variables that control certain aspects of its
+operations. Some debugger variables are used internally by \*Ldbx\*O.
+You must not change the value of those variables. The debugger
+allows you to change the values of other variables using the
+\*Lset\*O and \*Lunset\*O
+commands. The following list describes the debugger variables you can
+control:
+.VL 4m
+.LI "\*L$addrfmt\*O"
+Specifies the format for addresses.  You can set this variable to any
+format that you can use with the \*Lprintf\*O
+function, except %s because the \*L%s\*O
+conversion specification is not supported by \*Ldbx\*O.
+See \*Lprintf\*O(3)
+reference page for information on valid formats. By default, this
+variable is set to \*L0x%x\*O, which specifies hexadecimal format.
+.LI "\*L$casesense\*O"
+When set to a nonzero value, specifies that uppercase and lowercase
+letters be treated as different characters during a search.  When set to zero,
+\*Ldbx\*O
+ignores the case of letters.  The default is zero.
+.LI "\*L$datacache\*O"
+Caches information from the data space so that \*Ldbx\*O
+must access the data space only once.
+If this variable is set to zero, the debugger does not cache data space.
+If your program contains any data declared as
+\*Lvolatile\*O,
+you may want to set this variable to zero. To debug the operating
+system, set this variable to zero; otherwise, set it to a
+nonzero value.  The default is a nonzero value.
+.LI "\*L$dispix\*O"
+Causes the debugger to be in the correct mode to debug pixie code.
+When set to zero, the debugger displays machine code while debugging.
+When set to a nonzero value, the debugger displays pixie code.
+The default is zero.
+.LI "\*L$hexchars\*O"
+When set to a nonzero value, causes the debugger to display
+characters in hexadecimal format.
+.LI "\*L$hexin\*O"
+When set to a nonzero value, causes the debugger to interpret input
+constants as hexadecimal. When set, this variable overrides the
+\*L$octin\*O variable.
+.LI "\*L$hexints\*O"
+When set to a nonzero value, changes the default output constants
+to hexadecimal.  When set, this variable overrides the
+\*L$octints\*O variable.
+.LI "\*L$hexstrings\*O"
+When set to a nonzero value, causes the debugger to display all strings
+in hexadecimal format. When set to zero, causes the debugger to display
+strings in character format.
+.LI "\*L$historyevent\*O"
+Stores the current history line.
+.LI "\*L$lines\*O"
+Determines how many lines the debugger stores in its history list.
+The default is 20 lines.
+.LI "\*L$listwindow\*O"
+Specifies how many lines the \*Llist\*O command displays.
+The default is 10 lines.
+.LI "\*L$main\*O"
+Specifies the name of the procedure or function that
+\*Ldbx\*O begins when running the process.
+The debugger can begin a process at any procedure or function.
+By default, the debugger begins a process at a procedure named main.
+.LI "\*L$maxstrlen\*O"
+Specifies how many characters of a string \*Ldbx\*O
+displays for pointers to strings.  The default is 128 characters.
+.LI "\*L$octin\*O"
+When set to a nonzero value, changes the default input constants
+to octal. When set, the \*L$hexin\*O variable overrides this variable.
+.LI "\*L$octints\*O"
+When set to a nonzero value, causes \*Ldbx\*O
+to display integers in octal format. When set, the
+\*L$hexints\*O variable overrides this variable.
+.LI "\*L$page\*O"
+Specifies whether to page long information.
+A nonzero value turns on paging; a zero turns it off.
+The default is one.
+.LI "\*L$pagewindow\*O"
+Specifies how many lines the debugger displays when information runs
+longer than one screen.  You can change this variable to match the
+number of lines on any terminal.  If set to zero, this variable
+assumes one line.  The default is 65.
+.LI "\*L$printwhilestep\*O"
+Determines whether the debugger displays source lines or instructions
+when executing the
+\*Lstep\*O[\*Vn\*O] and
+\*Lstepi\*O[\*Vn\*O] commands.
+When set to a nonzero value,
+causes \*Ldbx\*O to display all \*Vn\*O lines or
+instructions. When set to zero, causes
+\*Ldbx\*O to display only the last line or instruction.  The default
+is zero.
+.LI "\*L$pimode\*O"
+Displays input when used with the \*Lplayback input\*O command.
+The default is zero.
+.LI "\*L$printdata\*O"
+When set to a nonzero value, causes the debugger to display
+the contents of registers next to each instruction it displays.
+The debugger displays the registers used by the instruction.
+The default is zero.
+.LI "\*L$printwide\*O"
+When set to a nonzero value, causes the debugger to display the
+contents of variables in a horizontal format.
+The default is zero.
+.LI "\*L$prompt\*O"
+Sets the prompt for \*Ldbx\*O.
+.LI "\*L$readtextfile\*O"
+When set to a nonzero value, causes \*Ldbx\*O
+to read instructions from the object file
+rather than the process.
+This variable should always be set to zero when the process being
+debugged copies in code during the debugging process.
+The default is a nonzero value.
+.LI "\*L$regstyle\*O"
+When set to a nonzero value, causes the debugger to display registers
+during disassembly in their normal \*Vr\*O format (r0,r1,\&.\&.\&.r31).
+When set to zero, causes the debugger to display registers
+in a special format (zero, at, v0, v1,...), which is commonly
+used in debugging programs written in assembly language.
+The default is a nonzero value.
+.IP
+Setting this variable does not affect how the debugger displays the
+names of registers when you issue the \*Lprintregs\*O
+command. This variable affects the debugger's machine level commands.
+.LI "\*L$repeatmode\*O"
+When set to a nonzero value, causes \*Ldbx\*O
+to repeat the previous command if you press the Return key at the \*Ldbx\*O
+prompt. The default is a nonzero value.
+.LI "\*L$rimode\*O"
+When set to a nonzero value, causes the debugger to record input while
+recording output. The default is zero.
+.LI "\*L$sigvec\*O"
+Tells \*Ldbx\*O
+the name of the code called by the system to invoke user
+signal handlers.  This variable is set to \*Lsigaction\*O on
+OSF systems.
+.\" ***NO LONGER PRESENT PER LSW***
+.\" .TP 15
+.\" \*L$symtotal
+.\" Stores the number of symbols that
+.\" .PN dbx
+.\" loads for the process you are debugging.
+.LI "\*L$tagfile\*O"
+Names the file that contains tags for the current program. The
+\*Ltag\*O and \*Ltagvalue\*O
+commands search the named file to resolve references to tags. For more
+information on using tag files, see \*Lctags\*O(1).
+.LI "\*L$traploops\*O"
+Specifies the number of times dbx can ignore a SIGTRAP without
+being interrupted by another signal or breakpoint type. This
+variable helps avoid the infinite loop that can occur when you set
+a breakpoint in a SIGTRAP signal handler function. The default
+number for this variable is 3.
+.\".SS Predefined dbx Aliases
+.\"The debugger has the following predefined aliases:
+.\".TP 15
+.\"\*L?\*O
+.\"Prints a list of all
+.\".PN dbx
+.\"commands.
+.\".TP 15
+.\"\*La\*O
+.\"Assigns a value to a program variable.
+.\".TP 15
+.\"\*Lb\*O
+.\"Sets a breakpoint at a specified line.
+.\".TP 15
+.\"\*Lbp\*O
+.\"Stops in a specified procedure or function.
+.\".TP 15
+.\"\*Lc\*O
+.\"Continues program execution after a breakpoint.
+.\".TP 15
+.\"\*Ld\*O
+.\"Deletes the specified item from the status list.
+.\".TP 15
+.\"\*Le\*O
+.\"Looks at the specified file.
+.\".TP 15
+.\"\*Lf\*O
+.\"Moves to the specified activation level on the stack.
+.\".TP 15
+.\"\*Lg\*O
+.\"Goes to the specified line and begins executing the program there.
+.\".TP 15
+.\"\*Lh\*O
+.\"Lists all items currently on the history list.
+.\".TP 15
+.\"\*Lj\*O
+.\"Shows what items are on the status list.
+.\".TP 15
+.\"\*Ll\*O
+.\"Lists the next 10 lines of source code.
+.\".TP 15
+.\"\*Lli\*O
+.\"Lists the next 10 machine instructions.
+.\".TP 15
+.\"\*Ln\*O or \*LS\*O
+.\"Step over the specified number of lines without stepping into
+.\"procedures or functions.
+.\".TP 15
+.\"\*Lni\*O or \*OSi\*O
+.\"Step over the specified number of assembly code instructions without
+.\"stepping into procedure calls.
+.\".TP 15
+.\"\*Lp\*O
+.\"Prints the value of the specified expression or variable.
+.\".TP 15
+.\"\*Lpd\*O
+.\"Prints the value of the specified expression or variable in decimal.
+.\".TP 15
+.\"\*Lpi\*O
+.\"Replays
+.\".PN dbx
+.\"commands that were saved with the \*Lrecord
+.\"input\*O command.
+.\".TP 15
+.\"\*Lpo\*O
+.\"Prints the value of the specified expression or variable in octal.
+.\".TP 15
+.\"\*Lpr\*O
+.\"Prints values for all registers.
+.\".TP 15
+.\"\*Lpx\*O
+.\"Prints the value for the specified variable or expression
+.\"in hexadecimal.
+.\".TP 15
+.\"\*Lq\*O
+.\"Ends the debugging session.
+.\".TP 15
+.\"\*Lr\*O
+.\"Runs the program again with the same arguments that were
+.\"specified with the \*Lrun\*O command.
+.\".TP 15
+.\"\*Lri\*O
+.\"Records in a file every command typed.
+.\".TP 15
+.\"\*Lro\*O
+.\"Records all debugger output in the specified file.
+.\".TP 15
+.\"\*Ls\*O
+.\"Steps the next number of specified lines.
+.\".TP 15
+.\"\*Lsi\*O
+.\"Steps the next number of specified lines of assembly
+.\"code instructions.
+.\".TP 15
+.\"\*Lt\*O
+.\"Does a stack trace.
+.\".TP 15
+.\"\*Lu\*O
+.\"Lists the previous 10 lines.
+.\".TP 15
+.\"\*Lw\*O
+.\"Lists the 5 lines preceding and following the current line.
+.\".TP 15
+.\"\*LW\*O
+.\"Lists the 10 lines preceding and following the current line.
+.\".TP 15
+.\"\*Lwi\*O
+.\"Lists the 5 machine instructions preceding and following the
+.\"machine instruction.
+.LE
+.SH RESTRICTIONS
+.PP
+The \*Lprintf\*O debugger command does not support the
+\*L%s\*O conversion specification.
+.PP
+If the \*Lpatch\*O command attempts to patch a size other than a \*Llong\*O
+(8 bytes), it will write 8 bytes.
+.\" ***OSF VERSION DOES NOT HAVE THIS RESTRICTION PER LSW***
+.\" .PP
+.\" The
+.\" .PN dbx
+.\" debugger does not allow you to run a program you do not own unless
+.\" you are logged in as root. If you are not root, the following
+.\" message might be displayed on your screen when you issue the
+.\" \*Lrun
+.\" command:
+.\" .oS
+.\" cannot write to address \*Vaddress\*O in process \*Vproc-number\*O
+.\" .oE
+.\" In the message it displays,
+.\" the debugger replaces \*Vaddress\*O with the address to which it
+.\" could not write and \*Vproc-number\*O with the number of the
+.\" process that contains that address.
+.\" This message is displayed when the
+.\" .PN dbx
+.\" debugger tries to set breakpoints because of restrictions on the
+.\" .PN ptrace
+.\" system call. The
+.\" .PN dbx
+.\" debugger always tries to set a breakpoint at
+.\" .MS exit .
+.\" If you repeat the
+.\" .PN run
+.\" command, your program runs without breakpoints.
+.SH FILES
+.PP
+.VL 13m
+.LI "\*La.out\*O"
+Object file
+.LI "\*Lcore\*O"
+Core dump file
+.LI "\*L\&.dbxinit\*O"
+Initialization file
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Las\*O(1), \*Lcc\*O(1), \*Lctags\*O(1),
+.\" ***COMMENTED OUT REFPAGES NOT IN TIN RELEASE OF DEC OSF/1
+.\" f77(1), pc(1),
+\*Lpixie\*O(1), \*Lprintf\*O(3), \*Lvi\*O(1), \*Lsignal\*O(3), \*Lkdbx\*O(8)
+.PP
+\*EProgrammer's Guide\*O.
+.EQ
+delim off
+.EN

@@ -1,0 +1,893 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/*
+NOTE:  This file is turned into the actual "builtin-types" file for the MIR
+       Compiler via a c89 preprocessor pass performed by the MIR makefile.
+
+       THIS FILE IS THE PROTOTYPE FROM WHICH THE FINAL "SHIPPED" FILE
+       IS CONSTRUCTED.
+
+       Note that in the final version of this file, all "C"-style comments
+       are stripped by the preprocessor pass, while all "MSL"-style
+       comments (ie: (* MSL Style *) ) will REMAIN.
+
+===============================================================================
+ 
+MIR - Management Information Repository
+
+This is the "builtin_types.dat" MIR Compiler Prototype File.
+ 
+    Compiler  BIDT      Date      What
+    Version   Version
+      1.5       --      05/31/91  Fixed mapping of APPL to Univ Tags.
+      1.5       --      07/15/91  New Syntax, same info as 1.5 above.
+      1.6       --      10/15/91  No Changes. 
+      1.8       --      06/01/92  Change Comment syntax to make this file 
+                                  appear parseable as though it were an MSL
+                                  file.
+      1.90      --      06/29/92  Add support for Variant Records and other MCC
+                                  supported datatypes
+      1.96      --      07/31/92  Convert to use MCC_K_DT_* mnemonic symbols 
+                                  for codes, and use C-preprocessor on
+                                  prototype file.
+      1.98     V1.00    09/16/92  Add support for parseable BIDT 
+                                  Version ID String for this file.
+      1.99     V1.01    10/30/92  Add support for MCC Datatype Size
+      2.00     V1.02    01/21/93  Corrected bugs in Variant-Record support
+                                   and made ASN1 Tag/Class optional for each
+                                   datatype definition (in the compiler), added
+                                   support for NCL_CMIP_CODE= Phrase
+      2.00     V1.03    02/12/93  NCL_CMIP_CODEs added by A.O.
+      2.01     V1.04    02/16/93  Add "e" to BinRelTim et.al. (typo)
+      2.02     V1.05    02/18/93  Support both kinds of Tim(e)
+>>>>> If you change the version here, you must change it below
+>>>>> in the machine readable portion, seach for "BIDT_VERSION"
+
+>>>>> Changes to this file should ONLY be created as part of the
+>>>>> release of a new version of the compiler.
+
+>>>>> Changes to this file invalidate portions of the MIR Test Suite
+>>>>> (mir_test.c) and the logs produced from running scripts thru the
+>>>>> Paging Test Bed (mir_ptb.c).
+
+ 
+  This file defines all the "built-in" (to a particular SMI, like DNA or SNMP)
+  datatypes (what we call "dataconstructs", like "Integer") that the MIR
+  compiler is expected to recognize for a particular SMI.
+ 
+  The file is composed of:
+
+        * a Version Identification line,
+        * a Keyword List
+
+  followed by a series of "SMI sections", each section describes the builtin
+  dataconstructs for a particular SMI.
+ 
+  The Version Identification line looks like this:
+
+        BIDT_VERSION = "V2.00 V1.00 09/30/92 (ddb)" ;
+
+       (This line is required).
+
+  The Keyword List looks like this:
+
+        KEYWORDS = ( "EXPORTER", "HISTORIAN", "PA") ;
+
+       (This line is required, but the list may be empty, e.g. "()" ).
+
+
+  Each SMI section starts with a line of the form:
+ 
+        START_SMI <string> = <number> :
+
+  where
+        <string> is the short-hand name of the smi that should appear
+                opposite the "DEFINING-SMI = " phrase at the start of
+                an MSL file.
+        <number> is the number that the compiler associates with this SMI.
+                It **MUST** be the same number assigned to the symbol of type
+                "mir_smi_code" for the smi (as defined in "mir.h").
+
+                NOTE: This number is returned by Tier 1 functions when
+                      the user wants to know which SMI an object's
+                      data value is defined in.  Once Defined: Don't Change!
+                      (Because it goes into the MIR Binary Output file).
+ 
+  Each section ends with the string:
+ 
+        END_SMI_DEF ;
+ 
+ ===========================================================================
+  Each SMI section may contain one or more "TYPE" statements (very similar
+  in syntax to a TYPE statement in the body of an MSL file that define
+  the "builtin-to-the-SMI" datatypes for that particular SMI).
+ 
+  The syntax of such a definition is:
+ 
+        SMI_BUILTIN_TYPE <dataconstructname> = <codenumber> ,  (Required)
+                MCC_DATATYPE_SIZE = <number>,                  (Optional)
+                NCL_CMIP_CODE = <number>,                      (Optional)
+                ASN1_CLASS = <number>,                         (Optional)
+                ASN1_TAG = <Application Tag number>,           (Optional)
+                ASN1_TAG = <Universal Tag number>,             (Optional)
+                AUX_INFO = "<MIRrelationshipname>"[,] (Optional, any number)
+                OID = { <object id> }                 (Optional, just 1)
+ 
+                        : ATOMIC (or any previously defined datatype,
+                                  including RECORD and ENUMERATION)
+                        ;
+ 
+  In the case of RECORD or ENUMERATION, the same syntax as appears in MSL
+  files is acceptable, provided (in the case of RECORDs and other
+  "datatypes" such as SEQ OF) that the datatype referenced has already
+  been defined by an earlier "SMI_BUILTIN_TYPE" statement.
+ 
+  A small syntax note: The last phrase in the list:
+                .
+                . 
+                ASN1_CLASS = <number>,
+                ASN1_TAG = <number>,
+                AUX_INFO = <rel-name>
+ 
+        should NOT have a comma following it.  Another way of saying
+        the same thing is that ",:" is never allowed (where ":" demarks
+        the start of the dataconstruct being referenced).
+ 
+ 
+ Definitions of the <phrases> shown above:
+ =========================================
+ 
+  <dataconstructname> is the name the compiler will use to recognize an
+  occurrence of such a datatype.  In the few cases where the compiler
+  recognizes a datatype by accepting a rule in the MSL grammar (rather
+  than taking what it thinks is a datatype name and looking it up), the
+  name supplied here must match the name the parser action routine will
+  attempt to look it up.  Instances of such datatypes are RECORD,
+  ENUMERATION and the like.
+ 
+  <codenumber> is the code by which this datatype is recorded, and this
+  number is returned as the value of "code" by Tier 1 functions.
+
+  MCC_DATATYPE_SIZE = <number> is the MCC Datatype length to be stored
+  with this builtin type.
+
+  NCL_CMIP_CODE = <number> is the CMIP code used by NCL that is stored
+  with this builtin type.
+
+  ASN1_CLASS = <number> is returned by Tier 1 functions as the ASN1 Class
+  number.
+ 
+  ASN1_TAG = <number> is returned by Tier 1 functions as the ASN1 
+  Application Tag number.  A second ASN1_TAG phrase optionally specifies
+  an ASN1 Universal Tag number.
+ 
+  AUX_INFO = "MIRrelationshipname" provides extra information to the
+  compiler for the dataconstructs that describe "builtin-AUX_INFO"s.
+  These dataconstructs are the ones in which every instance of a
+  declaration of one always requires extra information to be stored with
+  the instance.  The MIR relationship name provided here indicates the
+  relationship name that will be used to store one of these extra pieces
+  of information FOR AN INSTANCE of this datatype.  (For example, a RECORD
+  in a "builtin-AUX_INFO" type of "builtin" (as opposed to a BOOLEAN, which
+  is simply "builtin-atomic").  The "builtin-AUX_INFO" for RECORD defines
+  three MIRrelationships (via the AUX_INFO keyword) that are used to
+  store the field name, field number and field dataconstruct for every
+  field defined in the *instance*.  As a special case (to support Variant
+  Records), the compiler must store a varying number of "Case Codes" for
+  each instance of a group of fields in a case-group.  The AUX_INFO
+  relationship for case codes must be handled specially by the compiler, and
+  this is done by enclosing the name of the MIR relationship used to store
+  case codes between "<" and ">".
+ 
+  NOTE These MIR relationship names must be spelled EXACTLY (case-sensitive)
+  the way they are defined in the MIR Compiler documentation.
+ 
+  OID = { <object id> } provides a way to register the dataconstruct
+  using an object identifier defined according to ECO 42.
+ 
+  To enhance the MIR compiler to recognize a new basic built-in datatype,
+  all that needs be done is to add another declaration describing
+  that datatype to this file.
+ 
+  On the other hand, to enhance the MIR compiler to recognize a new built-in
+  *AUX_INFO*, not only must a new declaration be added to this file
+  describing it, but a new production must be added to the yacc grammar for
+  the parser that recognizes it and contains an action routine that invokes
+  "mirc_find_datatype()" (with the explicit name of the AUX_INFO used in
+  this file) to cause the MIR Compiler to create an instance of it for
+  reference by other statements in the MSL file.
+ 
+  The contents of this file should only be altered as a result of the
+  registration of a new builtin type with the DSSR. 
+
+                           >>>> NOTE WELL <<<<<<
+  Do not remove an existing "SMI"'s section!  The "mir_internal.c" code
+  that reads-in an existing MIR database file (containing the contents of
+  this builtin-types file (along with other compiled stuff)) depends on
+  the fact that these definitions (for an SMI), once made, always exist.
+  (By this is meant that you can add/change definitions *contained within* an
+   SMI, just don't remove an entire SMI.  If you want to delete an SMI's
+   datatypes, you can delete all the definitions within an SMI section, but
+   just leave an empty section there:
+
+        START_SMI DNA = 1:
+        END_SMI_DEF;
+
+  Changing a definition within this file implies changing the version 
+  identifier for this file.
+ ===========================================================================
+*/
+
+(*
+                    MIR Compiler Built-In Data Types File 
+                        DO NOT MODIFY THIS FILE
+*)
+
+(* Version:  *)
+/* Version Identification Line
+|
+| Change this if you change ANYTHING in this file!
+|
+| Compiler output is *very sensitive* to the contents of this file.
+| The version string below is written into the binary MIR output.
+|
+| Convention for the contents of this string:
+|
+|  <Compiler Version>  <BIDT File Version>  <Date>  <Your Initials>
+| e.g    V1.99                V1.01        10/30/92      (ddb)
+|
+|  Where:
+|
+|  <Compiler Version> is what the compiler prints as it's version when you
+|  run it with no command-line arguments (ie the values of symbols 
+|  VERSION_MAJOR and VERSION_MINOR as defined in "mir.h")
+|
+>>>>>>>>>>>>
+>>>>>>>>>>>> Here! Change it here!
+>>>>>>>>>>>>
+|  <BIDT File Version> is the version of this file... Change it here:
+|                       BIDT
+|                      Version                                             */
+BIDT_VERSION = "V2.02   V1.05  02/18/93  (ddb)" ;
+
+
+(* Keywords: *)
+/*
+|  These babies are "registered", don't add one unless it's legal
+*/
+KEYWORDS = ( "EXPORTER", "HISTORIAN", "PA") ;
+
+
+(*
+ ===========================================================================
+                    SMI "Digital Network Architecture"
+ ===========================================================================
+*) 
+
+/*
+  NOTE:
+   Symbol "MIR_SMI_DNA" is defined in MIR Interface Function Header file
+   "mir.h" as having this value ... the value specified here must match the
+   value specified there!
+*/
+
+START_SMI DNA = 1 :
+
+/* - - - - - - - - - - - - - START MCC-Specific - - - - - - - - - - - - - - - 
+|  This are definitions peculiar to MCC, they are INCOMPLETE, as ASN1 Tag/Class
+|  and registered OID for each are yet to be defined here.
+*/
+SMI_BUILTIN_TYPE Attrib_List = MCC_K_DT_ATTRIB_LIST,
+    MCC_DATATYPE_SIZE = 65535,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE EventIDList = MCC_K_DT_EVENTIDLIST,
+    MCC_DATATYPE_SIZE = 1,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE Event_report = MCC_K_DT_EVENT_REPORT,
+    MCC_DATATYPE_SIZE = 1,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE MccMessage = MCC_K_DT_MCCMESSAGE,
+    MCC_DATATYPE_SIZE = 1,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE IDENETV2_TYPE = MCC_K_DT_IDENETV2_TYPE,
+    MCC_DATATYPE_SIZE = 2,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE Real = MCC_K_DT_REAL,
+    MCC_DATATYPE_SIZE = 8,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE ID802_SAP = MCC_K_DT_ID802_SAP,
+    MCC_DATATYPE_SIZE = 1,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE ID802_SNAP = MCC_K_DT_ID802_SNAP,
+    MCC_DATATYPE_SIZE = 5,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE MCCError = MCC_K_DT_MCC_ERROR,
+    MCC_DATATYPE_SIZE = 4,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE VMSError = MCC_K_DT_VMS_ERROR,
+    MCC_DATATYPE_SIZE = 4,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE MCCReply = MCC_K_DT_MCC_REPLY,
+    MCC_DATATYPE_SIZE = 65535,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE Lcounter16 = MCC_K_DT_LCOUNTER16,
+    MCC_DATATYPE_SIZE = 2,
+    NCL_CMIP_CODE = NCL_DSMDT_LCounter16,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE Lcounter32 = MCC_K_DT_LCOUNTER32,
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_LCounter32,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE DIRECTORYSPEC = MCC_K_DT_DIRECTORY_SPEC,
+    MCC_DATATYPE_SIZE = 65535,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE InternetName = MCC_K_DT_INTERNET_NAME,
+    MCC_DATATYPE_SIZE = 255,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE Expression = MCC_K_DT_EXPRESSION,
+    MCC_DATATYPE_SIZE = 65535,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE COMPONENT = MCC_K_DT_COMPONENT,
+    MCC_DATATYPE_SIZE = 4,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+SMI_BUILTIN_TYPE ATTRIBUTEIDLIST = MCC_K_DT_ATTRIBUTEIDLIST,
+    MCC_DATATYPE_SIZE = 4,
+    ASN1_CLASS = 0, ASN1_TAG = 0 : ATOMIC;
+
+/* - - - - - - - - - - - - - END MCC-Specific - - - - - - - - - - - - - - - */
+
+/*
+   Now the "builtin-AUX_INFOs" that are defined for "built-up" datatypes
+   (ie by using "TYPE" in an MSL) that are special to DNA.
+
+   (Note, the identifying strings actually appear in the yacc grammar action
+    routine calls to backend functions-- the names are arbitrary but must
+    match the yacc production that recognizes them: eg "BIDT_ENUMERATION"...
+    BTW, "BIDT_" stands for "Built-In Data-Type").
+
+   The AUX_INFO Relationship names MUST appear, and if there are more than
+   one in a line, the order left to right determines the order that these
+   data are "read-out" of the MIR.  Tier 1 functions depends on
+   this order, so once set, it should not be changed.
+
+*/
+
+
+SMI_BUILTIN_TYPE BIDT_SETSEQ = MCC_K_DT_SET,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Set,
+    ASN1_CLASS = 0, ASN1_TAG = 16,
+    AUX_INFO = "MIR_Structured_As" : ATOMIC;
+
+
+SMI_BUILTIN_TYPE BIDT_RANGE = MCC_K_DT_RANGE,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Range,
+    ASN1_CLASS = 0, ASN1_TAG = 16,
+    AUX_INFO = "MIR_Structured_As" : ATOMIC;
+
+
+(* Encoded simply as an integer *)
+SMI_BUILTIN_TYPE BIDT_ENUMERATION = MCC_K_DT_ENUMERATION,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Enumeration,
+    ASN1_CLASS = 0, ASN1_TAG = 2,   
+    AUX_INFO = "MIR_Enum_Code",
+    AUX_INFO = "MIR_Enum_Text" : ATOMIC;
+
+
+(* Encoded as "Bit String"--but see NetMan *)
+SMI_BUILTIN_TYPE BIDT_BITSET = MCC_K_DT_BITSTRING,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_BitString,
+    ASN1_CLASS = 0, ASN1_TAG = 3,
+    AUX_INFO = "MIR_Structured_As" : ATOMIC;
+
+
+(* Encoded as "Sequence" according to NetMan *)
+SMI_BUILTIN_TYPE BIDT_RECORD = MCC_K_DT_RECORD,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Record,
+    ASN1_CLASS = 0, ASN1_TAG = 16,      
+    AUX_INFO = "MIR_Field_Name",
+    AUX_INFO = "MIR_Field_Code",
+    AUX_INFO = "MIR_Structured_As" : ATOMIC;
+
+
+
+(* Variant Record Support *)
+SMI_BUILTIN_TYPE BIDT_VRECORD = MCC_K_DT_VAR_RECORD,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Record,
+    ASN1_CLASS = 0, ASN1_TAG = 16,
+    AUX_INFO = "MIR_Field_Name",
+    AUX_INFO = "MIR_Field_Code",
+    AUX_INFO = "MIR_Structured_As"  : ATOMIC;
+
+/*
+| NOTE: The following is not a full-fledged dataconstruct, but is a jig used to
+|       make variant record support work properly.
+|
+| Maybe we can come up with something better than 0 here as the code.
+|
+| Note the special use of "<" & ">" to surround "MIR_Case_Code", this
+| AUX_INFO relationship must be handled in a special manner
+*/
+SMI_BUILTIN_TYPE BIDT_CASE_FIELD_GROUP = 0,
+    ,   /* No ASN1 Tag nor Class... this isn't a 'real datatype' */
+    AUX_INFO = "<MIR_Case_Code>",
+    AUX_INFO = "MIR_Field_Name",
+    AUX_INFO = "MIR_Field_Code",
+    AUX_INFO = "MIR_Structured_As"  : ATOMIC;
+
+
+
+(* Not to be confused with "Bitset", (a set of bits)  *)
+SMI_BUILTIN_TYPE BIDT_SET = MCC_K_DT_SET_OF,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_SetOf,
+    ASN1_CLASS = 0, ASN1_TAG = 17,
+    AUX_INFO = "MIR_Structured_As"  : ATOMIC;
+
+
+SMI_BUILTIN_TYPE BIDT_SEQ = MCC_K_DT_SEQUENCE_OF,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_SequenceOf,
+    ASN1_CLASS = 0, ASN1_TAG = 16,
+    AUX_INFO = "MIR_Structured_As"  : ATOMIC;
+
+(* =======================================================================*)
+
+SMI_BUILTIN_TYPE Boolean = MCC_K_DT_BOOLEAN,
+    MCC_DATATYPE_SIZE = 1,
+    NCL_CMIP_CODE = NCL_DSMDT_Boolean,
+    ASN1_CLASS = 0, ASN1_TAG = 1  : ATOMIC;
+
+SMI_BUILTIN_TYPE OctetString = MCC_K_DT_OCTET_STRING,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_OctetString,
+    ASN1_CLASS = 0, ASN1_TAG = 4  : ATOMIC;
+
+SMI_BUILTIN_TYPE BitString = MCC_K_DT_BITSET, /* _DT_BITSET may not be right */
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_BitSet,
+    ASN1_CLASS = 0, ASN1_TAG = 3  : ATOMIC;
+
+SMI_BUILTIN_TYPE Null = MCC_K_DT_NULL,
+    MCC_DATATYPE_SIZE = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_Null,
+    ASN1_CLASS = 0, ASN1_TAG = 5  : ATOMIC;
+    
+SMI_BUILTIN_TYPE ObjectID = 0,                 /* No MCC Code defined */
+    NCL_CMIP_CODE = NCL_DSMDT_ObjectID,
+    ASN1_CLASS = 0, ASN1_TAG = 6  : ATOMIC;
+
+/*
+|  The following data types are all encoded as Integer, except for Unsigned64
+*/
+SMI_BUILTIN_TYPE Integer8 = MCC_K_DT_INTEGER8,
+        MCC_DATATYPE_SIZE = 1,
+	NCL_CMIP_CODE = NCL_DSMDT_Integer8,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Integer16 = MCC_K_DT_INTEGER16,
+        MCC_DATATYPE_SIZE = 2,
+	NCL_CMIP_CODE = NCL_DSMDT_Integer16,
+        ASN1_CLASS = 0, ASN1_TAG = 2,      
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Integer32 = MCC_K_DT_INTEGER32,
+        MCC_DATATYPE_SIZE = 4,
+	NCL_CMIP_CODE = NCL_DSMDT_Integer32,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Integer64 = MCC_K_DT_INTEGER64,
+        MCC_DATATYPE_SIZE = 8,
+	NCL_CMIP_CODE = NCL_DSMDT_Integer64,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Unsigned8 = MCC_K_DT_UNSIGNED8,
+        MCC_DATATYPE_SIZE = 1,
+	NCL_CMIP_CODE = NCL_DSMDT_Unsigned8,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Unsigned16 = MCC_K_DT_UNSIGNED16,
+        MCC_DATATYPE_SIZE = 2,
+	NCL_CMIP_CODE = NCL_DSMDT_Unsigned16,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Unsigned32 = MCC_K_DT_UNSIGNED32,
+        MCC_DATATYPE_SIZE = 4,
+	NCL_CMIP_CODE = NCL_DSMDT_Unsigned32,
+        ASN1_CLASS = 0, ASN1_TAG = 2,
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+SMI_BUILTIN_TYPE Unsigned64 = MCC_K_DT_UNSIGNED64,
+        MCC_DATATYPE_SIZE = 8,
+	NCL_CMIP_CODE = NCL_DSMDT_Unsigned64,
+        ASN1_CLASS = 0, ASN1_TAG = 2,        
+        AUX_INFO = "MIR_Min_Int_Val",
+        AUX_INFO = "MIR_Max_Int_Val"   : ATOMIC;
+
+/*
+| From the old DECnet Ultrix compiler comes the following remark:
+|
+| "The next three data types have their own CMIP application tags, we should
+| use the registered tags as the type code, but we haven't managed to do so
+| yet".
+|
+| Here, we use MCC codes.
+*/
+SMI_BUILTIN_TYPE Counter16 = MCC_K_DT_COUNTER16,
+    MCC_DATATYPE_SIZE = 2,
+    NCL_CMIP_CODE = NCL_DSMDT_Counter16,
+    ASN1_CLASS = 0, ASN1_TAG = 2   : ATOMIC;
+
+SMI_BUILTIN_TYPE Counter32 = MCC_K_DT_COUNTER32,
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_Counter32,
+    ASN1_CLASS = 0, ASN1_TAG = 2   : ATOMIC;
+
+SMI_BUILTIN_TYPE Counter48 = MCC_K_DT_COUNTER48,
+    MCC_DATATYPE_SIZE = 8,
+    NCL_CMIP_CODE = NCL_DSMDT_Counter48,
+    ASN1_CLASS = 0, ASN1_TAG = 2   : ATOMIC;
+
+
+/*
+| From the old DECnet Ultrix compiler comes the following remark:
+|
+| "The Counter64 data type is NOT just passed as Integer in CMIP
+|  but have special application tags so it can be properly decoded"
+|
+*/
+SMI_BUILTIN_TYPE Counter64 = MCC_K_DT_COUNTER64,
+    MCC_DATATYPE_SIZE = 8,
+    NCL_CMIP_CODE = NCL_DSMDT_Counter64,
+    ASN1_CLASS = 0, ASN1_TAG = 2   : ATOMIC;
+
+
+SMI_BUILTIN_TYPE Octet = MCC_K_DT_OCTET,
+    MCC_DATATYPE_SIZE = 1,
+    NCL_CMIP_CODE = NCL_DSMDT_Octet,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE CharAbsTime = MCC_K_DT_CHAR_ABS_TIM,   (* Deprecated *)
+    NCL_CMIP_CODE = NCL_DSMDT_CharAbsTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE BinAbsTime = MCC_K_DT_BIN_ABS_TIM,
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_BinAbsTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE BinAbsTim = MCC_K_DT_BIN_ABS_TIM,      (* Deprecated *)
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_BinAbsTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE CharRelTime = MCC_K_DT_CHAR_REL_TIM,   (* Deprecated *)
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_CharRelTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE BinRelTime = MCC_K_DT_BIN_REL_TIM,
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_BinRelTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE BinRelTim = MCC_K_DT_BIN_REL_TIM,      (* Deprecated *)
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_BinRelTime,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE Latin1String =  MCC_K_DT_LATIN1STRING,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Latin1String,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE SimpleName = MCC_K_DT_SIMPLE_NAME,
+    MCC_DATATYPE_SIZE = 255,
+    NCL_CMIP_CODE = NCL_DSMDT_SimpleName,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE FullName = MCC_K_DT_FULL_NAME,
+    MCC_DATATYPE_SIZE = 404,
+    NCL_CMIP_CODE = NCL_DSMDT_FullName,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE UID = MCC_K_DT_UID,
+    MCC_DATATYPE_SIZE = 16,
+    NCL_CMIP_CODE = NCL_DSMDT_UID,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE FullEntityName= MCC_K_DT_FULL_ENTITY,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_FullEntityName,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE LocalEntityName=MCC_K_DT_LOCAL_ENTITY,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_LocalEntityName,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE Version = MCC_K_DT_VERSION,
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_Version,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE ID802 = MCC_K_DT_ID802,
+    MCC_DATATYPE_SIZE = 6,
+    NCL_CMIP_CODE = NCL_DSMDT_ID802,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE DTEAddress = MCC_K_DT_ADDRESS_DTE,
+    MCC_DATATYPE_SIZE = 15,
+    NCL_CMIP_CODE = NCL_DSMDT_DTEAddress,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE FileSpec = MCC_K_DT_FILE_SPEC,
+    MCC_DATATYPE_SIZE = 255,
+    NCL_CMIP_CODE = NCL_DSMDT_FileSpec,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE NSAP = MCC_K_DT_ADDRESS_NSAP,
+    MCC_DATATYPE_SIZE = 41,
+    NCL_CMIP_CODE = NCL_DSMDT_NSAPAddress,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE NET = MCC_K_DT_ADDRESS_NET,
+    MCC_DATATYPE_SIZE = 41,
+    NCL_CMIP_CODE = NCL_DSMDT_NetEntTitle,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE AreaAddress = MCC_K_DT_ADDRESS_AREA,
+    MCC_DATATYPE_SIZE = 2,
+    NCL_CMIP_CODE = NCL_DSMDT_AreaAddress,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE AddressPrefix = MCC_K_DT_ADDRESS_PREFIX,
+    MCC_DATATYPE_SIZE = 1,
+    NCL_CMIP_CODE = NCL_DSMDT_AddressPrefix,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE TowerSet = MCC_K_DT_TOWERSET,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_TowerSet,
+    ASN1_CLASS = 0, ASN1_TAG = 17    : ATOMIC;
+
+SMI_BUILTIN_TYPE EndUserSpecification = MCC_K_DT_END_USER_SPEC,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_EndUserSpec,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE TransportSelector = MCC_K_DT_ADDRESS_TSEL,
+    MCC_DATATYPE_SIZE = 32,
+    NCL_CMIP_CODE = NCL_DSMDT_TSelector,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+(* BOGUS NAME FOR THE SAME THING *)
+SMI_BUILTIN_TYPE TSEL = MCC_K_DT_ADDRESS_TSEL,
+    MCC_DATATYPE_SIZE = 32,
+    NCL_CMIP_CODE = NCL_DSMDT_TSelector,
+    ASN1_CLASS = 0, ASN1_TAG = 4 : ATOMIC;
+
+SMI_BUILTIN_TYPE Phase4Name = MCC_K_DT_PHASE4NAME,
+    MCC_DATATYPE_SIZE = 6,
+    NCL_CMIP_CODE = NCL_DSMDT_Phase4Name,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE Phase4Address = MCC_K_DT_PHASE4ADDRESS,
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_Phase4Address,
+    ASN1_CLASS = 0, ASN1_TAG = 2    : ATOMIC;
+
+SMI_BUILTIN_TYPE Implementation = MCC_K_DT_IMPLEMENTATION,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_Implementation,
+    ASN1_CLASS = 0, ASN1_TAG = 17    : ATOMIC;
+
+SMI_BUILTIN_TYPE IPAddress = MCC_K_DT_IPADDRESS,
+    MCC_DATATYPE_SIZE = 4,
+    NCL_CMIP_CODE = NCL_DSMDT_IPAddress ,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE NSCTS = MCC_K_DT_NSCTS,
+    MCC_DATATYPE_SIZE = 14,
+    NCL_CMIP_CODE = NCL_DSMDT_NSCTS,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE EntityClass = MCC_K_DT_ENTITY_CLASS,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_EntityClass,
+    ASN1_CLASS = 0, ASN1_TAG = 6    : ATOMIC;
+
+SMI_BUILTIN_TYPE HexString = MCC_K_DT_HEXSTRING,
+    MCC_DATATYPE_SIZE = 65535,
+    NCL_CMIP_CODE = NCL_DSMDT_HexString,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+/* ============================ NCL-SPECIFIC============================== */
+
+SMI_BUILTIN_TYPE VersionNumberWithEdit = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_VersionEdit,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE ComponentName = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_ComponentName,
+    ASN1_CLASS = 0, ASN1_TAG = 0    : ATOMIC;
+
+SMI_BUILTIN_TYPE Floor = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_Floor,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE ProtocolTower = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_ProtocolTower,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE SSelector = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_SSelector,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE CMIPMessage = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_DNACMIPMessage,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE PSelector = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_PSelector,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE EntityClassEvent = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_EntityClassEvent,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE EntityInstanceEvent = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_EntityInstanceEvent,
+    ASN1_CLASS = 0, ASN1_TAG = 16    : ATOMIC;
+
+SMI_BUILTIN_TYPE FDDITimer = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_FDDITimer,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE StationID = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_StationID,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE EthernetProtocolType = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_EthernetProtocolType,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+SMI_BUILTIN_TYPE IEEE802SNAPpid = 0,
+    NCL_CMIP_CODE = NCL_DSMDT_IEEE802SNAPPID,
+    ASN1_CLASS = 0, ASN1_TAG = 4    : ATOMIC;
+
+
+/* The following codes in mcc_interface_def.h seemed to have no equivalent
+   legal datatype. . . 
+ MCC_K_DT_SUBRANGE 12                             MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_SEQUENCE 15                             MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_FLOATF 63                               MCC_DATATYPE_SIZE = 8,
+ MCC_K_DT_RESERVED_DO_NOT_USE_1 76
+ MCC_K_DT_RESERVED_DO_NOT_USE_2 77
+ MCC_K_DT_RESERVED_DO_NOT_USE_3 78
+ MCC_K_DT_RESERVED_DO_NOT_USE_4 79
+ MCC_K_DT_ATTRIB 82                               MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_ATTRIB_IDENTIFIER 83                    MCC_DATATYPE_SIZE = 4,
+ MCC_K_DT_TIME24 84                               MCC_DATATYPE_SIZE = 2,
+ MCC_K_DT_USAGE_STATE 85                          MCC_DATATYPE_SIZE = 4,
+ MCC_K_DT_ADMIN_STATE 86                          MCC_DATATYPE_SIZE = 4,
+ MCC_K_DT_REPAIR_STATUS 87                        MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_INSTAL_STATUS 88                        MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_AVAIL_STATUS 89                         MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_CONTROL_STATUS 90                       MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_OPER_STATE 91                           MCC_DATATYPE_SIZE = 4,
+ MCC_K_DT_SNARESOURCENAME 92                      MCC_DATATYPE_SIZE = 8,
+ MCC_K_DT_QUALIFIEDSNANAME 93                     MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_STRINGSET 94                            MCC_DATATYPE_SIZE = 65535,
+ MCC_K_DT_MESSAGE 75                              MCC_DATATYPE_SIZE = 1,
+ MCC_K_DT_ASN 126
+ MCC_K_DT_ILV 127
+ MCC_K_DT_MAX 127
+*/
+
+END_SMI_DEF;
+
+
+(*
+ ------------------------------------------------------------------------
+                              SMI "SNMP"
+ ------------------------------------------------------------------------
+*) 
+
+/*
+  SMI Datatype Code:
+ 
+  NOTE:
+   Symbol "MIR_SMI_SNMP" is defined in MIR Interface Function Header file
+   "mir.h" as having this value ... the value specified here must match the
+   value specified there!
+*/
+START_SMI SNMP = 2 :
+
+SMI_BUILTIN_TYPE Boolean = 1,          ASN1_CLASS = 0, ASN1_TAG = 1    OID = {1 3 12 2 1011 2 19 1} : ATOMIC;
+SMI_BUILTIN_TYPE Integer = 2,          ASN1_CLASS = 0, ASN1_TAG = 2    OID = {1 3 12 2 1011 2 19 2} : ATOMIC;
+SMI_BUILTIN_TYPE BitString = 3,        ASN1_CLASS = 0, ASN1_TAG = 3    OID = {1 3 12 2 1011 2 19 3} : ATOMIC;
+SMI_BUILTIN_TYPE OctetString = 4,      ASN1_CLASS = 0, ASN1_TAG = 4    OID = {1 3 12 2 1011 2 19 4} : ATOMIC;
+SMI_BUILTIN_TYPE Null = 5,             ASN1_CLASS = 0, ASN1_TAG = 5    OID = {1 3 12 2 1011 2 19 5} : ATOMIC;
+SMI_BUILTIN_TYPE ObjectIdentifier = 6, ASN1_CLASS = 0, ASN1_TAG = 6    OID = {1 3 12 2 1011 2 19 6} : ATOMIC;
+/* Currently, only the application tag is stored, but we also need the
+   underlying universal tag to be stored.  The convention is established
+   that "ASN1_TAG" must appear TWICE for application types, the first
+   occurence carrying the definition of the application tag, the second
+   carrying the universal tag.  The compiler and Tier 1 functions have been
+   changed to support this (SNMP datatypes are OK), but full support for
+   'constructed - DNA' types isn't quite here yet.
+*/
+SMI_BUILTIN_TYPE IPAddress = 7,        ASN1_CLASS = 1, ASN1_TAG = 0    OID = {1 3 12 2 1011 2 19 7} : ATOMIC;
+SMI_BUILTIN_TYPE Counter = 8,          ASN1_CLASS = 1, ASN1_TAG = 1    OID = {1 3 12 2 1011 2 19 8} : ATOMIC;
+SMI_BUILTIN_TYPE Gauge = 9,            ASN1_CLASS = 1, ASN1_TAG = 2    OID = {1 3 12 2 1011 2 19 9} : ATOMIC;
+SMI_BUILTIN_TYPE TimeTicks = 10,       ASN1_CLASS = 1, ASN1_TAG = 3    OID = {1 3 12 2 1011 2 19 10} : ATOMIC;
+SMI_BUILTIN_TYPE Opaque = 11,          ASN1_CLASS = 1, ASN1_TAG = 4    OID = {1 3 12 2 1011 2 19 11} : ATOMIC;
+
+(***************** This list of MCC data types is generated by MTU *********)
+(* MSL needs to be able to represent data types for viewing/mapping by multiple protocols !!! *)
+
+(* 	Enable MTU generated MSL enumerations to be valid *)
+(* Encoded simply as an integer *)
+SMI_BUILTIN_TYPE BIDT_ENUMERATION = 13,
+ ASN1_CLASS = 0, ASN1_TAG = 2,
+ AUX_INFO = "MIR_Enum_Code",
+ AUX_INFO = "MIR_Enum_Text" : ATOMIC;
+
+END_SMI_DEF;

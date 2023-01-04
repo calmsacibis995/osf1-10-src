@@ -1,0 +1,148 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rlogind.8,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/06/09 17:47:49 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\" Copyright (c) 1983, 1989 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)rlogind.8	6.11 (Berkeley) 6/24/90
+.\" 
+.TH rlogind 8
+.SH NAME
+\*Lrlogind\*O \- The remote login server
+.SH SYNOPSIS 
+.sS
+\*Lrlogind\*O [\*L-aln\*O]
+.sE 
+.SH FLAGS
+.VL
+.LI "\*L-a\*O"
+Requests the addresses for the hostname, verifying that the name and
+address correspond.  Normal authentication is bypassed if the address
+verification fails.
+.LI "\*L-l\c\*O"
+Prevents authentication based on the user's \*L$HOME/.rhosts\*O file,
+unless the user is logging in as the superuser.
+.LI "\*L-n\*O"
+Disables transport-level, keep-alive messages. The messages are enabled
+by default.
+.LE 
+.SH DESCRIPTION
+.iX "rlogind"
+.iX "remote login server"
+The \*Lrlogind\*O daemon is the server for the \*Lrlogin\*O(1)
+program.  The server provides a remote login facility
+with authentication based on privileged port numbers from trusted hosts.
+.PP 
+The \*Lrlogind\*O daemon listens for service requests at the port indicated in
+the login service specification; see \*Lservices\*O(4).
+When a service request is received, the following protocol is initiated:
+.AL
+.LI
+The server checks the client's source port.
+If the port is not in the range 512 to 1023, the server aborts the connection.
+.LI
+The server checks the client's source address and requests the corresponding 
+hostname (see \*Lgethostbyaddr\*O(3), \*Lhosts\*O(4) and \*Lnamed\*O(8).
+If the hostname cannot be determined, the dot-notation representation of the
+host address is used.  If the hostname is in the same domain as the server
+(according to the last two components of the domain name), or if the 
+\*L\-a\*O flag is given, the addresses for the hostname are requested,
+verifying that the name and address correspond.
+Normal authentication is bypassed if the address verification fails.
+.LE 
+.PP 
+Once the source port and address have been checked,
+\*Lrlogind\*O proceeds with the authentication process described in
+\*Lrshd\*O(8).  It then allocates a pseudoterminal (see
+.\"Begin Digital correction.
+.\" changed pty(4) to pty(7)
+\*Lpty\*O(7)), and manipulates file descriptors so that the slave
+.\"End Digital correction.
+half of the pseudoterminal becomes the \*Lstdin\*O, \*Lstdout\*O,
+and \*Lstderr\*O for a login process.  The login process is an instance of the
+\*Llogin\*O(1) program invoked with the \*L\-f\*O
+option if authentication has succeeded.  If automatic authentication 
+fails, the user is prompted to log in as if on a standard terminal line.  The
+\*L\-l\*O option prevents any authentication based on the user's \*L.rhosts\*O
+file, unless the user is logging in as the superuser.
+.PP 
+The parent of the login process manipulates the master side of
+the pseudoterminal, operating as an intermediary
+between the login process and the client instance of the
+\*Lrlogin\*O program.  In normal operation, the packet protocol described
+.\"Begin Digital correction.
+.\" changed pty(4) to pty(7)
+in \*Lpty\*O(7) is invoked to provide \*L<Ctrl-s>\*O/\*L<Ctrl-q>\*O 
+.\"End Digital correction.
+type facilities and propagate interrupt signals to the remote programs.
+The login process propagates the client terminal's baud rate and terminal type,
+as found in the \*LTERM\*O environment variable.
+The screen or window size of the terminal is requested from the client,
+and window size changes from the client are propagated to the
+pseudoterminal.
+.PP 
+Transport-level, keep-alive messages are enabled unless the \*L\-n\*O flag
+is present.  The use of keep-alive messages allows sessions to be timed out
+if the client crashes or becomes unreachable.
+.PP
+Note that the authentication procedure used here assumes the integrity
+of each client machine and the connecting medium.  This is
+insecure, but is useful in an \*Vopen\*O environment.
+.SH DIAGNOSTICS
+All initial diagnostic messages are indicated
+by a leading byte with a value of 1 (one),
+after which any network connections are closed.
+If there are no errors before \*Llogin\*O
+is invoked, a null byte is returned as an indication of success.
+.VL
+.LI "\*CTry again.\*O"
+A \*Lfork\*O by the server failed.
+.LE
+.SH FILES
+.PP 
+.VL
+.LI "\*L/usr/sbin/rlogind\*O"
+Specifies the command path
+.LE 
+.SH "RELATED INFORMATION"
+Commands: \*Llogin\*O(1)
+.PP 
+Daemons: \*Lrshd\*O(8)
+.PP 
+Functions: \*Lruserok\*O(3)
+.EQ
+delim off
+.EN

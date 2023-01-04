@@ -1,0 +1,143 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: presto,v $ $Revision: 1.1.2.3 $ (DEC) $Date: 1993/08/31 17:25:39 $
+# 
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+#
+# Default configuration for Prestoserve parameters
+#
+PRESTO_ENABLE=0
+PRESTO_SVC_ENABLE=0
+PRESTO_SVC_ANY=0
+PRESTOTAB=/etc/prestotab
+PRESTO_CMD=/usr/sbin/presto
+PRESTO_DAEMON=/usr/sbin/prestoctl_svc
+RCMGR=/usr/sbin/rcmgr
+RCFILE=/etc/rc.config
+#
+# Read configuration for Prestoserve parameters.  These parameters may
+# have been setup by the "prestoinit" script; otherwise the default
+# values above will be used.
+#
+if [ -f $RCFILE ] ; then
+	. $RCFILE 
+else
+	echo "ERROR: $RCFILE defaults file MISSING"
+fi
+
+case "$1" in
+'start')
+	if [ $PRESTO_ENABLE != 0 ]; then
+		if [ \! -f $PRESTO_CMD ]; then
+			/bin/echo "
+In order to make use of the Prestoserve disk write acceleration services,
+the $PRESTO_CMD command must be installed on your system."
+		else
+			if [ \! -f $PRESTOTAB ]; then
+			    if $PRESTO_CMD -u; then
+				/bin/echo "Prestoserve started on all filesystems."
+			    else
+				/bin/echo "Unable to start Prestoserve."
+				exit 1
+			    fi
+			else
+			    /bin/echo "Starting Prestoserve: presto -u for the following: "
+			    anystarted=""
+			    for filenames in `cat $PRESTOTAB`
+			    do
+				if [ -d $filenames ] || [ -b $filenames ]; then
+				    if $PRESTO_CMD -u $filenames; then
+					/bin/echo "$filenames - Presto enabled"
+					anystarted="y"
+				    else
+					/bin/echo "$filenames FAILED Presto acceleration enable."
+				    fi
+				else
+				    /bin/echo "${filenames} is not a valid directory or umounted block device."
+				fi
+			    done
+			    if [ $anystarted ]; then
+				/bin/echo "Presto has been enabled."
+			    else
+				/bin/echo "Unable to start Prestoserve."
+				exit 1
+			    fi
+			fi
+		fi
+	fi
+	if [ $PRESTO_SVC_ENABLE != 0 ]; then
+		if [ \! -f $PRESTO_DAEMON ]; then
+			/bin/echo "
+The $PRESTO_DAEMON is not installed on your system."
+		else
+		    /bin/echo -n "Starting prestoctl_svc "
+		    if [ $PRESTO_SVC_ANY != 0 ]; then
+			presto_args="-n"
+		    else
+			presto_args=""
+		    fi
+		    /bin/echo $presto_args
+		    if $PRESTO_DAEMON $presto_args; then
+			/bin/echo "Presto daemon started."
+		    else
+			/bin/echo "Unable to start Presto daemon."
+		    fi
+		fi
+	fi
+        ;;
+'stop')
+	# Disable the presto acceleration.  In order to not cause undo 
+	# alarm for the case that there is no presto device installed
+	# first run the presto status command to see if the presto
+	# device exists and that we can communicate with the presto
+	# subsystem at a minimal level.
+	if $PRESTO_CMD 2> /dev/null; then
+	    if $PRESTO_CMD -d; then
+		/bin/echo "Prestoserve acceleration has been disabled."
+	    else
+		/bin/echo "Unable to disable prestoserve acceleration via the presto -d command.
+Consult the Guide to Prestoserve for corrective action.
+"
+	    fi
+	fi
+
+        # Stop the presto daemon prestoctl_svc
+	pid=`/bin/ps -e | grep prestoctl_svc | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	while [ "X$pid" != "X" ]
+	do
+		/bin/kill -9  $pid
+		pid=`/bin/ps -e | grep prestoctl_svc | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+	done
+        ;;
+*)
+        echo "usage: $0 {start|stop}"
+        ;;
+esac
+
+# %PRESTOSTART% - Prestoserve has been started by "prestosetup"

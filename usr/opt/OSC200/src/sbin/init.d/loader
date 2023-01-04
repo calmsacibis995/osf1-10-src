@@ -1,0 +1,138 @@
+#! /sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+#
+# Control the loader: shared library installation and preloading
+#
+# MODIFICATION HISTORY:
+#
+#	000	??-???-????	OSF
+#		OSF/1 V1.0
+#
+#	001	10-oct-1991	ccb
+#		Restructured to use a directory of independent library
+#		conf files
+
+
+LibStart()
+{
+	CONFFILE=$1
+	OKMSG="Global libraries installed ($CONFFILE)"
+	FAILMSG="Unable to install global libraries ($CONFFILE)"
+
+	if $LOADER_ADMIN -v $CONFFILE; then
+		echo "$OKMSG"
+	else
+		echo "$FAILMSG"
+	fi
+}
+
+
+Main()
+{
+	PATH=/sbin:/usr/sbin:/usr/bin
+	export PATH
+	umask 022
+
+	# Don't execute lib_admin on Alpha which has a different (Sys V)
+	# shared library implementation.
+
+	if [ `machine` = alpha ]
+		then exit
+	fi
+
+	LOADER_ADMIN=/sbin/lib_admin
+	LOADER_ALTCONF=/etc/lib_admin.tmp
+	LOADER_CONFDIR=/etc/lib_admin.dir
+	LOADER_DEFCONF=/etc/lib_admin.conf
+	LOADER_DIR=/var/adm/loader
+	LOADER_SHLIBDIR=/usr/shlib
+	RC_CONFIG=/etc/rc.config
+	SINK=/dev/null
+
+	CLEARMSG="Clearing old preload files"
+	NOLIBMSG="No shared libraries avilable to load"
+
+	# read in customized parameters
+	[ -f $RC_CONFIG ] && . $RC_CONFIG
+
+	#
+	# Cleanup any old preload files
+	#
+	set `who -r`
+	[ $9 = "S" ] || return	# exit if not in single user mode (BROKEN)
+
+	echo "$CLEARMSG"
+	mkdir $LOADER_DIR 2> $SINK
+	rm -f $LOADER_DIR/ldr[0-9]*
+
+	#
+	# Now start the loader
+	#
+	[ -d $LOADER_SHLIBDIR ] || return	# exit if no shared libs dir
+
+
+	if [ -f $LOADER_DEFCONF ]; then
+	{
+		# check to see if there's a default configuration file -
+		#  if so, use to start up the libraries
+		LibStart $LOADER_DEFCONF
+		return
+	}
+	else
+	{
+		# no default configuration - try to create an alternate
+		#  configuration from the files in the configuration
+		#  directory
+
+		if [ -f $LOADER_CONFDIR/*.conf ]; then
+		{
+			# create LOADER_ALTCONF on the fly
+			(
+				cd $LOADER_CONFDIR
+				for K in *.conf
+				{
+					echo
+					cat $K
+					echo
+				}
+			) > $LOADER_ALTCONF
+			LibStart $LOADER_ALTCONF
+		}
+		else
+		{
+			echo "$NOLIBMSG"
+		}; fi
+	}; fi
+}
+
+[ "$CHECK_SYNTAX" ] || Main $*
+

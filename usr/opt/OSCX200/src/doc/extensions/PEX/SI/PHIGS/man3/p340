@@ -1,0 +1,177 @@
+.\"##
+.\" $XConsortium: p340,v 5.1 91/02/16 09:43:38 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "SET LOCAL TRANSFORMATION" 3P "29 February 1991"
+.SH NAME
+SET LOCAL TRANSFORMATION  \- create a structure element containing a \s-2\&2D\s+2
+Local Modelling Transformation matrix
+.IX "Modelling and Transformation Attributes" "SET LOCAL TRANSFORMATION"
+.IX "Attributes, Modelling and Transformation Attributes" "SET LOCAL TRANSFORMATION"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pset_local_tran ( xform, compose_type )
+Pmatrix	xform;	\fItransformation matrix\fP
+Pcompose_type	compose_type;	\fIcomposition type\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, STOP, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET LOCAL TRANSFORMATION\s+2 creates a structure element
+containing a \s-2\&2D\s+2 local modelling transformation matrix
+and a composition type,
+allowing various objects in the image to be defined
+in various convenient modelling coordinate systems.
+.LP
+During traversal, the element will modify the \fIcurrent local
+modelling transformation\fP according to the composition type.
+Then the modified local modelling transformation is composed with the current
+global modelling transformation to create a new composite modelling
+transformation. The composite modelling transformation then maps the modelling
+coordinates \s-2(MC)\s+2 used to define individual output primitives
+to a unified world coordinate \s-2(WC)\s+2 space.
+.LP
+If the current edit mode is \s-2INSERT\s+2,
+the \s-2SET LOCAL TRANSFORMATION\s+2 element
+is inserted into the open structure after the element pointed to
+by the current element pointer. If the edit mode is \s-2REPLACE\s+2, the
+\s-2SET LOCAL TRANSFORMATION\s+2
+element replaces the element pointed to by the
+element pointer. In either case, the element pointer is updated to point
+to the new element.
+.SS C Input Parameters
+.IP \fIxform\fP
+The 3 \(mu 3 homogeneous \fItransformation matrix\fP, of type:
+.sp .3
+.ta .5i +.5i +.5i
+.nf
+	typedef	 Pfloat	Pmatrix[3][3];
+.fi
+.IP \fIcompose_type\fP
+The \fIcomposition type\fP is an enumerated value, one of:
+.RS
+.sp .3
+.ta .5i +\w'PTYPE_POSTCONCAT  'u
+.nf
+	\(bu  \s-2PTYPE_PRECONCAT\s+2	\fIPreconcatenate\fP
+.sp  .3
+	\(bu  \s-2PTYPE_POSTCONCAT\s+2	\fIPostconcatenate\fP
+.sp .3
+	\(bu  \s-2PTYPE_REPLACE\s+2	\fIReplace\fP
+.RE
+.fi
+.SS Execution
+.LP
+When traversal of a structure begins,
+the initial current local modelling transformation \s-2(L)\s+2 and
+the current global modelling transformation \s-2(G)\s+2
+are both the \s-2\&3D\s+2, 4 \(mu 4 identity matrix.
+.\"	A Composite Modelling Transformation \s-2(C)\s+2 is by
+.\"	definition G \(mu L\(aa at all times.
+The composite modelling transformation \s-2(C)\s+2 within a structure traversal
+is formed by the matrix multiplication of the
+current local modelling transformation \s-2(L)\s+2 and the
+current global modelling transformation \s-2(G)\s+2 as follows:
+.IP
+C \(<- G \(mu L
+.LP
+\s-2PHIGS\s+2 assumes representation of points as column vectors.  Hence, the order
+of composition in C \(<- G \(mu L (and throughout) is ``post-concatenation''
+or ``post-multiply.''
+.LP
+When a new structure is traversed, one step in the
+invocation of the referenced structure is to save the current modelling
+transformations (\s-2L, G\s+2, and \s-2C\s+2).  The child structure inherits the parent's
+composite modelling transformation \s-2(C)\s+2
+as its current global modelling transformation \s-2(G)\s+2, and
+an identity matrix as its initial
+current local modelling transformation \s-2(L)\s+2.
+The parent and child have equal composite modelling transformations \s-2(C)\s+2,
+because \s-2L\s+2 is the identity.  After traversal of the child structure network,
+the saved transformations are restored so that the parent is unaffected
+by the execution of a child.
+.LP
+When the \s-2SET LOCAL TRANSFORMATION\s+2 element is traversed,
+first the element's \fItransformation matrix\fP is expanded to the \s-2\&3D\s+2
+equivalent \fItransformation matrix\fP \s-2(T)\s+2.
+Then the \fIcompose type\fP specifies the role of the
+current local modelling transformation \s-2(L)\s+2
+in composing the new value for the
+current local modelling transformation (L\(aa),
+which is then combined with the current global modelling transformation \s-2(G)\s+2
+to calculate the new composite modelling transformation \s-2(C)\s+2.
+.IP \fIPreconcatenate\fP
+The \fItransformation matrix\fP \s-2(T)\s+2 is multiplied by the
+current local modelling transformation \s-2(L)\s+2:
+.IP
+L\(aa \(<- L \(mu T
+.IP
+C \(<- G \(mu L\(aa
+.IP \fIPostconcatenate\fP
+The current local modelling transformation \s-2(L)\s+2 is multiplied by the
+\fItransformation matrix\fP \s-2(T)\s+2:
+.IP
+L\(aa \(<- T \(mu L
+.IP
+C \(<- G \(mu L\(aa
+.IP \fIReplace\fP
+The \fItransformation matrix\fP \s-2(T)\s+2 replaces the value of
+current local modelling transformation \s-2(L)\s+2.
+.IP
+L\(aa \(<- T
+.IP
+C \(<- G \(mu L\(aa
+.LP
+The current composite modelling transformation maps the
+modelling coordinates, used to define individual output primitives, to
+world coordinates.
+Mapping the primitives to the world coordinate space establishes the
+relation between different objects of the image by redefining the parts in
+terms of a unified coordinate space. This allows the application to define
+different parts of the image in different local modelling coordinates
+convenient to the objects being defined, and then to apply
+transformations that will map the local coordinate systems of each part to
+a single world coordinate \s-2(WC)\s+2 space.
+Finally, the viewing mechanism maps \s-2WC\s+2 to device coordinates
+on the workstation's physical display surface.
+.\"? This "transformation pipeline" is described in more detail in the
+.\"? \fI\s-2PEX-SI\s0 Programming Guide\fP.
+.SH ERRORS
+.IP 005
+Ignoring function, function requires state (\s-2PHOP, *, STOP, *\s+2)
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET GLOBAL TRANSFORMATION (3P)"
+.SM "SET VIEW REPRESENTATION (3P)"
+.SM "BUILD TRANSFORMATION MATRIX (3P)"
+.SM "TRANSFORM POINT (3P)"
+.SM "SET LOCAL TRANSFORMATION 3 (3P)"
+.fi

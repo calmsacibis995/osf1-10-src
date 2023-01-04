@@ -1,0 +1,180 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: savecore.8,v $ $Revision: 3.2.7.3 $ (DEC) $Date: 1993/11/29 19:50:58 $
+.\" 
+...\"
+...\"  THIS OSF SOURCE FILE HAS BEEN MODIFIED BY DLIBRARY IN OSP
+...\"  If you need information about the changes, send mail
+...\"  to dlibrary@ravine at Digital Equipment Corp.
+...\"
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+.TH savecore 8
+.SH NAME
+.PP
+\*Lsavecore\*O - Saves a core dump of the operating system
+.SH SYNOPSIS
+.PP
+.sS
+.\" Begin Digital-specific information -- CHANGE
+\*Lsavecore\*O [\*L-cefv\*O] \*Vdirectory\*O
+.\" End Digital-specific information
+.\" \*Lsavecore\*O [\*L-cefv\*O] \*Vdirectory\*O [\*Vsystem\*O]
+.sE
+.PP
+The \*Lsavecore\*O command saves the most recent core dump of the
+system and writes a reboot message in the shutdown log.
+.SH FLAGS
+.PP
+.\" Begin Digital-specific information
+.VL
+.LI "\*L-c\*O"
+Does not copy the dump, but simply marks it invalid.
+.LI "\*L-e\*O"
+.\" Begin Digital-specific information
+Saves only the kernel syslog and binary event log buffers from the dump.
+If this flag is specified, core or namelist images are not saved.
+.\" End Digital-specific information
+.LI "\*L-f\*O"
+.\" Begin Digital-specific information -- CHANGE
+.\" Copies the dump even if it appears to be invalid.  If both \*L-c\*O
+.\" and \*L-f\*O are specified, \*L-f\*O is ignored.
+Copies the dump even if it is old or there is insufficient filesystem
+space to save it.
+.\" End of Degital-specific information
+.LI "\*L-v\*O"
+Prints more verbose information.
+.LE
+.\" End Digital-specific information
+.SH DESCRIPTION
+.PP
+.iX "savecore command"
+.iX "saving a core dump"
+.iX "core dump" "saving"
+.iX "dump" "core, saving"
+The \*Lsavecore\*O command
+is usually invoked during system startup (before the dump partition
+is accessed).
+.PP
+The \*Lsavecore\*O command checks to determine whether a dump has been
+made recently (within the last three days) and that there is enough
+space to save it (see the following information about \*Lminfree\*O).
+These conditions are overridden by the \*L-f\*O flag.
+.PP
+Both the dump and the kernel are saved to files in \*Vdirectory\*O
+under the names \*Lvmcore\&.\*Vn\*O and \*Lvmunix\&.\*Vn\*O,
+respectively.  The variable \*Vn\*O is the number specified by
+the file \*Vdirectory/bounds\*O and incremented by \*Lsavecore\*O.
+If this value does not exist, it is created and initialized with the
+value 0.
+.PP
+The file \*Ldirectory/minfree\*O specifies the minimum number of
+kilobytes (default is 0) left on the filesystem containing
+\*Vdirectory\*O after the dump is taken.
+.PP
+The \*Lsavecore\*O command also logs a reboot message using the
+facility \*LLOG_CRIT\*O (see \*Lsyslog\*O(3)).  If the system crashed
+as a result of a panic, \*Lsavecore\*O also logs the panic string.
+.\" Begin Digital-specific information -- DELETION
+.\" THE FOLLOWING NO LONGER TRUE FOR STERLING:
+.\" If the core dump was from a system other than \*L/vmunix\*O, the
+.\" name of that system must be supplied as the \*Vsystem\*O argument.
+.PP
+.\" DELETE FOLLOWING STATEMENT PER DEVO INSTRUCTIONS FOR THE
+.\" STERLING RELEASE:
+.\" The \*Vsystem\*O argument is not used by \*Lsavecore\*O, but is
+.\" accepted for backwards compatibility.
+.\" End Digital-specific information
+.PP
+.\" Begin Digital-specific information
+The \*Lsavecore\*O command attempts to save the kernel syslog and
+binary event log buffers from the dump.  The \*Lmsgbuf.err\*O entry in
+\*L/etc/syslog.conf\*O file and the \*Ldumpfile\*O entry in the
+\*L/etc/binlog.conf\*O file
+specify the buffer file names and locations.
+The default file specifications are as follows:
+.PP
+.iS
+msgbuf.err              /var/adm/crash/msgbuf.savecore
+
+dumpfile                /var/adm/crash/binlogdumpfile
+.iE
+If the \*Lmsgbuf.err\*O or \*Ldumpfile\*O entry is not specified in the
+\*L/etc/syslog.conf\*O or \*L/etc/binlog.conf\*O file, respectively,
+the buffer is not saved.  You cannot specify that a buffer be
+saved by forwarding it to any system.
+.PP
+The syslog messages or binary event log records that were not processed
+due to a system crash are recovered
+on the subsequent reboot.  The \*Lsavecore\*O command runs during
+the system reboot, checks for the presence of a system
+core dump, and saves the syslog and binary event log buffers.
+.PP
+When the \*Lsyslogd\*O and \*Lbinlogd\*O daemons are initialized,
+they check for the saved buffer files; if found, the daemons
+process the files and then delete them.
+.PP
+The default location for saving crash dumps is
+\*L/var/adm/crash\*O.  This can be overridden as follows:
+.PP
+\*L/usr/sbin/rcmgr set SAVECORE_DIR\*O \*Vdirectory\*O
+.PP
+The default behavior of \*Lsavecore\*O is to return to
+single-user mode if it is unable to save a core dump because of
+insufficient filesystem space.  This feature can be disabled as follows:
+.PP
+\*L/usr/sbin/rcmgr set SAVECORE_FLAGS M\*O
+.PP
+.\" End Digital-specific information
+.SH FILES
+.PP
+.VL
+.\" Begin Digital-specific information -- CHANGE
+.\" .LI "\*L/usr/sbin/savecore\*O"
+.LI "\*L/usr/savecore\*O"
+.\" End Digital-specific information
+Specifies the command path.
+.\" Begin Digital-specific information -- DELETION
+.\" .LI "\*L/vmunix\*O"
+.\" Specifies the current system.
+.\" End Digital-specific information
+.nL
+.ne 4
+.LI "\*Ldirectory/bounds\*O"
+Specifies the number of next dump files.
+.LI "\*Ldirectory/minfree\*O"
+Specifies the minimum number of kilobytes to be left after a dump.
+.\" ***DELETE FOLLOWING LIST ITEM PER DEVO INSTRUCTIONS FOR
+.\"    STERLING RELEASE:
+.\" Begin Digital-specific information
+.\" .LI "\*L/sbin/init.d/savecore\*O"
+.\" Specifies the default location of crash
+.\" dump files. By default, crash dump files are placed in
+.\" \*L/var/adm/crash\*O. You can modify
+.\" \*L/sbin/init.d/savecore\*O to direct \*Lsavecore\*O to use another
+.\" location.
+.\" End Digital-specific information
+.iX "savecore command"
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:  \*Lsyslog\*O(3)
+.EQ
+delim off
+.EN

@@ -1,0 +1,1119 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204161407.AA04485@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2483) close XBUG #3967, #4434: decddx: ddx/dec/ws confine-to, pixmap formats
+Date: Thu, 16 Apr 92 10:07:44 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: decddx: ddx/dec/ws does not implement cursor confine-to correctly
+### bug number:   3967
+### area:         decddx
+### severity:     low
+### comments:     
+
+Subject: decddx: pixmap formats may be reported that don't exist.
+### bug number:   4434
+### area:         decddx
+### severity:     low
+### comments:     
+
+This patch also adds support for pixmaps of depth > 8.
+
+*** /tmp/d04175	Thu Apr 16 09:57:58 1992
+--- server/Imakefile	Sat Dec 28 15:04:01 1991
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.135 91/09/22 10:27:51 rws Exp $
+  /*
+   * Server Master Makefile
+   */
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.138 91/12/28 15:02:20 keith Exp $
+  /*
+   * Server Master Makefile
+   */
+***************
+*** 7,13 ****
+  
+  #define StdSubdirs dix os ddx/mi
+  #define MFBSubdirs StdSubdirs ddx/mfb
+! #define CFBSubdirs MFBSubdirs ddx/cfb
+  #define StdLibs $(DIX) $(OS) $(MI) $(EXTENSIONS)
+  #define MFBBareLibs $(DIX) $(OS) $(FONT) $(MFB) $(MI)
+  #define MFBLibs MFBBareLibs $(EXTENSIONS)
+--- 7,13 ----
+  
+  #define StdSubdirs dix os ddx/mi
+  #define MFBSubdirs StdSubdirs ddx/mfb
+! #define CFBSubdirs MFBSubdirs ddx/cfb ddx/cfb16 ddx/cfb32
+  #define StdLibs $(DIX) $(OS) $(MI) $(EXTENSIONS)
+  #define MFBBareLibs $(DIX) $(OS) $(FONT) $(MFB) $(MI)
+  #define MFBLibs MFBBareLibs $(EXTENSIONS)
+***************
+*** 28,35 ****
+  		   $(PEXTENSIONSRC)/ospex/libospex.a 
+  #endif
+  #if BuildXInputExt
+!       OTHEREXTS = $(EXTENSIONSRC)/server/xinput/libxinput.a
+  #endif
+  
+          DEPDIRS = $(FONTSRC)/lib/font $(EXTENSIONSRC)/server
+       NONPEXEXTS = $(OTHEREXTS) $(EXTENSIONSRC)/server/libext.a
+--- 28,39 ----
+  		   $(PEXTENSIONSRC)/ospex/libospex.a 
+  #endif
+  #if BuildXInputExt
+!       XINPUTEXT = $(EXTENSIONSRC)/server/xinput/libxinput.a
+  #endif
++ #if BuildXTrapExt
++        XTRAPEXT = $(EXTENSIONSRC)/server/xtrap/libxtrapext.a
++ #endif
++       OTHEREXTS = $(XINPUTEXT) $(XTRAPEXT)
+  
+          DEPDIRS = $(FONTSRC)/lib/font $(EXTENSIONSRC)/server
+       NONPEXEXTS = $(OTHEREXTS) $(EXTENSIONSRC)/server/libext.a
+***************
+*** 39,45 ****
+               OS = os/libos.a $(XAULIB) $(XDMCPLIB)
+          BSDEMUL = $(LIBSRC)/Berk/Berklib.o
+              MFB = ddx/mfb/libmfb.a
+!             CFB = ddx/cfb/libcfb.a
+               MI = ddx/mi/libmi.a
+              DIX = dix/libdix.a
+             FONT = $(FONTSRC)/lib/font/libfont.a
+--- 43,49 ----
+               OS = os/libos.a $(XAULIB) $(XDMCPLIB)
+          BSDEMUL = $(LIBSRC)/Berk/Berklib.o
+              MFB = ddx/mfb/libmfb.a
+!             CFB = ddx/cfb/libcfb.a ddx/cfb16/libcfb.a ddx/cfb32/libcfb.a
+               MI = ddx/mi/libmi.a
+              DIX = dix/libdix.a
+             FONT = $(FONTSRC)/lib/font/libfont.a
+***************
+*** 46,53 ****
+--- 50,61 ----
+  #if SystemV4 && X386Server
+          SYSLIBS = -lm /usr/ucblib/libucb.a
+  #else
++ #if XirisServer
++         SYSLIBS = -lm
++ #else
+          SYSLIBS = -lm -ldbm
+  #endif
++ #endif
+             CBRT = ddx/mi/cbrt.o
+  
+  XCOMM
+***************
+*** 129,134 ****
+--- 137,146 ----
+  ALL2 = Xnon
+  #endif
+  
++ #if XirisServer
++ ALL1 = Xiris
++ #endif
++ 
+  /* end ALL definitions */
+  
+  ALL = $(ALL1) $(ALL2)
+***************
+*** 222,228 ****
+  SUNWINDOWSLIBS = -lsunwindow -lpixrect
+  #endif
+  SUBDIRS0 = MFBSubdirs
+! SUBDIRS1 = ddx/cfb
+  SUBDIRS2 = ddx/sun
+  SUNDIRS = $(SUBDIRS0) $(SUBDIRS1) $(SUBDIRS2) $(DEPDIRS)
+  SUNOBJS = ddx/sun/sunInit.o
+--- 234,240 ----
+  SUNWINDOWSLIBS = -lsunwindow -lpixrect
+  #endif
+  SUBDIRS0 = MFBSubdirs
+! SUBDIRS1 = ddx/cfb ddx/cfb16 ddx/cfb32
+  SUBDIRS2 = ddx/sun
+  SUNDIRS = $(SUBDIRS0) $(SUBDIRS1) $(SUBDIRS2) $(DEPDIRS)
+  SUNOBJS = ddx/sun/sunInit.o
+***************
+*** 344,349 ****
+--- 356,387 ----
+  ServerTarget(X386,$(X386DIRS),$(X386OBJS),$(X386LIBS),$(SYSLIBS))
+  #endif /* X386Server */
+  
++ 
++ #if XirisServer
++ XCOMM
++ XCOMM SGI Iris Server
++ XCOMM
++ SGIDIRS = ddx/sgi/IRIX ddx/sgi/common ddx/sgi/gr1 ddx/sgi/nfb ddx/sgi/rrm \
++ 	ddx/sgi/sgi
++ SUBDIRS0 = CFBSubdirs $(SGIDIRS)
++ IRISDIRS = $(SUBDIRS0) $(DEPDIRS)
++ IRISOBJS = ddx/sgi/sgi/sgiScreens.o ddx/sgi/IRIX/irixKernInit.o \
++ 	   ddx/mi/miinitext.o
++ IRISLIBS = 	$(DIX) $(OS) \
++ 		ddx/sgi/common/libcomm.a \
++ 		ddx/sgi/sgi/libsgi.a \
++ 		ddx/sgi/IRIX/libirix.a \
++ 		ddx/sgi/gr1/re1/libre1.a \
++ 	   	ddx/sgi/gr1/re2/libre2.a \
++ 		ddx/sgi/IRIX/libirix.a \
++ 	   	ddx/sgi/gr1/libgr1.a \
++ 	   	ddx/sgi/rrm/librrm.a \
++ 		ddx/sgi/nfb/libnfb.a \
++ 		$(CFB) $(MFB) $(MI) $(FONT) $(EXTENSIONS)
++ IRISSYSLIBS = $(SYSLIBS)
++  
++ ServerTarget(Xiris,$(IRISDIRS),$(IRISOBJS),$(IRISLIBS),$(IRISSYSLIBS))
++ #endif
+  
+  #if XnonServer
+  XCOMM
+*** /tmp/d04198	Thu Apr 16 09:58:13 1992
+--- server/ddx/dec/ws/Imakefile	Sat Dec 28 14:59:28 1991
+***************
+*** 1,17 ****
+! XCOMM $XConsortium: Imakefile,v 1.5 91/07/16 22:52:16 gildea Exp $
+  #include <Server.tmpl>
+  
+! #
+! # Only color frame buffers are currently supported
+! #
+! #ACC=acc_2da
+! #ACC=acc_3d
+  ACC=acc_none
+  
+! SRCS = init.c ws_io.c ws_color.c cfbinit.c ext_device.c $(ACC).c
+  OFILES = init.o
+  
+! OBJS = ws_io.o ws_color.o cfbinit.o ext_device.o $(ACC).o
+  INCLUDES = -I../../mfb -I../../mi -I../../../include -I$(INCLUDESRC) \
+  		-I$(EXTENSIONSRC)/include
+  LINTLIBS = ../../../dix/llib-ldix.ln ../../../os/llib-los.ln \
+--- 1,17 ----
+! XCOMM $XConsortium: Imakefile,v 1.7 91/12/28 14:57:53 rws Exp $
+  #include <Server.tmpl>
+  
+! XCOMM
+! XCOMM Only color frame buffers are currently supported
+! XCOMM
+! XCOMM ACC=acc_2da
+! XCOMM ACC=acc_3d
+  ACC=acc_none
+  
+! SRCS = init.c ws_io.c ws_color.c cfbinit.c ext_device.c $(ACC).c mdepthinit.c
+  OFILES = init.o
+  
+! OBJS = ws_io.o ws_color.o cfbinit.o ext_device.o $(ACC).o mdepthinit.o
+  INCLUDES = -I../../mfb -I../../mi -I../../../include -I$(INCLUDESRC) \
+  		-I$(EXTENSIONSRC)/include
+  LINTLIBS = ../../../dix/llib-ldix.ln ../../../os/llib-los.ln \
+*** /tmp/d04260	Thu Apr 16 09:58:45 1992
+--- server/ddx/dec/ws/cfbinit.c	Mon Apr  6 18:18:25 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cfbinit.c,v 1.2 91/07/08 11:16:22 keith Exp $ */
+  /***********************************************************
+  Copyright 1991 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: cfbinit.c,v 1.3 92/04/06 18:18:23 keith Exp $ */
+  /***********************************************************
+  Copyright 1991 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 203,208 ****
+--- 203,210 ----
+      }
+  }
+  
++ extern Bool mfbScreenInit (), mcfbScreenInit(), cfbScreenInit();
++ extern Bool cfb16ScreenInit(), cfb32ScreenInit();
+  
+  Bool
+  fbInitProc(index, pScreen, argc, argv)
+***************
+*** 211,221 ****
+      int argc;
+      char **argv;
+  {
+-     register    PixmapPtr pPixmap;
+      int		dpix, dpiy, i;
+      static int  mapOnce = FALSE;
+      wsScreenPrivate *wsp;
+!     Bool success = FALSE;
+      ws_depth_descriptor *dd;
+      ws_visual_descriptor vd;
+      static ws_map_control mc;
+--- 213,223 ----
+      int argc;
+      char **argv;
+  {
+      int		dpix, dpiy, i;
+      static int  mapOnce = FALSE;
+      wsScreenPrivate *wsp;
+!     int	    depthIndex;
+!     Bool    (*screenInit)();
+      ws_depth_descriptor *dd;
+      ws_visual_descriptor vd;
+      static ws_map_control mc;
+***************
+*** 242,262 ****
+      /* since driver does not support unmap (yet), only map screen once */
+      if (! mapped[index]) {
+  	depthDesc[index].screen = screenDesc[index].screen;
+! 	for (i = 0; i < wsp->screenDesc->allowed_depths; i++) {
+! 		depthDesc[index].which_depth = i;	
+! 		if (ioctl(wsFd, GET_DEPTH_INFO, &depthDesc[index]) == -1) {
+! 		    ErrorF("GET_DEPTH_INFO failed");
+! 		    exit (1);
+! 		}
+! 	    if (depthDesc[index].depth == 8 ||depthDesc[index].depth == 1){
+! 		    success = TRUE;
+! 		    break;
+  	    }
+  	}
+! 	if (!success) return FALSE;
+  
+  	mc.screen = screenDesc[index].screen;
+! 	mc.which_depth = i;
+  	mc.map_unmap = MAP_SCREEN;
+  	if (ioctl(wsFd,  MAP_SCREEN_AT_DEPTH, &mc) == -1)    {
+  	    ErrorF("MAP_SCREEN_AT_DEPTH failed");
+--- 244,276 ----
+      /* since driver does not support unmap (yet), only map screen once */
+      if (! mapped[index]) {
+  	depthDesc[index].screen = screenDesc[index].screen;
+! 	depthIndex = -1;
+! 	for (i = 0; i < wsp->screenDesc->allowed_depths; i++) 
+! 	{
+! 	    extern int forceDepth;
+! 
+! 	    depthDesc[index].which_depth = i;	
+! 	    if (ioctl(wsFd, GET_DEPTH_INFO, &depthDesc[index]) == -1) {
+! 		ErrorF("GET_DEPTH_INFO failed");
+! 		exit (1);
+  	    }
++ 	    if (forceDepth)
++ 		depthDesc[index].depth = forceDepth;
++ 	    switch (depthDesc[index].bits_per_pixel) {
++ 	    case 1:
++ 	    case 8:
++ 	    case 16:
++ 	    case 32:
++ 		break;
++ 	    default:
++ 		continue;
++ 	    }
++ 	    depthIndex = i;
+  	}
+! 	if (depthIndex == -1) return FALSE;
+  
+  	mc.screen = screenDesc[index].screen;
+! 	mc.which_depth = depthIndex;
+  	mc.map_unmap = MAP_SCREEN;
+  	if (ioctl(wsFd,  MAP_SCREEN_AT_DEPTH, &mc) == -1)    {
+  	    ErrorF("MAP_SCREEN_AT_DEPTH failed");
+***************
+*** 272,277 ****
+--- 286,293 ----
+  	    ErrorF("GET_DEPTH_INFO failed");
+  	    return FALSE;
+  	}
++ 	if (forceDepth)
++ 	    depthDesc[index].depth = forceDepth;
+  	mapped[index] = TRUE;
+      }
+  
+***************
+*** 321,331 ****
+      switch (dd->bits_per_pixel)
+      {
+      case 1:
+! 	if (!mfbScreenInit(pScreen, dd->pixmap, wsp->screenDesc->width,
+! 	    wsp->screenDesc->height, dpix, dpiy, dd->fb_width))
+! 	{
+! 		return FALSE;
+! 	}
+  	pScreen->blackPixel = 0;
+  	pScreen->whitePixel = 1;
+      	if(screenArgs[index].flags & ARG_BLACKVALUE)
+--- 337,352 ----
+      switch (dd->bits_per_pixel)
+      {
+      case 1:
+! 	screenInit = mfbScreenInit;
+! 	break;
+!     case 8:
+!     case 16:
+!     case 32:
+! 	screenInit = mcfbScreenInit;
+! 	break;
+!     }
+!     if (dd->depth == 1) 
+!     {
+  	pScreen->blackPixel = 0;
+  	pScreen->whitePixel = 1;
+      	if(screenArgs[index].flags & ARG_BLACKVALUE)
+***************
+*** 339,353 ****
+  	    	pScreen->whitePixel = i;
+  	    else
+  	    	wsPixelError(index);
+! 	if (!(mfbCreateDefColormap (pScreen)))
+! 	    return FALSE;
+! 	break;
+!     case 8:
+! 	if (!cfbScreenInit(pScreen, dd->pixmap, wsp->screenDesc->width,
+! 	    wsp->screenDesc->height, dpix, dpiy, dd->fb_width))
+! 	{
+! 	    return FALSE;
+! 	}
+      	if(screenArgs[index].flags & ARG_BLACKVALUE)
+  	    colorNameToColor(screenArgs[index].blackValue, &blackred,
+  			     &blackgreen, &blackblue); 
+--- 360,368 ----
+  	    	pScreen->whitePixel = i;
+  	    else
+  	    	wsPixelError(index);
+!     }
+!     else
+!     {
+      	if(screenArgs[index].flags & ARG_BLACKVALUE)
+  	    colorNameToColor(screenArgs[index].blackValue, &blackred,
+  			     &blackgreen, &blackblue); 
+***************
+*** 356,382 ****
+  	    colorNameToColor(screenArgs[index].whiteValue, &whitered, 
+  			    &whitegreen, &whiteblue);
+  
+- 	/* copy of cfbCreateDefColormap, except variable colors */
+-     	for (pVisual = pScreen->visuals;
+- 	     pVisual->vid != pScreen->rootVisual;
+- 	     pVisual++)
+- 	    ;
+-     
+-     	if (CreateColormap(pScreen->defColormap, pScreen, pVisual, &pCmap,
+- 		       	   (pVisual->class & DynamicClass) ? AllocNone : AllocAll,
+- 		       	   0)
+- 	    != Success)
+- 	    return FALSE;
+-     	if ((AllocColor(pCmap, &whitered, &whitegreen, &whiteblue,
+- 		        &(pScreen->whitePixel), 0) != Success) ||
+-     	    (AllocColor(pCmap, &blackred, &blackgreen, &blackblue,
+- 		        &(pScreen->blackPixel), 0) != Success))
+- 	{
+-     	    return FALSE;
+- 	}
+-     	(*pScreen->InstallColormap)(pCmap);
+- 	break;
+      }
+  
+      planemask_addr = dd->plane_mask;
+      
+--- 371,402 ----
+  	    colorNameToColor(screenArgs[index].whiteValue, &whitered, 
+  			    &whitegreen, &whiteblue);
+  
+      }
++ 
++     if (!(*screenInit) (pScreen, dd->pixmap, wsp->screenDesc->width,
++ 	wsp->screenDesc->height, dpix, dpiy, dd->fb_width, dd->bits_per_pixel, dd->depth))
++     {
++ 	return FALSE;
++     }
++     /* copy of cfbCreateDefColormap, except variable colors */
++     for (pVisual = pScreen->visuals;
++ 	 pVisual->vid != pScreen->rootVisual;
++ 	 pVisual++)
++ 	;
++ 
++     if (CreateColormap(pScreen->defColormap, pScreen, pVisual, &pCmap,
++ 		       (pVisual->class & DynamicClass) ? AllocNone : AllocAll,
++ 		       0)
++ 	!= Success)
++ 	return FALSE;
++     if ((AllocColor(pCmap, &whitered, &whitegreen, &whiteblue,
++ 		    &(pScreen->whitePixel), 0) != Success) ||
++ 	(AllocColor(pCmap, &blackred, &blackgreen, &blackblue,
++ 		    &(pScreen->blackPixel), 0) != Success))
++     {
++ 	return FALSE;
++     }
++     (*pScreen->InstallColormap)(pCmap);
+  
+      planemask_addr = dd->plane_mask;
+      
+*** /tmp/d04297	Thu Apr 16 09:59:04 1992
+--- server/ddx/dec/ws/init.c	Mon Apr  6 18:18:59 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: init.c,v 1.4 91/08/26 13:27:24 rws Exp $ */
+  
+  #include <stdio.h>
+  #include <sys/types.h>
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: init.c,v 1.5 92/04/06 18:18:58 keith Exp $ */
+  
+  #include <stdio.h>
+  #include <sys/types.h>
+***************
+*** 47,61 ****
+  extern void wsKeybdProc();
+  extern void wsClick();
+  extern void wsChangePointerControl();
+  extern KeybdCtrl defaultKeyboardControl;
+  ws_event_queue	*queue;
+  
+! #define NUMFORMATS 2
+! static	PixmapFormatRec formats[] = {
+! 	{1, 1, BITMAP_SCANLINE_PAD},     /* 1 bit deep */
+! 	{8, 8, BITMAP_SCANLINE_PAD},     /* 8-bit deep */
+! 	{24, 32, BITMAP_SCANLINE_PAD},
+! };
+  
+  Bool fbInitProc();
+  extern int num_accelerator_types;
+--- 47,59 ----
+  extern void wsKeybdProc();
+  extern void wsClick();
+  extern void wsChangePointerControl();
++ 
++ 
+  extern KeybdCtrl defaultKeyboardControl;
+  ws_event_queue	*queue;
+  
+! static int NumFormats;
+! static int bitsPerDepth[33];
+  
+  Bool fbInitProc();
+  extern int num_accelerator_types;
+***************
+*** 98,103 ****
+--- 96,102 ----
+  ws_descriptor wsinfo;
+  int wsFd;
+  int ws_cpu;
++ int forceDepth;
+  
+  int wsScreenPrivateIndex;
+  /* the following filth is forced by a broken dix interface */
+***************
+*** 107,113 ****
+      int argc;
+      char **argv;
+  {
+!     int i;
+      int si = 0;
+      static int inited = FALSE;
+      static int ma = 4;
+--- 106,112 ----
+      int argc;
+      char **argv;
+  {
+!     int i, j;
+      int si = 0;
+      static int inited = FALSE;
+      static int ma = 4;
+***************
+*** 115,136 ****
+      static PtrCtrl ctrl;
+      static int  clicklevel;
+  
+-     screenInfo->imageByteOrder = IMAGE_BYTE_ORDER;
+-     screenInfo->bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
+-     screenInfo->bitmapScanlinePad = BITMAP_SCANLINE_PAD;
+-     screenInfo->bitmapBitOrder = BITMAP_BIT_ORDER;
+-     screenInfo->numPixmapFormats = NUMFORMATS;
+- 
+-     for (i=0; i< NUMFORMATS; i++) {
+- 	screenInfo->formats[i].depth = formats[i].depth;
+- 	screenInfo->formats[i].bitsPerPixel = formats[i].bitsPerPixel;
+- 	screenInfo->formats[i].scanlinePad = formats[i].scanlinePad;
+-     }
+- 
+      if (!inited) {
+  	char *clickvolume;
+  	char *mouseAcceleration;
+  	char *mouseThreshold;
+  	ws_keyboard_control control;
+          inited = TRUE;
+          if ((wsFd = open("/dev/mouse",  O_RDWR, 0)) < 0) {
+--- 114,124 ----
+      static PtrCtrl ctrl;
+      static int  clicklevel;
+  
+      if (!inited) {
+  	char *clickvolume;
+  	char *mouseAcceleration;
+  	char *mouseThreshold;
++ 	char *forceD;
+  	ws_keyboard_control control;
+          inited = TRUE;
+          if ((wsFd = open("/dev/mouse",  O_RDWR, 0)) < 0) {
+***************
+*** 170,177 ****
+--- 158,226 ----
+  		sscanf( mouseAcceleration, "%d", &ma);
+  	if (commandLinePairMatch( argc, argv, "-t", &mouseThreshold))
+  		sscanf( mouseThreshold, "%d", &mt);
++ 	if (commandLinePairMatch( argc, argv, "-forceDepth", &forceD))
++ 		sscanf ( forceD, "%d", &forceDepth);
++     }
++     for (i = 1; i <= 32; i++)
++ 	bitsPerDepth[i] = 0;
+  
++     for (i = 0; i < wsinfo.num_screens_exist; i++)
++     {
++ 	ws_screen_descriptor	screeninfo;
++ 	ws_depth_descriptor	depthinfo;
++ 	
++ 	screeninfo.screen = i;
++ 	ioctl (wsFd, GET_SCREEN_INFO, &screeninfo);
++ 	for (j = 0; j < screeninfo.allowed_depths; j++) 
++ 	{
++ 	    depthinfo.screen = i;
++ 	    depthinfo.which_depth = j;
++ 	    ioctl (wsFd, GET_DEPTH_INFO, &depthinfo);
++ 	    if (forceDepth)
++ 		depthinfo.depth = forceDepth;
++ 	    if (bitsPerDepth[depthinfo.depth] &&
++ 		bitsPerDepth[depthinfo.depth] != depthinfo.bits_per_pixel)
++ 	    {
++ 		FatalError ("Screens with mismatching bpp for depth %d\n",
++ 			    depthinfo.depth);
++ 	    }
++ 	    bitsPerDepth[depthinfo.depth] = depthinfo.bits_per_pixel;
++ 	}
+      }
++     if (!bitsPerDepth[1])
++ 	bitsPerDepth[1] = 1;
++ #define INCLUDE_ALL_CFB
++ #ifdef INCLUDE_ALL_CFB
++     j = 0;
++     for (i = 1; i <= 32; i++)
++ 	if (bitsPerDepth[i])
++ 	    j |= 1 << (bitsPerDepth[i] - 1);
++     if (!(j & (1 << 7)))
++ 	bitsPerDepth[8] = 8;
++     if (!(j & (1 << 15)))
++ 	bitsPerDepth[12] = 16;
++     if (!(j & (1 << 31)))
++ 	bitsPerDepth[24] = 32;
++ #endif    
++     NumFormats = 0;
++     for (i = 1; i <= 32; i++)
++     {
++ 	if (j = bitsPerDepth[i]) {
++ 	    if (NumFormats >= MAXFORMATS)
++ 		FatalError ("MAXFORMATS is too small for this machine\n");
++ 	    screenInfo->formats[NumFormats].depth = i;
++ 	    screenInfo->formats[NumFormats].bitsPerPixel = j;
++ 	    screenInfo->formats[NumFormats].scanlinePad = BITMAP_SCANLINE_PAD;
++ 	    NumFormats++;
++ 	}
++     }
++ 
++     screenInfo->imageByteOrder = IMAGE_BYTE_ORDER;
++     screenInfo->bitmapScanlineUnit = BITMAP_SCANLINE_UNIT;
++     screenInfo->bitmapScanlinePad = BITMAP_SCANLINE_PAD;
++     screenInfo->bitmapBitOrder = BITMAP_BIT_ORDER;
++     screenInfo->numPixmapFormats = NumFormats;
++ 
+      ctrl.num = ma;
+      ctrl.den = 1;
+      ctrl.threshold = mt;
+*** /tmp/d04335	Thu Apr 16 09:59:25 1992
+--- server/ddx/dec/ws/ws.h	Mon Apr  6 18:19:33 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: ws.h,v 1.2 91/07/08 11:16:30 keith Exp $ */
+  
+  #define NOMAPYET        (ColormapPtr) 1
+  
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: ws.h,v 1.3 92/04/06 18:19:32 keith Exp $ */
+  
+  #define NOMAPYET        (ColormapPtr) 1
+  
+***************
+*** 36,41 ****
+--- 36,42 ----
+  #define	 ARG_EDGE_T	(1 << 8)
+  #define	 ARG_EDGE_B	(1 << 9)
+  #define  ARG_MONITOR	(1 << 10)
++ #define	 ARG_DEPTH	(1 << 11)
+  
+  typedef struct  {
+  	int flags;
+***************
+*** 50,55 ****
+--- 51,57 ----
+  	int edge_top;
+  	int edge_bottom;
+  	ws_monitor monitor;
++ 	int depth;
+  } ScreenArgsRec;
+  
+  typedef struct {
+***************
+*** 78,83 ****
+--- 80,86 ----
+  
+  extern ScreenPtr wsScreens[];
+  extern int class;
++ extern int forceDepth;
+  extern int fdPM;   /* this is the file descriptor for screen so
+  		    can do IOCTL to colormap */
+  extern int ws_cpu;
+*** /tmp/d04372	Thu Apr 16 09:59:43 1992
+--- server/ddx/dec/ws/ws_io.c	Mon Apr  6 18:20:30 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: ws_io.c,v 1.4 91/07/08 11:16:33 keith Exp $ */
+  
+  #include <stdio.h>
+  #include <sys/types.h>
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: ws_io.c,v 1.6 92/04/06 18:20:28 keith Exp $ */
+  
+  #include <stdio.h>
+  #include <sys/types.h>
+***************
+*** 56,61 ****
+--- 56,62 ----
+  
+  extern ws_descriptor wsinfo;
+  void wsCursorControl();
++ static Bool wsDisplayCursor();
+  
+  extern ws_screen_descriptor screenDesc[];
+  extern int wsFd;
+***************
+*** 70,75 ****
+--- 71,77 ----
+  extern	ws_event_queue	*queue;
+  int lastEventTime;
+  int wsNumButtons = -1;
++ static Bool cursorConfined = FALSE;
+  
+  #define MAX_LED 3	/* only 3 LED's can be set by user; Lock LED
+  			   is controlled by server */
+***************
+*** 581,587 ****
+      lockLed = def.lock_key_led;
+      km.device_number = wsinfo.console_keyboard;
+      km.modifiers = mods;
+!     km.keysyms = rawsyms;
+      km.keycodes = rawcodes;
+      if (ioctl (wsFd, GET_KEYSYMS_AND_MODIFIERS, &km) == -1) {
+  	ErrorF ("error getting keysyms and modifiers\n");
+--- 583,589 ----
+      lockLed = def.lock_key_led;
+      km.device_number = wsinfo.console_keyboard;
+      km.modifiers = mods;
+!     *((KeySym **)(&km.keysyms)) = rawsyms; /* XXX bad type in inputdevice.h */
+      km.keycodes = rawcodes;
+      if (ioctl (wsFd, GET_KEYSYMS_AND_MODIFIERS, &km) == -1) {
+  	ErrorF ("error getting keysyms and modifiers\n");
+***************
+*** 669,688 ****
+     	if(e->screen != rememberedScreen)
+  	{
+  		ScreenPtr	pScreen;
+! 		short		x, y;
+  
+- 		/* assumption -- this is a motion event */
+- 		wsCursorControl(rememberedScreen, CURSOR_OFF);
+- 		wsCursorControl(e->screen, CURSOR_ON);
+- 		rememberedScreen = e->screen;
+- 		pScreen = wsScreens[e->screen];
+- 		if (currentCursor)
+- 			wsDisplayCursor (pScreen, currentCursor);
+- 		x = e->e.key.x;
+- 		y = e->e.key.y;
+  		if (i >= queue->size - 1)   i = queue->head = 0;
+  		else			    i = ++queue->head;
+! 		NewCurrentScreen(pScreen, x, y);
+  		i = queue->head;
+  		continue;
+      	}
+--- 671,704 ----
+     	if(e->screen != rememberedScreen)
+  	{
+  		ScreenPtr	pScreen;
+! 		int		x, y;
+  
+  		if (i >= queue->size - 1)   i = queue->head = 0;
+  		else			    i = ++queue->head;
+! 		if (cursorConfined)
+! 		{
+! 		    /* OS doesn't work right -- we have to confine here */
+! 		    GetSpritePosition (&x, &y);
+! 		    pScreen = wsScreens[rememberedScreen];
+! 		    (void) wsSetCursorPosition (pScreen, x, y, FALSE);
+! 		    wsCursorControl(e->screen, CURSOR_OFF);
+! 		    wsCursorControl(rememberedScreen, CURSOR_ON);
+! 		    if (currentCursor)
+! 			wsDisplayCursor(pScreen, currentCursor);
+! 		}
+! 		else
+! 		{
+! 		    /* assumption -- this is a motion event */
+! 		    wsCursorControl(rememberedScreen, CURSOR_OFF);
+! 		    wsCursorControl(e->screen, CURSOR_ON);
+! 		    rememberedScreen = e->screen;
+! 		    pScreen = wsScreens[e->screen];
+! 		    if (currentCursor)
+! 			    wsDisplayCursor (pScreen, currentCursor);
+! 		    x = e->e.key.x;
+! 		    y = e->e.key.y;
+! 		    NewCurrentScreen(pScreen, x, y);
+! 		}
+  		i = queue->head;
+  		continue;
+      	}
+***************
+*** 769,774 ****
+--- 785,802 ----
+      }
+  }
+  
++ long
++ GetTimeInMillis()
++ {
++     struct timeval  tp;
++ #ifdef VSYNCFIXED
++     if (queue)
++ 	return queue->time;
++ #endif
++     gettimeofday(&tp, 0);
++     return(tp.tv_sec * 1000) + (tp.tv_usec / 1000);
++ }
++ 
+  TimeSinceLastInputEvent()
+  {
+      if (lastEventTime == 0)
+***************
+*** 781,787 ****
+      lastEventTime = CURRENT_TIME;
+  }
+  
+- extern Bool PointerConfinedToScreen();
+  /*
+   * set the bounds in the device for this particular cursor
+   */
+--- 809,814 ----
+***************
+*** 793,798 ****
+--- 820,826 ----
+      ws_pointer_box wsbox;
+      wsbox.screen = screenDesc[pScr->myNum].screen;
+      wsbox.enable = PointerConfinedToScreen();
++     cursorConfined = wsbox.enable;
+      wsbox.device_number = wsinfo.console_pointer;
+      wsbox.box.bottom = pBox->y2;
+      wsbox.box.right = pBox->x2;
+***************
+*** 1199,1204 ****
+--- 1227,1239 ----
+  		return 0;
+  	}
+  	else return 0;
++     }
++     else if (strcmp( argv[argind], "-forceDepth") == 0)
++     {
++ 	if (++argind < argc) {
++ 	    forceDepth = atoi (argv[argind]);
++ 	    skip = 2;
++ 	}
+      }
+  
+  #ifdef XINPUT
+*** /tmp/d04391	Thu Apr 16 09:59:53 1992
+--- server/ddx/dec/ws/ws_color.c	Mon Apr  6 18:19:35 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: ws_color.c,v 1.4 91/07/08 13:32:31 keith Exp $ */
+  
+  /* 
+   * ws_color.c - device specific color routines, stored in screen
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: ws_color.c,v 1.5 92/04/06 18:19:34 keith Exp $ */
+  
+  /* 
+   * ws_color.c - device specific color routines, stored in screen
+***************
+*** 117,123 ****
+      pPrivScreen->pInstalledMap = pcmap;
+  
+      /* if Turbochannel mfb (2 entry StaticGray), do not store any colors */
+!     if (pcmap->class != StaticGray || entries != 2) {
+  
+  	/* If we have an 8 entry TrueColor map, then get all 256 pixel
+  	    values so we can fake a TrueColor visual with an undecomposed
+--- 117,123 ----
+      pPrivScreen->pInstalledMap = pcmap;
+  
+      /* if Turbochannel mfb (2 entry StaticGray), do not store any colors */
+!     if ((int) pcmap->devPriv != 2) {
+  
+  	/* If we have an 8 entry TrueColor map, then get all 256 pixel
+  	    values so we can fake a TrueColor visual with an undecomposed
+*** /dev/null	Thu Apr 16 09:59:54 1992
+--- server/ddx/dec/ws/mdepthinit.c	Thu Apr 16 09:58:38 1992
+***************
+*** 0 ****
+--- 1,223 ----
++ /* $XConsortium: mdepthinit.c,v 1.2 92/04/16 09:57:12 rws Exp $ */
++ 
++ /*
++ 
++ Copyright 1992 by the Massachusetts Institute of Technology
++ 
++ Permission to use, copy, modify, distribute, and sell this software and its
++ documentation for any purpose is hereby granted without fee, provided that
++ the above copyright notice appear in all copies and that both that
++ copyright notice and this permission notice appear in supporting
++ documentation, and that the name of M.I.T. not be used in advertising or
++ publicity pertaining to distribution of the software without specific,
++ written prior permission.  M.I.T. makes no representations about the
++ suitability of this software for any purpose.  It is provided "as is"
++ without express or implied warranty.
++ 
++ */
++ 
++ #include "X.h"
++ #include "Xmd.h"
++ #include "servermd.h"
++ #include "scrnintstr.h"
++ #include "pixmapstr.h"
++ #include "resource.h"
++ #include "colormap.h"
++ #include "colormapst.h"
++ #include "mi.h"
++ #include "mistruct.h"
++ #include "dix.h"
++ #include "gcstruct.h"
++ #include "mibstore.h"
++ 
++ extern int defaultColorVisualClass;
++ 
++ #define BitsPerPixel(d) (\
++     (1 << PixmapWidthPaddingInfo[d].padBytesLog2) * 8 / \
++     (PixmapWidthPaddingInfo[d].padRoundUp+1))
++ 
++ Bool
++ mcfbCreateGC(pGC)
++     GCPtr   pGC;
++ {
++     switch (BitsPerPixel(pGC->depth)) {
++     case 1:
++ 	return mfbCreateGC (pGC);
++     case 8:
++ 	return cfbCreateGC (pGC);
++     case 16:
++ 	return cfb16CreateGC (pGC);
++     case 32:
++ 	return cfb32CreateGC (pGC);
++     }
++     return FALSE;
++ }
++ 
++ void
++ mcfbGetSpans(pDrawable, wMax, ppt, pwidth, nspans, pdstStart)
++     DrawablePtr		pDrawable;	/* drawable from which to get bits */
++     int			wMax;		/* largest value of all *pwidths */
++     register DDXPointPtr ppt;		/* points to start copying from */
++     int			*pwidth;	/* list of number of bits to copy */
++     int			nspans;		/* number of scanlines to copy */
++     unsigned long	*pdstStart;	/* where to put the bits */
++ {
++     switch (BitsPerPixel(pDrawable->depth)) {
++     case 1:
++ 	mfbGetSpans(pDrawable, wMax, ppt, pwidth, nspans, pdstStart);
++ 	break;
++     case 8:
++ 	cfbGetSpans(pDrawable, wMax, ppt, pwidth, nspans, pdstStart);
++ 	break;
++     case 16:
++ 	cfb16GetSpans(pDrawable, wMax, ppt, pwidth, nspans, pdstStart);
++ 	break;
++     case 32:
++ 	cfb32GetSpans(pDrawable, wMax, ppt, pwidth, nspans, pdstStart);
++ 	break;
++     }
++     return;
++ }
++ 
++ void
++ mcfbGetImage(pDrawable, sx, sy, w, h, format, planeMask, pdstLine)
++     DrawablePtr pDrawable;
++     int		sx, sy, w, h;
++     unsigned int format;
++     unsigned long planeMask;
++     pointer	pdstLine;
++ {
++     switch (BitsPerPixel(pDrawable->depth)) 
++     {
++     case 1:
++ 	mfbGetImage(pDrawable, sx, sy, w, h, format, planeMask, pdstLine);
++ 	break;
++     case 8:
++ 	cfbGetImage(pDrawable, sx, sy, w, h, format, planeMask, pdstLine);
++ 	break;
++     case 16:
++ 	cfb16GetImage(pDrawable, sx, sy, w, h, format, planeMask, pdstLine);
++ 	break;
++     case 32:
++ 	cfb32GetImage(pDrawable, sx, sy, w, h, format, planeMask, pdstLine);
++ 	break;
++     }
++ }
++ 
++ Bool
++ mcfbSetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width, bpp, depth)
++     register ScreenPtr pScreen;
++     pointer pbits;		/* pointer to screen bitmap */
++     int xsize, ysize;		/* in pixels */
++     int dpix, dpiy;		/* dots per inch */
++     int width;			/* pixel width of frame buffer */
++     int depth;			/* depth of root */
++     int	bpp;			/* bits per pixel of root */
++ {
++     extern int		cfbWindowPrivateIndex;
++     extern int		cfbGCPrivateIndex;
++     extern int		cfb16WindowPrivateIndex;
++     extern int		cfb16GCPrivateIndex;
++     extern int		cfb32WindowPrivateIndex;
++     extern int		cfb32GCPrivateIndex;
++     int			wpi, gpi;
++ 
++     switch (bpp) {
++     case 8:
++ 	cfbSetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width);
++ 	wpi = cfbWindowPrivateIndex;
++ 	gpi = cfbGCPrivateIndex;
++ 	break;
++     case 16:
++ 	cfb16SetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width);
++ 	wpi = cfb16WindowPrivateIndex;
++ 	gpi = cfb16GCPrivateIndex;
++ 	break;
++     case 32:
++ 	cfb32SetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width);
++ 	wpi = cfb32WindowPrivateIndex;
++ 	gpi = cfb32GCPrivateIndex;
++ 	break;
++     default:
++ 	return FALSE;
++     }
++     if (bpp != 8)
++ 	cfbAllocatePrivates (pScreen, &wpi, &gpi);
++     if (bpp != 16)
++ 	cfb16AllocatePrivates (pScreen, &wpi, &gpi);
++     if (bpp != 32)
++ 	cfb32AllocatePrivates (pScreen, &wpi, &gpi);
++     pScreen->CreateGC = mcfbCreateGC;
++     pScreen->GetImage = mcfbGetImage;
++     pScreen->GetSpans = mcfbGetSpans;
++     return TRUE;
++ }
++ 
++ extern int  cfb16ScreenPrivateIndex, cfb32ScreenPrivateIndex;
++ 
++ mcfbFinishScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width, bpp, depth)
++     register ScreenPtr pScreen;
++     pointer pbits;		/* pointer to screen bitmap */
++     int xsize, ysize;		/* in pixels */
++     int dpix, dpiy;		/* dots per inch */
++     int width;			/* pixel width of frame buffer */
++ {
++     int		i;
++     pointer	oldDevPrivate;
++     VisualPtr	visuals;
++     int		nvisuals;
++     DepthPtr	depths;
++     int		ndepths;
++     VisualID	defaultVisual;
++     int		rootdepth;
++     miBSFuncPtr	bsFuncs;
++     extern miBSFuncRec	cfbBSFuncRec, cfb16BSFuncRec, cfb32BSFuncRec;
++     extern Bool		cfbCloseScreen(), cfb16CloseScreen(), cfb32CloseScreen();
++ 
++     rootdepth = depth;
++     if (!cfbInitVisuals(&visuals, &depths, &nvisuals, &ndepths, &rootdepth, &defaultVisual, 1 << (bpp - 1)))
++ 	return FALSE;
++     rootdepth = depth;
++     oldDevPrivate = pScreen->devPrivate;
++     if (! miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
++ 			rootdepth, ndepths, depths,
++ 			defaultVisual, nvisuals, visuals,
++ 			(miBSFuncPtr) 0))
++ 	return FALSE;
++     switch(bpp)
++     {
++     case 8:
++ 	pScreen->CloseScreen = cfbCloseScreen;
++ 	bsFuncs = &cfbBSFuncRec;
++ 	break;
++     case 16:
++ 	pScreen->CloseScreen = cfb16CloseScreen;
++ 	pScreen->devPrivates[cfb16ScreenPrivateIndex].ptr = pScreen->devPrivate;
++ 	pScreen->devPrivate = oldDevPrivate;
++ 	bsFuncs = &cfb16BSFuncRec;
++ 	break;
++     case 32:
++ 	pScreen->CloseScreen = cfb32CloseScreen;
++ 	pScreen->devPrivates[cfb32ScreenPrivateIndex].ptr = pScreen->devPrivate;
++ 	pScreen->devPrivate = oldDevPrivate;
++ 	bsFuncs = &cfb32BSFuncRec;
++ 	break;
++     }
++     miInitializeBackingStore (pScreen, bsFuncs);
++     return TRUE;
++ }
++ 
++ 
++ /* dts * (inch/dot) * (25.4 mm / inch) = mm */
++ Bool
++ mcfbScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width, bpp, depth)
++     register ScreenPtr pScreen;
++     pointer pbits;		/* pointer to screen bitmap */
++     int xsize, ysize;		/* in pixels */
++     int dpix, dpiy;		/* dots per inch */
++     int width;			/* pixel width of frame buffer */
++ {
++     if (!mcfbSetupScreen(pScreen, pbits, xsize, ysize, dpix, dpiy, width, bpp, depth))
++ 	return FALSE;
++     return mcfbFinishScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width, bpp, depth);
++ }

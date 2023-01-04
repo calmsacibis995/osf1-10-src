@@ -1,0 +1,183 @@
+.\"
+.\" $XConsortium: p219,v 5.1 91/02/16 09:40:56 rws Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.\" 1. Substitute PHIGS Extension function name (in CAPS) for "PNAME" in line be.\"low:
+.ds pN INQUIRE TEXT REPRESENTATION PLUS
+.TH "\*(pN" 3P+ "29 February 1991"
+.SH NAME
+\*(pN \- 
+inquire an extended text representation on a workstation
+.IX "Attribute Representations" "INQUIRE TEXT REPRESENTATION PLUS"
+.IX "Inquiry functions" "INQUIRE TEXT REPRESENTATION PLUS"
+.IX "PHIGS Extension Functions" "\*(pN"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pinq_text_rep_plus ( ws, index, type, error_ind, rep )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	index;	\fItext index\fP
+Pinq_type	type;	\fItype of returned value \fP
+Pint	*error_ind;	\fIOUT error indicator\fP
+Ptext_bundle_plus	*rep;	\fIOUT extended text representation\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2INQUIRE TEXT REPRESENTATION PLUS\s+2 
+returns the attribute values of a specified entry in a workstation
+extended text bundle table.  See SET TEXT REPRESENTATION PLUS for
+a full description of the contents of the bundle table entry and a
+description of the extended text bundle table.
+.SS C Input Parameters
+.IP \fIws\fP
+The workstation identifier.
+.IP \fIindex\fP
+The text index.
+.IP \fItype\fP
+An enumerated value specifying whether the values to be returned are 
+those originally specified by the application (\s-2PINQ_SET\s+2), or
+those resulting after \s-2PHIGS\s+2 mapped them to ones available on the
+workstation (\s-2PINQ_REALIZED\s+2).  A Pinq_type structure is defined in
+phigs.h as:
+.nf
+.ta .5i +\w'PINQ_REALIZED     'u
+.sp .4
+typedef enum {
+.sp .2
+	PINQ_SET,
+	PINQ_REALIZED
+.sp .2
+} Pinq_type;
+.fi
+.SS C Output Parameters
+.IP \fIerror_ind\fP
+A pointer to the location to store the error number of any
+error detected by this function.
+.IP \fIrep\fP
+A pointer to a Ptext_bundle_plus structure which returns the
+specified extended text representation.
+Ptext_bundle_plus is defined as:
+.nf
+.ta .5i +1.25i  +1.25i
+.sp .4
+typedef struct {
+.sp .2
+	Pint	font;	/* text font */
+	Ptext_prec	prec;	/* text precision */
+	Pfloat	char_expan;	/* character expansion factor */
+	Pfloat	char_space;	/* character spacing */
+	Pgcolr	colr;	/* text colour */
+.sp .2
+} Ptext_bundle_plus;
+.fi
+.IP
+Ptext_prec is defined as:
+.sp .2
+.nf
+.ta .5i 
+.sp .2
+typedef enum {
+.sp .2
+	PPREC_STRING,
+	PPREC_CHAR,
+	PPREC_STROKE
+.sp .2
+} Ptext_prec;
+.fi
+.IP
+Pgcolr is defined as:
+.ta .5i +1.5i   +1i  +2i
+.nf
+.sp .4
+typedef struct {
+.sp .2
+	Pint	type;	/* indirect, RGB, CIE, HSV, HLS */
+	union {
+	     Pint	ind;	/* index in workstation colour bundle table */
+	     struct {
+	          Pfloat	x;	/* red, hue, etc. */
+	          Pfloat	y;	/* green, saturation, lightness, etc. */
+	          Pfloat	z;	/* blue, value, saturation, etc. */
+	     } general;
+	} val;
+} Pgcolr;
+.fi
+.IP
+Constants defined for colour type are:
+.sp
+.nf
+.ta .5i +\w'0     'u +\w'PMODEL_CIELUV      'u
+0	PINDIRECT	\fIIndirect\fP
+1	PMODEL_RGB	\fIRed, Green, Blue\fP
+2	PMODEL_CIELUV	\fICIE\fP
+3	PMODEL_HSV	\fIHue, Saturation, Value\fP
+4	PMODEL_HLS	\fIHue, Lightness, Saturation\fP
+.fi
+.sp
+The index member of the \fIval\fR union is used for 
+type \s-2PINDIRECT\s+2.  The general member is used for the other types.  
+.SS Execution
+.LP
+If the inquired information is available, the error indicator is returned
+as zero and values are returned in the output parameters.
+.LP
+If the specified text index is not present in the text bundle table
+on the workstation and the specified type of returned value is 
+\fIRealized\fP,
+the representation for text index one is returned.
+.LP
+If the inquired information is not available, the values returned in the
+output parameters are undefined and the error indicator is
+set to one of the following error numbers to indicate the reason for
+nonavailability.
+.LP
+Since this is an inquiry function, \s-2ERROR HANDLING\s+2 is not invoked
+when an error is detected by this function.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP, WSOP, *, *\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 059
+Ignoring function, the specified workstation does not have output
+capability (that is, the workstation category is neither \s-2OUTPUT\s+2,
+\s-2OUTIN\s+2, nor \s-2MO\s+2)
+.IP 100
+Ignoring function, the bundle index value is less than one
+.IP 101
+Ignoring function, the specified representation has not been defined
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INQUIRE LIST OF TEXT INDICES (3P)"
+.SM "INQUIRE TEXT REPRESENTATION (3P)"
+.SM "INQUIRE PREDEFINED TEXT REPRESENTATION PLUS (3P+)"
+.SM "SET TEXT REPRESENTATION PLUS (3P+)"
+.fi

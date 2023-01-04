@@ -1,0 +1,88 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9204132112.AA21013@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2448) server: LookupWindow could update the cache
+Date: Mon, 13 Apr 92 17:12:27 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5148
+### area:         server
+### severity:     enhancement
+### comments:     
+
+*** /tmp/d20992	Mon Apr 13 17:09:02 1992
+--- server/dix/dixutils.c	Thu Feb 27 18:21:42 1992
+***************
+*** 23,34 ****
+  ******************************************************************/
+  
+  
+! /* $XConsortium: dixutils.c,v 1.39 91/07/16 20:24:03 keith Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+  #include "misc.h"
+! #include "window.h"
+  #include "dixstruct.h"
+  #include "pixmapstr.h"
+  #include "scrnintstr.h"
+--- 23,34 ----
+  ******************************************************************/
+  
+  
+! /* $XConsortium: dixutils.c,v 1.41 92/02/27 18:19:53 eswu Exp $ */
+  
+  #include "X.h"
+  #include "Xmd.h"
+  #include "misc.h"
+! #include "windowstr.h"
+  #include "dixstruct.h"
+  #include "pixmapstr.h"
+  #include "scrnintstr.h"
+***************
+*** 115,130 ****
+      XID rid;
+      ClientPtr client;
+  {
+      client->errorValue = rid;
+      if(rid == INVALID)
+  	return NULL;
+      if (client->lastDrawableID == rid)
+      {
+!         if (client->lastDrawable->type != DRAWABLE_PIXMAP)
+              return ((WindowPtr) client->lastDrawable);
+          return (WindowPtr) NULL;
+      }
+!     return (WindowPtr)LookupIDByType(rid, RT_WINDOW);
+  }
+  
+  
+--- 115,137 ----
+      XID rid;
+      ClientPtr client;
+  {
++     WindowPtr	pWin;
++ 
+      client->errorValue = rid;
+      if(rid == INVALID)
+  	return NULL;
+      if (client->lastDrawableID == rid)
+      {
+!         if (client->lastDrawable->type == DRAWABLE_WINDOW)
+              return ((WindowPtr) client->lastDrawable);
+          return (WindowPtr) NULL;
+      }
+!     pWin = (WindowPtr)LookupIDByType(rid, RT_WINDOW);
+!     if (pWin && pWin->drawable.type == DRAWABLE_WINDOW) {
+! 	client->lastDrawable = (DrawablePtr) pWin;
+! 	client->lastDrawableID = rid;
+!     }
+!     return pWin;
+  }
+  
+  

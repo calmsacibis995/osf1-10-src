@@ -1,0 +1,137 @@
+Path: news!news.crl.dec.com!nntpd.lkg.dec.com!nntpd2.cxo.dec.com!pa.dec.com!nobody
+Message-Id: <9205222214.AA24120@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2561) close XBUG #5250: server: Dashed Arc crashes X server
+Date: Fri, 22 May 92 18:14:31 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5250
+### area:         server
+### severity:     very high
+### comments:     
+
+*** /tmp/d24098	Fri May 22 18:12:43 1992
+--- server/ddx/mi/mizerarc.c	Fri May 22 18:12:05 1992
+***************
+*** 17,23 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: mizerarc.c,v 5.33 92/04/21 19:05:01 rws Exp $ */
+  
+  /* Derived from:
+   * "Algorithm for drawing ellipses or hyperbolae with a digital plotter"
+--- 17,23 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: mizerarc.c,v 5.34 92/05/22 17:44:26 rws Exp $ */
+  
+  /* Derived from:
+   * "Algorithm for drawing ellipses or hyperbolae with a digital plotter"
+***************
+*** 55,61 ****
+--- 55,65 ----
+  #define EPSILON45 64
+  
+  typedef struct {
++     int skipStart;
++     int haveStart;
+      DDXPointRec startPt;
++     int haveLast;
++     int skipLast;
+      DDXPointRec endPt;
+      int dashIndex;
+      int dashOffset;
+***************
+*** 625,631 ****
+      for (j = 4; startPts[j] == endPts[j]; j--)
+  	;
+      lastPt = endPts[j] - deltas[j];
+!     if ((pt->x == dinfo->endPt.x) && (pt->y == dinfo->endPt.y))
+      {
+  	startPts[i] += deltas[i];
+      }
+--- 629,636 ----
+      for (j = 4; startPts[j] == endPts[j]; j--)
+  	;
+      lastPt = endPts[j] - deltas[j];
+!     if (dinfo->haveLast &&
+! 	(pt->x == dinfo->endPt.x) && (pt->y == dinfo->endPt.y))
+      {
+  	startPts[i] += deltas[i];
+      }
+***************
+*** 634,644 ****
+  	dinfo->dashIndex = dinfo->dashIndexInit;
+  	dinfo->dashOffset = dinfo->dashOffsetInit;
+      }
+!     if ((lastPt->x == dinfo->startPt.x) && (lastPt->y == dinfo->startPt.y) &&
+! 	(lastPt != pt))
+! 	endPts[j] = pt;
+!     dinfo->startPt = *pt;
+!     dinfo->endPt = *lastPt;
+      dashRemaining = pGC->dash[dinfo->dashIndex] - dinfo->dashOffset;
+      for (i = 0; i < 5; i++)
+      {
+--- 639,659 ----
+  	dinfo->dashIndex = dinfo->dashIndexInit;
+  	dinfo->dashOffset = dinfo->dashOffsetInit;
+      }
+!     if (!dinfo->skipStart && (info.startAngle != info.endAngle))
+!     {
+! 	dinfo->startPt = *pt;
+! 	dinfo->haveStart = TRUE;
+!     }
+!     else if (!dinfo->skipLast && dinfo->haveStart &&
+! 	     (lastPt->x == dinfo->startPt.x) &&
+! 	     (lastPt->y == dinfo->startPt.y) &&
+! 	     (lastPt != startPts[i]))
+! 	endPts[j] = lastPt;
+!     if (info.startAngle != info.endAngle)
+!     {
+! 	dinfo->haveLast = TRUE;
+! 	dinfo->endPt = *lastPt;
+!     }
+      dashRemaining = pGC->dash[dinfo->dashIndex] - dinfo->dashOffset;
+      for (i = 0; i < 5; i++)
+      {
+***************
+*** 725,733 ****
+      if (pGC->lineStyle != LineSolid)
+      {
+  	numPts <<= 1;
+! 	dinfo.startPt.x = parcs->x - 1;
+! 	dinfo.startPt.y = parcs->y - 1;
+! 	dinfo.endPt = dinfo.startPt;
+  	dinfo.dashIndexInit = 0;
+  	dinfo.dashOffsetInit = 0;
+  	miStepDash((int)pGC->dashOffset, &dinfo.dashIndexInit,
+--- 740,748 ----
+      if (pGC->lineStyle != LineSolid)
+      {
+  	numPts <<= 1;
+! 	dinfo.haveStart = FALSE;
+! 	dinfo.skipStart = FALSE;
+! 	dinfo.haveLast = FALSE;
+  	dinfo.dashIndexInit = 0;
+  	dinfo.dashOffsetInit = 0;
+  	miStepDash((int)pGC->dashOffset, &dinfo.dashIndexInit,
+***************
+*** 753,760 ****
+--- 768,777 ----
+  	    {
+  		pts = points;
+  		oddPts = &points[(numPts >> 1) - 1];
++ 		dinfo.skipLast = i;
+  		miZeroArcDashPts(pGC, arc, &dinfo,
+  				 oddPts + 1, maxPts, &pts, &oddPts);
++ 		dinfo.skipStart = TRUE;
+  	    }
+  	    n = pts - points;
+  	    if (!dospans)

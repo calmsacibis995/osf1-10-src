@@ -1,0 +1,230 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: dump.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/17 18:51:10 $
+.\"
+.TH dump 4
+.SH NAME
+.PP
+\*Ldumprestor\*O, \*Ldumpdates\*O \- Incremental dump format
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.nL
+\*L#include <ufs/inode.h>\*O
+.nL
+.nL#include <protocols/dumprestore.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "dump keyword"
+.iX "dumprestor file" "format"
+Tapes used by
+\*Ldump\*O
+and
+\*Lrestore\*O
+contain:
+.VL
+.LI "A header record"
+.LI "Two groups of bit map records"
+.LI "A group of records describing directories"
+.LI "A group of records describing files"
+.LE
+.PP
+The format of the header record and of the first
+record of each description as given in the
+include file \*L<dumprestor.h>\*O is:
+.iX "dumprestor file" "format"
+.oS
+       #define NTREC           10
+
+       #define TS_TAPE         1
+       #define TS_INODE        2
+       #define TS_BITS         3
+       #define TS_ADDR         4
+       #define TS_END          5
+       #define TS_CLRI         6
+       #define NFS_MAGIC       (int) 60012
+       #define CHECKSUM        (int) 84446
+
+       #define TP_BSIZE        1024
+       #define TP_NINDIR       (TP_BSIZE/2)
+       #define LBLSIZE         16
+       #define NAMELEN         64
+       struct  s_spcl {
+               long            c_type;
+               time_t          c_date;
+               time_t          c_ddate;
+               long            c_volume;
+               daddr_t         c_tapea;
+               ino_t           c_inumber;
+               long            c_magic;
+               long            c_checksum;
+               struct          dinode          c_dinode;
+               long            c_count;
+               char            c_addr[TP_NINDIR];
+               char            c_label[LBLSIZE];
+               long            c_level;
+               char            c_filesys[NAMELEN];
+               char            c_dev[NAMELEN];
+               char            c_host[NAMELEN];
+               long            c_flags;
+       } s_spcl;
+
+       struct idates
+       {
+               char            id_name[NAME_MAX + 3];
+               char            id_incno;
+               time_t          id_ddate;
+       };
+
+       #define DUMPOUTFMT "%-16s %c %s"   /* for printf */
+                                       /* name, incno, ctime(date) */
+       #define DUMPINFMT  "%16s %c %[^\n]\n" /* inverse for scanf */
+
+
+.oE
+.PP
+NTREC is the number of TP_BSIZE-byte records in a physical tape block.
+.PP
+The
+TS_ entries are used in the
+\*Vc_type\*O
+field to indicate what sort of header
+this is.
+The types and their meanings are as follows:
+.iX "dump file" "TS_entry list"
+.VL
+.LI "TS_TAPE"
+Tape volume label.
+.LI "TS_INODE"
+A file or directory follows.
+The
+\*Vc_dinode\*O
+field is a copy of the disk inode and contains
+bits telling what sort of file this is.
+.LI "TS_BITS"
+A bit map follows.
+This bit map has a one (1) bit
+for each inode that was dumped.
+.LI "TS_ADDR"
+A subrecord of a file description.
+See
+\*Vc_addr\*O
+described in the next list.
+.LI "TS_END"
+End of tape record.
+.LI "TS_CLRI"
+A bit map follows.
+This bit map contains a zero bit for
+all inodes that were empty on the file system when dumped.
+.LI "NFS_MAGIC"
+All header records have this number in
+\*Vc_magic.\*O
+.LI "CHECKSUM"
+Header records checksum to this value.
+.LE
+.PP
+The fields of the header structure are as follows:
+.iX "dump file" "field reference list"
+.VL
+.LI "c_type"
+The type of the header.
+.LI "c_date"
+The date of the dump.
+.LI "c_ddate"
+The date of the previous dump to the file system.
+.LI "c_volume"
+The current volume number of the dump.
+.LI "c_tapea"
+The current number of this (1024-byte) record.
+.LI "c_inumber"
+The number of the inode being dumped if this
+is of type TS_INODE.
+.LI "c_magic"
+This contains the value MAGIC
+above, truncated as needed.
+.LI "c_checksum"
+This contains whatever value is needed to
+make the record sum to CHECKSUM.
+.LI "c_dinode"
+This is a copy of the inode as it appears on the
+file system.  For further information, see
+\*Lfs\*O(4).
+.LI "c_count"
+The count of characters in
+\*Vc_addr.\*O
+.LI "c_addr"
+An array of characters describing the blocks of the
+dumped file.
+A character is zero if the block associated with that character was not
+present on the file system; otherwise the character is nonzero.
+If the block was not present on the file system, no block was dumped;
+the block will be restored as a hole in the file.
+If there is not sufficient space in this record to describe
+all of the blocks in a file, TS_ADDR
+records will be scattered through the file, each one
+picking up where the last left off.
+.LI "c_label"
+The label of the dump.
+.LI "c_level"
+The level number of the dump.
+.LI "c_filesys"
+The name of the file system.
+.LI "c_dev"
+The name of the device.
+.LI "c_host"
+The name of the host.
+.LI "c_flags"
+Additional information such as whether the dump uses the format tape header
+described here.
+.LE
+.PP
+Each volume except the last ends with a tapemark (read as an end
+of file).
+The last volume ends with a TS_END
+record and then the tapemark.
+.PP
+The structure
+\*Vidates\*O
+describes an entry in the file
+\*L/etc/dumpdates\*O
+where dump history is kept.
+The fields of the structure are:
+.iX "dumpdates file" "field reference list"
+.VL
+.LI "id_name"
+The dumped filesystem is
+.RI `/dev/ id_nam'.
+.LI "id_incno"
+The level number of the dump tape.  For further information,
+see
+\*Ldump\*O(8).
+.LI "id_ddate"
+The date of the incremental dump in system format.
+For further information, see
+\*Ltypes\O*(4).
+.LE
+.SH FILES
+.PP
+\*L/etc/dumpdates\*O
+.SH RELATED INFORMATION
+.PP
+\*Lfs\*O(4), \*Ldump\*O(8), \*Lrestore\*O(8)
+.EQ
+delim off
+.EN

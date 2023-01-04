@@ -1,0 +1,86 @@
+#! /sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+# Control the kernel load service
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+	# no loadable kernel modules on alpha (yet)
+
+	if [ `machine` = alpha ]
+		then exit
+	fi
+
+case "$1" in
+'start')
+        ;;
+'stop')
+        if [ -r /var/run/kloadsrv.pid ]; then
+                kill `cat /var/run/kloadsrv.pid`
+		echo "Kernel load service stopped"
+        else
+            echo "ERROR: cannot find /var/run/kloadsrv.pid to kill kloadsrv."
+        fi
+	if [ -r /var/run/cfgmgr.pid ]; then
+		kill `cat /var/run/cfgmgr.pid`
+		echo "Configuration manager service stopped"
+	else
+		echo "ERROR: cannot find /var/run/cfgmgr.pid to kill cfgmgr."
+	fi
+        ;;
+'restart')
+        if [ -r /var/run/kloadsrv.pid ]; then
+                kill `cat /var/run/kloadsrv.pid`
+                if /sbin/kloadsrv; then
+        	        echo "Kernel load service re-started"
+                else
+                        echo "Cannot re-start kernel load service"
+                 fi
+        else
+            echo "ERROR: cannot find /var/run/kloadsrv.pid to restart kloadsrv."
+        fi
+	if [ -r /var/run/cfgmgr.pid ]; then
+		kill `cat /var/run/cfgmgr.pid`
+		if /sbin/cfgmgr; then
+			echo "Configuration manager service re-started"
+		else
+			echo "Cannot re-start configuration manager service"
+		fi
+	else
+	    echo "ERROR: cannot find /var/run/cfgmgr.pid to restart cfgmgr."
+	fi
+        ;;
+*)
+        echo "usage: $0 {start|stop|restart}"
+        ;;
+esac

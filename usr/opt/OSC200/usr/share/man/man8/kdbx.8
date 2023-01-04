@@ -1,0 +1,556 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: kdbx.8,v $ $Revision: 3.3.7.4 $ (DEC) $Date: 1993/12/09 16:30:51 $
+.\"
+.TH kdbx 8
+.SH NAME
+.PP
+\*Lkdbx\*O \- Analyzes running kernels and dump files.
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/bin/kdbx\*O [ \*L\-dbx\*O \*Vdbx-path\*O ] \*L\-k\*O [ \*Vdbx-options\*O ] \e
+\ \ \ \*Vobject-file\*O [ \*Vcore-file\*O ]
+.sE
+.SH DESCRIPTION
+.PP
+.iX "kdbx debugger"
+The \*Lkdbx\*O debugger is a crash analysis and kernel debugging tool;
+it is an interactive program that serves as a front-end to the
+\*Ldbx\*O debugger.  The \*Lkdbx\*O debugger is extensible,
+customizable, and insensitive to changes of offsets and sizes of
+fields in structures. The only dependencies on kernel
+header files are for bit definitions in flag fields.
+.PP
+The \*Lkdbx\*O debugger lets you examine either the running kernel
+or dump files created by the \*Lsavecore\*O command. In either case,
+you will be examining an object file and a core file.  For running
+systems, these files are usually \*L/vmunix\*O and \*L/dev/mem\*O,
+respectively.  Dump files created by \*Lsavecore\*O are saved in
+the directory specified by the \*L/sbin/init.d/savecore\*O script
+which is, by default, \*L/var/adm/crash\*O.
+.\" I found my thrills
+.PP
+The \*Lkdbx\*O debugger has facilities for interpreting various
+symbols and data structures.  It can format and display the symbols
+and data structures in the following ways:
+.ML
+.LI
+In a predefined form as specified in the modules that currently
+accompany the \*Lkdbx\*O debugger
+.LI
+As defined in user-written source code modules according to a
+standardized format for the contents of the \*Lkdbx\*O modules
+.LE
+.PP
+All \*Ldbx\*O commands are available through \*Lkdbx\*O using the
+\*Ldbx\*O option to \*Lkdbx\*O.
+.SS Defaults
+If you do not specify a core file, \*Lkdbx\*O uses the \*Ldbx\*O
+default of \*L/dev/mem\*O.  Therefore, you can use \*Lkdbx\*O
+with \*L/vmunix\*O as its only argument to examine an active system.
+In general, \*Lkdbx\*O assumes that addresses are specified
+in hexadecimal in commands that perform I/O.
+.PP
+When you begin a debugging session, \*Lkdbx\*O
+executes the commands in the system initialization file
+\*L/var/kdbx/system.kdbxrc\*O.
+The initialization file contains setup commands and alias definitions
+that are automatically executed when you begin a \*Lkdbx\*O session.
+The Aliases section lists the aliases defined in the
+\*Lsystem.kdbxrc\*O file. You can further customize the \*Lkdbx\*O
+environment by adding commands and aliases to one of the following
+initialization files:
+.IP \*L/var/kdbx/site.kdbxrc\*O
+Contains customized commands and alias definitions for a particular
+system.
+.IP \*L~/.kdbxrc\*O
+Contains customized commands and alias definitions for a specific user.
+.IP \*L./.kdbxrc\*O
+Contains customized commands and alias definitions for a specific
+project.  This file must reside in the current working directory
+when \*Lkdbx\*O is invoked.
+.\"
+.SS Invocation
+To use \*Lkdbx\*O to examine a running system, issue a \*Lkdbx\*O
+command with the following parameters:
+.PP
+.sS
+\*Lkdbx \-k /vmunix /dev/mem\*O
+.sE
+.PP
+For example:
+.PP
+.oS
+# kdbx \-k /vmunix /dev/mem
+dbx version 3.11.1
+Type 'help' for help.
+
+stopped at  [thread_block:1403 ,0xfffffc000032e3c0]
+                               Source not available
+(kdbx)
+.oE
+.PP
+To use \*Lkdbx\*O to examine an object file and core file created
+by the \*Lsavecore\*O utility, issue a \*Lkdbx\*O command with
+the following syntax:
+.PP
+.sS
+\*Lkdbx \-k /usr/adm/crash/vmunix.\*Vn\*O \*L/usr/adm/crash/vmcore.\*Vn\*O
+.sE
+.PP
+For example:
+.PP
+.oS
+# kdbx \-k /usr/adm/crash//vmunix.1 /usr/adm/crash/dev/vmcore.1
+dbx version 3.11.1
+Type 'help' for help.
+
+stopped at  [thread_block:1403 ,0xfffffc000032e3c0]
+                               Source not available
+(kdbx)
+.oE
+.PP
+The variable \*Vn\*O is the version number as determined by the
+value contained in the file \*Lbounds\*O, which is located in the
+default crash directory \*L/var/adm/crash\*O or in an alternate
+directory specified by the \*L/sbin/init.d/savecore\*O script.
+.SS Commands
+The \*Lkdbx\*O debugger provides the following commands:
+.IP "\*Lalias\*O [ \*Vname\*O ] [ \*Vcommand-string\*O ]"
+Sets or displays aliases.  If the \*Lalias\*O command
+is specified without arguments, all aliases are displayed.
+If only the variable \*Lname\*O is specified,
+\*Lalias\*O displays the alias for \*Lname\*O, if one exists.
+If \*Vname\*O and \*Vcommand-string\*O are specified,
+\*Vname\*O is established as an alias for \*Vcommand-string\*O.
+.IP "\*Lcontext\*O  \*Lproc\*O | \*Luser\*O"
+Sets the context to user's aliases or extension's aliases.
+This command is used only by extensions.
+.IP "\*Lcoredata\*O \*Vstart-address end-address\*O"
+Dumps, in hexadecimal, the contents of the core file starting at
+\*Vstart-address\*O and ending before \*Vend-address\*O.
+.IP "\*Ldbx\*O \*Vcommand-string\*O"
+Passes the variable \*Vcommand-string\*O to \*Ldbx\*O.  Specifying
+\*Ldbx\*O is optional; if the command is not recognized by \*Lkdbx\*O,
+it is passed to \*Ldbx\*O automatically.  See the \*Ldbx\*O(1)
+reference page for a complete description of the \*Ldbx\*O commands.
+.IP "\*Lhelp\*O [ \*L\-long\*O ] [ \*Varg\*O ... ]"
+Displays help text.
+.nL
+.ne 4
+.IP "\*Lproc\*O [ \*Voptions\*O ] [ \*Vextension\*O ] [ \*Varg\*O ... ]"
+Executes an extension and gives it control of the \*Lkdbx\*O session
+until it quits.  The variable \*Vextension\*O specifies the named
+extension file and passes it arguments as specified by the
+\*Varg\*O variables. Valid \*Lproc\*O options are as follows:
+.rS 6
+.IP "\*L\-debug\*O"
+Causes I/O to and from the extension to be displayed on the screen.
+.IP "\*L\-pipe\*O \*Vin-pipe out-pipe\*O"
+Used in conjunction with the \*Ldbx\*O debugger for debugging
+extensions.  The file \*Vin-pipe\*O takes output from the \*Ldbx\*O
+session and directs it as input to the \*Lkdbx\*O session.
+The file \*Vout-pipe\*O takes output from the \*Lkdbx\*O session
+and directs it as input to the \*Ldbx\*O session.
+.IP "\*L\-print_output\*O"
+Causes the output of the procedure to be sent to the invoker of
+the procedure without interpretation as \*Lkdbx\*O commands.
+.IP "\*L\-redirect_output\*O"
+Used by extensions that execute other extensions to receive the output
+from the called extension instead of the user receiving it.
+.IP "\*L\-tty\ \ \*O"
+.\" ***EXTRA SPACE AFTER 'tty' TO FORCE LINE BREAK
+Causes \*Lkdbx\*O to talk to the subprocess through a \*Ltty\*O
+line instead of pipes.  If the \*L\-pipe\*O option is also
+specified, \*Lproc\*O ignores it.
+.rE
+.IP "\*Lprint\*O  \*Vstring\*O"
+Displays \*Vstring\*O on the terminal.  If this command is used by an
+extension, it receives no output.
+.IP "\*Lquit\*O"
+Exits the current command loop. If the current command loop is the
+top level loop that the user is using, \*Lkdbx\*O exits.  Otherwise,
+control is given to the next lowest loop.
+.IP "\*Lsource\*O [ \*L\-x\*O ] [ \*Vfiles\*O ]"
+Reads and interprets files as \*Lkdbx\*O commands in the context of
+the current aliases.  The \*L\-x\*O option causes commands to
+be displayed as they are executed.
+.IP "\*Lunalias\*O \*Vname\*O"
+Removes an alias, if any, from \*Vname\*O.
+.\" 
+.SS Predefined kdbx Aliases
+The following aliases are defined in the \*Lkdbx\*O startup file
+\*L/var/kdbx/system.kdbxrc\*O:
+.TS
+tab(@);
+lfB lfB
+l l .
+.sp
+_
+Alias@Definition
+_
+arp@"proc" arp
+array_action@"proc" array_action
+buf@"proc" buf
+buf_action@list_action "struct buf *" b_forw buf buf
+callout_action@list_action "struct callout *" c_next 0 callout
+cast@"proc" cast
+convert@"proc" convert
+config@"proc" config
+dis@"proc" dis
+echo@"proc" echo
+export@"proc" export
+fields@"proc" fields
+file@"proc" file
+h@help
+inpcb_action@list_action "struct inpcb *" inp_next
+list_action@"proc" list_action
+mount_action@list_action "struct mount *" m_next rootfs rootfs
+mount@"proc" mount
+namecache@"proc" namecache
+ofile@"proc" ofile
+paddr@"proc" paddr
+pcb@"proc" pcb
+pr@"proc"
+printf@"proc" printf
+proc@"proc" proc
+procaddr@"proc" procaddr
+procp@"proc" \-pipe /tmp/pipein /tmp/pipeout
+procpd@"proc" \-debug \-pipe /tmp/pipein /tmp/pipeout
+proc_action@list_action "struct proc *" p_nxt 0 allproc
+ps@"dbx" kps
+sh@"proc" \-print_output \-tty
+socket@"proc" socket
+sum@"proc" sum
+swap@"proc" swap
+task@"proc" task
+thread@"proc" thread
+u@"proc" u
+ucred@"proc" ucred
+unaliasall@"proc" unaliasall
+vnode@"proc" vnode
+.sp
+_
+.TE
+.SS Extensions
+For extensions that display addresses as part of their output, some
+use a shorthand notation for the upper 32-bits of an address to keep
+the output readable.  The following table lists the notation for
+each address type.
+.sp
+.TS
+tab(@);
+lfB lfB lfB lfB
+lfCW lw(1.5i) lfCW lfCW.
+_
+Notation@Address Type@Replaces@Example
+_
+.sp
+v@virtual@ffffffff@v0x902416f0
+k@kseg@fffffc00@k0x363076f4
+u@user space@00000000@u0x86406200
+?@T{
+Unrecognized or random type
+T}@@?0x0033aa24
+.sp
+_
+.TE
+The extensions available to \*Lkdbx\*O are as follows:
+.IP "\*Larp\*O [ \*L\-\*O ]"
+Displays the contents of the address resolution protocol (arp) table.
+If the optional hyphen (\*L\-\*O) is specified, \*Larp\*O
+displays the
+entire arp table; otherwise, \*Larp\*O displays those entries that
+have nonzero \*Lat_iaddr.s_addr\*O and \*Lat_flags\*O fields.
+.IP "\*Larray_action\*O ""\*Vtype\*O"" \*Vlength start_address\*O [ \*Voptions\*O ] \*Vcommand\*O"
+Performs a command action on each element of an array. This extension
+allows you to step through any array in the operating system kernel
+and display specific components or values as described in the list
+of command options.  The arguments to the \*Larray_action\*O extension
+are as follows:
+.rS 6
+.IP """\*Vtype\*O"""
+.nL
+The type of address of the array element.
+.IP "\*Vlength\*O"
+The number of elements in the array.
+.IP "\*Vstart_address\*O"
+The address of the array.
+A variable name or a number can be used to specify
+\*Vstart_address\*O.
+The more common syntax or notation used to refer to the
+\*Vstart_address\*O is usually of the form \*L&arrayname[0]\*O.
+.IP "\*Voptions\*O"
+Valid options for the \*Larray_action\*O extension are as follows:
+.rE
+.rS 12
+.\" ***EXTRA SPACES IN THE FOLLOWING '.IP' LINES TO FORCE LINE BREAKS
+.IP "\*L\-head\ \ \ \*O"
+If the \*L\-head\*O option is specified, the next argument is displayed
+as the table header.
+.IP "\*L\-size\ \ \ \*O"
+If the \*L\-size\*O option is specified, the next argument is used as
+the array element size.
+Otherwise, the size is calculated from the element type.
+.IP "\*L\-cond\ \ \ \*O"
+If the \*L\-cond\*O option is specified, the next argument is used as
+a filter.  It is evaluated by \*Ldbx\*O for each array element, and
+if it evaluates to true, the action is taken on the element.
+The same substitutions that are applied to the command are applied
+to the condition.
+.rE
+.rS 6
+.IP "\*Vcommand\*O"
+The name of the \*Lkdbx\*O or \*Ldbx\*O
+command that is to be performed on each element of the array.
+.rE
+.IP
+Note that the \*Lkdbx\*O debugger includes several aliases, such as
+\*Lfile_action\*O, that may be easier to use than directly using the
+\*Larray_action\*O extension.
+.IP
+Substitutions similar to \*Lprintf\*O can be performed on the command
+for each array element.  The possible substitutions are as follows:
+.TS
+tab(@);
+lfCW l.
+\*L%a\*O@Address of element
+\*L%c\*O@Cast of address to pointer to array element
+\*L%i\*O@Index of element within the array
+\*L%s\*O@Size of element
+\*L%t\*O@Type of pointer to element
+.TE
+.IP "\*Lbuf\*O [ \*Vaddress\*O | \*L\-free\*O | \*L\-all\*O ]"
+Displays the buffer table.  If no arguments are specified, the
+buffers on the hash list are displayed.
+.IP
+If addresses are specified, the buffers at those addresses
+are displayed.  If the \*L\-free\*O option is specified, the
+buffers on the free list are displayed.  If the \*L\-all\*O option
+is specified, buffers on the hash list are displayed first,
+followed by buffers on the free list.
+.IP \*Lcallout\*O
+Displays the callout table.
+.IP "\*Lcast \*Vaddress type\*O"
+Forces \*Ldbx\*O to display a piece of memory as a given type.
+This is equivalent to \*Ldbx print *((\*Vtype\*L)\*Vaddress\*L)\*O.
+.IP \*Lconfig\*O
+Displays the configuration of the machine.
+.IP "\*Lconvert\*O [ \*L\-in 8\*O | \*L10\*O | \*L16\*O ] \*L\-out 8\*O | \*L10\*O | \*L16\*O [ \*Varg\*O ... ]"
+Converts numbers from one base to another. The \*L\-in\*O and
+\*L\-out\*O options specify the input and output bases, respectively.
+If \*L\-in\*O is not specified, the input base is inferred from the
+arguments. The arguments may be either numbers or variables.
+.IP "\*Ldis\*O \*Vstart-address\*O [ \*Vnum-instructions\*O ]"
+Disassembles some number of instructions as specified in the
+\*Vnum-instructions\*O instructions starting at \*Vstart-address\*O.
+If the number of instructions is not given, the default is one
+instruction.
+.IP "\*Lexport\*O"
+Prints the exported entries that are mounted remotely.
+.IP "\*Lfile\*O [ \*Vaddresses\*O ]"
+Displays the file table.  If no addresses are specified, all file
+entries with nonzero reference counts are displayed.
+Otherwise, the file entries at the specified addresses are displayed.
+.IP "\*Linpcb\*O [ \*L\-udp\*O ] [ \*L\-tcp\*O ] [ \*Vaddress\*O ]"
+Displays the udb and tcb tables. If no arguments are specified, both
+tables are displayed.  If either \*L\-udp\*O or \*L\-tcp\*O is
+specified, the corresponding table is displayed.
+.sp
+If addresses are specified, \*L\-udp\*O and \*L\-tcp\*O are ignored and
+the entries at the specified addresses are displayed.
+.IP "\*Llist_action\*V type next-field end-addr start-addr\*O \e"
+.IP "\ \ \ [ \*Voptions\*O ] \*Vcommand \*O"
+Performs some command on each element of a linked list.  This
+extension makes it possible to walk through any linked list in the
+operating system kernel and display particular components while
+walking through the linked list.  The arguments to the
+\*Llist_action\*O extension are as follows:
+.rS 6
+.IP """\*Vtype\*O"""
+.nL
+The type of address of an element in the specified list.
+.IP \*Vnext-field\*O
+The name of the field that points to the next element.
+.IP \*Vend-addr\*O
+The value of the next field that terminates the list.
+If the list is NULL-terminated,
+the value of \*Vend-addr\*O is 0.  If the list is circular, the
+value of \*Vend-addr\*O is equal to \*Vstart-addr\*O.
+.IP \*Vstart_address\*O
+The address of a list.  The address can be specified as a variable
+name or a number.
+.IP \*Voptions\*O
+Valid options for the \*Llist_action\*O extension are as follows:
+.rE
+.rS 12
+.IP "\*L\-head\*O \*Vheader\*O"
+If the \*L\-head\*O \*Vheader\*O option is specified, the \*Vheader\*O
+argument is displayed as the table header.
+.IP "\*L\-cond\ \ \ \*O"
+.\" ***SPACES INSERTED IN LINE ABOVE TO FORCE LINE BREAK
+If \*L\-cond\*O is specified, the next \*Varg\*O is used as a filter.
+It is evaluated by \*Ldbx\*O for each list element, and if it
+evaluates to true, the action is taken on the element.  The same
+substitutions that are applied to the command are applied to the
+condition.
+.rE
+.rS 6
+.IP \*Vcommand\*O
+The \*Lkdbx\*O or \*Ldbx\*O command to perform on each element of the
+list.
+.rE
+.IP
+Note that \*Lkdbx\*O includes several aliases, such as
+\*Lfile_action\*O, that may be easier to use than directly using the
+\*Llist_action\*O extension.
+.IP
+Substitutions similar to \*Lprintf\*O substitutions are performed on
+the command for each element.  The possible substitutions are as
+follows:
+.sp
+.TS
+tab(@);
+lfCW l.
+%a@Address of element
+%c@Cast of address to pointer to list element
+%i@Index of element within the list
+%n@Name of next field
+%t@Type of pointer to element
+.TE
+.IP "\*Lmount\*O [ \*L\-s\*O ] [ \*Vaddress\*O ]"
+Displays the mount table.
+The \*L\-s\*O option outputs a short form of the table.  If addresses
+are specified, the mount entries at the specified addresses are
+displayed.
+.IP "\*Lnamecache\*O"
+Prints the namecache structures on the system.
+.IP "\*Lofile\*O [ \*L\-proc\*O \*Vaddress\*O | \*L\-pid\*O \*Vpid\*O | \*L-v\*O ]"
+Prints the files opened by processes.
+If no arguments are specified, the extension prints the files opened
+by each process. If either \*L\-proc\*O \*Vaddress\*O or \*L\-pid\*O
+\*Vpid\*O is specified, the open files of the given process are printed.
+The \*L\-v\*O option prints out more information about the open files.
+.IP "\*Lpaddr\*O \*Vaddress\*O \*Vnumber-of-longwords\*O"
+Converts a range of memory to symbolic references. The argument
+\*Vaddress\*O is the starting address. The argument
+\*Vnumber-of-longwords\*O is the number of words to dump out.
+.IP "\*Lpcb\*O \*Vthread_address\*O"
+Prints the process control block for a given thread at the specified
+address. For integer and floating-point registers, only nonzero
+contents are printed.
+.IP "\*Lprintf \*Vformat-string\*O [ \*Varg\*O ... ]"
+Formats one argument at a time to work around the \*Ldbx\*O debugger's
+command length limitation. It also implements the \*L%s\*O string
+substitution, which the \*Ldbx printf\*O command does not.  The
+argument \*Vformat-string\*O specifies a character string combining
+literal characters with conversion specifications.
+.IP "\*Lproc\*O [ \*Vaddresses\*O ]"
+Displays the process table.  If addresses are specified, the proc
+structures at the specified addresses are displayed.
+Otherwise, all proc structures are displayed.
+.IP "\*Lprocaddr\*O [ \*Vaddresses\*O ]"
+Converts the specified addresses to a procedure name.
+.IP \*Lsocket\*O
+Displays the files that are sockets with nonzero reference counts
+in the file table.
+.IP \*Lsum\*O
+.nL
+Displays a summary of the system.
+.IP \*Lswap\*O
+.nL
+Displays a summary of swap space.
+.IP "\*Ltask\*O [ \*Vproc_addresses\*O ]"
+Prints the task structures associated with the specified addresses.
+If no addresses are specified, all tasks are printed.
+.IP "\*Lthread\*O [ \*Vproc_addresses\*O ]"
+Prints information about the threads associated
+with the specified addresses. If no addresses are
+specified, all threads are printed.
+.IP "\*Lu\*O [ \*Vproc_address\*O ]"
+Displays a \*Lu\*O structure at the address \*Vproc-addr\*O.
+.IP "\*Lucred\*O [ \*L\-proc\*O | \*L\-uthread\*O | \*L\-file\*O | \*L\-buf\*O | \*L\-ref\*O \*Vaddress\*O | \e"
+.IP " \*L\-check\*O \*Vaddress\*O | \*L\-checkall\*O ]"
+Prints or checks references to ucred structures. If no options are
+specified, this extension prints all instances of references to ucred
+structures on the system. Possible options are as follows:
+.TS
+tab(@);
+l lw(2.7i).
+\*L\-proc\*O@T{
+Print all ucred structures referenced by the proc structures.
+T}
+\*L\-uthread\*O@T{
+Print all ucred structures referenced by the uthread structures.
+T}
+\*L\-file\*O@T{
+Print all ucred structures referenced by the file structures.
+T}
+\*L\-buf\*O@T{
+Print all ucred structures referenced by the buf structures.
+T}
+\*L\-ref\*O \*Vaddress\*O@T{
+Print all references to a given ucred structure.
+T}
+\*L\-check\*O \*Vaddress\*O@T{
+Check the reference count of a particular ucred structure.
+T}
+\*L\-checkall\*O@T{
+Check the reference count of all ucred structures (mismatch marked
+by *).
+T}
+.TE
+.IP \*Lunaliasall\*O
+Removes all aliases including the predefined aliases described in the
+Predefined Aliases section.
+.IP "\*Lvnode\*O [ \*L\-free\*O | \*L\-all\*O | \*L\-ufs\*O | \*L\-nfs\*O | \*L\-cdfs\*O | \*L\-fs\*O \*Vaddress\*O | \e"
+.IP "\ \ \ \*L\-u\*O \*Vuid\*O | \*L\-g\*O \*Vgid\*O | \*L\-v\*O ]"
+Prints the vnode table. If no arguments are specified, all ACTIVE vnodes
+on the system are printed. ACTIVE means nonzero usecount or nonzero
+holdcnt.  Possible options are listed as follows:
+.TS
+tab(@);
+l l.
+\*L\-free\*O@T{
+Print INACTIVE (both usecount and holdcnt are zeros) entries
+in the vnode table.
+T}
+\*L\-all\*O@T{
+Print ALL (both ACTIVE and INACTIVE) entries in the vnode
+table.
+T}
+\*L\-ufs\*O@Print all UFS vnodes.
+\*L\-nfs\*O@Print all NFS vnodes.
+\*L\-cdfs\*O@Print all CDFS vnodes.
+\*L\-fs\*O \*Vaddress\*O@T{
+Print vnode entries of a mounted file system.
+T}
+\*L\-u\*O \*Vuid\*O@Print vnode entries of a particular user.
+\*L\-g\*O \*Vgid\*O@Print vnode entries of a particular group.
+\*L\-v\*O@T{
+Print related \*Linode/rnode/cdnode\*O information (used with
+\*L\-ufs,\*O \*L\-nfs,\*O or \*L\-cdfs\*O only).
+T}
+.TE
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Ldbx\*O(1), \*Lkdebug\*O(8), \*Lsavecore\*O(8)
+.PP
+Books: \*EGuide to Kernel Debugging\*O, \*EProgrammer's Guide\*O
+.EQ
+delim off
+.EN

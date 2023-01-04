@@ -1,0 +1,253 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: exports.4,v $ $Revision: 1.1.2.4 $ (DEC) $Date: 1993/12/15 20:18:30 $
+.\"
+.TH exports 4
+.SH NAME
+.PP
+\*Lexports\*O \- Defines remote mount points for NFS mount requests
+.SH SYNOPSIS
+.PP
+.sS
+\*L/etc/exports\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "exports"
+.iX "NFS" "export"
+.iX "etc/exports"
+.iX "mount" "points"
+.iX "mount" "requests"
+The
+\*Lexports\*O
+file
+specifies remote mount points for the NFS mount protocol per the NFS
+server specification (see
+\*ENetwork File System Protocol Specification, RFC1094\*O).
+.PP
+Each entry in the \*L/etc/exports\*O
+file consists of a file system or directory
+name followed by an optional list of options or
+an optional list of identifiers or both. The identifiers
+define which remote hosts can mount that particular file system
+or directory.
+The identifiers listed beside the name of each file system or directory
+can be either host names, IP addresses, or NIS netgroups names.
+If no identifiers are listed, the entry is exported to all hosts.
+.PP
+The format of the exports file is as follows:
+.sS
+.sp
+\*Vpathname\*O [\*Loption\*O ...] [\*Videntifier\*O ...]
+.sp
+.nl
+\*L#comments\*O
+.sp
+.sE
+.PP
+The \*Vpathname\*O specifies the name of a mounted local file system or
+a directory of a mounted local file system.  The \*Vpathname\*O must begin
+in column 1.
+.PP
+The following are valid export file options:
+.VL
+.LI "\*L-root=0\*O"
+Maps client superuser access to uid 0 for all hosts mounting this
+path.  If you want to
+allow client superusers access to the file system or
+directory with the same permissions as a local superuser,
+use \*L-root=0\*O.  Use \*L-root=0\*O only if you trust the
+superuser on the client system.  The default is for client
+superusers to be mapped to uid -2, which maps a
+client superuser to nobody.  This limits access to world
+accessible files.  If both the \*L-root=0\*O option and the
+\*L-anon=uid\*O option are used, the root option overrides the
+uid specified in anon for client superusers.  The \*L-r\*O option
+is a synonym for \*L-root\*O for backward compatibility.
+.LI "\*L-root=\*Vhostlist\*O"
+Maps the client superusers on the specified hosts only to uid 0.
+The format for the \*Vhostlist\*O argument is as follows:
+.oS
+.sp
+\*Vclient\*O[:\*Vclient\*O]...
+.sp
+.oE
+The \*Vclient\*O specification
+can be a host name or IP address.
+By default, client superusers are mapped to -2.
+This option overrides the uid specified in \*L-anon=uid\*O for
+client superusers in \*Vhostlist\*O.
+.LI "\*L-anon=\*Vuid\*O"
+Maps anonymous users to the specified \*Vuid\*O.  Client superusers are
+considered anonymous by the NFS server, as are requests that come
+in without UNIX authentication.  By default, anonymous users are
+mapped to uid -2.  Setting anon to -1 disables anonymous access.
+.LI "\*L-ro\*O"
+The file system or directory is exported read-only (default is read-write).
+The \*L-o\*O option is a synonym for \*L-ro\*O for backward
+compatibility.
+.LI "\*L-rw=\*Vhostlist\*O"
+Limits read-write access to the hosts specified.  All other hosts
+allowed to mount this path are granted read-only access.
+The format for the \*Vhostlist\*O argument is as follows:
+.oS
+.sp
+\*Vclient\*O[:\*Vclient\*O]...
+.sp
+.oE
+The \*Vclient\*O specification
+can be a host name or IP address.
+If both the \*L-ro\*O and \*L-rw=hostlist\*O options are specified,
+\*L-rw\*O prevails.
+.LI "\*L-access=\*Vhostlist\*O"
+Specifies the hosts to grant mount access to.
+The format for the \*Vhostlist\*O argument is as follows:
+.oS
+.sp
+\*Vclient\*O[:\*Vclient\*O]...
+.sp
+.oE
+The \*Vclient\*O specification
+can be a host name, IP address, or NIS network group.
+This option is provided for readability and compatibility with
+certain export file formats.  Alternatively, to identify the
+client systems who are allowed access to this export use the whitespace
+separated identifier list described below.
+.LE
+.PP
+The options can be applied to both file system and directory
+entries in \*L/etc/exports\*O.
+.PP
+Alternatively, you can list options using only one leading dash
+and separating them with commas as in \*L-option[,option]...\*O.
+.PP
+You use the \*Videntifier\*O field to specify
+host names, network groups, or both, separated by white space that
+specify the access list for this export.  Host names can optionally
+contain the local BIND domain name.
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 5
+If no hosts or netgroups are specified, the \*Lmount\*O
+daemon exports this file system or directory to anyone requesting it.
+See the mountd(8) reference page for information on how to limit
+this scope to known hosts or to hosts in the same Bind domain.
+.sp 6p
+.rE
+.PP
+A number sign (#) anywhere in the line marks a comment that
+extends to the end of that line.
+.PP
+A whitespace character in the left-most position of a line indicates a
+continuation line.
+.PP
+For example, suppose you enter:
+.iS
+.sp
+/usr -root=0 milan kuan_yin.cis.berkeley.edu
+/usr/local 555.555.55.55
+/u2 -ro
+/u3/dir1 -rw=milan:venice:florence
+/u3/dir2 -root=milan,access=venice:florence
+/u3/dir3 -root=0,access=milan:venice:florence
+/u3/dir4 -root=0 milan venice florence
+/u3/dir5 -root=milan -anon=-1
+.sp
+.iE
+If \*L/usr\*O, \*L/u2\*O and \*L/u3\*O are
+local file system mount points, this specifies the following:
+.ML
+.LI
+\*L/usr\*O
+is exported read-write to hosts \*Lmilan\*O and
+\*Lkuan_yin.cis.berkeley.edu\*O with root mapped to \*Luid=0\*O.
+.LI
+\*L/usr/local\*O
+is exported read-write to host \*L555.555.55.55\*O with root mapped to -2.
+(For security reasons, this example uses the fictitious IP address
+\*L555.555.55.55\*O.)
+.LI
+\*L/u2\*O
+is exported to all hosts read-only with root mapped to -2.
+.LI
+\*L/u3/dir1\*O
+is exported read-write to hosts milan, venice, and florence and
+read-only to all other hosts.  For all hosts, root is mapped to -2.
+.LI
+\*L/u3/dir2\*O
+is exported with root mapped to 0 to host milan.  Hosts milan, venice,
+and florence are allowed to mount this directory read-write.  Root on
+hosts venice and florence is mapped to -2.
+.LI
+\*L/u3/dir3\*O
+is exported read-write and with root mapped to 0 to hosts milan,
+venice, and florence.
+.LI
+\*L/u3/dir4\*O
+is exported in the same manner as the previous example.
+.LI
+\*L/u3/dir5\*O
+is exported read-write to all hosts.  Anonymous users are not allowed
+to mount this directory, with the exception of the client superuser on
+host milan.  Root is mapped to 0 on host milan and to -2 on all other
+hosts.
+.LE
+.PP
+Each file system that you want to allow clients to mount must be
+explicitly defined.  Exporting only the root (/) will not allow clients
+to mount \*L/usr\*O.  Exporting only \*L/usr\*O will not allow clients
+to mount \*L/usr/local\*O, if it is a file system.
+.PP
+Duplicate directory entries are not allowed.  The first entry is valid
+and following duplicates are ignored.
+.PP
+Desired export options must be explicitly specified for each exported
+resource: file system or directory.  If a file system and subdirectories
+within it are exported, the options associated with the file system are
+not ``inherited.''  You do not need to export an entire file system to allow
+clients to mount subdirectories within it.
+.PP
+The access list associated with each exported resource identifies which
+clients can mount that resource with the specified options.  For
+example, you can export an entire file system read-only, with a
+subdirectory within it exported read-write to a subset of clients.
+If a client that is not identified in the export access list of a directory
+attempts to mount it, then access is checked against the closest exported
+ancestor.  If mount access is allowed at a higher level in the directory
+tree of the file system, the export options associated with the successful
+match will be in effect.
+.PP
+To make a change to the exports file and have it take effect
+immediately, send the mountd(8) a HUP signal.  Otherwise, the mountd(8)
+will reread the exports file the next time it receives a mount request
+from an NFS client or a showmount -e request.
+.SH RELATED INFORMATION
+.PP
+Daemons: \*Lmountd\*O(8), \*Lnfsd\*O(8)
+.PP
+Commands: \*Lshowmount\*O(8)
+.PP
+Files: \*Lhosts\*O(4), \*Lnetgroup\*O(4)
+.br
+\*ENetwork Configuration\*O
+.br
+\*ENetwork Administration and Problem Solving\*O
+.EQ
+delim off
+.EN

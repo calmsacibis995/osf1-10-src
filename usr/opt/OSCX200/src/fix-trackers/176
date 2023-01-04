@@ -1,0 +1,806 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203042009.AA04514@exhume.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2396) PEX 5.1 dipex SI release part 1 of 4 (include file changes)
+Date: Wed, 04 Mar 92 15:09:16 EST
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Hello PEX folk and other interested parties.
+I am sending out the PEX-SI dipex additions for the new PEX 5.1 Protocol.
+They have been tested here somewhat, but are most likely still a little
+rough. There is likely to be a small number of changes to the Protocol
+that will require modifications in this code. Those will be sent out
+on fix-trackers (probably as bug fixes). Note that some minor changes
+to ddpex code had to be made, as well as the addition of dummy headers
+for ddpex routines. These are also likely subject to small changes.
+
+Enjoy...
+
+*** /tmp/da5776	Wed Mar  4 14:35:11 1992
+--- extensions/include/PEX/PEXprotost.h	Wed Mar  4 14:08:22 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: PEXprotost.h,v 5.3 91/07/01 16:19:04 hersh Exp $ */
+  
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: PEXprotost.h,v 5.4 92/03/04 14:08:13 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 28,34 ****
+  #ifndef PEXPROTOSTR_H
+  #define PEXPROTOSTR_H
+  
+! /* Matches revision 5.0P */
+  
+  #include <X11/Xmd.h>			/* defines things like CARD32 */
+  
+--- 28,34 ----
+  #ifndef PEXPROTOSTR_H
+  #define PEXPROTOSTR_H
+  
+! /* Matches revision 5.1C */
+  
+  #include <X11/Xmd.h>			/* defines things like CARD32 */
+  
+***************
+*** 279,286 ****
+      pexStructure	sid B32;
+      CARD32		offset B32;
+      CARD32		pickid B32;
+! } pexPickPath;
+  
+  typedef struct {
+      pexTextVAlignment		vertical B16;
+      pexTextHAlignment		horizontal B16;
+--- 279,294 ----
+      pexStructure	sid B32;
+      CARD32		offset B32;
+      CARD32		pickid B32;
+! } pexPickElementRef;
+  
++ /* pexPickPath is the old name of the above strucutre.
++    This is wrong, since the above is a Pick Element Ref
++    a Pick Path is a list of Pick Element Refs so naming
++    this structure pexPickPath was wrong, but it can't just
++    be changed without effecting lots of other code....... */
++ 
++ typedef pexPickElementRef pexPickPath;
++ 
+  typedef struct {
+      pexTextVAlignment		vertical B16;
+      pexTextHAlignment		horizontal B16;
+***************
+*** 302,307 ****
+--- 310,328 ----
+  } pexTrimCurve;
+  
+  typedef struct {
++     CARD8		depth;
++     CARD8		unused;
++     CARD16		type B16;
++     CARD32		visualID B32;
++ } pexRendererTarget;
++ 
++ typedef struct {
++     pexEnumTypeIndex	pickType B16;
++     CARD16		unused;
++     /* SINGLE HITBOX() */
++ } pexPickRecord;
++ 
++ typedef struct {
+      PEXFLOAT		ambient;
+      PEXFLOAT		diffuse;
+      PEXFLOAT		specular;
+***************
+*** 557,561 ****
+--- 578,590 ----
+  } pexOutputCommandError;
+  
+  
++ /* Registered PEX Escapes */
++ 
++ typedef struct {
++     INT16	fpFormat B16;
++     CARD8	unused[2];
++     CARD32	rdr B32;	    /* renderer ID */
++     /* SINGLE ColourSpecifier()  */
++ } pexEscapeSetEchoColourData;
+  
+  #endif /* PEXPROTOSTR_H */
+*** /tmp/da5794	Wed Mar  4 14:35:48 1992
+--- extensions/include/PEX/PEX.h	Wed Mar  4 14:08:13 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: PEX.h,v 5.5 91/11/15 19:46:06 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: PEX.h,v 5.6 92/03/04 14:07:57 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 34,44 ****
+  #define PEX_NAME_STRING		"X3D-PEX"
+  #endif
+  
+! /* Matches revision 5.0P */
+  
+  #define PEX_PROTO_MAJOR		5	/* current protocol version */
+! #define PEX_PROTO_MINOR		0	/* current minor version */
+  
+  /* Subsets */
+  #define PEXCompleteImplementation	0
+  #define PEXImmediateModeOnly		1
+--- 34,48 ----
+  #define PEX_NAME_STRING		"X3D-PEX"
+  #endif
+  
+! /* Matches revision 5.1C */
+  
+  #define PEX_PROTO_MAJOR		5	/* current protocol version */
+! #define PEX_PROTO_MINOR		1	/* current minor version */
+  
++ /* Events */
++ #define PEXMaxHitsReached     0
++ #define PEXNumberEvents       1
++ 
+  /* Subsets */
+  #define PEXCompleteImplementation	0
+  #define PEXImmediateModeOnly		1
+***************
+*** 109,114 ****
+--- 113,133 ----
+  #define PEXCurrent	1
+  #define PEXEnd		2
+  
++ /* Match Draw Type */
++ #define PEXDontCare     0
++ #define PEXWindow       1
++ #define PEXPixmap       2
++ #define PEXBuffer       3
++ 
++ /* Pick All State */
++ #define PEXMoreHits      0
++ #define PEXNoMoreHits    1
++ #define PEXMayBeMoreHits 2
++ 
++ /* Pick One Type */
++ #define PEXClosest  0
++ #define PEXLast     1
++ 
+  /* Element Search */
+  #define PEXNotFound	1
+  #define PEXFound	2
+***************
+*** 146,155 ****
+  #define PEXETTrimCurveApproxMethod		25
+  #define PEXETRenderingColourModel		26
+  #define PEXETParaSurfCharacteristics		27
+  
+! /* Renderer state */
+  #define PEXIdle 	0
+  #define PEXRendering	1
+  
+  /* Flags (e.g., Switches, Visibility, and Edges) */
+  #define PEXOff	0
+--- 165,176 ----
+  #define PEXETTrimCurveApproxMethod		25
+  #define PEXETRenderingColourModel		26
+  #define PEXETParaSurfCharacteristics		27
++ #define PEXETEscape				28
+  
+! /* Renderer State */
+  #define PEXIdle 	0
+  #define PEXRendering	1
++ #define PEXPicking	2
+  
+  /* Flags (e.g., Switches, Visibility, and Edges) */
+  #define PEXOff	0
+***************
+*** 251,256 ****
+--- 272,278 ----
+  /* Pick Echo Switch */
+  #define PEXNoEcho	0
+  #define PEXEcho		1
++ #define PEXUnEcho       2
+  
+  /* Pick Path Order */
+  #define PEXTopFirst     0
+***************
+*** 371,376 ****
+--- 393,399 ----
+  #define PEXHlhsrPainters	3
+  #define PEXHlhsrScanline	4
+  #define PEXHlhsrHiddenLineOnly	5
++ #define PEXHlhsrZBufferId	6
+  /* PromptEchoType */
+  #define PEXEchoPrimitive	1
+  #define PEXEchoStructure	2
+***************
+*** 390,395 ****
+--- 413,420 ----
+  #define PEXColourApproxHSV      3
+  #define PEXColourApproxHLS      4
+  #define PEXColourApproxYIQ      5
++ /* Escape */
++ #define PEXEscapeSetEchoColour   1
+  /* RenderingColourModel	*/
+  #define PEXRdrColourModelImpDep	0
+  #define PEXRdrColourModelRGB	1
+***************
+*** 448,453 ****
+--- 473,480 ----
+  #define PEXIDChromaticityWhiteU		31
+  #define PEXIDChromaticityWhiteV		32
+  #define PEXIDLuminanceWhite		33
++ /* have to stick this here since others are not in order */
++ #define PEXIDMaxHitsEventsSupported     34
+  
+  /* Constants for IDRgbBestApproximation */
+  #define PEXColourApproxAnyValues	0
+***************
+*** 567,573 ****
+  #define PEXRDNpcSubvolume		(1L<<20)
+  #define PEXRDViewport			(1L<<21)
+  #define PEXRDClipList			(1L<<22)
+! #define PEXMaxRDShift	22
+  
+  /* Renderer Dynamics Bitmasks */
+  /*	tables		      */
+--- 594,607 ----
+  #define PEXRDNpcSubvolume		(1L<<20)
+  #define PEXRDViewport			(1L<<21)
+  #define PEXRDClipList			(1L<<22)
+! #define PEXRDPickInclusion		(1L<<23)
+! #define PEXRDPickExclusion		(1L<<24)
+! #define PEXRDPickStartPath		(1L<<25)
+! #define PEXRDBackgroundColour		(1L<<26)
+! #define PEXRDClearI    			(1L<<27)
+! #define PEXRDClearZ    			(1L<<28)
+! #define PEXRDEchoMode			(1L<<29)
+! #define PEXMaxRDShift	29
+  
+  /* Renderer Dynamics Bitmasks */
+  /*	tables		      */
+***************
+*** 598,610 ****
+--- 632,647 ----
+  /*	namesets	      */
+  #define PEXDynHighlightNameset			 (1L<<0)
+  #define PEXDynInvisibilityNameset		 (1L<<1)
++ #define PEXDynPickNameset        		 (1L<<2)
+  #define PEXDynHighlightNamesetContents		(1L<<16)
+  #define PEXDynInvisibilityNamesetContents	(1L<<17)
++ #define PEXDynPickNamesetContents		(1L<<18)
+  /*	attributes	      */
+  #define PEXDynHlhsrMode				 (1L<<0)
+  #define PEXDynNpcSubvolume			 (1L<<1)
+  #define PEXDynViewport				 (1L<<2)
+  #define PEXDynClipList				 (1L<<3)
++ #define PEXDynEchoMode				 (1L<<4)
+  
+  #define PEXElementType		 (1L<<0)
+  #define PEXElementSize		 (1L<<1)
+***************
+*** 806,812 ****
+  #define PEX_ListFonts			91
+  #define PEX_ListFontsWithInfo		92
+  #define PEX_QueryTextExtents 		93
+! #define PEXMaxRequest			93
+  
+  /* Output Commands */
+  #define PEXOCAll			  0
+--- 843,860 ----
+  #define PEX_ListFonts			91
+  #define PEX_ListFontsWithInfo		92
+  #define PEX_QueryTextExtents 		93
+! #define PEX_MatchRendererTargets        94
+! #define PEX_Escape                      95
+! #define PEX_EscapeWithReply             96
+! #define PEX_RenderElements              97
+! #define PEX_AccumulateState             98
+! #define PEX_BeginPickOne                99
+! #define PEX_EndPickOne                 100
+! #define PEX_PickOne                    101
+! #define PEX_BeginPickAll               102
+! #define PEX_EndPickAll                 103
+! #define PEX_PickAll                    104
+! #define PEXMaxRequest		       104
+  
+  /* Output Commands */
+  #define PEXOCAll			  0
+***************
+*** 913,919 ****
+  #define PEXOCExtCellArray		101
+  #define PEXOCGdp			102
+  #define PEXOCGdp2D			103
+! #define PEXMaxOC			103
+  
+  #define PEXOCNil			0xffff
+  
+--- 961,968 ----
+  #define PEXOCExtCellArray		101
+  #define PEXOCGdp			102
+  #define PEXOCGdp2D			103
+! #define PEXOCNoop			104
+! #define PEXMaxOC			104
+  
+  #define PEXOCNil			0xffff
+  
+*** /tmp/da5809	Wed Mar  4 14:35:52 1992
+--- extensions/include/PEX/PEXproto.h	Wed Mar  4 14:08:00 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: PEXproto.h,v 5.3 91/07/01 16:19:18 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: PEXproto.h,v 5.4 92/03/04 14:07:30 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 76,82 ****
+   */
+  #include <X11/extensions/PEXprotost.h>
+  
+! /* Matches revision 5.0P */
+  
+  /****************************************************************
+   *  		REPLIES 					*
+--- 76,82 ----
+   */
+  #include <X11/extensions/PEXprotost.h>
+  
+! /* Matches revision 5.1C */
+  
+  /****************************************************************
+   *  		REPLIES 					*
+***************
+*** 121,126 ****
+--- 121,147 ----
+      BYTE	type;			/* X_Reply */
+      CARD8	what;			/* unused */
+      CARD16	sequenceNumber	B16;
++     CARD32	length B32;		
++     CARD32	escapeID B32;
++     CARD8	escape_specific[20];
++     /* more escape specific data, treat as */
++     /* LISTof CARD8( length ) */
++     } pexEscapeWithReplyReply;
++ 
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	length B32;		
++     BYTE	pad[24];
++     /* LISTof RENDERER_TARGET( ) */
++     } pexMatchRendererTargetsReply;
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
+      CARD32	length B32;		/* 0 */
+      CARD16	unused B16;
+      CARD16	definableEntries B16;
+***************
+*** 411,416 ****
+--- 432,479 ----
+      CARD8	what;			/* unused */
+      CARD16	sequenceNumber	B16;
+      CARD32	length B32;		/* not 0 */
++     CARD32	numPickElRefs B32;	
++     BYTE	pad[20];
++     /* LISTof pexPickElementRef ( numPickElRefs ) */
++     } pexEndPickOneReply;
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	length B32;		/* not 0 */
++     CARD32	numPickElRefs B32;	
++     BYTE	pad[20];
++     /* LISTof pexPickElementRef ( numPickElRefs ) */
++     } pexPickOneReply;
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	length B32;		/* not 0 */
++     CARD32	numPicked     B32;	
++     CARD8	morePicks;		
++     BYTE	pad[19];
++     /* LISTof CLISTof pexPickElementRef ( numPicked ) */
++     } pexEndPickAllReply;
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	length B32;		/* not 0 */
++     CARD32	numPicked     B32;	
++     CARD8	morePicks;		
++     BYTE	pad[19];
++     /* LISTof CLISTof pexPickElementRef ( numPicked ) */
++     } pexPickAllReply;
++ 
++ typedef struct {
++     BYTE	type;			/* X_Reply */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	length B32;		/* not 0 */
+      CARD32	lengthFontInfo B32;
+      CARD8	pad[20];
+      /* SINGLE pexFontInfo() */
+***************
+*** 513,518 ****
+--- 576,603 ----
+  typedef struct {
+      CARD8		reqType;
+      CARD8 		opcode;
++     CARD16 		length B16;	/* 5 */
++     Drawable		drawable B32;
++     CARD8 		depth;
++     CARD8 		unused;
++     CARD16		type B16;
++     CARD32		visualID B32;
++     CARD32		maxTriplets B32;
++ } pexMatchRendererTargetsReq;
++ 
++ typedef struct {
++     CARD8		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;	/* 2 + n */
++     CARD32		escapeID B32;
++     /* 4n bytes of additional escape data to skip */
++ } pexEscapeReq;
++ 
++ typedef  pexEscapeReq   pexEscapeWithReplyReq;
++ 
++ typedef struct {
++     CARD8		reqType;
++     CARD8 		opcode;
+      CARD16 		length B16;	/* 4 */
+      Drawable		drawableExample B32;
+      pexLookupTable	lut B32;
+***************
+*** 726,731 ****
+--- 811,834 ----
+  typedef struct {
+      CARD8 		reqType;
+      CARD8 		opcode;
++     CARD16 		length B16;	/* 7 */
++     pexRenderer		rdr B32;
++     pexStructure	sid B32;
++     pexElementRange	range;
++ } pexRenderElementsReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;	/* 3 + 2n */
++     pexRenderer		rdr B32;
++     CARD32              numElRefs B32;
++     /* LISTof pexElementRef( numElRefs ) */
++ } pexAccumulateStateReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
+      CARD16 		length B16;	/* 4 */
+      pexRenderer		rdr B32;
+      Drawable		drawable B32;
+***************
+*** 1195,1205 ****
+      CARD16 		length B16;
+      pexPickMeasure	pm B32;
+      CARD32		numBytes B32;
+!     /* LISTof CARD8( numBytes ) -- don't swap */
+      /* pad( numBytes ) */
+  } pexUpdatePickMeasureReq;
+  
+  typedef struct {
+      CARD8 	reqType;
+      CARD8 	opcode;
+      CARD16 	length B16;
+--- 1298,1374 ----
+      CARD16 		length B16;
+      pexPickMeasure	pm B32;
+      CARD32		numBytes B32;
+!     /* LISTof CARD8( numBytes ) */
+      /* pad( numBytes ) */
+  } pexUpdatePickMeasureReq;
+  
+  typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 6 + n */
++     pexEnumTypeIndex	fpFormat B16;
++     BYTE	        unused;
++     CARD8 		pickOp;
++     pexRenderer		rdr B32;
++     Drawable		drawable B32;
++     CARD32 		sid B32;
++     /* SINGLE PickRecord () */
++ } pexBeginPickOneReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 2 */
++     pexRenderer		rdr B32;
++ } pexEndPickOneReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 6 + n */
++     pexEnumTypeIndex	fpFormat B16;
++     BYTE	        unused;
++     CARD8 		pickOp;
++     pexRenderer		rdr B32;
++     Drawable		drawable B32;
++     pexStructure	sid B32;
++     /* SINGLE PickRecord () */
++ } pexPickOneReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 7 + n */
++     pexEnumTypeIndex	fpFormat B16;
++     BYTE	        unused;
++     CARD8 		sendEvent;
++     pexRenderer		rdr B32;
++     Drawable		drawable B32;
++     CARD32		sid B32;
++     CARD32              pickMaxHits B32;
++     /* SINGLE PickRecord () */
++ } pexBeginPickAllReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 2 */
++     pexRenderer		rdr B32;
++ } pexEndPickAllReq;
++ 
++ typedef struct {
++     CARD8 		reqType;
++     CARD8 		opcode;
++     CARD16 		length B16;   /* 6 + n */
++     pexEnumTypeIndex	fpFormat B16;
++     CARD16 		unused B16;
++     pexRenderer		rdr B32;
++     Drawable		drawable B32;
++     CARD32              pickMaxHits B32;
++     /* SINGLE RendererPickRecord () */
++ } pexPickAllReq;
++ 
++ typedef struct {
+      CARD8 	reqType;
+      CARD8 	opcode;
+      CARD16 	length B16;
+***************
+*** 1826,1831 ****
+--- 1995,2017 ----
+      /* LISTof CARD8( numBytes ) -- don't swap */
+      /* pad( numBytes ) */
+  } pexGdp2D;
++ 
++ typedef struct {
++     pexElementInfo	head;
++ } pexNoop;
++ 
++ /****************************************************************
++  *  		EVENTS 						*
++  ****************************************************************/
++ /* Event structure */
++ 
++ typedef struct {
++     BYTE	type;			/* X_Event */
++     CARD8	what;			/* unused */
++     CARD16	sequenceNumber	B16;
++     CARD32	rdr B32;		
++     BYTE	pad[24];
++ } pexMaxHitsReachedEvent;
+  
+  #endif /* PEXPROTO_H */
+  
+*** /tmp/da5824	Wed Mar  4 14:35:56 1992
+--- extensions/include/PEX/pexSwap.h	Wed Mar  4 14:08:16 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexSwap.h,v 5.4 91/12/31 11:11:59 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexSwap.h,v 5.5 92/03/04 14:08:10 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 50,54 ****
+--- 50,56 ----
+  extern void  SwapFLOAT();
+  extern void  ConvertFLOAT();
+  
++ /* not sure if this is the right place for this */
++ extern void SwapPEXMaxHitsReachedEvent();
+  
+  #endif
+*** /tmp/da5846	Wed Mar  4 14:38:21 1992
+--- extensions/server/PEX/include/ddpex.h	Wed Mar  4 14:09:26 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: ddpex.h,v 5.6 91/10/29 18:37:43 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: ddpex.h,v 5.7 92/03/04 14:09:11 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 28,33 ****
+--- 28,34 ----
+  #include "X.h"
+  #include "PEX.h"
+  #include "pixmapstr.h"
++ #include "dix.h"
+  
+  #ifndef DDPEX_H
+  #define DDPEX_H
+***************
+*** 206,215 ****
+--- 207,223 ----
+  } ddViewport;
+  
+  typedef struct {
++     ddCoord2DS      position;
++     ddFLOAT         distance;
++ } ddDC_HitBox;
++ 
++ typedef struct {
+      ddCoord3D	minval;
+      ddCoord3D	maxval;
+  } ddNpcSubvolume;
+  
++ typedef  ddNpcSubvolume ddNPC_HitVolume;
++ 
+  typedef struct {
+  	ddUSHORT	clipFlags;
+  	ddUSHORT	unused;
+***************
+*** 246,251 ****
+--- 254,267 ----
+  } ddPickPath;
+  
+  typedef struct {
++       ddUSHORT        pickType;
++       union {
++ 	  ddDC_HitBox        DC_HitBox;
++ 	  ddNPC_HitVolume    NPC_HitVolume;
++       } hit_box;
++ } ddPickRecord;
++ 
++ typedef struct {
+  	ddUSHORT	elementType;
+  	ddUSHORT	length;
+  } ddElementInfo;
+***************
+*** 522,531 ****
+  	DD_HIGH_EXCL_NS=1,
+  	DD_INVIS_INCL_NS=2,
+  	DD_INVIS_EXCL_NS=3,
+! 	DD_MAX_FILTERS=4
+  } ddNSFilters; 
+  
+  typedef struct {
+  	ddULONG 		rendId;		/* renderer id */
+  	ddPCPtr			pPC;		/* pipeline context handle */
+  	ddDrawableInfo		drawExample;	/* info from drawable example */
+--- 538,559 ----
+  	DD_HIGH_EXCL_NS=1,
+  	DD_INVIS_INCL_NS=2,
+  	DD_INVIS_EXCL_NS=3,
+! 	DD_PICK_INCL_NS=4,
+! 	DD_PICK_EXCL_NS=5,
+! 	DD_MAX_FILTERS=6
+  } ddNSFilters; 
+  
+  typedef struct {
++ 	ddBOOL            pick_op;
++ 	ddBOOL            send_event;
++ 	ddULONG           max_hits;
++ 	ClientPtr         client;       /* need to send the event */
++         diStructHandle    strHandle;	/* the struct handle for PickOne */
++ 	ddULONG           sid;          /* the structure id for BeginPick? */
++ 	diPMHandle	  pseudoPM;      /* fake PM for Renderer Pick */
++ } ddRdrPickStr, *ddRdrPickPtr;       /* need to send the event */ 
++ 
++ typedef struct {
+  	ddULONG 		rendId;		/* renderer id */
+  	ddPCPtr			pPC;		/* pipeline context handle */
+  	ddDrawableInfo		drawExample;	/* info from drawable example */
+***************
+*** 539,544 ****
+--- 567,582 ----
+  	ddNpcSubvolume		npcSubvolume;
+  	ddViewport		viewport;
+  	listofObj		*clipList;	 /* clip list */
++ 						 /* Begin 5.1 additions */
++ 						 /* pick_inclusion is in ns */
++ 						 /* pick_exclusion is in ns */
++ 	listofObj		*pickStartPath;	 /* pick start path */
++ 	ddColourSpecifier	backgroundColour;
++ 	ddBOOL			clearI;
++ 	ddBOOL			clearZ;
++ 	ddUSHORT		echoMode;
++ 	ddColourSpecifier	echoColour;
++ 						 /* End 5.1 additions */
+  	ddBitmask		tablesMask;	/* renderer dynamics */
+  	ddBitmask		namesetsMask;	/* renderer dynamics */
+  	ddBitmask		attrsMask;	/* renderer dynamics */
+***************
+*** 549,555 ****
+--- 587,599 ----
+  	ddBOOL			immediateMode;
+  	ddUSHORT		render_mode;
+  	ddPointer		pDDContext;	/* device dependent attribute context */
++ 	ddRdrPickStr		pickstr;
+  } ddRendererStr, *ddRendererPtr;
++ 
++ typedef struct {
++ 	ddULONG			numElRefs;	/* number of element refs */
++ 	listofObj		*Path;		/* path */
++ } ddAccStStr, *ddAccStPtr;
+  
+  /* render_mode values */
+  #define	MI_REND_DRAWING 0
+*** /tmp/da5861	Wed Mar  4 14:38:25 1992
+--- extensions/server/PEX/include/dipex.h	Wed Mar  4 14:09:29 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: dipex.h,v 5.3 91/03/15 18:27:41 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: dipex.h,v 5.4 92/03/04 14:09:24 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 60,65 ****
+--- 60,66 ----
+  
+  LOCAL_FLAG ErrorCode PexReqCode;
+  LOCAL_FLAG ErrorCode PexErrorBase;
++ LOCAL_FLAG ErrorCode PexEventBase;
+  
+  /* resources */
+  extern Bool AddResource();
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

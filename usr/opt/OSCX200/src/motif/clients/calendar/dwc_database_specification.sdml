@@ -1,0 +1,4233 @@
+<HEAD1>(Functional specification)
+
+<HEAD2>(Associated documents)
+
+<HEAD2>(Change summary)
+
+<DISPLAY>
+       Date    Rev  By   Description
+     --------- ---  ---  -----------
+
+     22-Nov-87   0  PSH  Initial version
+     23-NOV-87   1  PSH  Completing many vague sections
+     25-NOV-87   2  PSH  Revision for BL2 & BL3
+      2-Feb-90   3  RCB  Converted from OUTLINE to SDML format
+<ENDDISPLAY>
+<HEAD1>(Product summary)
+
+<HEAD1>(Environment)
+
+<HEAD2>(Users)
+
+<HEAD2>(Hardware)
+
+<HEAD2>(Software)
+
+<HEAD2>(Services)
+
+<HEAD1>(Software Capabilities)
+
+<HEAD2>(Principal database objects and their related operations)
+
+<HEAD3>(Objects and their specific Properties)
+
+<HEAD4>(Calendar)
+
+<DISPLAY>
+Object:             Calendar {open, create, close, purge,
+                              delete,retreive, modify, copy}
+
+Description:        The aggregate object for the entire
+                    DECwindows calendar database
+
+Atomic properties:  -
+
+Composite props:    Profile <LITERAL>(<)implicit property of the calendar<LITERAL>(>)
+                    Repeat_event_placeholder [sorted_list]
+
+Internal props:     Database_version : Database_version
+<ENDDISPLAY>
+<HEAD4>(Day)
+
+<DISPLAY>
+Object:             Day {retreive, modify} ; create is implicit,
+                     so is delete
+
+Description:        Although the day contains two tangible
+                    properties, it should be viewed as a pseudo
+                    object. It exists if it has properties,
+                    such as Events, else not.
+
+Atomic properties:  Time_allocation_map : Time_allocation_map
+                    Daymark : Daymark
+                    Dayflags : Dayflags
+
+Composite props:    Day_note : Day_note[list]
+                    Event : Event[list]
+                    Repeat_event : Repeat_event[list]
+
+Internal props:     Next_event_sequence_nr : Event_id
+<ENDDISPLAY>
+<HEAD4>(Event)
+
+<DISPLAY>
+Object:             Event {create, delete, retreive, modify}
+
+Description:        An event is something that starts at a
+                    certain time on a certain day and ends
+                    at a certain time on a certain day. It
+                    can have an alarm associated with it. It
+                    can have a user defined type associated
+                    with it, such as "MEETING".
+
+Atomic properties:  Event_data : Event_data
+
+Composite props:    -
+<ENDDISPLAY>
+<HEAD4>(Repeat_event)
+
+<DISPLAY>
+Object:             Repeat_event {create, delete, retreive,
+                                  modify}
+
+Description:        An event is something that starts at a
+                    certain time on a certain day and ends
+                    at a certain time on a certain day. It
+                    may be repeated. It can have an alarm
+                    associated with it. It can have a user
+                    defined type associated with it, such as
+                    "MEETING".
+
+Atomic properties:  Event_creation_time : aaaa_Time
+                    Rescheduling_algorithm :
+                       Rescheduling_algorithm
+
+Composite props:    Event_data : Event_data
+<ENDDISPLAY>
+<HEAD4>(Day_note)
+
+<DISPLAY>
+Object:             Day_note {create, delete, retreive, modify}
+
+Description:        A day note is the description of something
+                    that is happening a certain day, such as
+                    "My sister's birthday". It cannot be
+                    repeated nor can it have an alarm associated
+                    with it.
+
+Atomic properties:  User_event_type : User_event_type
+                    Day_note_id : Event_id
+
+Composite props:    Text_message : Text_message
+<ENDDISPLAY>
+<HEAD3>(Composite properties)
+
+<HEAD4>(Profile)
+
+<DISPLAY>
+Property:           Profile
+
+Description:        The Profile contains for all the user
+                    tailorable parameters for the Calendar.
+                    It exists in harmony with the Calendar
+                    object itself, e.g. the Calendar cannot
+                    exist without a Profile nor can a Profile
+                    exist without a Calendar.
+
+Atomic properties:  Last_day_used : aaaa_Day
+                    Last_repeat_event_id : Repeat_event_id
+
+Composite props:    Base_date : dddd_Time
+<ENDDISPLAY>
+<HEAD4>(Event_data)
+
+<DISPLAY>
+Property:           Event_data
+
+Description:        The event data contains most information
+                    related to the actual event.
+
+Atomic properties:  User_Event_type : User_event_type
+                    Event_id : Event_id
+                    Repeat_event_flag : Boolean
+                    Acknowledged_flag : Boolean  ¹
+                    Acknowledged_alarm_time : aaaa_Minute
+                    Alarm_before : dddd_Minute  ¹
+
+Composite props:    Text_message : Text_message
+                    Starting_time : aaaa_Time
+                    Duration_time : dddd_Time
+
+                       ¹ Only present if Alarm_present_flag
+<ENDDISPLAY>
+<HEAD4>(aaaa_Time)
+
+<DISPLAY>
+Property:           aaaa_Time
+
+Description:        Absolute time specification. Absolute in the
+                    sense of the base-date of the calendar.
+
+Atomic properties:  aaaa_Day
+                    aaaa_Minute
+
+Composite props:    -
+<ENDDISPLAY>
+<HEAD4>(dddd_Time)
+
+<DISPLAY>
+Property:           dddd_Time
+
+Description:        Relative <OPAREN>delta<CPAREN> time specification.
+                    Relative to the context in which it
+                    is used.
+
+Atomic properties:  dddd_Day
+                    dddd_Minute
+
+Composite props:    -
+<ENDDISPLAY>
+<HEAD4>(Repeat_event_placeholder)
+
+<DISPLAY>
+Property:           Repeat_event_placeholder
+
+Description:        This property makes it possible to keep
+                    track of what repeat events are out
+                    there and when it is time to reschedule
+                    repeat events.
+
+Atomic properties:  Repeat_event : Pointer
+                    Repeat_event_id : Repeat_event_id
+
+Composite props:    Rescheduling_algorithm :
+                      Rescheduling_algorithm
+<ENDDISPLAY>
+<HEAD4>(Text_message)
+
+<DISPLAY>
+Property:           Text_message
+
+Atomic properties:  Text_type : Text_type
+                    Text_string [list] : Text_string
+
+Composite props:    -
+<ENDDISPLAY>
+<HEAD4>(Rescheduling_algorithm)
+
+<DISPLAY>
+Property:           Resheduling_algorithm
+
+Atomic properties:  Algorithm_type : Algorithm_type
+                    Algorithm_parameters :
+                      Algorithm_parameters
+
+Composite props:    End_repeat_time : aaaa_Time
+<ENDDISPLAY>
+<HEAD3>(Property types <OPAREN>description of<CPAREN>)
+
+<HEAD4>(Algorithm_type)
+
+<DISPLAY>
+Type:               Algorithm_type
+
+Description:        There are a number of different
+                    event rescheduling algorithms.
+
+Source:             DWC Constant
+
+Possible values:    ???
+
+Storage class:      BYTE
+<ENDDISPLAY>
+<HEAD4>(Algorithm_parameters)
+
+<DISPLAY>
+Type:               Algorithm_parameters
+
+Description:        Parameters for rescheduling a repeat
+                    event. Contains a length field and data.
+
+Source:             DWC function bix, variable data <OPAREN>Marios<CPAREN>
+
+Possible values:    ???
+
+Storage class:      ASCIC; max 20 bytes, including count
+<ENDDISPLAY>
+<HEAD4>(Text_type)
+
+<DISPLAY>
+Type:               Text_type
+
+Description:        Text messages can come in meny different
+                    forms. This type can be used to indicate
+                    what type of text is specified.
+
+Source:             DWC Constant
+
+Possible values:    MCS, ISO, 16bit, DDIF
+
+Storage class:      BYTE
+<ENDDISPLAY>
+<HEAD4>(Text_string)
+
+<DISPLAY>
+Type:               Text_string
+
+Description:        A text string is a counted list of text
+                    units. The type 'Text_type' is used
+                    <OPAREN>in combination<CPAREN> to describe what sort of
+                    text is contained in the string. The string
+                    can be a maximum of 65535 bytes long.
+
+Source:             User input, variable
+
+Possible values:    -
+
+Storage class:      ASCIW
+<ENDDISPLAY>
+<HEAD4>(User_event_type)
+
+<DISPLAY>
+Type:               User_event_type
+
+Description:        Counted string describing the user
+                    specified type of an event. This type
+                    can be the most of 31 bytes of user data.
+
+Source:             User input, variable
+
+Possible values:    -
+
+Storage class:      ASCIC; max 32 bytes, including count
+<ENDDISPLAY>
+<HEAD4>(Database_version)
+
+<DISPLAY>
+Type:               Database_version
+
+Description:        The version of the database. Is a sequence
+                    number, defined by the DECwindows calendar+
+                    development group.
+
+Source:             DWC Constant
+
+Possible values:    1..
+
+Storage class:      LONG
+<ENDDISPLAY>
+<HEAD4>(Time_allocation_map)
+
+<DISPLAY>
+Type:               Time_allocation_map
+
+Description:        One bit for each minute in 24 hours. If
+                    set then minute is reserved by an
+                    event else not.
+
+Source:             Events and Repeat_event scheduling
+
+Possible values:    0/1
+
+Storage class:      BITVECTOR[1440], one bit per minute
+<ENDDISPLAY>
+<HEAD4>(Daymark)
+
+<DISPLAY>
+Type:               Daymark
+
+Description:        Numeric value associated with daymark icon.
+
+Source:             DWC Constants
+
+Possible values:    ???
+
+Storage class:      BYTE
+<ENDDISPLAY>
+<HEAD4>(Dayflags)
+
+<DISPLAY>
+Type:               Dayflags
+
+Description:        Set of flags describing what type of day it
+                    is, such as Holiday, Workday, etc.
+
+Source:             DWC Constants
+
+Possible values:    ???
+
+Storage class:      BYTE
+<ENDDISPLAY>
+<HEAD4>(Event_id)
+
+<DISPLAY>
+Type:               Event_id
+
+Description:        For the day relative sequence number for an
+                    event.
+
+Source:             Index word in each Day identifies next free
+                    Event_id
+
+Possible values:    1...
+
+Storage class:      WORD
+<ENDDISPLAY>
+<HEAD4>(Repeat_event_id)
+
+<DISPLAY>
+Type:               Repeat_event_id
+
+Description:        Unique repeat event identification.
+
+Source:             Counter in header is bumped for each new
+                    repeat event.
+
+Possible values:    1..
+
+Storage class:      LONG
+<ENDDISPLAY>
+<HEAD4>(aaaa_Day)
+
+<DISPLAY>
+Type:               aaaa_Day
+
+Description:        Absolute days <OPAREN>since calendar basedate<CPAREN>
+
+Source:             -
+
+Storage class:      LONG
+
+Possible values:    -
+<ENDDISPLAY>
+<HEAD4>(aaaa_Minute)
+
+<DISPLAY>
+Type:               aaaa_Minute
+
+Description:        Minutes since midnight
+
+Source:             -
+
+Possible values:    1..1440
+
+Storage class:      WORD
+<ENDDISPLAY>
+<HEAD4>(dddd_Day)
+
+<DISPLAY>
+Type:               dddd_Day
+
+Description:        Delta days since a point relative to the
+                    context where mentioned.
+
+Source:             -
+
+Storage class:      LONG
+
+Possible values:    -
+<ENDDISPLAY>
+<HEAD4>(dddd_Minute)
+
+<DISPLAY>
+Type:               dddd_Minute
+
+Description:        Delta minutes since a point relative to
+                    the context where mentioned
+
+Source:             -
+
+Possible values:    1..1440
+
+Storage class:      WORD
+<ENDDISPLAY>
+<HEAD3>(Objects and Operations matrix)
+
+<DISPLAY>
+          C   R   D   M
+           r   e   e   o
+            e   t   l   d
+             a   r   e   i
+              t   e   t   f
+               e   i   e   y
+                <LITERAL>(\)   v   <LITERAL>(\)   <LITERAL>(\)
+                 <LITERAL>(\)   e   <LITERAL>(\)   <LITERAL>(\)
+                  <LITERAL>(\)   <LITERAL>(\)   <LITERAL>(\)   <LITERAL>(\)
+Main_properties:
+                 +---+---+---+---+
+  Calendar       <VBAR> x <VBAR> x <VBAR> x <VBAR> x <VBAR>
+                 +---+---+---+---+
+  Day            <VBAR> ¹ <VBAR> x <VBAR> x <VBAR> x <VBAR>
+                 +---+---+---+---+
+Day_properties:
+                 +---+---+---+---+
+   Event         <VBAR> x <VBAR> x <VBAR> x <VBAR> x <VBAR>
+                 +---+---+---+---+
+   Repeat_event  <VBAR> x <VBAR> x <VBAR> x <VBAR> x <VBAR>
+                 +---+---+---+---+
+   Day_note      <VBAR> x <VBAR> x <VBAR> x <VBAR> x <VBAR>
+                 +---+---+---+---+
+
+		    ¹  Created when there are properties, removed
+                      when not
+
+
+Notes:
+
+   1. The Calendar object also has operations: Open, Close,
+      Purge and Copy
+   2. The operations: Create, Retreive and Modify will be
+      implemented as transactions when lists of data is
+      part of input.
+<ENDDISPLAY>
+<HEAD2>(Database structure; an overview)
+
+<HEAD3>(Record structure)
+
+<HEAD4>(Fixed physical records)
+
+<HEAD4>(Logical records are both of fixed and variable length)
+
+<HEAD3>(Foundation)
+
+<HEAD4>(Header)
+
+<HEAD4>(Profile)
+
+<HEAD4>(Record bitmap)
+
+<HEAD3>(Days, items in a day and intermediate mapping)
+
+<HEAD4>(Rangemap)
+
+<HEAD4>(Subrangemap)
+
+<HEAD4>(Daymap)
+
+<HEAD4>(Items in a day)
+
+<HEAD3>(Repeat events)
+
+<HEAD4>(List of algorithms)
+
+<HEAD4>(Repeat event records)
+
+<HEAD2>(Visible database access routines, in detail, sorted by operation)
+
+<HEAD3>(Create)
+
+<HEAD4>(Calendar)
+
+<HEAD5>(DWC$DB_Create_calendar)
+
+<P>Create a calendar database file.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Name_of_calendar:in
+
+<LE>Base_date_id:in
+
+<LE>Delta_now_days:in
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_CRECAL - Error creating Calendar database
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_CREFAIL - Failed to create calendar database file in directory
+
+<LE>DWC$_ALLOCREC - Error allocating record
+
+<ENDLIST>
+
+<P>The following steps are involved in creating a calendar database:
+
+<LIST>(NUMBERED)
+
+<LE>Create an empty file
+
+<LE>Extend the file 4 records
+
+<LE>Write out a bitmap at record 1
+
+<LE>Write out a profile, with basedate, at record 2
+
+<LE>Determine what to use as the base-date for the first Rangemap.  Let the
+input Delta_now_days be 25% in on the first Rangemap.  Write out Rangemap.
+
+<LE>Write out Header record
+
+<ENDLIST>
+
+<P>The database will be created with Owner = Read + Write.  All other access
+will be set no None.  The user of the Calendar application is responsible for
+changing the protection of the Calendar database.
+
+<HEAD4>(Repeat_event)
+
+<HEAD5>(DWC$DB_Begin_r_event_create)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Allocate a repeat event block and initialize it.  Save pointer to it in Cab.
+
+<HEAD5>(DWC$DB_Put_r_event_algorithm)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Algorithm_type:in,
+
+<LE>Algorithm_parameters:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Allocate a repeat event structure and save a pointer to it in the Cab.  Copy
+input algorithm to saved structure.
+
+<HEAD5>(DWC$DB_Put_r_event_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>User_event_type:in,
+
+<LE>Event_text_type:in,
+
+<LE>Alarm_event:in,
+
+<LE>Alarm_before:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Store the rest of the parameters in repeat event structure.
+
+<HEAD5>(DWC$DB_Put_r_event_text)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Text_line:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Append text to end of text.  Make sure not overflow.  Truncate if such.
+
+<HEAD5>(DWC$DB_End_r_event_create)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Repeat_event_id:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Look for a free block for the repeat event block
+
+<LE>If the repeat event algorithm cannot be fit in at the end of the last
+repeat event vector block, allocate one more block for this
+
+<LE>Flush bitmaps
+
+<LE>Bump the repeat event id count in header to get a fresh id
+
+<LE>Write out the repeat event block
+
+<LE>If one additional repeat event vector block was needed, fill the last one
+in and write it out.
+
+<LE>Write out updated header
+
+<LE>Append the new algorithm at the end of the repeat event vector and write
+it out.
+
+<LE>Update the in-memory list of repeat events
+
+<ENDLIST>
+
+<HEAD4>(Event / Day_note)
+
+<HEAD5>(DWC$DB_Begin_event_create)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Although the event record has variable length, we allocate a max length
+record and initialze it.  Pointer to structure is saved in the Cab.
+
+<HEAD5>(DWC$DB_Put_event_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Start_day:in,
+
+<LE>Start_offs:in,
+
+<LE>End_day:in,
+
+<LE>End_offs:in,
+
+<LE>User_type_text:in,
+
+<LE>Event_text_type:in,
+
+<LE>Alarm_event:in,
+
+<LE>Alarm_before:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Event
+
+<LIST>(NUMBERED)
+
+<LE>For each day involved in the event, load the daymap and associated data.
+Issue an error if the appointment cannot be made due to overlap with another
+event.
+
+<ENDLIST>
+
+<LE>Day_note
+
+<LIST>(NUMBERED)
+
+<LE>Bring in the day and its associated event records
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE>Update the day record for each day involved in the event
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE>Load the daymap and associated data for the start day.
+
+<LE>Issue an error if the appointment cannot be made
+
+<LE>Fill in the fields in the datastructure
+
+<ENDLIST>
+
+<HEAD5>(DWC$DB_Put_event_text)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Text_line:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Append text to the datastructure
+
+<HEAD5>(DWC$DB_End_event_create)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Event_id:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>Append this appointment
+
+<HEAD4>(Day)
+
+<HEAD5>(DWC$DB_Put_day_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Day:in,
+
+<LE>Daymark:in,
+
+<LE>Dayflags:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD3>(Get)
+
+<HEAD4>(Calendar)
+
+<HEAD5>(DWC$DB_Get_profile_information)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Base_date:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Day)
+
+<HEAD5>(DWC$DB_Begin_day_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Start_day:in,
+
+<LE>End_day:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_day_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Daymark:out,
+
+<LE>Dayflags:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_day_time_allocation)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Time_allocation:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_End_day_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Repeat_event)
+
+<HEAD5>(DWC$DB_Begin_r_event_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_r_event_algorithm)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Algorithm_type:out,
+
+<LE>Algorithm_parameters:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_r_event_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>User_event_type:out,
+
+<LE>Event_text_type:out,
+
+<LE>Alarm_event:out,
+
+<LE>Alarm_before:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_r_event_text)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Text_line:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_End_r_event_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Event / Day_note)
+
+<HEAD5>(DWC$DB_Begin_event_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Day:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_next_event)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Event_id:out,
+
+<LE>Day_offset:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_event_parameters)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Text_type:out,
+
+<LE>Dur_days:out,
+
+<LE>Dur_offset:out,
+
+<LE>User_event_type:out,
+
+<LE>Repeated:out,
+
+<LE>Alarm_before:out,
+
+<LE>Alarm_sts:out,
+
+<LE>Alarm_par:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Get_event_text)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Text:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_End_event_query)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD3>(Modify)
+
+<HEAD4>(Calendar)
+
+<HEAD5>(DWC$DB_Modify_profile)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Day)
+
+<HEAD5>(DWC$DB_Put_day_parameters)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD4>(Repeat_event)
+
+<HEAD5>(DWC$DB_Begin_r_event_modify)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Repeat_event_id:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Put_r_event_algorithm)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD5>(DWC$DB_Put_r_event_parameters)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD5>(DWC$DB_Put_r_event_text)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD5>(DWC$DB_End_r_event_modify)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Event / Day_note)
+
+<HEAD5>(DWC$DB_Begin_event_modify)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Event_id:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Put_event_alarm_ack)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Alarm_ack_offset:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Put_event_parameters)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD5>(DWC$DB_Put_event_text)
+
+<P>Please refer to section <QUOTE>(Create) above.
+
+<HEAD5>(DWC$DB_End_event_modify)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Event_id:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD3>(Delete)
+
+<HEAD4>(Calendar)
+
+<HEAD5>(DWC$DB_Delete_calendar)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Name:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD5>(DWC$DB_Purge_calendar)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Before_date:in,
+
+<LE>Purge_what_mask:in,
+
+<LE>Statistics:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Day)
+
+<HEAD5>(DWC$DB_Delete_day)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Day:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Repeat_event)
+
+<HEAD5>(DWC$DB_Delete_r_event)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Repeat_event_id:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Event / Day_note)
+
+<HEAD5>(DWC$DB_Delete_event)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Day:in,
+
+<LE>Event_id:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD3>(Special)
+
+<HEAD4>(Open)
+
+<HEAD5>(DWC$DB_Open_calendar)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Name:in,
+
+<LE>Cab:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<P>The open calendar routine takes the following steps:
+
+<LIST>(NUMBERED)
+
+<LE>Attempt to open the file and do some preliminary checks, by calling
+DWC$$DB_First_open_check
+
+<LE>Allocate and initialize a calendar access block, Cab
+
+<LE>Bring in the bitmaps, by calling DWC$$DB_Read_bitmaps
+
+<LE>If Write mode, propagate past repeat events by calling
+DWC$$DB_Propagate_past_repeat_events
+
+<LE>Mark the calendar as being ready for access
+
+<LE>When returning, indicate in which mode the calendar was opened
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_First_open_check)
+
+<P>This routine opens the calendar file in an appropriate access mode and does
+some preliminary validation.  The routine contains some O/S specific code.
+
+<LIST>(NUMBERED)
+
+<LE>Open the file
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>VMS:
+
+<list>(unnumbered\o)
+
+<LE>Attempt to open for exclusive write
+
+<LE>If operation failed due to requested access, try and open the file for
+shared read.  Return if this failed too.
+
+<ENDLIST>
+
+<LE>Ultrix:
+
+<list>(unnumbered\o)
+
+<LE>Request an exclusive lock over meaphor associated with calendar file.  Do
+not queue the request <OPAREN>e.g., we want a failure if someone else is holding the
+lock<CPAREN>.  Return to caller if lock could not be granted.
+
+<LE>Attempt to open the file for write access
+
+<LE>If open for write failed, attempt to open the file for read
+
+<LE>If open failed, release lock and return error to caller
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Record mode in which file has been opened <OPAREN>e.g., do we allow writes<CPAREN>
+
+<LE>Request file statistics
+
+<LE>Make sure there are a minimal number of records in the file
+
+<LE>Read the header record and validate
+
+<list>(unnumbered\o)
+
+<LE>Allocate a VM buffer
+
+<LE>Read the record into buffer
+
+<LE>Validate header
+
+<LE>If failure, deallocate the VM buffer and return error to caller
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Read_bitmaps)
+
+<P>This routine brings in all the bitmaps into memory.  The purpose of this
+operation is twofolded:
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Make sure that the bitmaps look ok, at a first glance
+
+<LE>Compute the proper end of file for later sanity checks
+
+<ENDLIST>
+
+<P>The steps involved in doing this are:
+
+<LIST>(NUMBERED)
+
+<LE>Bring in the first bitmap and validate it
+
+<list>(unnumbered\o)
+
+<LE>Allocate a VM buffer for bitmap
+
+<LE>Read the first bitmap
+
+<LE>Double check the record type
+
+<LE>Make sure the first 'n' bits are marked as allocated.  'n' in this case
+represents: Header, Bitmap iself and Profile.
+
+<LE>If the last used field points beyond end of file, issue an error
+
+<LE>If there is only one bitmap but the end of file marker <OPAREN>as returned by
+the file statistics<CPAREN> is beyond that first bitmap, prepare to extend:
+
+<LIST>(unnumbered\ )
+
+<LE>Starting with the last bitmap, write out empty bitmaps
+
+<LE>Indicate that the first bitmap is full <OPAREN>last field<CPAREN> and fill in its flink
+field.
+
+<LE>Patch the flink pointer field of the previous bitmap to point at the VM
+address of the next one
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Bring in additional bitmaps
+
+<list>(unnumbered\o)
+
+<LE>If nonzero flink, it must be on a, by the size of the bitmap, aligned
+offset
+
+<LE>Allocate a VM buffer for next bitmap
+
+<LE>Patch the flink pointer field of the previous bitmap to point at the VM
+address of the next one
+
+<LE>Read the bitmap
+
+<LE>Double check record type
+
+<LE>Make sure the first bit is marked as allocated <OPAREN>the bitmap itself<CPAREN>.
+
+<LE>If the last used field points beyond end of file, issue an error
+
+<LE>If the last used field of the bitmap is before what is indicated as end
+of file by the file statistics call, prepare to extend:
+
+<LIST>(UNNUMBERED )
+
+<LE>Starting with the last bitmap, write out empty bitmaps
+
+<LE>Indicate in the bitmap where it was found that that bitmaop is indeed
+full <OPAREN>last field<CPAREN> and fill in its flink field.
+
+<LE>Patch the flink pointer field of the previous bitmap to point at the VM
+address of the next one
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>We should now have computed the correct end of file
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Propagate_past_repeat_events)
+
+<HEAD4>(Close)
+
+<HEAD5>(DWC$DB_Close_calendar)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD4>(Copy)
+
+<HEAD5>(DWC$DB_Copy_calendar)
+
+<DISPLAY>
+Arguments:
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Cab:in,
+
+<LE>Name:out
+
+<ENDLIST>
+
+<DISPLAY>
+Code-logic:
+<ENDDISPLAY>
+<HEAD2>(Summary of routines, sorted by Object)
+
+<HEAD3>(Calendar / Profile)
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Create_calendar
+
+<LE>DWC$DB_Get_profile_information
+
+<LE>DWC$DB_Modify_profile
+
+<LE>DWC$DB_Delete_calendar
+
+<LE>DWC$DB_Copy_calendar
+
+<LE>DWC$DB_Open_calendar
+
+<LE>DWC$DB_Close_calendar
+
+<LE>DWC$DB_Purge_calendar
+
+<ENDLIST>
+
+<HEAD3>(Day)
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Begin_day_query
+
+<LE>DWC$DB_Get_day_parameters
+
+<LE>DWC$DB_Get_day_time_allocation
+
+<LE>DWC$DB_End_day_query
+
+<LE>DWC$DB_Put_day_parameters
+
+<LE>DWC$DB_Delete_day
+
+<ENDLIST>
+
+<HEAD3>(Repeat_event)
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Begin_r_event_create
+
+<LE>DWC$DB_Put_r_event_algorithm
+
+<LE>DWC$DB_Put_r_event_parameters
+
+<LE>DWC$DB_Put_r_event_text
+
+<LE>DWC$DB_End_r_event_create
+
+<LE>DWC$DB_Begin_r_event_query
+
+<LE>DWC$DB_Get_r_event_algorithm
+
+<LE>DWC$DB_Get_r_event_parameters
+
+<LE>DWC$DB_Get_r_event_text
+
+<LE>DWC$DB_End_r_event_query
+
+<LE>DWC$DB_Begin_r_event_modify
+
+<LE>DWC$DB_End_r_event_modify
+
+<LE>DWC$DB_Delete_r_event
+
+<ENDLIST>
+
+<HEAD3>(Event / Day_note)
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Begin_event_create
+
+<LE>DWC$DB_Put_event_parameters
+
+<LE>DWC$DB_Put_event_text
+
+<LE>DWC$DB_End_event_create
+
+<LE>DWC$DB_Begin_event_modify
+
+<LE>DWC$DB_Put_event_alarm_ack
+
+<LE>DWC$DB_End_event_modify
+
+<LE>DWC$DB_Begin_event_query
+
+<LE>DWC$DB_Get_next_event
+
+<LE>DWC$DB_Get_event_parameters
+
+<LE>DWC$DB_Get_event_text
+
+<LE>DWC$DB_End_event_query
+
+<LE>DWC$DB_Delete_event
+
+<ENDLIST>
+
+<HEAD2>(Internal database management routines)
+
+<HEAD3>(Preventive Error signal management)
+
+<P>Preventive Error signal management is an essential part of making errors
+tracable.  This part of the code adds the capabilities to make this happen.
+
+<HEAD4>(Problem overview)
+
+<P>One of the problems with signalling errors is that one needs to signal enough
+context information in the error codes that the error is meaningful.  The
+actual error <OPAREN>triggering error<CPAREN> usually occurs deep down in a routine
+package, possibly generic, rather than in the top layer.  The three most
+common ways to deal with these triggering errors are:
+
+<LIST>(NUMBERED)
+
+<LE>Signal one error, which in itself is useful, but, without context
+information, is meaningless.  One example of this could be: Error reading
+record.  When the user sees this error he/she may not know that the code was
+reading at all!  The message gives no clue as to how the code came to
+generate this error.
+
+<LE>Try and reconstrcut some context information and signal it.  This may
+cover 80% of the cases, but the remaining 20% can be complete garbage.
+
+<LE>Let lower level routines return error and then have the top level signal
+one line of context along with the bottom error.  This, too, can lead to
+misleading error messages.
+
+<ENDLIST>
+
+<P>So, how do one communicate all the information about what went wrong along
+with the exact cause of the error?  It looks as if most code treat errors as
+something unusual <OPAREN>e.g., the code is not preventive<CPAREN>.  The right approach is
+to *assume that errors will occur*.  With that in mind, what can one do to
+make it easier to deal with the error when it happens?  Lay a trace!
+
+<P>As there is no such <QUOTE>(support) in place for C <OPAREN>or VMS for that matter<CPAREN> a small
+set of routines are added to the database code to make it possible to keep
+context <OPAREN>or trace<CPAREN> along with the errors.  These routines put three
+responsibilies on the rest of the code:
+
+<LIST>(NUMBERED)
+
+<LE>Whenever an operation is started the code must record what it is doing in
+a way that if something fails, the failing operation can easily be
+idendified.
+
+<LE>Whenever a suboperation of an operation or a suboperation of a
+suboperation is started the code must record what it is doing in a way that
+the error can be tracked down to operation, suboperation, suboperation of
+suboperation, etc.
+
+<LE>Whenever an operation or a suboperation is complete the code must
+indicate this.
+
+<ENDLIST>
+
+<P>The routines operate on a vector of error codes, where the first one is more
+general than the second, etc.  When a new database operation is started, say
+for example when asking for all the items associated with the day, the
+following things will happen:
+
+<list>(unnumbered\o)
+
+<LE>When an operation starts, the list of errors is empty
+
+<LE>When the begin_query operation is invoked it will declare the main cause
+of the error to be <QUOTE>(Failed to obtain information related to a day).  Although
+this error has not yet happened this error code will be very useful if, for
+example, a read error occurrs deep down in the routines invoked during this
+query.
+
+<LE>The Next_item routine declares the error to be <QUOTE>(Could not obtain next day
+item).  That code is made the second entry in the vector.
+
+<LE>When Next_item is complete, it will call DWC$$DB_Pop_error_cause to
+remove its error code so that we're now back to <QUOTE>(Failed to obtain information
+related to a day).
+
+<LE>When Next_item is called again it redeclares the code again and then
+continues on and does its work.  Lets say that it calls some routine to read
+one more physical record.  If the routine that reads the physical record
+failed to read the record it would call DWC$$DB_Signal_error with the FINAL
+error.  The errors returned back to the caller of the Next_item routine might
+then be:
+
+<LIST>(NUMBERED)
+
+<LE><QUOTE>(Failed to obtain information related to a day)
+
+<LE><QUOTE>(Could not obtain next day item)
+
+<LE><QUOTE>(Specified physical record is beyond end of file)
+
+<ENDLIST>
+
+<P>At the completion of a routine that did declare a suberror, it should call
+DWC$$DB_Pop_error_cause to remove the error from the error stack.  At the
+completion of an operation, say reading items in a day, the major error cause
+should be popped in the same fashion.
+
+<P>There is one special case of error: when the caller invokes a routine OUT OF
+PHASE.  Lets say that the caller firsts begins a day query and before
+completing the query calls another routine to create a new repeat event.  At
+that point in the time, the creation of that repeat event was not expected
+and the code is therefore forced to signal an error that indicates that we're
+completely out of phase.  This is signalled together with the current major
+error, for example:
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE><QUOTE>(Call is out of phase.  A possible IN PHASE error could have been:)
+
+<LE><QUOTE>(Failed to obtain information related to a day)
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Set_error_base)
+
+<P>This routine is used to declare the first error cause in an operation.  It is
+very similar to Set_error_case, except that it makes sure that the error
+vector is empty.  If it isn't, it signalls an out of phase error.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Error_code
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_OUTOFPHASE - Call is out of phase
+
+<ENDLIST>
+
+<DISPLAY>
+MACRO: _Set_base<OPAREN>Error_code<CPAREN>
+<ENDDISPLAY>
+<HEAD4>(DWC$$DB_Set_error_cause)
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Error_code
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_OVERFLOW - Error stack overflow
+
+<ENDLIST>
+
+<DISPLAY>
+MACRO: _Set_cause<OPAREN>Error_code<CPAREN>;
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Append error code to the end of vector
+
+<LE>Update count of errors in vector
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Pop_error_cause)
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_UNDERFLOW - Poping an empty stack
+
+<ENDLIST>
+
+<DISPLAY>
+MACRO: _Pop_cause<OPAREN><CPAREN>;
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Decrement count of entries in vector
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Signal_error)
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Error_code
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<DISPLAY>
+MACRO: _Signal<OPAREN>Error_code<CPAREN>;
+<ENDDISPLAY>
+<LIST>(NUMBERED)
+
+<LE>Signal all errors in the vector, followed by the one passed by caller
+
+<LE>If the first error in the vector was non-fatal LIB$SIGNAL will return
+back control to the routine again.  If so, convert the primary error into
+fatal to avoid handling of errors while cleaning up after the first error.
+
+<ENDLIST>
+
+<HEAD3>(Disk storage management)
+
+<P>Disk storage management is the layer closest to the diskfile itself.  It
+takes care of fundamental operations, such as:
+
+<list>(unnumbered\o)
+
+<LE>Read a physical record
+
+<LE>Write a physical record
+
+<LE>Allocate a record
+
+<LE>Deallocate a record
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Validate_record_ptr)
+
+<P>This routine validates a disk record pointer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_INVPTR - Invalid record pointer detected
+
+<LE>DWC$_PTRBEOF - Record pointer points beyond end of file
+
+<ENDLIST>
+
+<P>The following things must be true for a record pointer:
+
+<LIST>(NUMBERED)
+
+<LE>Must not have bit 31 set
+
+<LE>Must be record aligned; this means that a number of low bits must be zero
+
+<LE>Cannot point beyond end of file.  This check is only performed if the Cab
+indicates that initialization is complete
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Read_physical_record)
+
+<P>This routine reads a record and stores it in a user specified buffer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Record_ptr
+
+<LE>Output_buffer_ptr
+
+<LE>Expected_record_type
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_READREC - Error reading physical record
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_NOTALLC - Record not allocated
+
+<LE>DWC$_READERR - General failure returned from read operation
+
+<LE>DWC$_INVRTYPE - Invalid record type
+
+<LE>DWC$_UNEXPRTYPE - Unexpected record type
+
+<ENDLIST>
+
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Declare operation to be DWC$_READREC
+
+<LE>Validate the record pointer
+
+<LE>Make sure this record is marked as allocated
+
+<LE>Read the record into specified buffer
+
+<LE>Make sure record contains a valid type field.  It should be noted that
+neither header nor bitmap record is expected here.
+
+<LE>Match record type against expected type
+
+<LE>Call record specific MBZ <OPAREN>must be zero<CPAREN> and validation routine.  Each
+such routine should make sure that MBZ fields are indeed zero and that fields
+are within expected ranges.  The following validation routines exist:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>DWC$$DB_Validate_header_blk; this routine does not exist as it is part of
+the calendar open code.
+
+<LE>DWC$$DB_Validate_bitmap_blk; this routine does not exist as it is part of
+the DWC$$DB_Read_bitmaps routine.
+
+<LE>DWC$$DB_Validate_profile_blk
+
+<LE>DWC$$DB_Validate_r_ev_algo_blk
+
+<LE>DWC$$DB_Validate_r_ev_info_blk
+
+<LE>DWC$$DB_Validate_rangemap_blk
+
+<LE>DWC$$DB_Validate_subrangemap_blk
+
+<LE>DWC$$DB_Validate_daymap_blk
+
+<LE>DWC$$DB_Validate_dayitem_blk
+
+<ENDLIST>
+
+<LE>Pop current error code
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Write_physical_record)
+
+<P>This routine writes out a record into the database.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Record_ptr
+
+<LE>Output_buffer_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_WRITEREC - Error writing physical record
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_WRITEERR - General write failure
+
+<LE>DWC$_NOWRITE - No write access to this calendar
+
+<ENDLIST>
+
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Declare current operation to be DWC$_WRITEREC
+
+<LE>Validate the record address
+
+<LE>Make sure the user has write access to the calendar
+
+<LE>Write out the record
+
+<LE>Pop error state
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Alloc_record)
+
+<P>This routine allocates a record.  It scans the bitmaps, looking for a free
+bit.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Record address
+
+<ENDLIST>
+
+<DISPLAY>
+RETURN STATUS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>True = Allocation Ok
+
+<LE>Failed = Allocation failed
+
+<ENDLIST>
+
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_ALLOCREC - Error allocating record
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>Declare the current state to be DWC$_ALLOCREC.  Then, one of the
+following things can happen during the scan:
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>The routine does not find a free bit within what is considered end of
+file
+
+<LIST>(NUMBERED)
+
+<LE>The file is extended by one block.  If this fails, the code returns a
+soft failure
+
+<LE>The end of file pointer is updated in the Cab
+
+<LE>The associated bit is marked as Used in the bitmap
+
+<LE>The last bit used field in the bitmap is bumped
+
+<LE>The updated bitmap is written back out, using
+DWC$$DB_Write_physical_record
+
+<ENDLIST>
+
+<LE>There are no free records, not even in the last bitmap
+
+<LIST>(NUMBERED)
+
+<LE>The file is extended by one block, for the bitmap.  If this fails, the
+routine returns a soft error.
+
+<LE>The end of file pointer is updated in the Cab
+
+<LE>The empty bitmap is written out, containing one bit used <OPAREN>for itself<CPAREN>,
+using DWC$$DB_Write_physical_record
+
+<LE>The flink field of the previous bitmap is updated to point at the new
+bitmap record
+
+<LE>The previous bitmap is written back out, using
+DWC$$DB_Write_physical_record
+
+<LE>The previous bitmap's flink is updated to point at the VA of the next
+bitmap
+
+<LE>The file is extended one more record, for the actual record itself.  If
+this fails, the routine returns a soft error.
+
+<LE>The end of file pointer is updated in the Cab
+
+<LE>The associated bit in the new bitmap is marked as used
+
+<LE>The last bit used field in the bitmap is bumped
+
+<LE>The new bitmap is written out <OPAREN>again<CPAREN>, using
+DWC$$DB_Write_physical_record
+
+<ENDLIST>
+
+<LE>The routine finds a free bit
+
+<LIST>(NUMBERED)
+
+<LE>The associated bit is marked as Used in the bitmap
+
+<LE>The updated bitmap is written back out, using
+DWC$$DB_Write_physical_record
+
+<ENDLIST>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>Synchronizes pending writes.
+
+<LE>Pop error code
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Alloc_traced_record)
+
+<P>This routine is layered on top of DWC$$DB_Alloc_record.  It is used in
+situations where more than one record need to be allocated and it might be
+necessary to deallocate <QUOTE>(n) records if the <QUOTE>(n+1) allocation failed.
+
+<P>This routine keeps track of the records that have been allocated through a
+zero terminated queue of trace records.  The trace queue is linked of the
+Cab.  A trace record contains the following fields:
+
+<list>(unnumbered\o)
+
+<LE>Record allocated
+
+<LE>Pointer to associated bitmap VA
+
+<LE>Flink to next trace record
+
+<ENDLIST>
+
+<P>The routine DWC$$DB_Dealloc_traced_records can be used to deallocate the
+records that have been allocated with this routine.  The routine
+DWC$$DB_Free_trace_records empties the trace queue.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Record address
+
+<ENDLIST>
+
+<DISPLAY>
+RETURN STATUS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>True = Allocation Ok
+
+<LE>Failed = Allocation failed
+
+<ENDLIST>
+
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<HEAD4>(DWC$$DB_Dealloc_record)
+
+<P>This routine deallocates a record.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Record_pointer
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_DEALLOCREC - Error deallocating record
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_NOTALLOC - Record not allocate
+
+<ENDLIST>
+
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Declare current operation to be DWC$_DEALLOCREC
+
+<LE>Validate record pointer
+
+<LE>Find associated bitmap VA
+
+<LE>Make sure record is indeed marked as used
+
+<LE>Write out a zero pattern on disk, where the record's data used to be,
+using DWC$$DB_Write_physical_record
+
+<LE>Mark record as free in the bitmap
+
+<LE>Write out updated bitmap, using DWC$$DB_Write_physical_record
+
+<LE>Synch write
+
+<LE>Pop error code
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Dealloc_traced_record)
+
+<P>This routine deallocates all records that can be found in the current queue
+of trace records.  When the deallocation is complete, it calls
+DWC$$DB_Free_trace_records to deallocate the trace records.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<HEAD4>(DWC$$DB_Free_trace_records)
+
+<P>This routine releases the memory used by the trace records.  The queue head
+in the Cab is zeroed when the deallocation is complete.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<HEAD3>(Virtual record management <OPAREN>caching<CPAREN>)
+
+<P>As mentioned above, the database consists of physical and logical records.  A
+physical record is always of fixed size, while the logical records are of
+variable length.  In fact, the variable length records are <QUOTE>(fitted) into
+physical records.
+
+<P>In order to make the database access more efficient the code will cache
+database records.  The cache maintains the same logical structure as on disk.
+There are three problems that arise with this approach:
+
+<LIST>(NUMBERED)
+
+<LE>Pointers in records on disk point at other records on disk.  If records
+are brought in from disk to memory there need to be some sort of translation
+from record address to virtual memory address.
+
+<LE>It is probably desirable if the cache has some sort of high-water mark so
+that we will not overflow the user's address space.
+
+<LE>It must be possible to deallocate all cache memory when the user
+deaccesses the database.
+
+<ENDLIST>
+
+<P>Virtual record management is the next layer above the bottom layer, the Disk
+storage management layer.  Its basic function is to make the Calendar's
+physical disk structure available in virtual memory:
+
+<list>(unnumbered\o)
+
+<LE>In an efficient way
+
+<LE>Transparent to the user of this code layer
+
+<ENDLIST>
+
+<P>The goal is to make the logical disk structure appear as a logical virtual
+memory structure.  This involves the following major things:
+
+<list>(unnumbered\o)
+
+<LE><QUOTE>(Pagefault) handling
+
+<LE>Record caching
+
+<LE>Management of buffer allocation and deallocation
+
+<ENDLIST>
+
+<HEAD4>(Virtual memory pointers and record pointers)
+
+<P>All pointers are 32bit.  Because record address space overlaps virtual memory
+address space something is needed to distinguish them from each other.  There
+are a number of inherent differences between the pointers already:
+
+<LIST>(NUMBERED)
+
+<LE>All records are of fixed length.  This implies that a record pointer must
+be record aligned.  As the record size is a multiple of two there are a
+number of unused bits in the lower part of a disk record address.
+
+<LE>It is very unlikely that the disk requirement for the Calendar will
+exceed 2Gb.  The same is true for the virtual memory address.  It is very
+unlikely that the virtual memory will be allocated in the upper 2Gb of the
+32bit address space <OPAREN>on VMS this address segment is reserved for the O/S<CPAREN>.
+
+<ENDLIST>
+
+<P>The conclusion is that we could use either one of the lower bits or the high
+bit to distinguish a VM address from a record address.  Using the high bit
+has the advantage that it determines if the number is negative or not.
+
+<P>The current approach is to use the high bit <OPAREN>31<CPAREN> to distinguish a virtual
+memory record address from a disk record address.  If the number is negative
+<OPAREN>e.g., bit 31 set<CPAREN> the pointer is a VM address <OPAREN>the lower 31 bits is the
+address itself<CPAREN>.
+
+<P>The action taken when following a record pointer depends on bit 31 of the
+pointer field:
+
+<LIST>(UNNUMBERED\*)
+
+<LE>Clear: This is a pointer to a record on disk.  Read the associated record
+into memory and patch the source disk pointer to contains the virtual address
+of the record just read.  Set bit 31 of the virtual memory address in the
+pointer field to indicate that it is a memory address.
+
+<LE>Set: This is a pointer to a record in memory.  Return the lowest 31 bits
+of the pointer field, which is a memory address.
+
+<ENDLIST>
+
+<HEAD4>(Header structure for a record)
+
+<P>What has been described above works fine if all you are doing is read.
+However, we know that we must write something in order to have anything to
+read!  Why is it difficult to support write?  Dead simple: We've distroyed
+the record pointers.
+
+<P>To support Writes we need to have a field associated with each in-memory
+record.  This field should contain the disk address of the record, so that we
+know where to write it back to.
+
+<P>If this field is placed at a know location, relative to the in-memory record,
+we can also use this field to <QUOTE>(restore) the pointers in a record before we
+write it out.  A generic Write would then be done in the following way:
+
+<LIST>(NUMBERED)
+
+<LE>The record to be written is copied to a pending write buffer.
+
+<LE>Each pointer that has been patched is restored.  This is done by
+following the pointer to the target in-memory record, retreiving the record's
+disk address and patching that back into the pointer field of the record to
+be written.
+
+<LE>The record is now written.
+
+<ENDLIST>
+
+<HEAD4>(Efficient caching)
+
+<P>So far, nothing has been said about how to make cache efficient and how to
+rundown the cache.  This sections deals with those issues.
+
+<P>The most important question for a good cache is: What to remove when the
+cache is full?  After some discussions, we concluded that the simplest
+mechanism is Least Recently Used, or LRU.  One way to implement LRU is:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>Keep a doubly linked list of records
+
+<LE>When a record is <QUOTE>(touched), move it to the head of the queue
+
+<LE>Remove records from the tail of the queue
+
+<ENDLIST>
+
+<P>It is probably wise to give more weight to Rangemap records than Daymap
+records, as removing a Rangemap can have quite big implications.  Queue heads
+for these caches should be in the Cab.
+
+<P>One other interesting point about this approach is that it is very easy to
+release all memory when running down a calendar access block.
+
+<HEAD4>(Routines for Virtual record management)
+
+<HEAD5>(DWC$$DB_Get_free_buffer)
+
+<P>This routine allocates a logical buffer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Buffer_length
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>New_buffer_pointer
+
+<ENDLIST>
+
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_GETLBUF - Could not allocate logical buffer
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_INSMEM - Insufficient virtual memory
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE>Declare operation to be DWC$_GETLBUF
+
+<LE>Allocate buffer.  The action depends on whether the record is of fixed or
+variable length:
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Variable:
+
+<list>(unnumbered\o)
+
+<LE>Allocate memory
+
+<ENDLIST>
+
+<LE>Fixed:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>If there is a packet on the free queue, remove it
+
+<LE>If there are no packets on the free queue and the cache is full:
+
+<list>(unnumbered\o)
+
+<LE>Purge the cache, by calling DWC$$DB_Purge_cache.
+
+<LE>Remove first entry off the free list
+
+<ENDLIST>
+
+<LE>If there are no packets on the free queue but the cache is not full,
+allocate a new buffer
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Initialize the buffer <OPAREN>e.g., zero it<CPAREN>
+
+<LE>Save the size of the buffer in its header
+
+<LE>Pop error code
+
+<ENDLIST>
+
+<HEAD5>(DWC$$DB_Freelist_buffer)
+
+<P>Declare a logical buffer as no longer used.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Logical_buffer_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_FREEFAIL - failed to deallocate memory buffer
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE>Deallocate buffer.  Length of buffer can be found in header.  The action
+depends on whether the record is of fixed or variable length:
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Variable:
+
+<list>(unnumbered\o)
+
+<LE>Free memory
+
+<ENDLIST>
+
+<LE>Fixed:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>Insert the record at the head of the free list
+
+<ENDLIST>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD5>(DWC$$DB_Purge_cache)
+
+<P>This routine releases the buffer at the end of the LRU list.  Some of the
+records may require special action routines to be invoked.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+RETURN STATUS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>True = Something was purged
+
+<LE>False = Nothing was purged because the cache was empty
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The routine basically calls DWC$$DB_Release_buffer pointing at the last
+buffer in the LRU queue.
+
+<HEAD6>(DWC$$DB_Release_buffer)
+
+<P>This routine releases a logical buffer and patches the backlink pointer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Buffer_to_release_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Remove the entry from the cache list <OPAREN>LRU<CPAREN>
+
+<LE>Decrement count of records in cache
+
+<LE>If the parent backlink is nonzero, follow it and patch the parent's
+pointer to be that of the disk record
+
+<LE>If the block is: Daymap, Subrangemap, Daymap or Repeat_event the call
+special action routine.  See below.
+
+<LE>Place the record on the free list with DWC$$DB_Freelist_buffer
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Release_daymap)
+
+<P>This routine releases all information related to a day.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer_to_daymap
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Release all item records by calling DWC$$DB_Freelist_buffer
+
+<LE>Release all event records by calling DWC$$DB_Release_buffer
+
+<LE>Change the record type into <QUOTE>(Free)
+
+<LE>Release the daymap by calling DWC$$DB_Release_buffer
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Release_subrangemap)
+
+<P>Release all information related to a subrangemap.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer_to_subrangemap
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>For each daymap in memory, release it by calling DWC$$DB_Release_daymap
+
+<LE>Change the record type into <QUOTE>(Free)
+
+<LE>Release the subrangemap by calling DWC$$DB_Release_buffer
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Release_rangemap)
+
+<P>Release all information related to a rangemap
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer_to_rangemap
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>For each subrangemap in memory, release it by calling
+DWC$$DB_Release_subrangemap
+
+<LE>If the rangemap flink is a VA then patch the target rangemap's blink to
+be the diskaddress rather than the VA.
+
+<LE>Remove rangemap from VA rangemap queue
+
+<LE>Change the record type into <QUOTE>(Free)
+
+<LE>Release the rangemap by calling DWC$$DB_Release_buffer
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Release_r_events)
+
+<P>Release all information related to repeat_events.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The following steps are taken:
+
+<LIST>(NUMBERED)
+
+<LE>Release all repeat event algorithms
+
+<list>(unnumbered\o)
+
+<LE>If pointer to repeat event block indicates VA then release it by calling
+DWC$$DB_Release_buffer
+
+<LE>Release event algorithm, using DWC$$DB_Freelist_buffer
+
+<ENDLIST>
+
+<LE>Release all repeat event records by calling DWC$$DB_Release_buffer
+
+<ENDLIST>
+
+<HEAD5>(DWC$$DB_Free_all_buffers)
+
+<P>This cleanup routine is called when the user closes the calendar.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_FREEBUFS - Failed to release work buffers
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_FREEFAIL - Failed to deallocate memory buffer
+
+<ENDLIST>
+
+<P>It does the following things:
+
+<LIST>(NUMBERED)
+
+<LE>Call DWC$$DB_Purge_cache until it returns False
+
+<LE>Deallocates all free logical buffers
+
+<LE>Deallocates the intermediate buffer used for write operations
+
+<ENDLIST>
+
+<HEAD5>(DWC$$DB_Write_virtual_record)
+
+<P>Write logical record from VM to disk
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Source_buffer_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+OPERATION:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>DWC$_PUTLPBUF - Could not write logical buffer
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>The writing of a logical record consists of a number of operations:
+
+<LIST>(NUMBERED)
+
+<LE>Move the specified record into the intermediate write buffer.  This is
+done so that the pointers can be restored again.
+
+<LE>Calls the associated datablock's fixup routine to fixup the pointers.
+Each such routine is invoked with the Cab.  From the Cab the routine can find
+the write buffer in which the record to be fixed is located.  The following
+datablock specific fixup routines exists:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Fixup_header_blk
+
+<LE>DWC$$DB_Fixup_bitmap_blk
+
+<LE>DWC$$DB_Fixup_r_ev_algo_blk
+
+<LE>DWC$$DB_Fixup_r_ev_info_blk
+
+<LE>DWC$$DB_Fixup_rangemap_blk
+
+<LE>DWC$$DB_Fixup_subrangemap_blk
+
+<LE>DWC$$DB_Fixup_daymap_blk
+
+<LE>DWC$$DB_Fixup_dayitem_blk
+
+<ENDLIST>
+
+<LE>Writes out the record at the address specified in the header
+
+<ENDLIST>
+
+<HEAD6>(DWC$$DB_Fixup_pointer)
+
+<P>This generic routine is used by all the datablock specific fixup routines.
+Its purpose is to fixup a pointer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer_to_Pointer
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>It takes the following steps if bit 31 is set <OPAREN>e.g., we're pointing at a VA
+record<CPAREN>:
+
+<LIST>(NUMBERED)
+
+<LE>Follow the VA to the target record
+
+<LE>Patch the pointer with the address of the record found by following the
+VA pointer
+
+<ENDLIST>
+
+<HEAD5>(DWC$$DB_Follow_pointer)
+
+<P>This routine basically follows a pointer.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Pointer_to_pointer
+
+<LE>Expected_record_type
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<DISPLAY>
+RETURN VALUE:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>The VA of the requested record
+
+<ENDLIST>
+
+<DISPLAY>
+SIGNALS:
+<ENDDISPLAY>
+<P>It takes the following steps, depending on the state of bit 31 in the pointer
+field:
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Set: This is a VA pointer.
+
+<LIST>(NUMBERED)
+
+<LE>Mask out the lower 31 bits and return that as a pointer to caller
+
+<LE>Move the record pointed at to the head of the LRU queue.
+
+<ENDLIST>
+
+<LE>Clear: This is a record pointer.  Take the following steps:
+
+<LIST>(NUMBERED)
+
+<LE>Allocate a free buffer, using DWC$$DB_Get_free_buffer
+
+<LE>Read the record, using DWC$$DB_Read_physical_record
+
+<LE>Insert the specified record in front of the cache
+
+<LE>Update count of records in cache
+
+<LE>Patch the source pointer to point at the VA of the record just read
+
+<LE>If the record type is rangemap then take special action since the
+rangemaps are doubly linked:
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>Insert this rangemap into the special in-memory queue of rangemaps
+
+<LE>If the rangemap has a nonzero blink then scan the VA rangemap queue for
+the matching rangemap.  If found, join the flink/blink thing.
+
+<LE>If the rangemap has a nonzero flink then scan the VA rangemap queue for
+the matching rangemap.  If found, join the flink/blink thing.
+
+<ENDLIST>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(Intermediate pointer management)
+
+<HEAD4>(DWC$$DB_Find_subrangemap)
+
+<P>This routine locates the subrangemap associated with a particular day.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Day_to_find
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Record_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+RETURN STATUS:
+<ENDDISPLAY>
+<list>(unnumbered\o)
+
+<LE>True = Subrangemap found.  Record_ptr points at the subrangemap.
+
+<LE>False = Subrangemap not found.  Record_ptr points at the last record
+found.  This may be either the header or the Rangemap in which the
+subrangemap would have been located.
+
+<ENDLIST>
+
+<P>The steps involved in locating a subrangemap are:
+
+<LIST>(NUMBERED)
+
+<LE>Locate the rangemap which should have the Subrangemap.  If specified
+Rangemap could not be found then return False + Pointer to header.
+
+<LE>If the pointer to specified Subrangemap is zero, return False + Pointer
+to Rangemap.
+
+<LE>If Subrangemap exists, return True + Pointer to it.
+
+<ENDLIST>
+
+<HEAD4>(DWC$$DB_Find_daymap)
+
+<P>This routine locates the Daymap associated with a particular day.
+
+<DISPLAY>
+INPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Cab
+
+<LE>Day_to_find
+
+<ENDLIST>
+
+<DISPLAY>
+OUTPUTS:
+<ENDDISPLAY>
+<LIST>(UNNUMBERED\*)
+
+<LE>Record_ptr
+
+<ENDLIST>
+
+<DISPLAY>
+RETURN STATUS:
+<ENDDISPLAY>
+<list>(unnumbered\o)
+
+<LE>True = Daymap found.  Record_ptr points at the Daymap.
+
+<LE>False = Daymap not found.  Record_ptr points at the last record found.
+This may be either the Header, Rangemap or Subrangemap in which the Daymap
+would have been located.
+
+<ENDLIST>
+
+<P>The steps involved in locating a Daymap are:
+
+<LIST>(NUMBERED)
+
+<LE>Locate the associated Subrangemap, by calling DWC$$DB_Find_subrangemap.
+If that routine returns False propagate it back to the caller of this
+routine.
+
+<LE>If the pointer to specified Daymap is zero, return False + Pointer to
+Subrangemap.
+
+<LE>If Daymap exists, return True + Pointer to it.
+
+<ENDLIST>
+
+<HEAD1>(Publications)
+
+<P>The database interface will not be documented for customers
+
+<HEAD1>(Packaging)
+
+<P>These database routines are an integral part of the DECwindows Calendar and
+will be bundled with the DECwindows Calendar product.
+
+<HEAD2>(Source modules <OPAREN>code<CPAREN>)
+
+<HEAD3>(DWC$DB_ERROR_HANDLING.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Set_error_base
+
+<LE>DWC$$DB_Set_error_cause
+
+<LE>DWC$$DB_Pop_error_cause
+
+<LE>DWC$$DB_Signal_error
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_PHYSICAL_RECORDS.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Fixup_bitmap_blk
+
+<LE>DWC$$DB_Validate_record_ptr
+
+<LE>DWC$$DB_Read_physical_record
+
+<LE>DWC$$DB_Write_physical_record
+
+<LE>DWC$$DB_Alloc_record
+
+<LE>DWC$$DB_Alloc_traced_record
+
+<LE>DWC$$DB_Dealloc_traced_records
+
+<LE>DWC$$DB_Free_trace_records
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_VIRTUAL_BUFFERS.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Get_free_buffer
+
+<LE>DWC$$DB_Freelist_buffer
+
+<LE>DWC$$DB_Purge_cache
+
+<LE>DWC$$DB_Release_buffer
+
+<LE>DWC$$DB_Free_all_buffers
+
+<LE>DWC$$DB_Write_virtual_record
+
+<LE>DWC$$DB_Fixup_pointer
+
+<LE>DWC$$DB_Follow_pointer
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_CREATE_CALENDAR.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Create_calendar
+
+<ENDLIST>
+
+<LE>Internal
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_OPEN_CLOSE.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Open_calendar
+
+<LE>DWC$DB_Close_calendar
+
+<ENDLIST>
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Fixup_header_blk
+
+<LE>DWC$$DB_First_open_check
+
+<LE>DWC$$DB_Read_bitmaps
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_PROFILE_MANAGEMENT.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Get_profile_information
+
+<LE>DWC$DB_Modify_profile
+
+<ENDLIST>
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Validate_profile_blk
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_CALENDAR_MAINTENANCE.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Delete_calendar
+
+<LE>DWC$DB_Purge_calendar
+
+<LE>DWC$DB_Copy_calendar
+
+<ENDLIST>
+
+<LE>Internal
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_DAY_MAPPING.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Validate_rangemap_blk
+
+<LE>DWC$$DB_Validate_subrangemap_blk
+
+<LE>DWC$$DB_Fixup_rangemap_blk
+
+<LE>DWC$$DB_Fixup_subrangemap_blk
+
+<LE>DWC$$DB_Release_subrangemap
+
+<LE>DWC$$DB_Release_rangemap
+
+<LE>DWC$$DB_Find_subrangemap
+
+<LE>DWC$$DB_Find_daymap
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_DAY_MANAGEMENT.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Put_day_parameters
+
+<LE>DWC$DB_Begin_day_query
+
+<LE>DWC$DB_Get_day_parameters
+
+<LE>DWC$DB_Get_day_time_allocation
+
+<LE>DWC$DB_End_day_query
+
+<LE>DWC$DB_Delete_day
+
+<ENDLIST>
+
+<LE>Internal
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_REPEAT_EVENTS.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Begin_r_event_create
+
+<LE>DWC$DB_Put_r_event_algorithm
+
+<LE>DWC$DB_Put_r_event_parameters
+
+<LE>DWC$DB_Put_r_event_text
+
+<LE>DWC$DB_End_r_event_create
+
+<LE>DWC$DB_Begin_r_event_query
+
+<LE>DWC$DB_Get_r_event_algorithm
+
+<LE>DWC$DB_Get_r_event_parameters
+
+<LE>DWC$DB_Get_r_event_text
+
+<LE>DWC$DB_End_r_event_query
+
+<LE>DWC$DB_Begin_r_event_modify
+
+<LE>DWC$DB_End_r_event_modify
+
+<LE>DWC$DB_Delete_r_event
+
+<ENDLIST>
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Validate_r_ev_algo_blk
+
+<LE>DWC$$DB_Validate_r_ev_info_blk
+
+<LE>DWC$$DB_Fixup_r_ev_algo_blk
+
+<LE>DWC$$DB_Fixup_r_ev_info_blk
+
+<LE>DWC$$DB_Release_r_events
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD3>(DWC$DB_DAY_ITEMS.C)
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible
+
+<LIST>(NUMBERED)
+
+<LE>DWC$DB_Begin_event_create
+
+<LE>DWC$DB_Put_event_parameters
+
+<LE>DWC$DB_Put_event_text
+
+<LE>DWC$DB_End_event_create
+
+<LE>DWC$DB_Begin_event_query
+
+<LE>DWC$DB_Get_event_parameters
+
+<LE>DWC$DB_Get_event_text
+
+<LE>DWC$DB_End_event_query
+
+<LE>DWC$DB_Begin_event_modify
+
+<LE>DWC$DB_End_event_modify
+
+<LE>DWC$DB_Delete_event
+
+<ENDLIST>
+
+<LE>Internal
+
+<LIST>(NUMBERED)
+
+<LE>DWC$$DB_Validate_daymap_blk
+
+<LE>DWC$$DB_Validate_dayitem_blk
+
+<LE>DWC$$DB_Fixup_daymap_blk
+
+<LE>DWC$$DB_Fixup_dayitem_blk
+
+<LE>DWC$$DB_Release_daymap
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD2>(Message file)
+
+<HEAD3>(DWC$MESSAGES.MSG)
+
+<HEAD2>(C Include files)
+
+<HEAD3>(DWC$DB_PRIVATE_INCLUDE.H)
+
+<HEAD3>(DWC$DB_PUBLIC_INCLUDE.H)
+
+<HEAD2>(Structure files <OPAREN>SDL<CPAREN>)
+
+<HEAD3>(DWC$DB_PUBLIC_STRUCTURES.SDL)
+
+<HEAD3>(DWC$DB_WORK_STRUCTURES.SDL)
+
+<HEAD3>(DWC$DB_RECORD_STRUCTURES.SDL)
+
+<HEAD2>(Build files)
+
+<HEAD3>(DWC$DB_BUILD.COM)
+
+<HEAD2>(Specification)
+
+<HEAD3>(DWC$DB_SPECIFICATION.OTL)
+
+<HEAD1>(Installability)
+
+<P>These database routines are an integral part of the DECwindows Calendar and
+will be installed together with the DECwindows Calendar product.
+
+<HEAD1>(Ease of Use)
+
+<P>As these routines are only used by developers of the DECwindows Calendar
+product the primary goal is to make it easy to use for those developers.
+
+<HEAD1>(Performance)
+
+<P>High - [TBS]
+
+<HEAD1>(Reliability)
+
+<HEAD2>(Internal code)
+
+<P>The following bullets illustrate the reliability of the database:
+
+<list>(unnumbered\o)
+
+<LE>The physical structure of the database contains a number of fields that
+can and are validated by the database access routines.  If the routines
+discover that a field in a particular block does not match expected value
+then the database access routines will abort access to the Calendar.
+
+<LIST>(ALPHABETIC\LOWERCASE)
+
+<LE>All MBZ fields are checked
+
+<LE>All record pointers are validated in terms of:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>Could this possibly be a pointer at all?
+
+<LE>Does the pointer point within the file?
+
+<ENDLIST>
+
+<LE>It is not permitted to read records that have not been allocated
+
+<ENDLIST>
+
+<LE>Whenever possible, the routines try to write out records in backwards
+order such that the last operation will be that one that links the
+new/modified records into the structure.  With the use of either HSCs or the
+Ultrix file system there is, unfortunately, no assurance that records are in
+fact written out in the order requested by the database routines.
+
+<LE>The database header contains a version number, such that future versions
+of the database code will be able to detect if working with a possible
+incompatible database.
+
+<ENDLIST>
+
+<P>All in all, the code does try to make sure the data it writes out is sane and
+it validates information it reads.  The code does not currently, however,
+recover gracefully if the database is corrupted.
+
+<HEAD2>(Tests)
+
+<HEAD3>(ERROR_HANDLING)
+
+<LIST>(NUMBERED)
+
+<LE>DWC_TEST$DB_01
+
+<LE>DWC_TEST$DB_02
+
+<LE>DWC_TEST$DB_03
+
+<LE>DWC_TEST$DB_04
+
+<LE>DWC_TEST$DB_05
+
+<ENDLIST>
+
+<HEAD3>(CREATE_CALENDAR)
+
+<LIST>(NUMBERED)
+
+<LE>DWC_TEST$DB_06
+
+<LE>DWC_TEST$DB_07
+
+<ENDLIST>
+
+<HEAD1>(Maintainability)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD1>(Maintenance)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD1>(Compatibility)
+
+<HEAD2>(Product Compatibility)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD2>(Standards Conformance)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD2>(Internationalization)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD1>(Evolvability)
+
+<P>Evolvability of the database is made possible by version stamping the
+database file.  It is very likely that new database code will not accept
+older formats and that the user is required to convert the database using a
+supplied conversion program.
+
+<HEAD1>(Costs)
+
+<DISPLAY>
+[TBS]
+<ENDDISPLAY>
+<HEAD1>(Timeliness)
+
+<P>The following baselevels are listed in intented order of completion.
+Routines with <QUOTE>(<OPAREN>*<CPAREN>) after the routine name marks a deliverable routine.
+Baseleveles with <QUOTE>([Integration]) after it marks an integration point with the
+DECwindows Calendar UI.
+
+<LIST>(NUMBERED)
+
+<LE>Blank modules for the database routines, containing nothing but some sort
+of being and end, making it a valid C file.  COMPLETED 24-NOV.
+
+<LE>Error handling package.  COMPLETED 24-NOV
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Set_error_base
+
+<LE>DWC$$DB_Set_error_cause
+
+<LE>DWC$$DB_Pop_error_cause
+
+<LE>DWC$$DB_Signal_error
+
+<ENDLIST>
+
+<LE>Message file template
+
+<LE>First lines of a build procedure
+
+<ENDLIST>
+
+<LE>Create an empty Calendar file [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Create_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Open a Calendar file for read [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Physical record I/O support
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Validate_record_ptr
+
+<LE>DWC$$DB_Read_physical_record
+
+<ENDLIST>
+
+<LE>Virtual buffer management
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Get_free_buffer
+
+<LE>DWC$$DB_Purge_cache <OPAREN>stub only<CPAREN>
+
+<LE>DWC$$DB_Follow_pointer
+
+<ENDLIST>
+
+<LE>Open specific routines
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_First_open_check
+
+<LE>DWC$$DB_Read_bitmaps
+
+<ENDLIST>
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Open_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Open a Calendar file for write
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Physical record I/O support
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Fixup_bitmap_blk
+
+<LE>DWC$$DB_Write_physical_record
+
+<LE>DWC$$DB_Alloc_record
+
+<LE>DWC$$DB_Alloc_traced_record
+
+<LE>DWC$$DB_Deallc_traced_records
+
+<LE>DWC$$DB_Free_trace_records
+
+<ENDLIST>
+
+<LE>Virtual buffer management
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Freelist_buffer
+
+<LE>DWC$$DB_Release_buffer
+
+<LE>DWC$$DB_Fixup_pointer
+
+<ENDLIST>
+
+<LE>Open specific routines
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Fixup_header_blk
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Set and retreive Day parameters [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Virtual buffer support
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Write_virtual_record
+
+<ENDLIST>
+
+<LE>Day mapping support
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Validate_rangemap_blk
+
+<LE>DWC$$DB_Validate_subrangemap_blk
+
+<LE>DWC$$DB_Fixup_rangemap_blk
+
+<LE>DWC$$DB_Fixup_subrangemap_blk
+
+<LE>DWC$$DB_Find_subrangemap
+
+<ENDLIST>
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Put_day_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Begin_day_query <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_day_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_day_query <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Set and retreive Profile parameters [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Internal
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Validate_profile_blk
+
+<ENDLIST>
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Modify_profile <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_profile_information <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Create and retreive Day items [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Internal routines
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Find_daymap
+
+<LE>DWC$$DB_Validate_daymap_blk
+
+<LE>DWC$$DB_Validate_dayitem_blk
+
+<LE>DWC$$DB_Fixup_daymap_blk
+
+<LE>DWC$$DB_Fixup_dayitem_blk
+
+<ENDLIST>
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Begin_event_create <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_event_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_event_text <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_event_create <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Begin_event_query <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_event_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_event_text <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_event_query <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Begin_event_modify <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_event_modify <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_day_time_allocation <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Modify day parameters and Day items [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Begin_event_modify <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_event_alarm_ack <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_event_modify <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Delete Day items [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Delete_day <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Delete_event <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<DISPLAY>
+*** This is the end of what will be part of FT1. ***
+*** What follows is for FT2.                     ***
+<ENDDISPLAY>
+<ENDLIST>
+
+<ENDLIST>
+
+<LIST>(NUMBERED)
+
+<LE>Complete virtual buffer cashing support
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Virtual buffer management
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Purge_cache
+
+<LE>DWC$$DB_Release_buffer
+
+<LE>DWC$$DB_Free_all_buffers
+
+<LE>DWC$$DB_Release_rangemap
+
+<LE>DWC$$DB_Release_subrangemap
+
+<LE>DWC$$DB_Release_daymap
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Close Calendar
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Close_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Repeat events [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Begin_r_event_create <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_r_event_algorithm <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_r_event_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Put_r_event_text <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_r_event_create <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Begin_r_event_query <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_r_event_algorithm <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_r_event_parameters <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Get_r_event_text <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_r_event_query <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Begin_r_event_modify <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_End_r_event_modify <OPAREN>*<CPAREN>
+
+<LE>DWC$DB_Delete_r_event <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<LE>Internal routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$$DB_Validate_r_ev_algo_blk
+
+<LE>DWC$$DB_Validate_r_ev_info_blk
+
+<LE>DWC$$DB_Fixup_r_ev_algo_blk
+
+<LE>DWC$$DB_Fixup_r_ev_info_blk
+
+<LE>DWC$$DB_Release_r_events
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Delete Calendar [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Delete_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Copy Calendar [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Copy_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<LE>Purge Calendar [Integration]
+
+<LIST>(ALPHABETIC\UPPERCASE)
+
+<LE>Visible routines:
+
+<LIST>(UNNUMBERED\-)
+
+<LE>DWC$DB_Purge_calendar <OPAREN>*<CPAREN>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<ENDLIST>
+
+<HEAD1>(Constraints)
+
+<P>One of the prime sources for constraints is the requirement that this code
+shall run on Ultrix.  The Ultrix operating system lacks a database product,
+such as RMS.  With time being critical we do not have enough time to develop
+a new database product before implementing the Calendar database.  We've
+therefore decided to place certain restrictions on shared Calendar access:
+
+<HEAD2>(VMS)
+
+<P>Under VMS it will be possible to have either one user for write or multiple
+users doing read.  The code will first attempt to open the database for
+exclusive write access.  If this fails, the code will attempt to open it for
+shared read access.  The database code relies on RMS and the VMS file system
+to propagate file protection and ACLs.
+
+<HEAD2>(Ultrix)
+
+<P>The Ultrix file system only provides file locking for cooperating
+applications, under limited circumstances.  We have therefore chosen to allow
+only one single database user at the time.  The code will attempt to lock
+using an Ultrix file system semaphor.  NFS access is not supported.
+
+<HEAD1>(Outstanding Issues)
+
+<HEAD1>(Glossary of Terms)
+

@@ -1,0 +1,144 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! SCCS_data:    @(#) Traversal.ad 1.2 92/03/18 10:44:45
+!
+! Example of tab groups and traversal.
+!
+! The menu in the menu bar can be posted by pressing control-m
+!
+! Items on the menu can be selected by typing the letters o or w.
+
+Mri.wcChildren:		main
+Mri.wcCallback:		WcSetValues(this.title: Traversal )
+
+*main.wcCreate:		XmMainWindow
+*main.wcChildren:	mb work
+*main.wcAfterChildren:	WcSetValues(					\
+				( *main.menuBar:	*mb )		\
+				( *main.workWindow:	*work )		\
+			)
+
+*mb.wcCreate:		XmCreateMenuBar
+*mb.wcPopups:		pulldown
+*mb.wcChildren:		menu
+
+*pulldown.wcCreate:	XmCreatePulldownMenu
+*pulldown.wcChildren:	one two
+
+*pulldown*wcCreate:		XmPushButton
+*pulldown*activateCallback:	WcTrace( menu button selected )
+*one.mnemonic:			o
+*two.mnemonic:			w
+
+*menu.wcCreate:		XmCascadeButton
+*menu.mnemonic:		m
+*menu.subMenuId:	*pulldown
+*menu.traversalOn:	True
+
+! Two row columns, each with a label (the title) and three single
+! line text widgets.
+!
+! The first row column is a tab group: Hitting return invokes
+! process-down() which means the focus moves to the next widget IN
+! the tab group.
+!
+! The second row column is NOT a tab group:  Hitting return
+! invokes next-tab-group() which means the focus moves to the next
+! tab group - i.e., the next widget text widget, but then up to
+! the first row column again.
+!
+*work.wcCreate:			XmRowColumn
+*XmRowColumn.entryAlignment:	XmALIGNMENT_CENTER
+*work.wcChildren:		title fr1 fr2 exit
+
+*exit.wcCreate:		XmPushButton
+*exit.activateCallback:	WcExit()
+
+*title.wcCreate:	XmLabel
+*title.labelString: \
+Meta-m brings up menu,\n\
+mnemonics select from menu,\n\
+Return and Tab traverse.
+
+*fr1.wcCreate:		XmFrame
+*fr1.wcChildren:	rc1
+
+*fr2.wcCreate:		XmFrame
+*fr2.wcChildren:	rc2
+
+*rc1.wcCreate:			XmRowColumn
+*rc2.wcCreate:			XmRowColumn
+*XmRowColumn.wcChildren:	title first second third
+
+*first.wcCreate:		XmText
+*first.value:			First Field
+
+*second.wcCreate:		XmText
+*second.value:			Second Field
+
+*third.wcCreate:		XmPushButton
+
+*rc1.title.labelString:	\
+This XmRowColumn is a Tab Group.\n\n\
+Return moves within tab group,\n\
+Tab moves to next tab group.
+
+*rc2.title.labelString:	\
+Each child is a Tab Group.\n\n\
+Hitting Return or Tab moves\n\
+to next tab group.
+
+*rc1.wcCallback:		XmpAddTabGroup()
+*rc2.XmText.wcCallback:		XmpAddTabGroup()
+*rc2.XmPushButton.wcCallback:	XmpAddTabGroup()
+
+*rc1.XmText.activateCallback:	WcTrace( moving to next WITHIN tab group )
+*rc2.XmText.activateCallback:	WcTrace( moving to next tab group )
+*third.activateCallback:	WcTrace( activateCallback )
+
+! Provide Translations to move within and between tab groups.
+! Note that XmPushButtons need ALL translations replaced in Motif 1.1
+! due to bugs.  Maybe these bugs will be fixed in Motif 1.2...
+!
+*rc1.XmText.translations:	#override\n\
+		<Key>Return:	process-down() process-return()
+
+*rc1.XmPushButton.translations:	#replace\n\
+		<Btn1Down>:	Arm()\n\
+		<Btn1Up>:	Activate() Disarm()\n\
+		Shift<Key>Tab:	PrimitivePrevTabGroup()\n\
+		<Key>Tab:	PrimitiveNextTabGroup()\n\
+		<Key>Return:	ArmAndActivate() PrimitiveTraverseDown()
+
+*rc2.XmText.translations:	#override\n\
+		<Key>Return:	next-tab-group() process-return()
+
+*rc2.XmPushButton.translations:	#replace\n\
+		<Btn1Down>:	Arm()\n\
+		<Btn1Up>:	Activate() Disarm()\n\
+		Shift<Key>Tab:	PrimitivePrevTabGroup()\n\
+		<Key>Tab:	PrimitiveNextTabGroup()\n\
+		<Key>Return:	ArmAndActivate() PrimitiveNextTabGroup()
+

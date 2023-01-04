@@ -1,0 +1,187 @@
+Path: news.crl.dec.com!nntpd.lkg.dec.com!pa.dec.com!nobody
+From: rws@expo.lcs.mit.edu (Bob Scheifler)
+Newsgroups: dec.mail.lists.x.fix-trackers
+Subject: (seq: 2291) close XBUG #4799: config: SunOS shared library -> undefinied symbols if linked without -lXt
+Message-ID: <9112231825.AA24492@explain.lcs.mit.edu>
+Date: 23 Dec 91 18:24:58 GMT
+Distribution: dec
+Lines: 174
+Approved: news@usenet.pa.dec.com
+To: fix-trackers@expo.lcs.mit.edu
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+
+### bug number:   4799
+### area:         config
+### severity:     medium
+### comments:     
+
+*** /tmp/,RCSt1024421	Mon Dec 23 13:19:58 1991
+--- lib/Xmu/Imakefile	Fri Dec 20 11:22:04 1991
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.73 91/09/18 14:29:12 rws Exp $
+  XCOMM
+  XCOMM This library contains miscellaneous utility routines and is not part
+  XCOMM of the Xlib standard.
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.74 91/12/20 11:20:22 rws Exp $
+  XCOMM
+  XCOMM This library contains miscellaneous utility routines and is not part
+  XCOMM of the Xlib standard.
+***************
+*** 10,18 ****
+  #define DoProfileLib ProfileLibXmu
+  #include <Library.tmpl>
+  
+! #ifdef RsArchitecture
+! REQUIREDLIBS = $(EXTENSIONSRC)/lib/libXext.a $(TOOLKITSRC)/libXt.a $(XLIBSRC)/libX11.a
+  #endif
+  
+  /* Since people link in Xmu without Xt, we avoid references to string data. */
+  #if HasSharedLibraries
+--- 10,22 ----
+  #define DoProfileLib ProfileLibXmu
+  #include <Library.tmpl>
+  
+! #if defined(RsArchitecture) || SunPost411FCSLd
+! #if DoNormalLib
+! REQUIREDLIBS = -L../$(TOOLKITSRC) -lXt -L../$(EXTENSIONSRC)/lib -lXext -L../$(XLIBSRC) -lX11
+! #else
+! REQUIREDLIBS = -L$(TOOLKITSRC) -lXt -L$(EXTENSIONSRC)/lib -lXext -L$(XLIBSRC) -lX11
+  #endif
++ #endif
+  
+  /* Since people link in Xmu without Xt, we avoid references to string data. */
+  #if HasSharedLibraries
+***************
+*** 152,157 ****
+--- 156,167 ----
+  #endif
+  
+  #if DoSharedLib
++ #if SunPost411FCSLd
++ libXmu.so.$(SOXMUREV): $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV)
++ 
++ $(EXTENSIONSRC)/lib/libXext.so.$(SOXEXTREV):
++ 	cd $(EXTENSIONSRC)/lib; make libXext.so.$(SOXEXTREV)
++ #endif
+  #if DoNormalLib
+  SharedLibraryTarget(Xmu,$(SOXMUREV),$(OBJS),shared,..)
+  #else
+*** /tmp/,RCSt1024429	Mon Dec 23 13:20:39 1991
+--- config/sun.cf	Fri Dec 20 11:19:51 1991
+***************
+*** 1,4 ****
+! XCOMM platform:  $XConsortium: sun.cf,v 1.69 91/09/09 18:23:59 rws Exp $
+  
+  #define OSName            SunOS 4.1.1
+  XCOMM operating system:  OSName
+--- 1,4 ----
+! XCOMM platform:  $XConsortium: sun.cf,v 1.71 91/12/20 11:18:34 rws Exp $
+  
+  #define OSName            SunOS 4.1.1
+  XCOMM operating system:  OSName
+***************
+*** 11,16 ****
+--- 11,21 ----
+  #define StandardDefines   -DNOSTDHDRS
+  #endif
+  
++ /* You ALSO need this if you have Sun ld patch 100170-06 to 4.1.1 */
++ #if OSMajorVersion == 4 && OSMinorVersion > 1
++ #define SunPost411FCSLd	  YES
++ #endif
++ 
+  #define HasSaberC	  YES
+  #define HasNdbm		  YES
+  #define HasShm		  YES
+***************
+*** 20,25 ****
+--- 25,31 ----
+  #define XsunServer	  YES		/* has color and mono support */
+  #define XsunMonoServer	  YES		/* monochrome only */
+  #define BuildPexExt	  XsunServer
++ #define InstKmemFlags	  -g kmem -m 2755
+  
+  #ifdef sparc
+  #undef sparc
+*** /tmp/,RCSt1024429	Mon Dec 23 13:20:42 1991
+--- config/sunLib.tmpl	Fri Dec 20 11:20:38 1991
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: sunLib.tmpl,v 1.11 91/07/31 11:32:08 rws Exp $
+  
+  /*
+   * SunOS shared library template
+--- 1,4 ----
+! XCOMM $XConsortium: sunLib.tmpl,v 1.14 91/12/20 11:19:05 rws Exp $
+  
+  /*
+   * SunOS shared library template
+***************
+*** 25,30 ****
+--- 25,33 ----
+  #ifndef SharedXinputRev
+  #define SharedXinputRev 4.10
+  #endif
++ #ifndef SharedXTrapRev
++ #define SharedXTrapRev 1.0
++ #endif
+  
+  SHLIBLDFLAGS = SharedLibraryLoadFlags
+  PICFLAGS = PositionIndependentCFlags
+***************
+*** 42,49 ****
+               XLIB = $(EXTENSIONLIB) _Use(-lX11,-L$(XLIBSRC) -lX11)
+  #endif
+  #if SharedLibXmu
+          DEPXMULIB = _UseCat($(USRLIBDIR),$(XMUSRC),/libXmu.sa.$(SOXMUREV))
+!            XMULIB = _Use(-lXmu,-L$(XMUSRC) -lXmu)
+  #endif
+  #if SharedOldLibX
+         DEPOLDXLIB = /* _UseCat($(USRLIBDIR),$(OLDXLIBSRC),/liboldX.sa.$(SOOLDXREV)) */
+--- 45,57 ----
+               XLIB = $(EXTENSIONLIB) _Use(-lX11,-L$(XLIBSRC) -lX11)
+  #endif
+  #if SharedLibXmu
++ /* Sun shared libraries are deficient in link semantics */
+          DEPXMULIB = _UseCat($(USRLIBDIR),$(XMUSRC),/libXmu.sa.$(SOXMUREV))
+!        XMULIBONLY = _Use(-lXmu,-L$(XMUSRC) -lXmu)
+!            XMULIB = _Use(-lXmu,-L$(XMUSRC) -lXmu -L$(TOOLKITSRC))
+! #if !defined(UseInstalled) && !defined(XawClientLibs)
+! #define XawClientLibs $(XAWLIB) $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
+! #endif
+  #endif
+  #if SharedOldLibX
+         DEPOLDXLIB = /* _UseCat($(USRLIBDIR),$(OLDXLIBSRC),/liboldX.sa.$(SOOLDXREV)) */
+*** /tmp/,RCSt1024438	Mon Dec 23 13:20:55 1991
+--- config/sunLib.rules	Fri Dec 20 11:21:02 1991
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: sunLib.rules,v 1.6 91/03/24 17:55:58 rws Exp $
+  
+  /*
+   * SunOS shared library rules
+--- 1,4 ----
+! XCOMM $XConsortium: sunLib.rules,v 1.7 91/12/20 11:19:47 rws Exp $
+  
+  /*
+   * SunOS shared library rules
+***************
+*** 60,66 ****
+  									@@\
+  Concat(lib,libname.so.rev):  solist					@@\
+  	$(RM) $@~							@@\
+! 	(cd down; $(LD) -o up/$@~ $(SHLIBLDFLAGS) solist)		@@\
+  	$(RM) $@ 							@@\
+  	$(MV) $@~ $@							@@\
+  									@@\
+--- 60,66 ----
+  									@@\
+  Concat(lib,libname.so.rev):  solist					@@\
+  	$(RM) $@~							@@\
+! 	(cd down; $(LD) -o up/$@~ $(SHLIBLDFLAGS) solist $(REQUIREDLIBS)) @@\
+  	$(RM) $@ 							@@\
+  	$(MV) $@~ $@							@@\
+  									@@\

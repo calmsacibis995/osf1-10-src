@@ -1,0 +1,161 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207242145.AA07866@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2614) close XBUG #5404: Xlib: output of XESetPrintErrorValues procedures has poor format
+Date: Fri, 24 Jul 92 17:45:57 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5404
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d07743	Fri Jul 24 17:35:55 1992
+--- lib/X/XlibInt.c	Fri Jul 24 17:35:33 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlibInt.c,v 11.162 92/07/23 19:18:37 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlibInt.c,v 11.163 92/07/24 17:34:55 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+***************
+*** 1484,1493 ****
+  	else
+  	    buffer[0] = '\0';
+      }
+!     (void) fprintf(fp, " (%s)\n  ", buffer);
+      if (event->request_code >= 128) {
+  	XGetErrorDatabaseText(dpy, mtype, "MinorCode", "Request Minor code %d",
+  			      mesg, BUFSIZ);
+  	(void) fprintf(fp, mesg, event->minor_code);
+  	if (ext) {
+  	    sprintf(mesg, "%s.%d", ext->name, event->minor_code);
+--- 1484,1494 ----
+  	else
+  	    buffer[0] = '\0';
+      }
+!     (void) fprintf(fp, " (%s)\n", buffer);
+      if (event->request_code >= 128) {
+  	XGetErrorDatabaseText(dpy, mtype, "MinorCode", "Request Minor code %d",
+  			      mesg, BUFSIZ);
++ 	fputs("  ", fp);
+  	(void) fprintf(fp, mesg, event->minor_code);
+  	if (ext) {
+  	    sprintf(mesg, "%s.%d", ext->name, event->minor_code);
+***************
+*** 1494,1508 ****
+  	    XGetErrorDatabaseText(dpy, "XRequest", mesg, "", buffer, BUFSIZ);
+  	    (void) fprintf(fp, " (%s)", buffer);
+  	}
+! 	fputs("\n  ", fp);
+      }
+      if (event->error_code >= 128) {
+- 	/* let extensions try to print the values */
+- 	for (ext = dpy->ext_procs; ext; ext = ext->next) {
+- 	    if (ext->error_values)
+- 		(*ext->error_values)(dpy, event, fp);
+- 	}
+- 	/* the rest is a fallback, providing a simple default */
+  	/* kludge, try to find the extension that caused it */
+  	buffer[0] = '\0';
+  	for (ext = dpy->ext_procs; ext; ext = ext->next) {
+--- 1495,1503 ----
+  	    XGetErrorDatabaseText(dpy, "XRequest", mesg, "", buffer, BUFSIZ);
+  	    (void) fprintf(fp, " (%s)", buffer);
+  	}
+! 	fputs("\n", fp);
+      }
+      if (event->error_code >= 128) {
+  	/* kludge, try to find the extension that caused it */
+  	buffer[0] = '\0';
+  	for (ext = dpy->ext_procs; ext; ext = ext->next) {
+***************
+*** 1518,1535 ****
+  		(!bext || ext->codes.first_error > bext->codes.first_error))
+  		bext = ext;
+  	}    
+! 	mesg[0] = '\0';
+! 	if (bext) {
+  	    sprintf(buffer, "%s.%d", bext->name,
+  		    event->error_code - bext->codes.first_error);
+! 	    XGetErrorDatabaseText(dpy, mtype, buffer, "", mesg, BUFSIZ);
+! 	}
+! 	if (!mesg[0])
+! 	    XGetErrorDatabaseText(dpy, mtype, "Value", "", mesg, BUFSIZ);
+  	if (mesg[0]) {
+  	    (void) fprintf(fp, mesg, event->resourceid);
+! 	    fputs("\n  ", fp);
+  	}
+      } else if ((event->error_code == BadWindow) ||
+  	       (event->error_code == BadPixmap) ||
+  	       (event->error_code == BadCursor) ||
+--- 1513,1534 ----
+  		(!bext || ext->codes.first_error > bext->codes.first_error))
+  		bext = ext;
+  	}    
+! 	if (bext)
+  	    sprintf(buffer, "%s.%d", bext->name,
+  		    event->error_code - bext->codes.first_error);
+! 	else
+! 	    strcpy(buffer, "Value");
+! 	XGetErrorDatabaseText(dpy, mtype, buffer, "", mesg, BUFSIZ);
+  	if (mesg[0]) {
++ 	    fputs("  ", fp);
+  	    (void) fprintf(fp, mesg, event->resourceid);
+! 	    fputs("\n", fp);
+  	}
++ 	/* let extensions try to print the values */
++ 	for (ext = dpy->ext_procs; ext; ext = ext->next) {
++ 	    if (ext->error_values)
++ 		(*ext->error_values)(dpy, event, fp);
++ 	}
+      } else if ((event->error_code == BadWindow) ||
+  	       (event->error_code == BadPixmap) ||
+  	       (event->error_code == BadCursor) ||
+***************
+*** 1549,1563 ****
+  	else
+  	    XGetErrorDatabaseText(dpy, mtype, "ResourceID", "ResourceID 0x%x",
+  				  mesg, BUFSIZ);
+  	(void) fprintf(fp, mesg, event->resourceid);
+! 	fputs("\n  ", fp);
+      }
+      XGetErrorDatabaseText(dpy, mtype, "ErrorSerial", "Error Serial #%d", 
+! 	mesg, BUFSIZ);
+      (void) fprintf(fp, mesg, event->serial);
+-     fputs("\n  ", fp);
+      XGetErrorDatabaseText(dpy, mtype, "CurrentSerial", "Current Serial #%d",
+! 	mesg, BUFSIZ);
+      (void) fprintf(fp, mesg, dpy->request);
+      fputs("\n", fp);
+      if (event->error_code == BadImplementation) return 0;
+--- 1548,1564 ----
+  	else
+  	    XGetErrorDatabaseText(dpy, mtype, "ResourceID", "ResourceID 0x%x",
+  				  mesg, BUFSIZ);
++ 	fputs("  ", fp);
+  	(void) fprintf(fp, mesg, event->resourceid);
+! 	fputs("\n", fp);
+      }
+      XGetErrorDatabaseText(dpy, mtype, "ErrorSerial", "Error Serial #%d", 
+! 			  mesg, BUFSIZ);
+!     fputs("  ", fp);
+      (void) fprintf(fp, mesg, event->serial);
+      XGetErrorDatabaseText(dpy, mtype, "CurrentSerial", "Current Serial #%d",
+! 			  mesg, BUFSIZ);
+!     fputs("\n  ", fp);
+      (void) fprintf(fp, mesg, dpy->request);
+      fputs("\n", fp);
+      if (event->error_code == BadImplementation) return 0;

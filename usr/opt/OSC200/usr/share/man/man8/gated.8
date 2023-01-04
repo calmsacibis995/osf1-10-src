@@ -1,0 +1,277 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: gated.8,v $ $Revision: 3.2.5.4 $ (DEC) $Date: 1993/11/09 13:04:24 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.TH gated 8
+.SH NAME
+\*Lgated\*O \- The gateway routing daemon
+.SH SYNOPSIS
+.PP
+.\"Begin Digital correction.
+.\" The following was incorrect syntax.
+.\".sS
+.\"\*Lgated\*O [\*L-teiHprRu]\*O
+.\".sE
+.\" The following is the correct syntax.
+.\"Added /usr/sbin to get it to pass tman. T. Wolklin: Sterling
+.sS
+\*L/usr/sbin/gated\*O [\*L-t\*O [\*Li\*O] [\*Le\*O] [\*Lr\*O] [\*Lp\*O] [\*Lu\*O] [\*LR\*O] [\*LH\*O]] [\*Vlogfile\*O]
+.sE
+.\"End Digital correction.
+.PP
+The
+\*Lgated\*O
+daemon processes multiple routing protocols according to the
+configuration set in \*Lgated.conf\*O file.
+.SH FLAGS
+.VL
+.LI "\*L-e\*O"
+Logs all external errors due to EGP, exterior routing
+errors, and EGP state changes.
+.LI "\*L-H\*O"
+Traces all HELLO packets received.
+.LI "\*L-i\*O"
+Logs all internal errors and interior routing errors.
+.LI "\*L-p\*O"
+Traces all EGP packets sent and received.
+.LI "\*L-R\*O"
+Traces all RIP packets received.
+.LI "\*L-r\*O"
+Logs all routing changes.
+.LI "\*L-t\*O"
+If used alone, the \*L-t\*O flag
+starts the \*L-i\*O, \*L-e\*O, \*L-r\*O, and \*L-p\*O
+trace flags.
+When used with another flag, the \*L-t\*O flag has no effect
+and only the accompanying flags are recognized. Note that when other
+flags are used, the \*L-t\*O flag must be used with them and must be
+the first flag given
+in the command line.
+.LI "\*L-u\*O"
+Logs all routing updates sent.
+The \*Lgated\*O daemon always logs fatal errors.
+If no log
+file is specified and none of the preceding trace flags are set, all
+messages are sent to the \*L/dev/null\*O file.
+.LE
+.SH DESCRIPTION
+.iX "gated"
+.iX "gated daemon"
+.iX "FTP protocol"
+.iX "routing, gateway"
+.iX "protocol" "FTP"
+.iX "daemon" "gated"
+.PP
+The \*Lgated\*O daemon manages multiple routing protocols,
+including the Routing Information Protocol
+(RIP), Exterior Gateway Protocol (EGP), and
+Local Network Protocol (HELLO).
+The \*Lgated\*O process can be configured to perform all
+or any combination of these routing protocols.
+It replaces daemons that use the HELLO routing protocol; for example,
+\*Lrouted \*O(8)
+and
+\*Legpup (8).\*O
+The configuration for the \*Lgated\*O daemon is by default stored
+in the \*L/etc/gated.conf\*O file, and can be changed at compile time
+in the file \*Ldefs.h\*O.
+The \*Lgated\*O daemon stores its process ID in
+.\"changed /etc/gated/pid to /var/run/gated.pid
+.\"in response to qar 16736. T. Wolklin: Sterling
+the \*L/var/run/gated.pid\*O file.
+.PP
+When a routing update indicates that the route in use is being
+deleted, the \*Lgated\*O daemon waits for 2 minutes
+before deleting the route.
+Be aware that unpredictable results may occur when the \*Lgated\*O
+and \*Lrouted\*O daemons are run together on the same host.
+.PP
+Start the \*Lgated\*O daemon with a log file that you specify
+on the command line.
+You can also enter one or more trace flags on
+the command line or specify the flags in the
+\*Ltraceflags\*O stanza of the \*Lgated.conf\*O configuration file.
+When trace flags are specified without a log file, all trace
+output is sent to the controlling terminal.
+.PP
+By default, the \*Lgated\*O daemon forks and detaches
+itself from the controlling terminal.
+.PP
+.PP
+When certain networks are restricted from using the Internet network,
+the \*Lgated\*O daemon uses both the \*Lsyslogd\*O daemon at
+the \*LLOG_WARNING\*O log level and the \*LLOG_DAEMON\*O facility
+to record all invalid networks.
+.PP
+If you use the EGP when you supply
+the default route (by the RIP or HELLO gateway) and all EGP neighbors
+are lost, the default route is not advertised until at least one EGP
+neighbor is regained.
+.PP
+The RIP both propagates and
+listens to host routes.  This allows the \*Lgated\*O
+daemon to handle point-to-point links with consistency.  The
+\*Lgated\*O daemon also supports the \*LRIP_TRACE\*O commands.
+.PP
+The \*Lgated\*O daemon detects changes made to the network interfaces
+and its own start-up flags while it is running.
+Thus, you need not restart the \*Lgated\*O daemon if you
+change the configuration.
+However, if the net mask, subnet mask, broadcast address, or interface
+metric is changed, use the \*Lifconfig\*O(8) command to mark the
+interface \*Ldown\*O and then \*Lup\*O 30 seconds later.
+.PP
+Subnet interfaces are supported.
+Subnet information is passed
+through interfaces to other subnets of the same network.
+.PP
+The \*Lgated\*O daemon listens to host and network \*LREDIRECT\*O
+signals.
+The daemon tries to take an action for its own internal
+tables.
+This action is parallel to the action the kernel takes on
+the \*LREDIRECT\*O signal.
+.PP
+In addition, the \*Lgated\*O daemon cancels (times out)
+all routes learned from \*LREDIRECT\*O signals in
+6 minutes.
+The daemon then deletes the route from the kernel routing tables, which
+keeps the routing tables consistent.
+.PP
+No routing protocol announces
+routes learned from \*LREDIRECT\*O signals.
+.PP
+The \*Lgated\*O EGP code verifies that all networks sent and received
+are valid class A, B, or C networks as specified by the EGP.  The \*Lgated\*O
+daemon does not contribute information about networks that do not meet EGP
+specifications.  If an EGP update packet contains information about a
+network that is not class A, B, or C, the \*Lgated\*O daemon considers
+the update to be in error and ignores it.
+.SS Signals
+The \*Lgated\*O server performs the following actions when
+you use the \*Lkill\*O(1) command to send
+it the \*LSIGHUP\*O and \*LSIGINT\*O signals.
+.VL
+.LI "\*LSIGHUP\c\*O"
+When a \*LSIGHUP\*O signal is sent to a \*Lgated\*O daemon that
+was invoked with trace flags and a log file, tracing
+is toggled off and the log file is closed.
+At this point the log file can be moved or deleted.
+When the next \*LSIGHUP\*O signal is sent to the \*Lgated\*O daemon,
+tracing is toggled on.
+The \*Lgated\*O daemon reads the \*L/etc/gated.conf\*O configuration
+file and sets the trace flags to those specified by the
+\*Ltraceflags\*O stanza.
+.IP
+If no \*Ltraceflags\*O stanza exists, tracing resumes and uses
+any trace flags specified on the command line.
+Trace output is sent to the log file specified on the command line.
+The output is appended if the log file already exists, and the
+file is created if it does not exist.
+.LI "\*LSIGINT\c\*O"
+Sending the \*Lgated\*O daemon a \*LSIGINT\*O
+signal causes a memory dump to be scheduled within the next 60 seconds.
+The memory dump is written to a file named /\*Lusr/temp/gated_dump\*O.
+The \*Lgated\*O daemon processes all pending routing updates before
+performing the memory dump.
+.IP
+The memory dump contains a snapshot of the current \*Lgated\*O daemon
+status, including the interface configurations, EGP neighbor status,
+and the routing tables.
+If the \*L/usr/tmp/gated_dump\*O file
+already exists, the memory dump is appended to the existing file.
+.LE
+.SS Internal Metrics for the gated Daemon
+The \*Lgated\*O daemon stores all metrics internally as a time
+delay in milliseconds to preserve the granularity of HELLO time delays.
+The internal delay ranges from 0 to 30,000 milliseconds, with 30,000
+representing infinity.
+Metrics from other protocols are translated
+to and from a time delay as they are received and transmitted.
+EGP distances are not comparable to HELLO and RIP metrics but are stored
+as time delays internally for comparison with other EGP metrics.
+The conversion factor between EGP distances and time delays is 100.
+.PP
+.PP
+RIP and interface metrics are translated to and from the internal
+time delays with the use of the following translation tables.
+The first two columns represent the time delay to RIP metric translation,
+while the second two columns represent the RIP metric to time delay
+translation.
+.PP
+.TS
+tab(%);
+cb s cb cb cb
+cb cb cb cb cb
+n n n n n.
+Time Delay%\&%\&%\&%\&
+Minimum%Maximum%RIP Metric%RIP Metric%Time Delay\*O
+%
+0%0%0%0%0
+1%100%1%1%100
+101%148%2%2%148
+149%219%3%3%219
+220%325%4%4%325
+326%481%5%5%481
+482%713%6%6%713
+714%1057%7%7%1057
+1058%1567%8%8%1567
+1568%2322%9%9%2322
+2323%3440%10%10%3440
+3441%5097%11%11%5097
+5098%7552%12%12%7552
+7553%11,190%13%13%11,190
+11,191%16,579%14%14%16,579
+16,580%24,564%15%15%24,564
+24,565%30,000%16%16%30,000
+.TE
+.SH CAUTIONS
+.PP
+Unpredictable results may occur when the \*Lgated\*O and
+\*Lrouted\*O daemons are run together on the same host.
+.SH FILES
+.VL
+.LI "\*L/usr/sbin/gated\*O"
+Specifies the command path
+.\"Begin Digital correction.
+.\"Directory is wrong. Moved to /var/run starting with Silver.
+.LI "\*L/var/run/gated.conf\*O"
+Contains the \*Lgated\*O configuration information
+.LI "\*L/var/run/gated.pid\c\*O"
+Contains the \*Lgated\*O process ID
+.\".LI "\*L/etc/gated.conf\*O"
+.\"Contains the \*Lgated\*O configuration information
+.\".LI "\*L/etc/gated.pid\c\*O"
+.\"Contains the \*Lgated\*O process ID
+.\"End Digital correction
+.LI "\*L/usr/tmp/gated_dump\*O"
+Specifies the memory dump file
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lkill\*O, \*Lrouted\*O(8)
+.\"added gated.conf(4)
+.\"in response to qar 16736. T. Wolklin: Sterling
+.PP
+Files: \*Lgated.conf\*O(4)
+.EQ
+delim off
+.EN

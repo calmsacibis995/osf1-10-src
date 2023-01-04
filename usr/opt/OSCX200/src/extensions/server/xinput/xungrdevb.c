@@ -1,0 +1,163 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/* $Header: /usr/sde/x11/rcs/x11/src/./extensions/server/xinput/xungrdevb.c,v 1.2 91/12/15 12:42:16 devrcs Exp $ */
+
+/************************************************************
+Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+Massachusetts Institute of Technology, Cambridge, Massachusetts.
+
+			All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the names of Hewlett-Packard or MIT not be
+used in advertising or publicity pertaining to distribution of the
+software without specific, written prior permission.
+
+HEWLETT-PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
+HEWLETT-PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+SOFTWARE.
+
+********************************************************/
+
+/***********************************************************************
+ *
+ * Request to release a grab of a button on an extension device.
+ *
+ */
+
+#define	 NEED_EVENTS
+#define	 NEED_REPLIES
+#include "X.h"				/* for inputstr.h    */
+#include "Xproto.h"			/* Request macro     */
+#include "inputstr.h"			/* DeviceIntPtr	     */
+#include "windowstr.h"			/* window structure  */
+#include "XI.h"
+#include "XIproto.h"
+
+extern	int 	IReqCode;
+extern	int	BadDevice;
+extern	int	DeviceButtonPress;
+extern	void	(* ReplySwapVector[256]) ();
+DeviceIntPtr	LookupDeviceIntRec();
+
+/***********************************************************************
+ *
+ * Handle requests from a client with a different byte order.
+ *
+ */
+
+int
+SProcXUngrabDeviceButton(client)
+    register ClientPtr client;
+    {
+    register char n;
+
+    REQUEST(xUngrabDeviceButtonReq);
+    swaps(&stuff->length, n);
+    swapl(&stuff->grabWindow, n);
+    swaps(&stuff->modifiers, n);
+    return(ProcXUngrabDeviceButton(client));
+    }
+
+/***********************************************************************
+ *
+ * Release a grab of a button on an extension device.
+ *
+ */
+
+int
+ProcXUngrabDeviceButton(client)
+    ClientPtr client;
+    {
+    DeviceIntPtr	dev;
+    DeviceIntPtr	mdev;
+    WindowPtr		pWin;
+    GrabRec		temporaryGrab;
+
+    REQUEST(xUngrabDeviceButtonReq);
+    REQUEST_SIZE_MATCH(xUngrabDeviceButtonReq);
+
+    dev = LookupDeviceIntRec (stuff->grabbed_device);
+    if (dev == NULL)
+	{
+	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+	    BadDevice);
+	return Success;
+	}
+    if (dev->button == NULL)
+	{
+	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+		BadMatch);
+	return Success;
+	}
+
+    if (stuff->modifier_device != UseXKeyboard)
+	{
+	mdev = LookupDeviceIntRec (stuff->modifier_device);
+	if (mdev == NULL)
+	    {
+	    SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+	        BadDevice);
+	    return Success;
+	    }
+	if (mdev->key == NULL)
+	    {
+	    SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+		BadMatch);
+	    return Success;
+	    }
+	}
+    else
+	mdev = (DeviceIntPtr) LookupKeyboardDevice();
+
+    pWin = LookupWindow(stuff->grabWindow, client);
+    if (!pWin)
+	{
+	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+	    BadWindow);
+	return Success;
+	}
+
+    temporaryGrab.resource = client->clientAsMask;
+    temporaryGrab.device = dev;
+    temporaryGrab.window = pWin;
+    temporaryGrab.type = DeviceButtonPress;
+    temporaryGrab.modifierDevice = mdev;
+    temporaryGrab.modifiersDetail.exact = stuff->modifiers;
+    temporaryGrab.modifiersDetail.pMask = NULL;
+    temporaryGrab.detail.exact = stuff->button;
+    temporaryGrab.detail.pMask = NULL;
+
+    DeletePassiveGrabFromList(&temporaryGrab);
+    return Success;
+    }

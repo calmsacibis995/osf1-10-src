@@ -1,0 +1,2424 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204141833.AA26970@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2458) close XBUG #5102, #5103, #5104, #5104: Xlib: Ximp patch (part 2 of 3)
+Date: Tue, 14 Apr 92 14:33:33 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+*** /tmp/d26124	Tue Apr 14 14:15:35 1992
+--- lib/X/Ximp/XimpMCT.c	Tue Apr 14 13:30:39 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMCT.c,v 1.4 91/10/07 17:50:08 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMCT.c,v 1.5 92/04/14 13:29:33 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 227,232 ****
+--- 227,306 ----
+      if (mbstr_len)
+  	*mbstr_len = bufptr - mbstr;
+      ret = ctptr - ctext;
++ error:
++     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
++ 
++     return ret;
++ }
++ 
++ int
++ _Ximp_ct_mbslen(lcd, ctext, ctext_len, unconv_num)
++     Ximp_XLCd lcd;
++     unsigned char *ctext;
++     int ctext_len;
++     int *unconv_num;
++ {
++     unsigned char ch, *ctptr = ctext;
++     unsigned char *tmpptr;
++     unsigned char msb_mask;
++     unsigned char buf[BUFSIZE];
++     int GL_codeset, GR_codeset, codeset_number;
++     int tmp_len, skip_size;
++     int ret = 0;
++     int (*cstombs)();
++ 
++     if (unconv_num)
++ 	*unconv_num = 0;
++     
++     cstombs = lcd->ximp_lcpart->methods->cstombs;
++     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
++     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
++ 
++     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
++ 
++     while (ctext_len > 0) {
++ 	ch = *ctptr;
++ 	if (ch == 0x1b) {
++ 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
++ 					  &GL_codeset, &GR_codeset);
++ 	} else if (ch == 0x9b) {
++ 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
++ 	} else {
++ 	    tmpptr = ctptr;
++ 	    msb_mask = ch & 0x80;
++ 	    for ( ; ctext_len; tmpptr++, ctext_len--) {
++ 		ch = *tmpptr;
++ 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
++ 		    break;
++ 	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
++ 			(ch >= 0x80 && ch < 0xa0)) {
++ 		    ret = -1;
++ 		    goto error;
++ 		}
++ 	    }
++ 
++ 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
++ 	    if (codeset_number > -1) {
++ 		tmp_len = BUFSIZE;
++ 		skip_size = (*cstombs)(lcd, ctptr, tmpptr - ctptr,
++ 				       buf, &tmp_len, codeset_number);
++ 		if (skip_size < 0) {
++ 		    ret - -1;
++ 		    goto error;
++ 		}
++ 		ret += tmp_len;
++ 	    } else if (unconv_num)
++ 		*unconv_num += tmpptr - ctptr;
++ 	    ctptr = tmpptr;
++ 	    continue;
++ 	}
++ 	if (tmp_len < 0) {
++ 	    ret = -1;
++ 	    goto error;
++ 	}
++ 	ctptr += tmp_len;
++ 	ctext_len -= tmp_len;
++     }
+  error:
+      (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+*** /tmp/d26143	Tue Apr 14 14:15:44 1992
+--- lib/X/Ximp/XimpMDrS.c	Tue Apr 14 13:30:42 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMDrS.c,v 1.2 91/07/09 17:22:03 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMDrS.c,v 1.3 92/04/14 13:29:36 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26162	Tue Apr 14 14:15:53 1992
+--- lib/X/Ximp/XimpMEsc.c	Tue Apr 14 13:30:44 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMEsc.c,v 1.2 91/07/09 17:22:05 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMEsc.c,v 1.3 92/04/14 13:29:38 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26181	Tue Apr 14 14:16:02 1992
+--- lib/X/Ximp/XimpMExt.c	Tue Apr 14 13:30:47 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpMExt.c,v 1.2 91/07/09 17:22:07 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpMExt.c,v 1.3 92/04/14 13:29:40 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26200	Tue Apr 14 14:16:11 1992
+--- lib/X/Ximp/XimpWCT.c	Tue Apr 14 13:31:22 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWCT.c,v 1.4 91/10/07 17:50:48 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWCT.c,v 1.5 92/04/14 13:30:14 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 227,232 ****
+--- 227,306 ----
+      if (wcstr_len)
+  	*wcstr_len = bufptr - wcstr;
+      ret = ctptr - ctext;
++ error:
++     (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
++ 
++     return ret;
++ }
++ 
++ int
++ _Ximp_ct_wcslen(lcd, ctext, ctext_len, unconv_num)
++     Ximp_XLCd lcd;
++     unsigned char *ctext;
++     int ctext_len;
++     int *unconv_num;
++ {
++     unsigned char ch, *ctptr = ctext;
++     unsigned char *tmpptr;
++     unsigned char msb_mask;
++     wchar_t buf[BUFSIZE];
++     int GL_codeset, GR_codeset, codeset_number;
++     int tmp_len, skip_size;
++     int ret = 0;
++     int (*cstowcs)();
++ 
++     if (unconv_num)
++ 	*unconv_num = 0;
++     
++     cstowcs = lcd->ximp_lcpart->methods->cstowcs;
++     GL_codeset = _get_codeset_number(lcd, ISO8859_1, GL);
++     GR_codeset = _get_codeset_number(lcd, ISO8859_1, GR);
++ 
++     (*lcd->ximp_lcpart->methods->cnv_start)(lcd);
++ 
++     while (ctext_len > 0) {
++ 	ch = *ctptr;
++ 	if (ch == 0x1b) {
++ 	    tmp_len = _check_ESC_sequence(lcd, ctptr, ctext_len, 
++ 					  &GL_codeset, &GR_codeset);
++ 	} else if (ch == 0x9b) {
++ 	    tmp_len =_check_CSI_sequence(lcd, ctptr, ctext_len);
++ 	} else {
++ 	    tmpptr = ctptr;
++ 	    msb_mask = ch & 0x80;
++ 	    for ( ; ctext_len; tmpptr++, ctext_len--) {
++ 		ch = *tmpptr;
++ 		if (msb_mask != (ch & 0x80) || ch == '\033' || ch == 0x9b)
++ 		    break;
++ 	        if ((ch < 0x20 && ch != '\n' && ch != '\t') ||
++ 			(ch >= 0x80 && ch < 0xa0)) {
++ 		    ret = -1;
++ 		    goto error;
++ 		}
++ 	    }
++ 
++ 	    codeset_number = msb_mask ? GR_codeset : GL_codeset;
++ 	    if (codeset_number > -1) {
++ 		tmp_len = BUFSIZE;
++ 		skip_size = (*cstowcs)(lcd, ctptr, tmpptr - ctptr,
++ 				       buf, &tmp_len, codeset_number);
++ 		if (skip_size < 0) {
++ 		    ret = -1;
++ 		    goto error;
++ 		}
++ 		ret += tmp_len;
++ 	    } else if (unconv_num)
++ 		*unconv_num += tmpptr - ctptr;
++ 	    ctptr = tmpptr;
++ 	    continue;
++ 	}
++ 	if (tmp_len < 0) {
++ 	    ret = -1;
++ 	    goto error;
++ 	}
++ 	ctptr += tmp_len;
++ 	ctext_len -= tmp_len;
++     }
+  error:
+      (*lcd->ximp_lcpart->methods->cnv_end)(lcd);
+  
+*** /tmp/d26219	Tue Apr 14 14:16:20 1992
+--- lib/X/Ximp/XimpWDrS.c	Tue Apr 14 13:31:25 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWDrS.c,v 1.2 91/07/09 17:22:11 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWDrS.c,v 1.3 92/04/14 13:30:18 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26238	Tue Apr 14 14:16:31 1992
+--- lib/X/Ximp/XimpWEsc.c	Tue Apr 14 13:31:28 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWEsc.c,v 1.2 91/07/09 17:22:12 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWEsc.c,v 1.3 92/04/14 13:30:22 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26258	Tue Apr 14 14:16:41 1992
+--- lib/X/Ximp/XimpWExt.c	Tue Apr 14 13:31:31 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpWExt.c,v 1.2 91/07/09 17:22:14 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpWExt.c,v 1.3 92/04/14 13:30:24 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26277	Tue Apr 14 14:16:52 1992
+--- lib/X/Ximp/Ximplc.h	Tue Apr 14 13:31:48 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: Ximplc.h,v 1.4 91/10/07 17:51:06 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: Ximplc.h,v 1.5 92/04/14 13:30:42 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+!               Copyright 1991, 1992 by Sony Corporation
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 35,55 ****
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! not be used in advertising or publicity pertaining to distribution
+! of the software without specific, written prior permission.
+! FUJITSU LIMITED makes no representations about the suitability of
+! this software for any purpose.  It is provided "as is" without
+! express or implied warranty.
+  
+! FUJITSU LIMITED DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+! INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+! IN NO EVENT SHALL FUJITSU LIMITED BE LIABLE FOR ANY SPECIAL, INDIRECT
+! OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
+! OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+! OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+! OR PERFORMANCE OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
+  
+  ******************************************************************/
+  /*
+--- 36,60 ----
+  provided that the above copyright notice appear in all copies and
+  that both that copyright notice and this permission notice appear
+  in supporting documentation, and that the name of FUJITSU LIMITED
+! and Sony Corporation not be used in advertising or publicity
+! pertaining to distribution of the software without specific, written
+! prior permission.
+! FUJITSU LIMITED and Sony Corporation make no representations about
+! the suitability of this software for any purpose.  It is provided
+! "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SONY CORPORATION DISCLAIM ALL WARRANTIES WITH
+! REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED AND
+! SONY CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA
+! OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+! TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+! PERFORMANCE
+! OF THIS SOFTWARE.
+  
+    Author: Takashi Fujiwara     FUJITSU LIMITED 
++           Makoto Wakamatsu     Sony Corporation
+  
+  ******************************************************************/
+  /*
+***************
+*** 200,205 ****
+--- 205,211 ----
+  
+  #define XIMP_CREATE_IC	0
+  #define	XIMP_SET_IC	1
++ #define	XIMP_START_IC	2
+  
+  #define XIMP_INPUT_STYLE	0x0001
+  #define XIMP_CLIENT_WIN		0x0002
+***************
+*** 207,212 ****
+--- 213,220 ----
+  #define XIMP_RES_CLASS		0x0008
+  #define XIMP_GEOMETRY_CB        0x0010
+  #define XIMP_FILTER_EV          0x0020
++ #define XIMP_PRE_CALLBAK        0x0040
++ #define XIMP_STS_CALLBAK        0x0080
+  
+  #define XIMP_PROP_FOCUS		( XIMP_FOCUS_WIN_MASK )
+  #define XIMP_PROP_PREEDIT	( XIMP_PRE_AREA_MASK \
+***************
+*** 259,265 ****
+  	int		 connectserver;
+  	int		 inputserver;
+  	Bool		 use_wchar;
+! 	KeySym		 def_startkeysym;
+  	char		*locale_server;
+  	Window		 fe_window;
+  	Window		 owner;
+--- 267,273 ----
+  	int		 connectserver;
+  	int		 inputserver;
+  	Bool		 use_wchar;
+! 	Ximp_KeyList	*process_start_keys;
+  	char		*locale_server;
+  	Window		 fe_window;
+  	Window		 owner;
+***************
+*** 331,338 ****
+--- 339,349 ----
+  	long			 icid;
+  	int			 input_mode;
+  	int			 is_bep_mode;
++ 	int			 filter_mode;
+  	unsigned long		 back_mask;
+  	long			 value_mask;
++ 	Bool			 putback_key_event;
++ 	Window			 back_focus_win;
+  
+  	long			 proto_mask;
+  	Ximp_PreeditPropRec	 preedit_attr;
+*** /tmp/d26314	Tue Apr 14 14:17:09 1992
+--- lib/X/Ximp/XimpCT.c	Tue Apr 14 13:29:44 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpCT.c,v 1.3 92/03/03 11:02:11 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpCT.c,v 1.4 92/04/14 13:28:38 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 124,130 ****
+  	while (encoding_ptr = *table_ptr++)
+  	    if (encoding_ptr->GR_encoding) {
+  	    	if (encoding_ptr->char_length == char_length &&
+! 		    !strcmp(encoding_ptr->GR_encoding, encoding) &&
+  		    encoding_ptr->GR_gc_size == gc_size)
+  
+  		    return encoding_ptr->lindex;
+--- 124,130 ----
+  	while (encoding_ptr = *table_ptr++)
+  	    if (encoding_ptr->GR_encoding) {
+  	    	if (encoding_ptr->char_length == char_length &&
+! 		    !strcmp(encoding_ptr->GR_encoding, (char *)encoding) &&
+  		    encoding_ptr->GR_gc_size == gc_size)
+  
+  		    return encoding_ptr->lindex;
+***************
+*** 133,139 ****
+  	while (encoding_ptr = *table_ptr++)
+  	    if (encoding_ptr->GL_encoding) {
+  	    	if (encoding_ptr->char_length == char_length &&
+! 		    !strcmp(encoding_ptr->GL_encoding, encoding) &&
+  		    encoding_ptr->GL_gc_size == gc_size)
+  
+  		    return encoding_ptr->lindex;
+--- 133,139 ----
+  	while (encoding_ptr = *table_ptr++)
+  	    if (encoding_ptr->GL_encoding) {
+  	    	if (encoding_ptr->char_length == char_length &&
+! 		    !strcmp(encoding_ptr->GL_encoding, (char *)encoding) &&
+  		    encoding_ptr->GL_gc_size == gc_size)
+  
+  		    return encoding_ptr->lindex;
+***************
+*** 239,245 ****
+      if (encoding_len < 0)
+  	return -1;
+  
+!     strncpy(encoding, ctptr, encoding_len);
+      encoding[encoding_len] = 0;
+      ctptr += encoding_len;
+  
+--- 239,245 ----
+      if (encoding_len < 0)
+  	return -1;
+  
+!     strncpy((char *)encoding, (char *)ctptr, encoding_len);
+      encoding[encoding_len] = 0;
+      ctptr += encoding_len;
+  
+***************
+*** 395,406 ****
+  	if (msb_mask == GR)
+  	    *encoding_ptr++ = '-';
+      }
+!     strcpy(encoding_ptr, (msb_mask == GR) ? 
+  		encoding_rec->GR_encoding : encoding_rec->GL_encoding);
+!     tmp_len = strlen(encoding);
+      if ((ct_len -= tmp_len) < 0)
+  	return -1;
+!     strcpy(ctptr, encoding);
+      ctptr += tmp_len;
+  
+      min_ch = 0x20;
+--- 395,406 ----
+  	if (msb_mask == GR)
+  	    *encoding_ptr++ = '-';
+      }
+!     strcpy((char *)encoding_ptr, (msb_mask == GR) ? 
+  		encoding_rec->GR_encoding : encoding_rec->GL_encoding);
+!     tmp_len = strlen((char *)encoding);
+      if ((ct_len -= tmp_len) < 0)
+  	return -1;
+!     strcpy((char *)ctptr, (char *)encoding);
+      ctptr += tmp_len;
+  
+      min_ch = 0x20;
+*** /tmp/d26333	Tue Apr 14 14:17:18 1992
+--- lib/X/Ximp/XimpDefCnv.c	Tue Apr 14 13:29:57 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpDefCnv.c,v 1.2 91/10/07 17:47:57 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpDefCnv.c,v 1.3 92/04/14 13:28:51 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26352	Tue Apr 14 14:17:27 1992
+--- lib/X/Ximp/XimpDrStr.c	Tue Apr 14 13:30:00 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpDrStr.c,v 1.1 91/07/09 17:36:53 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpDrStr.c,v 1.2 92/04/14 13:28:54 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 29,35 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 29,35 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 112,119 ****
+  
+              XSetFont(dpy, gc, font->fid);
+  	    if (char_length < 2) {
+! 	        XDrawString(dpy, d, gc, x, y, xchar_buf, tmp_len);
+! 		x += XTextWidth(font, xchar_buf, tmp_len);
+              } else {
+  	        XDrawString16(dpy, d, gc, x, y, xchar2b_buf, tmp_len);
+  		x += XTextWidth16(font, xchar2b_buf, tmp_len);
+--- 112,119 ----
+  
+              XSetFont(dpy, gc, font->fid);
+  	    if (char_length < 2) {
+! 	        XDrawString(dpy, d, gc, x, y, (char *)xchar_buf, tmp_len);
+! 		x += XTextWidth(font, (char *)xchar_buf, tmp_len);
+              } else {
+  	        XDrawString16(dpy, d, gc, x, y, xchar2b_buf, tmp_len);
+  		x += XTextWidth16(font, xchar2b_buf, tmp_len);
+*** /tmp/d26371	Tue Apr 14 14:17:37 1992
+--- lib/X/Ximp/XimpEUC.c	Tue Apr 14 13:30:03 1992
+***************
+*** 1,7 ****
+! /* $XConsortium: XimpEUC.c,v 1.3 91/10/07 17:48:17 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991 by TOSHIBA Corp.
+!  * Copyright 1990, 1991 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+--- 1,7 ----
+! /* $XConsortium: XimpEUC.c,v 1.4 92/04/14 13:28:56 rws Exp $ */
+  /*
+!  * Copyright 1990, 1991, 1992 by TOSHIBA Corp.
+!  * Copyright 1990, 1991, 1992 by SORD Computer Corp.
+   *
+   * Permission to use, copy, modify, distribute, and sell this software and its
+   * documentation for any purpose is hereby granted without fee, provided that
+***************
+*** 28,34 ****
+  
+  /******************************************************************
+  
+!               Copyright 1991, by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 28,34 ----
+  
+  /******************************************************************
+  
+!               Copyright 1991, 1992 by FUJITSU LIMITED
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+*** /tmp/d26390	Tue Apr 14 14:17:46 1992
+--- lib/X/Ximp/XimpExten.c	Tue Apr 14 13:30:10 1992
+***************
+*** 1,8 ****
+! /* $XConsortium: XimpExten.c,v 1.4 91/10/10 20:41:37 rws Exp $ */
+  /******************************************************************
+  
+!     Copyright 1991, by FUJITSU LIMITED.
+!     Copyright 1991, by Sun Microsystems, Inc.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+--- 1,8 ----
+! /* $XConsortium: XimpExten.c,v 1.5 92/04/14 13:29:00 rws Exp $ */
+  /******************************************************************
+  
+!     Copyright 1991, 1992 by FUJITSU LIMITED.
+!     Copyright 1991, 1992 by Sun Microsystems, Inc.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+***************
+*** 26,33 ****
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+  		       fujiwara@a80.tech.yk.fujitsu.co.jp
+!   Hideki Hiura (hhiura@Sun.COM)
+! 				     Sun Microsystems, Inc.
+  ******************************************************************/
+  
+  #define NEED_EVENTS
+--- 26,33 ----
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+  		       fujiwara@a80.tech.yk.fujitsu.co.jp
+!         Hideki Hiura         Sun Microsystems, Inc.
+! 	               hhiura@Sun.COM
+  ******************************************************************/
+  
+  #define NEED_EVENTS
+***************
+*** 37,42 ****
+--- 37,54 ----
+  #include "Xlcint.h"
+  #include "Ximplc.h"
+  
++ #ifdef XIMP_SIGNAL
++ #include <sys/signal.h>
++ #endif /* XIMP_SIGNAL */
++ static int	_time_flag = 0;
++ #ifdef XIMP_SIGNAL
++ static int
++ _time_out()
++ 	{
++ 	_time_flag = 1;
++ 	}
++ #endif /* XIMP_SIGNAL */
++ 
+  #define		XIM_UNKNOWN_KEYSYM	0x77777777
+  #define		XIM_UNDETERMINED	0x77777776
+  
+***************
+*** 48,65 ****
+  
+  typedef enum {
+      XIMCB_Success,
+!     XIMCB_FatalError,
+  }               XIMCBResult;
+  
+  
+  typedef enum {
+      DrawUpHorizontally = 0,
+!     DrawUpVertically = 1,
+  }               DrawUpDirection;
+  
+  typedef enum {
+      XIMOwnsLabel = 0,
+!     CBOwnsLabel = 1,
+  }               WhoOwnsLabel;
+  
+  typedef struct {
+--- 60,77 ----
+  
+  typedef enum {
+      XIMCB_Success,
+!     XIMCB_FatalError
+  }               XIMCBResult;
+  
+  
+  typedef enum {
+      DrawUpHorizontally = 0,
+!     DrawUpVertically = 1
+  }               DrawUpDirection;
+  
+  typedef enum {
+      XIMOwnsLabel = 0,
+!     CBOwnsLabel = 1
+  }               WhoOwnsLabel;
+  
+  typedef struct {
+***************
+*** 111,116 ****
+--- 123,129 ----
+  
+  extern Ximp_XIC _Ximp_LookupXIC();
+  extern void     _Ximp_IM_SendMessage();
++ extern void 	_Ximp_ProcError();
+  
+  #define Private static
+  /*
+***************
+*** 170,176 ****
+  typedef enum {
+      XICOpCreate = 1,
+      XICOpSet = 2,
+!     XICOpGet = 3,
+  }               XICOp_t;
+  
+  /*
+--- 183,189 ----
+  typedef enum {
+      XICOpCreate = 1,
+      XICOpSet = 2,
+!     XICOpGet = 3
+  }               XICOp_t;
+  
+  /*
+***************
+*** 235,247 ****
+      XICOp_t         op;
+      long            value;
+  {
+!     XIMXimpRec     *im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+!     Ximp_ExtXIMRec *ext_im;
+!     long           *p_long;
+  
+-     if(!(im_impart->inputserver))
+- 	return (False);
+-     ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+      if (!(ext_im->extension_back_front_exist))
+  	return (False);
+  
+--- 248,255 ----
+      XICOp_t         op;
+      long            value;
+  {
+!     Ximp_ExtXIMRec *ext_im = (Ximp_ExtXIMRec *)(((Ximp_XIM)ic->core.im)->ximp_impart)->imtype;
+  
+      if (!(ext_im->extension_back_front_exist))
+  	return (False);
+  
+***************
+*** 252,263 ****
+  	return (True);
+  	break;
+      case XICOpGet:
+! 	if((p_long = (long *)Xmalloc(sizeof(long))) == NULL) {
+! 		*((long *) value) = (long)NULL;
+! 		break;
+! 	}
+! 	*p_long = (long)(ic->ximp_icpart->is_bep_mode);
+! 	*((long *) value) = (long)p_long;
+  	return (True);
+  	break;
+      }
+--- 260,266 ----
+  	return (True);
+  	break;
+      case XICOpGet:
+! 	*((long *) value) = (long)(ic->ximp_icpart->is_bep_mode);
+  	return (True);
+  	break;
+      }
+***************
+*** 297,302 ****
+--- 300,346 ----
+   *	  +-----------------------------------------+
+   **/
+  
++ 
++ typedef struct {
++ 	Atom message_type;
++ 	Atom ext_type;
++ 	Window owner;
++ } XimpConversionPredArgRec, *XimpConversionPredArg;
++ 
++ Private Bool
++ #if NeedFunctionPrototypes
++ ximp_ext_conversionPredicate(
++     Display *d,
++     XEvent *ev,
++     XPointer arg0
++     )
++ #else
++ ximp_ext_conversionPredicate(d, ev, arg0)
++ Display *d;
++ XEvent *ev;
++ XPointer arg0;
++ #endif
++ {
++     XimpConversionPredArg arg = (XimpConversionPredArg) arg0;
++ 
++ 	if (ev->type == ClientMessage) {
++ 		if (ev->xclient.message_type == arg->message_type) {
++ 			if (ev->xclient.format == 32) {
++ 				if(ev->xclient.data.l[0] == XIMP_ERROR)
++ 					return(True);
++ 				else if(ev->xclient.data.l[0] == XIMP_EXTENSION
++ 				     && ev->xclient.data.l[3] == arg->ext_type)
++ 					return(True);
++ 			}
++ 		}
++ 	} else if (ev->type == DestroyNotify) {
++ 		if (ev->xdestroywindow.window == arg->owner) {
++ 			return(True);
++ 		}
++ 	}
++ 	return(False);
++ }
++ 
+  Private int
+  ximp_ext_conversion(ic, op, value)
+      Ximp_XIC        ic;
+***************
+*** 303,315 ****
+      XICOp_t         op;
+      long            value;
+  {
+!     XIMXimpRec     *im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+!     Ximp_ExtXIMRec *ext_im;
+!     int            *p_long;
+  
+-     if(!(im_impart->inputserver))
+- 	return (False);
+-     ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+      if (!(ext_im->extension_conversion_exist))
+  	return (False);
+  
+--- 347,356 ----
+      XICOp_t         op;
+      long            value;
+  {
+!     Ximp_ExtXIMRec *ext_im = (Ximp_ExtXIMRec *)(((Ximp_XIM)ic->core.im)->ximp_impart)->imtype;
+!     XEvent	    event;
+!     XimpConversionPredArgRec Arg;
+  
+      if (!(ext_im->extension_conversion_exist))
+  	return (False);
+  
+***************
+*** 316,321 ****
+--- 357,367 ----
+      switch (op) {
+      case XICOpCreate:
+      case XICOpSet:
++ 	if(ic->ximp_icpart->icid == NULL) {
++ 		if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
++ 			return (False);
++ 		return (True);
++ 		}
+  	/*
+  	 * Set Conversion mode on/off
+  	 */
+***************
+*** 330,349 ****
+  	return True;
+  	break;
+      case XICOpGet:
+  	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+  		     ext_im->extension_conversion_id,
+  		     False,	/* GetICVelues */
+  		     value);
+! 	/*
+! 	 * KNOWN issue: above call would never affect following.
+! 	 */
+! 	if((p_long = (long *)Xmalloc(sizeof(long))) == NULL) {
+! 		*((long *) value) = (long)NULL;
+! 		break;
+!         }
+! 	*p_long = (long)(ext_im->extension_conversion);
+! 	*((long *) value) = (long)p_long;
+! 	return (True);
+  	break;
+      }
+      return (False);
+--- 376,427 ----
+  	return True;
+  	break;
+      case XICOpGet:
++ 	if(ic->ximp_icpart->icid == NULL) {
++ 		if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
++ 			return (False);
++ 		*((long *) value) = (long)(ext_im->extension_conversion);
++ 		return (True);
++ 		}
+  	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+  		     ext_im->extension_conversion_id,
+  		     False,	/* GetICVelues */
+  		     value);
+! #ifdef XIMP_SIGNAL
+! 	signal(SIGALRM, _time_out);
+! 	alarm(XIMP_TIME_OUT);
+! #endif /* XIMP_SIGNAL */
+! 	Arg.message_type = ((Ximp_XIM)ic->core.im)->ximp_impart->improtocol_id;
+! 	Arg.ext_type     = ext_im->extension_conversion_id;
+! 	Arg.owner = ((Ximp_XIM)ic->core.im)->ximp_impart->fe_window;
+! 	while(_time_flag != 1) {
+! 		if( (XCheckIfEvent(ic->core.im->core.display, &event, ximp_ext_conversionPredicate, (XPointer)&Arg)) == False) {
+! #ifdef XIMP_SIGNAL
+! 			sleep(1);
+! #endif /* XIMP_SIGNAL */
+! 			continue;
+! 			}
+! 		if(event.type == ClientMessage &&
+! 		   event.xclient.data.l[0] == XIMP_EXTENSION) {
+! #ifdef XIMP_SIGNAL
+! 			alarm(0);
+! #endif /* XIMP_SIGNAL */
+! 			ext_im->extension_conversion = (Bool)event.xclient.data.l[4];
+! 			*((long *) value) = (long)(ext_im->extension_conversion);
+! 			_time_flag = 0;
+! 			return(True);
+! 			}
+! 		else {
+! #ifdef XIMP_SIGNAL
+! 			alarm(0);
+! #endif /* XIMP_SIGNAL */
+! 			_Ximp_ProcError (ic->core.im->core.display, NULL, &event);
+! 			_time_flag = 0;
+! 			/* return(False); */
+! 			continue;
+! 			}
+! 		}
+! 	_time_flag = 0;
+! 	return(False);
+  	break;
+      }
+      return (False);
+***************
+*** 360,369 ****
+      XICOp_t         op;
+      long            value;
+  {
+!     XIMXimpRec     *im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+!     Ximp_ExtXIMRec *ext_im;
+  
+-     ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+      if (!(ext_im->extension_statuswindow_exist))
+  	return (False);
+  
+--- 438,445 ----
+      XICOp_t         op;
+      long            value;
+  {
+!     Ximp_ExtXIMRec *ext_im = (Ximp_ExtXIMRec *)(((Ximp_XIM)ic->core.im)->ximp_impart)->imtype;
+  
+      if (!(ext_im->extension_statuswindow_exist))
+  	return (False);
+  
+***************
+*** 608,615 ****
+      XIMXimpRec     *im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+      Ximp_ExtXIMRec *ext_im;
+  
+-     if(!(im_impart->inputserver))
+- 	return (False);
+      ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+      if (!(ext_im->extension_lookup_exist))
+  	return (False);
+--- 684,689 ----
+***************
+*** 619,624 ****
+--- 693,703 ----
+  	ic->ximp_icpart->use_lookup_choices = True ;
+  	break ;
+      case XICOpSet:
++ 	if(ic->ximp_icpart->icid == NULL) {
++ 		if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
++ 			return (False);
++ 		return (True);
++ 		}
+  	ic->ximp_icpart->use_lookup_choices = True ;
+  	_Ximp_IM_SendMessage(ic, XIMP_EXTENSION,
+  			     ext_im->extension_lookup_id,
+***************
+*** 748,754 ****
+  			    ext_im->extension_lookup_start_rep,
+  			    32,
+  			    PropModeReplace,
+! 			    prop,
+  			    6);
+  
+  	    XFlush(ic->core.im->core.display);
+--- 827,833 ----
+  			    ext_im->extension_lookup_start_rep,
+  			    32,
+  			    PropModeReplace,
+! 			    (unsigned char *)prop,
+  			    6);
+  
+  	    XFlush(ic->core.im->core.display);
+***************
+*** 867,873 ****
+  			   ((Ximp_XIM) ic->core.im)->ximp_impart->fe_window,
+  			   *(prop + 4), 0, 4096, True, AnyPropertyType,
+  			   &type, &format, &nitems, &after,
+! 			   (unsigned char *) &feedback) == Success)&&feedback){
+  
+  	for (i = l = 0; i < luc_draw->n_choices; i++, l += 2) {
+  	    if (luc_draw->choices[i].value){
+--- 946,952 ----
+  			   ((Ximp_XIM) ic->core.im)->ximp_impart->fe_window,
+  			   *(prop + 4), 0, 4096, True, AnyPropertyType,
+  			   &type, &format, &nitems, &after,
+! 			   (unsigned char **) &feedback) == Success)&&feedback){
+  
+  	for (i = l = 0; i < luc_draw->n_choices; i++, l += 2) {
+  	    if (luc_draw->choices[i].value){
+***************
+*** 1200,1218 ****
+      ext_id = ev->data.l[2];
+      ic = _Ximp_LookupXIC(icid);
+  
+-     if(!((Ximp_XIM)ic->core.im)->ximp_impart->inputserver)
+- 	return;
+      im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+      ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+  
+!     if (ext_id == ext_im->extension_conversion_id) {
+! 	if (!(ext_im->extension_conversion_exist))
+! 	    return;
+! 	ext_im->extension_conversion = (Bool) ev->data.l[4];
+!     } else if (ext_id == ext_im->extension_back_front_id) {
+! 	if (!(ext_im->extension_back_front_exist))
+! 	    return;
+!     } else if (ext_id == ext_im->extension_lookup_id) {
+  	if (ext_im->extension_lookup_exist)
+  	    _Ximp_ExtLookup(d, w, ev, ic);
+  	return;
+--- 1279,1288 ----
+      ext_id = ev->data.l[2];
+      ic = _Ximp_LookupXIC(icid);
+  
+      im_impart = ((Ximp_XIM)ic->core.im)->ximp_impart;
+      ext_im = (Ximp_ExtXIMRec *) im_impart->imtype;
+  
+!     if (ext_id == ext_im->extension_lookup_id) {
+  	if (ext_im->extension_lookup_exist)
+  	    _Ximp_ExtLookup(d, w, ev, ic);
+  	return;
+*** /tmp/d26409	Tue Apr 14 14:17:57 1992
+--- lib/X/Ximp/XimpICG.c	Tue Apr 14 13:30:18 1992
+***************
+*** 1,33 ****
+! /* $XConsortium: XimpICG.c,v 1.6 92/03/03 11:01:06 rws Exp $ */
+  /******************************************************************
+  
+!     Copyright 1991, by FUJITSU LIMITED.
+!     Copyright 1991, by Sun Microsystems, Inc.
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+  provided that the above copyright notice appear in all copies and that
+  both that copyright notice and this permission notice appear in
+! supporting documentation, and that the name of FUJITSU LIMITED or Sun
+! Microsystems, Inc.  not be used in advertising or publicity pertaining
+! to distribution of the software without specific, written prior
+! permission.  FUJITSU LIMITED and Sun Microsystems, Inc. make no
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED AND SUN MICROSYSTEMS, INC. DISCLAIMS ALL WARRANTIES
+! WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+! MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU LIMITED AND SUN
+! MICROSYSTEMS, INC. BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+! CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+! USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+! OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+! PERFORMANCE OF THIS SOFTWARE.
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+! 		       fujiwara@a80.tech.yk.fujitsu.co.jp
+!         Hideki Hiura (hhiura@Sun.COM)
+! 				     Sun Microsystems, Inc.
+  
+  ******************************************************************/
+  
+--- 1,34 ----
+! /* $XConsortium: XimpICG.c,v 1.7 92/04/14 13:29:10 rws Exp $ */
+  /******************************************************************
+  
+!     Copyright 1991, 1992 by FUJITSU LIMITED.
+!     Copyright 1991, 1992 by Sun Microsystems, Inc.
+!     Copyright 1991, 1992 by Sony Corporation
+  
+  Permission to use, copy, modify, distribute, and sell this software
+  and its documentation for any purpose is hereby granted without fee,
+  provided that the above copyright notice appear in all copies and that
+  both that copyright notice and this permission notice appear in
+! supporting documentation, and that the name of FUJITSU LIMITED, Sun
+! Microsystems, Inc. and Sony Corporation  not be used in advertising
+! or publicity pertaining to distribution of the software without
+! specific, written prior permission.
+! FUJITSU LIMITED , Sun Microsystems, Inc. and Sony Corporation make no
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  
+! FUJITSU LIMITED, SUN MICROSYSTEMS, INC. AND SONY CORPORATION DISCLAIM
+! ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED
+! WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL FUJITSU
+! LIMITED, SUN MICROSYSTEMS, INC. AND SONY CORPORATION BE LIABLE FOR ANY
+! SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER
+! RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+! CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+! CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  
+  Author: Takashi Fujiwara     FUJITSU LIMITED
+!         Hideki Hiura         Sun Microsystems, Inc.
+!         Makoto Wakamatsu     Sony Corporaion
+  
+  ******************************************************************/
+  
+***************
+*** 57,64 ****
+  {
+  	XIMArg		*p;
+  	char		*p_char;
+- 	long		*p_long;
+- 	XIMCallback 	*p_callback;
+  	char		*return_name = NULL;
+  	int		 len;
+  
+--- 58,63 ----
+***************
+*** 65,71 ****
+  	for(p = values; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNInputStyle) == 0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_INPUT_STYLE) {
+! 			    (*((long *)(p->value))) = (long)ic->core.input_style;
+  			} else {			    
+  			    return_name = p->name;
+  			    break;
+--- 64,70 ----
+  	for(p = values; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNInputStyle) == 0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_INPUT_STYLE) {
+! 			    *((XIMStyle *)(p->value)) = ic->core.input_style;
+  			} else {			    
+  			    return_name = p->name;
+  			    break;
+***************
+*** 72,78 ****
+  			}
+  		} else if(strcmp(p->name, XNClientWindow)==0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN) {
+! 			    (*((long *)(p->value))) = (long)ic->core.client_window;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+--- 71,77 ----
+  			}
+  		} else if(strcmp(p->name, XNClientWindow)==0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_CLIENT_WIN) {
+! 			    *((Window *)(p->value)) = ic->core.client_window;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+***************
+*** 79,85 ****
+  			}
+  		} else if(strcmp(p->name, XNFocusWindow)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_FOCUS_WIN_MASK) {
+! 			    (*((long *)(p->value))) = (long)ic->core.focus_window;
+  			} else if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver){
+  			    return_name = p->name;
+  			    break;
+--- 78,84 ----
+  			}
+  		} else if(strcmp(p->name, XNFocusWindow)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_FOCUS_WIN_MASK) {
+! 			    *((Window *)(p->value)) = ic->core.focus_window;
+  			} else if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver){
+  			    return_name = p->name;
+  			    break;
+***************
+*** 88,105 ****
+  						 XIMP_FOCUS_WIN_MASK,
+  						((Ximp_XIM)ic->core.im)->ximp_impart->focus_win_id,
+  						XA_WINDOW);
+! 			    (*((long *)(p->value))) = *(long*)tmp ;
+  			    free(tmp) ;
+  			}
+  		} else if(strcmp(p->name, XNResourceName)==0) {
+  			if(ic->core.im->core.res_name != (char *)NULL) {
+  			    len = strlen(ic->core.im->core.res_name);
+! 			    if((p_char = Xmalloc(sizeof(len+1))) == NULL) {
+  				return_name = p->name;
+  				break;
+  			    }
+  			    strcpy(p_char, ic->core.im->core.res_name);
+! 			    (*((long *)(p->value))) = (long)p_char;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+--- 87,104 ----
+  						 XIMP_FOCUS_WIN_MASK,
+  						((Ximp_XIM)ic->core.im)->ximp_impart->focus_win_id,
+  						XA_WINDOW);
+! 			    *((Window *)(p->value)) = *(Window *)tmp ;
+  			    free(tmp) ;
+  			}
+  		} else if(strcmp(p->name, XNResourceName)==0) {
+  			if(ic->core.im->core.res_name != (char *)NULL) {
+  			    len = strlen(ic->core.im->core.res_name);
+! 			    if((p_char = Xmalloc(len+1)) == NULL) {
+  				return_name = p->name;
+  				break;
+  			    }
+  			    strcpy(p_char, ic->core.im->core.res_name);
+! 			    *((char **)(p->value)) = p_char;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+***************
+*** 106,112 ****
+  			}
+  		} else if(strcmp(p->name, XNResourceClass)==0) {
+  			if(ic->core.im->core.res_class != (char *)NULL) {
+! 			    (*((long *)(p->value))) = (long)ic->core.im->core.res_class;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+--- 105,117 ----
+  			}
+  		} else if(strcmp(p->name, XNResourceClass)==0) {
+  			if(ic->core.im->core.res_class != (char *)NULL) {
+! 			    len = strlen(ic->core.im->core.res_class);
+! 			    if((p_char = Xmalloc(len+1)) == NULL) {
+! 				return_name = p->name;
+! 				break;
+! 			    }
+! 			    strcpy(p_char, ic->core.im->core.res_name);
+! 			    *((char **)(p->value)) = p_char;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+***************
+*** 113,132 ****
+  			}
+  		} else if(strcmp(p->name, XNGeometryCallback)==0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_GEOMETRY_CB) {
+! 			    (*((long *)(p->value))) = (long)ic->core.geometry_callback.callback;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+  			}
+  		} else if(strcmp(p->name, XNFilterEvents)==0) {
+! 		    (*((long *)(p->value))) = (long)ic->core.filter_events;
+  		} else if(strcmp(p->name, XNPreeditAttributes)==0) {
+  			if( _Ximp_PreGetAttributes(ic, p->value,
+! 						   return_name) == False)
+  				break;
+  		} else if(strcmp(p->name, XNStatusAttributes)==0) {
+  			if( _Ximp_StatusGetAttributes(ic, p->value,
+! 						   return_name) == False)
+  				break;
+  		} else {
+  			if( _Ximp_GetICExtension(ic, p->name, p->value) == False) {
+--- 118,137 ----
+  			}
+  		} else if(strcmp(p->name, XNGeometryCallback)==0) {
+  			if(ic->ximp_icpart->value_mask & XIMP_GEOMETRY_CB) {
+! 			    *((XIMCallback *)(p->value)) = ic->core.geometry_callback;
+  			} else {
+  			    return_name = p->name;
+  			    break;
+  			}
+  		} else if(strcmp(p->name, XNFilterEvents)==0) {
+! 		    *((unsigned long *)(p->value)) = ic->core.filter_events;
+  		} else if(strcmp(p->name, XNPreeditAttributes)==0) {
+  			if( _Ximp_PreGetAttributes(ic, p->value,
+! 						   &return_name) == False)
+  				break;
+  		} else if(strcmp(p->name, XNStatusAttributes)==0) {
+  			if( _Ximp_StatusGetAttributes(ic, p->value,
+! 						   &return_name) == False)
+  				break;
+  		} else {
+  			if( _Ximp_GetICExtension(ic, p->name, p->value) == False) {
+***************
+*** 142,168 ****
+  _Ximp_PreGetAttributes(ic, vl, return_name)
+  	Ximp_XIC	 ic;
+  	XIMArg		*vl;
+! 	char		*return_name;
+  {
+  	XIMArg		*p;
+  	XRectangle	*p_rect;
+  	XPoint		*p_point;
+- 	long		*p_long;
+  	unsigned long	 mask;
+  	int		 im_preedit_flag = 0;
+! 	int		 im_font_flag    = 0;
+! 	Ximp_PreeditPropRec	*preedit_data;
+  	XIMCallback 	*p_callback;
+- 	XPointer	*xptr;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver) {
+  		for(mask = 0, p = vl; p->name != NULL; p++) {
+  			if(strcmp(p->name, XNArea)==0)
+  				mask |= XIMP_PRE_AREA_MASK;
+  			else if(strcmp(p->name, XNAreaNeeded)==0)
+  				mask |= XIMP_PRE_AREANEED_MASK;
+! 			else if(strcmp(p->name, XNSpotLocation)==0)
+  				mask |= XIMP_PRE_SPOTL_MASK;
+  			else if(strcmp(p->name, XNColormap)==0)
+  				mask |= XIMP_PRE_COLORMAP_MASK;
+  			else if(strcmp(p->name, XNStdColormap)==0)
+--- 147,176 ----
+  _Ximp_PreGetAttributes(ic, vl, return_name)
+  	Ximp_XIC	 ic;
+  	XIMArg		*vl;
+! 	char		**return_name;
+  {
+  	XIMArg		*p;
+  	XRectangle	*p_rect;
+  	XPoint		*p_point;
+  	unsigned long	 mask;
+  	int		 im_preedit_flag = 0;
+! 	Ximp_PreeditPropRec	*preedit_data = NULL;
+  	XIMCallback 	*p_callback;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->connectserver) {
+  		for(mask = 0, p = vl; p->name != NULL; p++) {
+  			if(strcmp(p->name, XNArea)==0)
+  				mask |= XIMP_PRE_AREA_MASK;
+  			else if(strcmp(p->name, XNAreaNeeded)==0)
+  				mask |= XIMP_PRE_AREANEED_MASK;
+! 			else if(strcmp(p->name, XNSpotLocation)==0) {
+! 				if(!ic->ximp_icpart->input_mode)
+! 				    _Ximp_IM_SendMessage(ic, XIMP_MOVE,
+! 					ic->ximp_icpart->preedit_attr.SpotLocation.x,
+! 					ic->ximp_icpart->preedit_attr.SpotLocation.y,
+! 					NULL);
+  				mask |= XIMP_PRE_SPOTL_MASK;
++ 			}
+  			else if(strcmp(p->name, XNColormap)==0)
+  				mask |= XIMP_PRE_COLORMAP_MASK;
+  			else if(strcmp(p->name, XNStdColormap)==0)
+***************
+*** 177,184 ****
+  				mask |= XIMP_PRE_LINESP_MASK;
+  			else if(strcmp(p->name, XNCursor)==0)
+  				mask |= XIMP_PRE_CURSOR_MASK;
+- 			else if(strcmp(p->name, XNFontSet)==0)
+- 				im_font_flag = 1;
+  		}
+  		if(mask) {
+  			preedit_data = (Ximp_PreeditPropRec *)_Ximp_GetRequestIM(ic, mask,
+--- 185,190 ----
+***************
+*** 191,197 ****
+  	for(p = vl; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNArea)==0) {
+  			if(im_preedit_flag) {
+! 				p_rect = (XRectangle *)(p->value) ;
+  				p_rect->x       = preedit_data->Area.x;
+  				p_rect->y       = preedit_data->Area.y;
+  				p_rect->width   = preedit_data->Area.width;
+--- 197,206 ----
+  	for(p = vl; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNArea)==0) {
+  			if(im_preedit_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_rect->x       = preedit_data->Area.x;
+  				p_rect->y       = preedit_data->Area.y;
+  				p_rect->width   = preedit_data->Area.width;
+***************
+*** 198,387 ****
+  				p_rect->height  = preedit_data->Area.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREA_MASK) {
+! 				        p_rect = (XRectangle *)(p->value) ;
+  					p_rect->x       = ic->core.preedit_attr.area.x;
+  					p_rect->y       = ic->core.preedit_attr.area.y;
+  					p_rect->width   = ic->core.preedit_attr.area.width;
+  					p_rect->height  = ic->core.preedit_attr.area.height;
+  				} else {
+! 				        return_name = p->name;
+  				        return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+  			if(im_preedit_flag) {
+! 				p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle));
+! 				xptr = (XPointer *)p->value;
+! 				*xptr = (XPointer)p_rect;
+  				p_rect->x  = p_rect->y  = 0;
+  				p_rect->width   = preedit_data->AreaNeeded.width;
+  				p_rect->height  = preedit_data->AreaNeeded.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREANEED_MASK) {
+! 					p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle));
+! 					xptr = (XPointer *)p->value;
+! 					*xptr = (XPointer)p_rect;
+  					p_rect->x  = p_rect->y  = 0;
+  					p_rect->width   = ic->core.preedit_attr.area_needed.width;
+  					p_rect->height  = ic->core.preedit_attr.area_needed.height;
+  				} else {
+! 				        return_name = p->name;
+  				        return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNSpotLocation)==0) {
+  			if(im_preedit_flag) {
+! 				p_point = (XPoint *)Xmalloc(sizeof(XPoint));
+! 				xptr = (XPointer *)p->value;
+! 				*xptr = (XPointer)p_point;
+  				p_point->x = preedit_data->SpotLocation.x;
+  				p_point->y = preedit_data->SpotLocation.y;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_SPOTL_MASK) {
+! 					p_point = (XPoint *)Xmalloc(sizeof(XPoint));
+! 					xptr = (XPointer *)p->value;
+! 					*xptr = (XPointer)p_point;
+  					p_point->x = ic->core.preedit_attr.spot_location.x;
+  					p_point->y = ic->core.preedit_attr.spot_location.y;
+  				} else {
+! 				        return_name = p->name;
+  				        return(False);
+  				}
+  			}
+  		} else if(  strcmp(p->name, XNColormap)==0
+  		        || strcmp(p->name, XNStdColormap)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->Colormap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_COLORMAP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.colormap;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackground)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->Background;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BG_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.background;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNForeground)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->Foreground;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_FG_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.foreground;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->Bg_Pixmap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BGPIXMAP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.background_pixmap;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNFontSet)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_PRE_FONT_MASK) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = (long)ic->core.preedit_attr.fontset;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNLineSpace)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->LineSpacing;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_LINESP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.line_space;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNCursor)==0) {
+  			if(im_preedit_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = preedit_data->Cursor;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_CURSOR_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.preedit_attr.cursor;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.start.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.start.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.start.callback;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.draw.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.draw.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.draw.callback;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.done.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.done.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.done.callback;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.caret.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.caret.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.caret.callback;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		}
+  	}
+! 	XFree(preedit_data);
+  	return(True);
+  }
+  
+--- 207,411 ----
+  				p_rect->height  = preedit_data->Area.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREA_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+  					p_rect->x       = ic->core.preedit_attr.area.x;
+  					p_rect->y       = ic->core.preedit_attr.area.y;
+  					p_rect->width   = ic->core.preedit_attr.area.width;
+  					p_rect->height  = ic->core.preedit_attr.area.height;
+  				} else {
+! 				        *return_name = p->name;
+  				        return(False);
+  				}
+  			}
++ 			*((XRectangle **)(p->value)) = p_rect;
+  		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+  			if(im_preedit_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_rect->x  = p_rect->y  = 0;
+  				p_rect->width   = preedit_data->AreaNeeded.width;
+  				p_rect->height  = preedit_data->AreaNeeded.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_AREANEED_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+  					p_rect->x  = p_rect->y  = 0;
+  					p_rect->width   = ic->core.preedit_attr.area_needed.width;
+  					p_rect->height  = ic->core.preedit_attr.area_needed.height;
+  				} else {
+! 				        *return_name = p->name;
+  				        return(False);
+  				}
+  			}
++ 			*((XRectangle **)(p->value)) = p_rect;
+  		} else if(strcmp(p->name, XNSpotLocation)==0) {
+  			if(im_preedit_flag) {
+! 				if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_point->x = preedit_data->SpotLocation.x;
+  				p_point->y = preedit_data->SpotLocation.y;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_SPOTL_MASK) {
+! 					if((p_point = (XPoint *)Xmalloc(sizeof(XPoint))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+  					p_point->x = ic->core.preedit_attr.spot_location.x;
+  					p_point->y = ic->core.preedit_attr.spot_location.y;
+  				} else {
+! 				        *return_name = p->name;
+  				        return(False);
+  				}
+  			}
++ 			*((XPoint **)(p->value)) = p_point;
+  		} else if(  strcmp(p->name, XNColormap)==0
+  		        || strcmp(p->name, XNStdColormap)==0) {
+  			if(im_preedit_flag) {
+! 			         *((Colormap *)(p->value)) = preedit_data->Colormap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_COLORMAP_MASK) {
+! 				         *((Colormap *)(p->value)) = ic->core.preedit_attr.colormap;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackground)==0) {
+  			if(im_preedit_flag) {
+! 			         *((unsigned long *)(p->value)) = preedit_data->Background;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.preedit_attr.background;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNForeground)==0) {
+  			if(im_preedit_flag) {
+! 			         *((unsigned long *)(p->value)) = preedit_data->Foreground;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_FG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.preedit_attr.foreground;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+  			if(im_preedit_flag) {
+! 			         *((Pixmap *)(p->value)) = preedit_data->Bg_Pixmap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_BGPIXMAP_MASK) {
+! 				         *((Pixmap *)(p->value)) = ic->core.preedit_attr.background_pixmap;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNFontSet)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_PRE_FONT_MASK) {
+! 			         *((XFontSet *)(p->value)) = ic->core.preedit_attr.fontset;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNLineSpace)==0) {
+  			if(im_preedit_flag) {
+! 			         *((int *)(p->value)) = preedit_data->LineSpacing;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_LINESP_MASK) {
+! 				         *((int *)(p->value)) = ic->core.preedit_attr.line_space;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNCursor)==0) {
+  			if(im_preedit_flag) {
+! 			         *((Cursor *)(p->value)) = preedit_data->Cursor;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_PRE_CURSOR_MASK) {
+! 				         *((Cursor *)(p->value)) = ic->core.preedit_attr.cursor;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNPreeditStartCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.start.callback) {
+! 
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.start.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.start.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditDrawCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.draw.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.draw.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.draw.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditDoneCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.done.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.done.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.done.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNPreeditCaretCallback)==0) {
+  			if((int)ic->core.preedit_attr.callbacks.caret.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.preedit_attr.callbacks.caret.client_data;
+  				p_callback->callback =
+  					ic->core.preedit_attr.callbacks.caret.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		}
+  	}
+! 	if( preedit_data )
+! 		XFree(preedit_data);
+  	return(True);
+  }
+  
+***************
+*** 389,408 ****
+  _Ximp_StatusGetAttributes(ic, vl, return_name)
+  	Ximp_XIC	 ic;
+  	XIMArg	 	*vl;
+! 	char		*return_name;
+  {
+  	XIMArg		*p;
+  	XRectangle	*p_rect;
+- 	XPoint		*p_point;
+- 	long		*p_long;
+  	unsigned long	 mask;
+  	int		 im_status_flag = 0;
+! 	int		 im_font_flag    = 0;
+! 	Ximp_StatusPropRec	*status_data;
+  	XIMCallback 	*p_callback;
+- 	XPointer	*xptr;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->inputserver) {
+  		for(mask = 0, p = vl; p->name != NULL; p++) {
+  			if(strcmp(p->name, XNArea)==0)
+  				mask |= XIMP_STS_AREA_MASK;
+--- 413,428 ----
+  _Ximp_StatusGetAttributes(ic, vl, return_name)
+  	Ximp_XIC	 ic;
+  	XIMArg	 	*vl;
+! 	char		**return_name;
+  {
+  	XIMArg		*p;
+  	XRectangle	*p_rect;
+  	unsigned long	 mask;
+  	int		 im_status_flag = 0;
+! 	Ximp_StatusPropRec	*status_data = NULL;
+  	XIMCallback 	*p_callback;
+  
+! 	if(((Ximp_XIM)ic->core.im)->ximp_impart->connectserver) {
+  		for(mask = 0, p = vl; p->name != NULL; p++) {
+  			if(strcmp(p->name, XNArea)==0)
+  				mask |= XIMP_STS_AREA_MASK;
+***************
+*** 422,429 ****
+  				mask |= XIMP_STS_LINESP_MASK;
+  			else if(strcmp(p->name, XNCursor)==0)
+  				mask |= XIMP_STS_CURSOR_MASK;
+- 			else if(strcmp(p->name, XNFontSet)==0)
+- 				im_font_flag = 1;
+  		}
+  		if(mask) {
+  			status_data = (Ximp_StatusPropRec *)_Ximp_GetRequestIM(ic, mask,
+--- 442,447 ----
+***************
+*** 437,443 ****
+  	for(p = vl; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNArea)==0) {
+  			if(im_status_flag) {
+! 				p_rect = (XRectangle *)(p->value) ;
+  				p_rect->x       = status_data->Area.x;
+  				p_rect->y       = status_data->Area.y;
+  				p_rect->width   = status_data->Area.width;
+--- 455,464 ----
+  	for(p = vl; p->name != NULL; p++) {
+  		if(strcmp(p->name, XNArea)==0) {
+  			if(im_status_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_rect->x       = status_data->Area.x;
+  				p_rect->y       = status_data->Area.y;
+  				p_rect->width   = status_data->Area.width;
+***************
+*** 444,604 ****
+  				p_rect->height  = status_data->Area.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREA_MASK) {
+! 					p_rect = (XRectangle *)(p->value) ;
+  					p_rect->x       = ic->core.status_attr.area.x;
+  					p_rect->y       = ic->core.status_attr.area.y;
+  					p_rect->width   = ic->core.status_attr.area.width;
+  					p_rect->height  = ic->core.status_attr.area.height;
+  				} else {
+! 				        return_name = p->name;
+  				        return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+  			if(im_status_flag) {
+! 				p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle));
+! 				xptr = (XPointer *)p->value;
+! 				*xptr = (XPointer)p_rect;
+  				p_rect->x  = p_rect->y  = 0;
+  				p_rect->width   = status_data->AreaNeeded.width;
+  				p_rect->height  = status_data->AreaNeeded.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREANEED_MASK) {
+! 					p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle));
+! 					xptr = (XPointer *)p->value;
+! 					*xptr = (XPointer)p_rect;
+  					p_rect->x  = p_rect->y  = 0;
+  					p_rect->width   = ic->core.status_attr.area_needed.width;
+  					p_rect->height  = ic->core.status_attr.area_needed.height;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(  strcmp(p->name, XNColormap)==0
+  		        || strcmp(p->name, XNStdColormap)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->Colormap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_COLORMAP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.colormap;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackground)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->Background;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_BG_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.background;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNForeground)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->Foreground;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_FG_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.foreground;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->Bg_Pixmap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_BGPIXMAP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.background_pixmap;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNFontSet)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_STS_FONT_MASK) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = (long)ic->core.status_attr.fontset;
+  			} else {
+! 				return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNLineSpace)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->LineSpacing;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_LINESP_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.line_space;
+  				} else {
+! 					return_name = p->name;
+  					return(False);
+  				}
+- 
+  			}
+  		} else if(strcmp(p->name, XNCursor)==0) {
+  			if(im_status_flag) {
+! 			         p_long = (long *)(p->value);
+! 				*p_long = status_data->Cursor;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_CURSOR_MASK) {
+! 				         p_long = (long *)(p->value);
+! 					*p_long = ic->core.status_attr.cursor;
+  				} else { 
+! 					return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNStatusStartCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.start.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.start.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.start.callback;
+  			} else {
+! 				return_name = p->name;
+! 				break;
+  			}
+  		} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.draw.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.draw.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.draw.callback;
+  			} else {
+! 				return_name = p->name;
+! 				break;
+  			}
+  		} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.done.callback) {
+! 			        p_callback = (XIMCallback *)(p->value) ;
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.done.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.done.callback;
+  			} else {
+! 				return_name = p->name;
+! 				break;
+  			}
+  		}
+  	}
+! 	XFree(status_data);
+  	return(True);
+  }
+  
+--- 465,631 ----
+  				p_rect->height  = status_data->Area.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREA_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+  					p_rect->x       = ic->core.status_attr.area.x;
+  					p_rect->y       = ic->core.status_attr.area.y;
+  					p_rect->width   = ic->core.status_attr.area.width;
+  					p_rect->height  = ic->core.status_attr.area.height;
+  				} else {
+! 				        *return_name = p->name;
+  				        return(False);
+  				}
+  			}
++ 			*((XRectangle **)(p->value)) = p_rect;
+  		} else if(strcmp(p->name, XNAreaNeeded)==0) {
+  			if(im_status_flag) {
+! 				if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_rect->x  = p_rect->y  = 0;
+  				p_rect->width   = status_data->AreaNeeded.width;
+  				p_rect->height  = status_data->AreaNeeded.height;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_AREANEED_MASK) {
+! 					if((p_rect = (XRectangle *)Xmalloc(sizeof(XRectangle))) == NULL) {
+! 						*return_name = p->name;
+! 						return(False);
+! 					}
+  					p_rect->x  = p_rect->y  = 0;
+  					p_rect->width   = ic->core.status_attr.area_needed.width;
+  					p_rect->height  = ic->core.status_attr.area_needed.height;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
++ 			*((XRectangle **)(p->value)) = p_rect;
+  		} else if(  strcmp(p->name, XNColormap)==0
+  		        || strcmp(p->name, XNStdColormap)==0) {
+  			if(im_status_flag) {
+! 			         *((Colormap *)(p->value)) = status_data->Colormap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_COLORMAP_MASK) {
+! 				         *((Colormap *)(p->value)) = ic->core.status_attr.colormap;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackground)==0) {
+  			if(im_status_flag) {
+! 			         *((unsigned long *)(p->value)) = status_data->Background;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_BG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.status_attr.background;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNForeground)==0) {
+  			if(im_status_flag) {
+! 			         *((unsigned long *)(p->value)) = status_data->Foreground;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_FG_MASK) {
+! 				         *((unsigned long *)(p->value)) = ic->core.status_attr.foreground;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNBackgroundPixmap)==0) {
+  			if(im_status_flag) {
+! 			         *((Pixmap *)(p->value)) = status_data->Bg_Pixmap;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_BGPIXMAP_MASK) {
+! 				         *((Pixmap *)(p->value)) = ic->core.status_attr.background_pixmap;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNFontSet)==0) {
+  			if(ic->ximp_icpart->proto_mask & XIMP_STS_FONT_MASK) {
+! 			         *((XFontSet *)(p->value)) = ic->core.status_attr.fontset;
+  			} else {
+! 				*return_name = p->name;
+  				return(False);
+  			}
+  		} else if(strcmp(p->name, XNLineSpace)==0) {
+  			if(im_status_flag) {
+! 			         *((int *)(p->value)) = status_data->LineSpacing;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_LINESP_MASK) {
+! 				         *((int *)(p->value)) = ic->core.status_attr.line_space;
+  				} else {
+! 					*return_name = p->name;
+  					return(False);
+  				}
+  			}
+  		} else if(strcmp(p->name, XNCursor)==0) {
+  			if(im_status_flag) {
+! 			         *((Cursor *)(p->value)) = status_data->Cursor;
+  			} else {
+  				if(ic->ximp_icpart->proto_mask & XIMP_STS_CURSOR_MASK) {
+! 				         *((Cursor *)(p->value)) = ic->core.status_attr.cursor;
+  				} else { 
+! 					*return_name = p->name;
+  					return(False);
+  			        }
+  			}
+  		} else if(strcmp(p->name, XNStatusStartCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.start.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.start.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.start.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+! 				return(False);
+  			}
+  		} else if(strcmp(p->name, XNStatusDrawCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.draw.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.draw.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.draw.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+! 				return(False);
+  			}
+  		} else if(strcmp(p->name, XNStatusDoneCallback)==0) {
+  			if((int)ic->core.status_attr.callbacks.done.callback) {
+! 				if((p_callback = (XIMCallback *)Xmalloc(sizeof(XIMCallback))) == NULL) {
+! 					*return_name = p->name;
+! 					return(False);
+! 				}
+  				p_callback->client_data =
+  					ic->core.status_attr.callbacks.done.client_data;
+  				p_callback->callback =
+  					ic->core.status_attr.callbacks.done.callback;
++ 				*((XIMCallback **)(p->value)) = p_callback;
+  			} else {
+! 				*return_name = p->name;
+! 				return(False);
+  			}
+  		}
+  	}
+! 	if( status_data )
+! 		XFree(status_data);
+  	return(True);
+  }
+  

@@ -1,0 +1,445 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: table.2,v $ $Revision: 1.1.4.2 $ (DEC) $Date: 1994/01/07 16:17:21 $
+.\"
+.\"
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.TH table 2
+.SH NAME
+\*Ltable\*O \- Examines or updates elements from a system table.
+.SH SYNOPSIS
+.PP
+.iX "table interface"
+.iX "system table"
+.sS
+\*L#include <sys/table.h>
+.sp
+\*Lint table(\*Vid\*L, \*Vindex\*L, \*Vaddr\*L, \*Vnel\*L, \*Vlel\*L)
+.nL
+	int \*Vid\*L;
+.nL
+	int \*Vindex\*L;
+.nL
+	char *\*Vaddr\*L;
+.nL
+	int \*Vnel\*L;
+.nL
+	u_int \*Vlel\*L;\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL 4m
+.LI "\*Vid\*O"
+The ID of the system table that contains the element or elements.
+.LI "\*Vindex\*O"
+The index of an element within the table.
+.LI "\*Vaddr\*O"
+The address of a \*Lstruct\*O (or a \*Lstruct\*O array) of the
+appropriate type to copy the element values to (on examine) or from (on
+update).  The various structure layouts are described in
+\*L/usr/include/sys/table.h\*O.
+.LI "\*Vnel\*O"
+A signed number that specifies how many elements to copy and in which
+direction.  A positive value copies the elements from the kernel to
+\*Vaddr\*O.  A negative value copies the elements from \*Vaddr\*O to the
+kernel.
+.LI "\*Vlel\*O"
+The expected size of a single element.
+.LE
+.SH DESCRIPTION
+.PP
+The \*Ltable\*O(\|) interface is used to examine or update one or more elements
+in the system table.  The system table is specified by \*Vid\*O and the
+starting element is specified by \*Vindex\*O.
+.PP
+The \*Ltable\*O(\|) interface copies the element value or values to or from
+the specified \*Vaddr\*O.  The \*Vnel\*O parameter specifies the number
+of elements to copy, starting from \*Vindex\*O.  A positive value indicates
+an examine operation.  The elements are copied from the kernel to \*Vaddr\*O.
+A negative value indicates an update operation.  The elements are copied
+from \*Vaddr\*O to the kernel.
+.PP
+The \*Vlel\*O parameter specifies the expected element size.  If multiple
+elements are specified, successive addresses are calculated for \*Vaddr\*O
+by incrementing it by \*Vlel\*O for each element copied.  If the size of a
+given element is larger than \*Vlel\*O, \*Ltable\*O(\|) truncates excess
+data on an update (from \*Vaddr\*O to the kernel) and stores only the
+expected size on an examine (from the kernel to \*Vaddr\*O).  If the size
+of a given element is smaller than \*Vlel\*O, \*Ltable\*O(\|) copies only
+the valid data on an update and pads the element value on an examine.
+.PP
+The \*Ltable\*O(\|) interface guarantees that an update operation will not
+change the offset and size of any field within an element.  New fields
+are added only at the end of an element.
+.PP
+The \*Ltable\*O(\|) interface returns a count of the elements examined or
+updated.  To determine the actual number of elements in a table before
+requesting any data, call \*Ltable\*O(\|) with \*Vlel\*O set to zero (0)
+and \*Vnel\*O to the maximum positive integer.
+.PP
+The \*Vid\*O parameter must specify one of the following tables:
+.VL 4m
+.LI "TBL_U_TTYD"
+The controlling terminal device number table.  The index is by process ID
+and exactly one element can be requested.  If the process ID is zero (0),
+the current process is indexed.  Only 0 and the current process ID are
+supported.  The element is of type \*Ldev_t\*O as defined in
+\*L<sys/types.h>\*O.  This table is examine only.  It cannot be updated.
+.LI "TBL_UAREA"
+The \*LU-area\*O table.  The index is by process ID.  See the \*Luser.h\*O
+header file for the (pseudo) \*Lstruct user\*O that is returned.
+.LI "TBL_LOADAVG"
+The system load average vector (pseudo) table.  The index must be zero (0)
+and exactly one element can be requested.  The element has the following
+structure:
+.IP
+.oS
+\*Lstruct tbl_loadavg{
+        union {
+                long   tl_lavenrun[3];
+                double tl_davenrun[3];
+        } tl-un;
+        int     tl_lscale;
+        long    tl_mach_factor[3];
+};\*O
+.oE
+.IP
+If the scale is zero (0), the load average vector is the floating point
+variant.  If the size is non-zero, the load average vector has been scaled
+by the indicated factor (typically 1000) to produce the long integer variant.
+.IP
+This table is examine only.  It cannot be updated.
+.LI "TBL_INCLUDE_VERSION"
+The system include file version number (pseudo) table.  The index must be
+zero (0) and exactly one element can be requested.  The include version is a
+unique integer.  It identifies the layout of kernel data structures that
+are imported by certain kernel-dependent programs.  This table is examine
+only.  It cannot be updated.
+.LI "TBL_ARGUMENTS"
+The process command argument table containing the saved arguments for
+processes.  The index is by process ID and exactly one element can be
+requested.  Arguments for processes other than the current process can be
+accessed only by the superuser.  This table is examine only.  It cannot be
+updated.
+.LI "TBL_MAXUPRC"
+The maximum process count per user ID table.  The index is by process ID
+and exactly one element can be requested.  If the process ID is zero (0),
+the current process is indexed.  Only 0 and the current process ID are
+supported.  The element is of the short integer type.
+.IP
+The maximum count includes all processes running under the current user ID
+even though the limit affects only the current process and any children
+created with that limit in effect.  The limit can be changed only by the
+superuser.
+.LI "TBL_PROCINFO"
+The process status information table.  The index is by process ID.  Status
+information for processes other than the current process can be accessed
+only by the superuser.  This table is examine only.  It cannot be updated.
+Each element is a \*Ltbl_procinfo\*O structure defined, as follows:
+.IP
+.oS
+\*L#define PI_COMLEN        19
+                /* length of command name */
+struct tbl_procinfo {
+    int    pi_uid;          /* user ID */
+    int    pi_pid;          /* proc ID */
+    int    pi_ppid:         /* parent proc ID */
+    int    pi_pgrp;         /* proc group ID */
+    int    pi_ttyd;
+                /* controlling terminal number */
+    int    pi_status;       /* process status: */
+#define PI_EMPTY         0  /* - no process */
+#define PI_ACTIVE        1  /* - active process */
+#define PI_EXITING       2  /* - exiting */
+#define PI_ZOMBIE        3  /* - zombie */
+    int    pi_flag;         /* other random flags */
+    char   pi_comm[PI_COMLEN+l];
+                            /* short command name */
+    int    pi_ruid;         /* (real) user ID */
+    int    pi_svuid;
+                /* saved (effective) user ID */
+    int    pi_rgid;         /* (real) group ID */
+    int    pi_svgid;
+                /* saved (effective) group ID */
+    int    pi_session;      /* session ID */
+    int    pi_tpgrp;        /* tty pgrp */
+    int    pi_tsession;     /* tty session ID */
+    int    pi_jobc;
+                /* # of procs qualifying for job control */
+    int    pi_cursig;
+    int    pi_sig;          /* signals pending */
+    int    pi_sigmask;      /* current signal mask */
+    int    pi_sigignore
+                /* signals being ignored */
+    int    pi_sigcatch;
+                /* signals being caught by user */
+};\*O
+.oE
+.LI "TBL_ENVIRONMENT"
+The process environment table.  The index is by process ID and exactly one
+element can be requested.  Environment information for processes other than
+the current process can be accessed only by the superuser.  This table is
+examine only.  It cannot be updated.
+.LI "TBL_SYSINFO"
+The system time information table.  The index must be zero (0) and exactly
+one element can be requested.  The system information table contains ticks
+of time accumulated in the various system states: user, nice, system, and
+idle.  The system tick frequency and profiling (if configured) frequency
+are also provided for conversion from ticks to time values.  This table is
+examine only.  It cannot be updated.  The element has the following structure:
+.IP
+.oS
+\*Lstruct tbl_sysinfo {
+    long    si_user;       /* user time */
+    long    si_nice;       /* nice time */
+    long    si_sys;        /* system time */
+    long    si_idle;       /* idle time */
+    long    si_hz;
+                /* system clock ticks per second */
+    long    si_phz;
+                /* system profile clock (if used) */
+    long    si_boottime;   /* boot time in seconds */
+};\*O
+.oE
+.LI "TBL_DKINFO"
+The disk statistics table.  The index is by disk number.  This table is
+examine only.  It cannot be updated.  The element has the following structure:
+.IP
+.oS
+\*L#define DI_NAMESZ      8
+struct tbl_dkinfo {
+    int    di_ndrive;
+        /* max number of disks providing statistics */
+    int    di_busy;
+        /* bit mask of disks currently busy */
+    long   di_time;
+        /* amount of time requested disk is busy */
+    long   di_seek;
+        /* number of seeks for requested disk */
+    long   di_xfer;
+        /* number of data transfer operations */
+    long   di_wds;
+        /* number of words transferred */
+    long   di_wpms;
+        /* words transferred per millisecond */
+    int    di_unit;
+        /* disk unit */
+    char   di_name[DI_NAMESZ+1];
+        /* disk name */
+};\*O
+.oE
+.LI "TBL_SWAPINFO"
+The system swap device list information table. This table is examine only.  It
+cannot be updated. If the index is positive or zero (0), the swap device
+information for the entry in the swap device list is returned.
+.IP
+If the index is less than zero (0), the amount of total swap space configured
+and amount of total free space on the system is returned. In addition, the
+\*Lflags\*O field contains the value of vm_swap_eager flag and the \*Ldev\*O
+fiels contains the lazy swap device number (if lazy swap) or zero (0) (if eager
+swap).
+.IP
+The element has the following structure:
+.IP
+.oS
+\*Lstruct tbl_swapinfo {
+     int    flags;
+	/* holds vm_swap_eager value, when indx > 0 */
+     int    size;      /*swap size */
+     int    free;      /* free space */
+     dev_t  dev;       /*device major-minor number  */
+     ino_t  ino;       /* inode. For future use.  */
+};\*O
+.oE
+.LI "TBL_TTYINFO"
+The TTY statistics table.  The index must be zero (0) and exactly one
+element can be requested.  This table is examine only.  It cannot be
+updated.  The element has the following structure:
+.IP
+.oS
+\*Lstruct tbl_ttyinfo {
+    long    ti_nin;
+        /* number of characters input */
+    long    ti_nout;
+        /* number of characters output */
+    long    ti_cancc;
+        /* portion of input chars on CANNON queue */
+    long    ti_rawcc;
+        /* portion of input chars on RAW queue */
+};\*O
+.oE
+.LI "TBL_MSGDS"
+The message queue ID table.  The index is the index into the queue array.
+Each element is a \*Lmsqid_ds\*O structure as defined in \*Lmsqid_ds\*O(\|).
+This table is examine only.  Its elements cannot be updated.
+.LI "TBL_SEMDS"
+The semaphore ID table.  The index is the index into the array of semaphore
+IDs.  Each element is a \*Lsemid_ds\*O structure as defined in
+\*Lsemid_ds\*O(\|).  This table is examine only.  Its elements cannot be
+updated.
+.LI "TBL_SHMDS"
+The shared memory region ID table.  The index is the index into the array
+of shared memory region IDs.  Each element is a \*Lshmid_ds\*O structure
+as defined in \*Lshmid_ds\*O(\|).  This table is examine only.  Its
+elements cannot be updated.
+.LI "TBL_MSGINFO"
+The message information table.  This table is examine only.  Its elements
+cannot be updated.  The message information structure is defined in
+\*L<sys/msg.h>\*O, as follows:
+.IP
+.oS
+\*Lstruct msginfo {
+    int    msgmax;
+                /* max message size */
+    int    msgmnb;
+                /* max number of bytes on queue */
+    int    msgmni;
+                /* number of message queue IDs */
+    int    msgtql;
+                /* number of system message headers */
+};\*O
+.oE
+.IP
+The index is by field positions within the message information structure,
+as follows:
+.VL 4m
+.LI "MSGINFO_MAX"
+The maximum message size
+.LI "MSGINFO_MNB"
+The maximum number of bytes on the queue
+.LI "MSGINFO_MNI"
+The number of message queue identifiers
+.LI "MSGINFO_TQL"
+The number of system message headers
+.LE
+.LI "TBL_SEMINFO"
+The semaphore information table.  This table is examine only.  It cannot be
+updated.  The semaphore information structure is defined in \*L<sys/sem.h>\*O
+as follows:
+.IP
+.oS
+\*Lstruct seminfo {
+    int    semmni;    /* number of semaphore IDs */
+    int    semmsl;    /* max # of semaphores per ID */
+    int    semopm;
+                /* max # of operations per semop call */
+    int    semume;
+                /* max # of undo entries per process */
+    int    semvmx;    /* semaphore maximum value */
+    int    semaem;    /* adjust on exit max value */
+};\*O
+.oE
+.IP
+The index is by field position within the semaphore information structure
+as follows:
+.VL 4m
+.LI "SEMINFO_MNI"
+The number of semaphore identifiers
+.LI "SEMINFO_MSL"
+The maximum number of semaphores per identifier
+.LI "SEMINFO_OPM"
+The maximum number of operations per \*Lsemop\*O(\|) call
+.LI "SEMINFO_UME"
+The maximum number of undo entries per process
+.LI "SEMINFO_VMX"
+The semaphore maximum value
+.LI "SEMINFO_AEM"
+The maximum adjust on exit value
+.LE
+.LI "TBL_SHMINFO"
+The shared memory information table.  This table is examine only.  It
+cannot be updated.  The shared memory information structure is defined in
+\*L<sys/shm.h>\*O, as follows:
+.IP
+.oS
+\*Lstruct shminfo {
+    int    shmmax;
+        /* max shared memory segments size */
+    int    shmmin;
+        /* min shared memory segments size */
+    int    shmmni;
+        /* number of shared memory IDs */
+    int    shmseg;
+        /* max attached shared memory segments per process */
+};\*O
+.oE
+.IP
+The index is by field position within the shared memory information structure,
+as follows:
+.IP
+.VL 4m
+.LI "SHMINFO_MAX"
+The maximum shared memory region size
+.LI "SHMINFO_MIN"
+The minimum shared memory region size
+.LI "SHMINFO_MNI"
+The number of shared memory identifiers
+.LI "SHMINFO_SEG"
+The maximum number of attached shared memory regions per process
+.LE
+.LI "TBL_INTR"
+The system interrupt information table.  There is no index into the table.
+This table is examine only.  It cannot be updated.  The system interrupt
+structure is defined in \*L<sys/table.h>\*O, as follows:
+.IP
+.oS
+\*Lstructure tbl_intr {
+    long    in_devintr;
+                /* device interrupts (non-clock) */
+    long    in_context;     /* context switches */
+    long    in_syscalls;    /* system calls */
+    long    in_forks;       /* forks */
+    long    in_vforks;      /* Vforks */
+};\*O
+.oE
+.LE
+.SH RETURN VALUES
+.PP
+A positive return value indicates that the call succeeded for that number
+of elements.  A return value of \-1 indicates that an error occurred, and
+an error code is stored in the global location \*Lerrno\*O.
+.SH ERRORS
+.PP
+.VL 4m
+.LI "[EFAULT]"
+The \*Vaddr\*O parameter specifies an invalid address.
+.LI "[EINVAL]"
+The table specified by \*Vid\*O is not defined.
+.LI "[EINVAL]"
+The \*Vindex\*O value is not valid for the specified table.
+.LI "[EINVAL]"
+The specified table allows only an index of the current process ID with
+exactly one element.  Some other index or element number was specified.
+.LI "[EINVAL]"
+An element length of zero (0) was supplied for the TBL_ARGUMENTS table.
+.LI "[EINVAL]"
+An attempt was made to update an examine-only table.
+.LI "[EPERM]"
+An attempt was made to change the maximum number of processes or
+the account ID, and the caller was not the superuser.
+.LI "[ESRCH]"
+The process specified by a process ID index cannot be found.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lacct\*O(2)
+.EQ
+delim off
+.EN

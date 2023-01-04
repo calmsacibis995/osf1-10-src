@@ -1,0 +1,108 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112172233.AA13718@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2275) Close XBUG #4624: server: software cursor motion history manhattanized
+Date: Tue, 17 Dec 91 17:33:44 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4624
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1a13688	Tue Dec 17 17:29:27 1991
+--- server/ddx/mi/mipointer.c	Tue Dec 17 17:29:19 1991
+***************
+*** 2,8 ****
+   * mipointer.c
+   */
+  
+! /* $XConsortium: mipointer.c,v 5.15 91/07/24 14:26:18 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+--- 2,8 ----
+   * mipointer.c
+   */
+  
+! /* $XConsortium: mipointer.c,v 5.16 91/12/17 17:28:56 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+***************
+*** 432,439 ****
+  {
+      SetupScreen(miPointer.pScreen);
+      xEvent		xE;
+!     miHistoryPtr	history;
+!     int			end, start;
+      Bool		isnoninterest;
+  
+      if (!pScreenPriv->waitForUpdate && pScreen == miPointer.pScreen)
+--- 432,439 ----
+  {
+      SetupScreen(miPointer.pScreen);
+      xEvent		xE;
+!     miHistoryPtr	history, prevHistory;
+!     int			prev, end, start;
+      Bool		isnoninterest;
+  
+      if (!pScreenPriv->waitForUpdate && pScreen == miPointer.pScreen)
+***************
+*** 456,475 ****
+      miPointer.y = y;
+      miPointer.pScreen = pScreen;
+      end = miPointer.history_end;
+!     history = &miPointer.history[end];
+      history->event.x = x;
+      history->event.y = y;
+      history->event.time = time;
+      history->pScreen = pScreen;
+-     if (++end == MOTION_SIZE) 
+- 	end = 0;
+-     if (end == miPointer.history_start)
+-     {
+- 	if ((start = end + 1) == MOTION_SIZE)
+- 	    start = 0;
+- 	miPointer.history_start = start;
+-     }
+-     miPointer.history_end = end;
+  }
+  
+  void
+--- 456,484 ----
+      miPointer.y = y;
+      miPointer.pScreen = pScreen;
+      end = miPointer.history_end;
+!     start = miPointer.history_start;
+!     prev = end - 1;
+!     if (end == 0)
+! 	prev = MOTION_SIZE - 1;
+!     history = &miPointer.history[prev];
+!     if (end == start || history->event.time != time)
+!     {
+!     	history = &miPointer.history[end];
+!     	if (++end == MOTION_SIZE) 
+! 	    end = 0;
+!     	if (end == start)
+!     	{
+! 	    start = end + 1;
+! 	    if (start == MOTION_SIZE)
+! 	    	start = 0;
+! 	    miPointer.history_start = start;
+!     	}
+!     	miPointer.history_end = end;
+!     }
+      history->event.x = x;
+      history->event.y = y;
+      history->event.time = time;
+      history->pScreen = pScreen;
+  }
+  
+  void

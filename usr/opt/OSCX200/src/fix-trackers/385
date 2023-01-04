@@ -1,0 +1,159 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207241543.AA06813@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2613) close XBUG #5401: Xlib: extension error printing could be better
+Date: Fri, 24 Jul 92 11:43:22 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5401
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d06769	Fri Jul 24 11:41:25 1992
+--- lib/X/XlibInt.c	Thu Jul 23 19:19:14 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XlibInt.c,v 11.161 92/01/27 09:29:07 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+--- 1,5 ----
+  /*
+!  * $XConsortium: XlibInt.c,v 11.162 92/07/23 19:18:37 rws Exp $
+   */
+  
+  /* Copyright    Massachusetts Institute of Technology    1985, 1986, 1987 */
+***************
+*** 1464,1469 ****
+--- 1464,1470 ----
+      char number[32];
+      char *mtype = "XlibMessage";
+      register _XExtension *ext = (_XExtension *)NULL;
++     _XExtension *bext = (_XExtension *)NULL;
+      XGetErrorText(dpy, event->error_code, buffer, BUFSIZ);
+      XGetErrorDatabaseText(dpy, mtype, "XError", "X Error", mesg, BUFSIZ);
+      (void) fprintf(fp, "%s:  %s\n  ", mesg, buffer);
+***************
+*** 1508,1523 ****
+  	    if (ext->error_string) 
+  		(*ext->error_string)(dpy, event->error_code, &ext->codes,
+  				     buffer, BUFSIZ);
+! 	    if (buffer[0])
+  		break;
+  	}    
+! 	if (buffer[0])
+! 	    sprintf(buffer, "%s.%d", ext->name,
+! 		    event->error_code - ext->codes.first_error);
+! 	else
+! 	    strcpy(buffer, "Value");
+! 	XGetErrorDatabaseText(dpy, mtype, buffer, "", mesg, BUFSIZ);
+! 	if (*mesg) {
+  	    (void) fprintf(fp, mesg, event->resourceid);
+  	    fputs("\n  ", fp);
+  	}
+--- 1509,1532 ----
+  	    if (ext->error_string) 
+  		(*ext->error_string)(dpy, event->error_code, &ext->codes,
+  				     buffer, BUFSIZ);
+! 	    if (buffer[0]) {
+! 		bext = ext;
+  		break;
++ 	    }
++ 	    if (ext->codes.first_error &&
++ 		ext->codes.first_error < event->error_code &&
++ 		(!bext || ext->codes.first_error > bext->codes.first_error))
++ 		bext = ext;
+  	}    
+! 	mesg[0] = '\0';
+! 	if (bext) {
+! 	    sprintf(buffer, "%s.%d", bext->name,
+! 		    event->error_code - bext->codes.first_error);
+! 	    XGetErrorDatabaseText(dpy, mtype, buffer, "", mesg, BUFSIZ);
+! 	}
+! 	if (!mesg[0])
+! 	    XGetErrorDatabaseText(dpy, mtype, "Value", "", mesg, BUFSIZ);
+! 	if (mesg[0]) {
+  	    (void) fprintf(fp, mesg, event->resourceid);
+  	    fputs("\n  ", fp);
+  	}
+*** /tmp/d06788	Fri Jul 24 11:41:37 1992
+--- lib/X/XErrDes.c	Thu Jul 23 19:18:13 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XErrDes.c,v 11.45 91/05/04 14:02:29 rws Exp $
+   */
+  
+  /***********************************************************
+--- 1,5 ----
+  /*
+!  * $XConsortium: XErrDes.c,v 11.46 92/07/23 19:17:33 rws Exp $
+   */
+  
+  /***********************************************************
+***************
+*** 73,80 ****
+      char *buffer;
+      int nbytes;
+  {
+!     char buf[32];
+      register _XExtension *ext;
+  
+      if (nbytes == 0) return;
+      if (code <= BadImplementation && code > 0) {
+--- 73,81 ----
+      char *buffer;
+      int nbytes;
+  {
+!     char buf[150];
+      register _XExtension *ext;
++     _XExtension *bext = (_XExtension *)NULL;
+  
+      if (nbytes == 0) return;
+      if (code <= BadImplementation && code > 0) {
+***************
+*** 82,94 ****
+  	XGetErrorDatabaseText(dpy, "XProtoError", buf, _XErrorList[code],
+  			      buffer, nbytes);
+      } else
+! 	sprintf(buffer, "%d", code);
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+   	if (ext->error_string != NULL) 
+   	    (*ext->error_string)(dpy, code, &ext->codes, buffer, nbytes);
+   	ext = ext->next;
+      }    
+      return;
+  }
+  
+--- 83,105 ----
+  	XGetErrorDatabaseText(dpy, "XProtoError", buf, _XErrorList[code],
+  			      buffer, nbytes);
+      } else
+! 	buffer[0] = '\0';
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+   	if (ext->error_string != NULL) 
+   	    (*ext->error_string)(dpy, code, &ext->codes, buffer, nbytes);
++ 	if (ext->codes.first_error &&
++ 	    ext->codes.first_error < code &&
++ 	    (!bext || ext->codes.first_error > bext->codes.first_error))
++ 	    bext = ext;
+   	ext = ext->next;
+      }    
++     if (!buffer[0] && bext) {
++ 	sprintf(buf, "%s.%d", bext->name, code - bext->codes.first_error);
++ 	XGetErrorDatabaseText(dpy, "XProtoError", buf, "", buffer, nbytes);
++     }
++     if (!buffer[0])
++ 	sprintf(buffer, "%d", code);
+      return;
+  }
+  

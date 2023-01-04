@@ -1,0 +1,149 @@
+/**/# 
+/**/# *****************************************************************
+/**/# *                                                               *
+/**/# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+/**/# *                                                               *
+/**/# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+/**/# *   the copyright laws of the United States.                    *
+/**/# *                                                               *
+/**/# *   The software contained on this media  is  proprietary  to   *
+/**/# *   and  embodies  the  confidential  technology  of  Digital   *
+/**/# *   Equipment Corporation.  Possession, use,  duplication  or   *
+/**/# *   dissemination of the software and media is authorized only  *
+/**/# *   pursuant to a valid written license from Digital Equipment  *
+/**/# *   Corporation.                                                *
+/**/# *                                                               *
+/**/# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+/**/# *   by the U.S. Government is subject to restrictions  as  set  *
+/**/# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+/**/# *   or  in  FAR 52.227-19, as applicable.                       *
+/**/# *                                                               *
+/**/# *****************************************************************
+/**/#
+
+#ifndef SFBMODEL_PROJ
+#define SFBMODEL_PROJ
+
+MODEL_WB_SRCS = wb.c
+MODEL_WB_OBJS = $(MODEL_WB_SRCS:.c=.o)
+#ifdef AlphaArchitecture
+swb:= MODEL_WB_FLAG = -DWB_MODEL
+sowb:= MODEL_WB_FLAG = -DWB_MODEL
+#else
+#ifdef WB_MODEL
+MODEL_WB_FLAG = -DWB_MODEL
+#endif
+#endif
+
+MODEL_SRCS_LOC = vram.c model_color.c
+MODEL_OBJS_LOC = $(MODEL_SRCS_LOC:.c=.o)
+MODELINCS = .
+#ifdef AlphaArchitecture
+model:= MODELINCS = model
+model:= MODEL_FLAG = -DSOFTWARE_MODEL
+#else
+#ifdef SOFTWARE_MODEL
+MODELINCS = model
+MODEL_FLAG = -DSOFTWARE_MODEL
+#endif
+#endif
+
+MODEL_OBJS_TMP = $(MODEL_OBJS_LOC) \
+		model/rsmBusInterface.o \
+		model/BehRAM.o \
+		model/beh.o \
+		model/zbeh.o \
+		model/wrapper.o \
+		model/parts.o \
+		model/tables.o \
+		model/MemBeh.o
+#ifdef AlphaArchitecture
+model:= MODEL_OBJS = $(MODEL_OBJS_TMP)
+#else
+#ifdef SOFTWARE_MODEL
+MODEL_OBJS = $(MODEL_OBJS_TMP)
+#endif
+#endif
+
+MODEL_SRC = \
+	model/BusInterface.c \
+	model/zbeh.c  \
+	model/MemBeh.c  \
+	model/BehRAM.c  \
+	model/beh.c  \
+	model/tables.c \
+	model/wrapper.c \
+	model/parts.c \
+	model/beh/AddrCtl_parts.c \
+	model/beh/BehAdder16_parts.c \
+	model/beh/BehAdder_parts.c \
+	model/beh/BehDecr_parts.c \
+	model/beh/BehIncr_parts.c \
+	model/beh/BehRAM16x9_parts.c \
+	model/beh/BehRAM8x72_parts.c \
+	model/beh/BehRAM8x36_parts.c \
+	model/beh/BuildOpMask_parts.c \
+	model/beh/BusyLogic_parts.c \
+	model/beh/BytesToWord_parts.c \
+	model/beh/Dither_parts.c \
+	model/beh/Drom_parts.c \
+	model/beh/FindFirstOf4_parts.c \
+	model/beh/FindFirstSet_parts.c \
+	model/beh/MakeMask_parts.c \
+	model/beh/MakeStipple_parts.c \
+	model/beh/MemIntfc_parts.c \
+	model/beh/MemReqCvt_parts.c \
+	model/beh/MoreThan1_parts.c \
+	model/beh/PixelGenControlNoLoop_parts.c \
+	model/beh/PrintDmaWrite_parts.c \
+	model/beh/PrintError_parts.c \
+	model/beh/PrintReq_parts.c \
+	model/beh/PrintXY_parts.c \
+	model/beh/Reduce_parts.c \
+	model/beh/StripHigh_parts.c \
+	model/beh/Watch_parts.c \
+	model/beh/WordToBytes_parts.c \
+	model/beh/WriteBufferCtl_parts.c \
+	model/beh/sComparitor_parts.c 
+
+mflag: $(MODEL_SRC)
+	cd model; make libSim.a
+	touch mflag
+
+#if 0
+/**/#
+/**/# The indirection from "modelTarget" to flags is made necessary by the way
+/**/# dependencies are evaluated by make (this may be os dependent): We need
+/**/# to make sure that the actions specified under the various flags get
+/**/# executed before anything else happens.  E.g., if we just make "modelTarget"
+/**/# dependent on "MODEL_SRC", "mflag" gets executed way late. -peterv
+/**/#
+#endif
+
+modelTarget: dflag mflag
+	touch modelTarget
+
+#if 0
+depend:: $(LGISRC)/devinit/$(LGI_HOST_ARCH)/libdevinit.a
+
+$(LGISRC)/devinit/$(LGI_HOST_ARCH)/libdevinit.a:
+	-/bin/csh -f makelibdev $(LGISRC) devinit/$(LGI_HOST_ARCH)
+#endif
+
+sflag: Makefile.pxg
+	cd ../pxg ; make Makefile -f ../ffb/Makefile.pxg ; make includes
+	touch sflag
+
+mclean:
+	-rm -f *.a *.so
+
+all::	$(MODEL_OBJS_LOC) $(MODEL_WB_OBJS)
+
+model::	mflag all
+
+swb::	all
+sowb::	lib_dec_ffb.so
+
+#endif /* SFBMODEL_PROJ */
+/**/# 
+/**/# HISTORY

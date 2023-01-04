@@ -1,0 +1,260 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: presto.8,v $ $Revision: 3.2.6.4 $ (DEC) $Date: 1993/11/22 15:30:52 $
+.\"
+.TH presto 8
+.SH NAME
+presto \- controls and monitors the Prestoserve file system accelerator
+.SH SYNOPSIS
+.PP
+.B /usr/sbin/presto
+[
+\f2flags\f1
+]
+.SH DESCRIPTION
+.PP
+.iX "presto command"
+The \*Lpresto\*O command allows you to accelerate file systems,
+obtain Prestoserve status, and administer Prestoserve.
+.PP
+If invoked with no flags, \*Lpresto\*O displays
+the Prestoserve state (either UP, DOWN, or ERROR),
+the number of bytes of nonvolatile memory the Prestoserve cache is using,
+how long the cache has been enabled, the write cache efficiency, and
+the state of the backup battery or batteries.
+.PP
+When the Prestoserve state is UP, Prestoserve
+improves I/O performance to accelerated file systems
+by caching synchronous disk write operations to nonvolatile memory.
+.PP
+When the Prestoserve state is DOWN,
+all I/O requests are passed to the appropriate disks.
+.PP
+If it detects a disk error during a write back, Prestoserve
+enters the ERROR state and disables itself.  However, Prestoserve
+continues to maintain the integrity of cached data.  Some possible disk
+error conditions are:  the disk drive is write protected or off line,
+a cable problem exists, or a bad disk block exists.
+.PP
+Also, if there is insufficient backup battery power,
+Prestoserve will enter the ERROR state.
+.SH FLAGS
+.PP
+.IP "\-d [\f2filesystem...\f1]"
+Disables Prestoserve and writes the Prestoserve cache data to the intended
+disks.  Only those file systems specified by
+\f2filesystem\f1 are disabled.  You specify \f2filesystem\f1 as a
+directory mount point (for example, \*L/usr\*O).  Do not specify a block
+device because some functional subsystems, such as the
+Advanced File System (advfs), can map more than one block device to
+a mount point.  If no file systems
+are specified, all accelerated file systems are disabled, and the
+Prestoserve state is set to DOWN.
+.IP
+This flag does not reset Prestoserve statistics.
+.IP
+The \f3\-d\f1 flag takes effect before the \f3\-u\f1 or \f3\-R\f1
+flags.
+.IP "\-D [\f2filesystem...\f1]"
+Similar to the \*L\-d\*O flag, but sets the Prestoserve state to DOWN only if
+the specified directory is the root of a mounted file system.
+Otherwise, the following message is displayed:
+.oS
+presto: directory is not a file system root
+.oE
+.IP "\-F"
+Writes the Prestoserve cache data to the intended disks,
+but leaves the cache data intact.
+.IP
+If the flag is used and the Prestoserve state is UP, then the cache
+data is written to the intended disks, and the state remains UP.
+If the Prestoserve state is
+DOWN, then there is no data to write to the disks, and the state remains
+DOWN.  If the state is ERROR, then as much of the cache data as possible is
+written to the intended disks.
+.IP
+Note that unlike the \f3\-R\f1
+flag, the data in the Prestoserve cache remains after it is written to
+the intended disks.
+.IP "\-h \f2hostname\f1"
+Invokes the specified operations on the remote machine \f2hostname\f1 by
+using an RPC protocol.  You can use the \f3\-h\f1 flag with other
+\*Lpresto\*O command flags, but the protocol does not support the
+\f3\-R\f1 or \f3\-L\f1
+flags.  The remote machine must be running the \*Lprestoctl_svc\*O
+daemon to allow the use of the \f3\-h\f1 flag.  However,
+the remote machine must be running \*Lprestoctl_svc\*O with the
+\*L\-n\*O flag to allow the use of the
+\f3\-h\f1 flag and the \f3\-u,\f1 \f3\-d,\f1
+and \f3\-s\f1 administrative flags.
+See \*Lprestoctl_svc\*O(8) for more details.
+.IP \-l
+Lists the accelerated file systems and their mount points in a format
+similar to the \*Lmount\*O command.  This
+flag can be used with either NFS client or server machines.
+.IP "\-L"
+Lists all local and remote mounted file systems and their mount points
+that have been accelerated.  Any unusual
+Prestoserve state for a file system is displayed after the mount point.
+The unusual states include:
+.RS
+.IP bounceio 10
+Instead of directly accessing the nonvolatile memory, the
+file system's device receives the Prestoserve data
+only after the data is first copied to main memory.
+.IP disabled 10
+Prestoserve acceleration is not enabled on the file system.
+.IP error 10
+An error occurred using the file system,
+and the Prestoserve cache data has still not been written successfully
+to the intended disks.
+.RE
+.IP "\-p"
+Displays Prestoserve information.  The information includes
+the current Prestoserve state; the statistics for write,
+read, and total operations; and battery status.  For example:
+.oS
+# /usr/sbin/presto -p
+dirty = 52, clean = 7, inval = 0, active = 2
+       count hit rate clean hits dirty hits allocations passes
+write:  1516      65%          0        989         511     15
+ read:     8       0%          0          0           0      8
+total:  1524      65%          0        989         511     23
+state = UP, size = 0x7e000 bytes
+statistics interval: 00:00:13  (13 seconds)
+write cache efficiency: 66%
+All batteries are ok
+.oE
+.IP
+The current Prestoserve statistics account for all Prestoserve buffers.
+A dirty buffer contains a disk block image that has not been written
+to disk.  A clean buffer contains a valid disk block image that has been
+written to disk.  An inval buffer does not presently contain a disk block
+image.  An active buffer is currently in transition to
+disk, meaning that a write operation has started but has not completed on
+that buffer.
+.IP
+For each Prestoserve cache read or write operation, Prestoserve increments
+a counter:
+.RS
+.IP \(bu 4
+The clean hits counter shows the number of hits (block matches) on the clean
+buffers.
+.IP \(bu 4
+The dirty hits counter shows the number of hits on the
+dirty buffers.  Each dirty hit represents a physical
+disk write that was avoided entirely.
+.IP \(bu 4
+The allocations counter shows the number of new buffers that had to be allocated
+for disk block images.
+.IP \(bu 4
+The passes counter shows the number of I/O operations that Prestoserve
+passed directly to the real device driver.
+.RE
+.IP
+In addition, for each Prestoserve cache read or write operation, the
+\*Lpresto \-p\*O command displays the count,
+which is the sum of the four counters
+explained previously; the hit
+rate percentage, which is the ratio of clean hits
+and dirty hits to the total count and which indicates the
+effectiveness of the Prestoserve cache; and the write cache efficiency
+percentage, which is computed from the ratio of
+write dirty hits to the number of writes copied into the Prestoserve cache.
+.IP
+The \*Lpresto \-p\*O command also displays information about the Prestoserve
+battery state.  The command displays the battery state as \*LOK\*O,
+\*Llow\*O, or \*Ldisabled\*O.
+.IP
+Some processors support chargeable
+batteries and use self tests to determine if a battery needs charging.
+If you use the \*Lpresto \-p\*O command on a machine that
+supports chargeable batteries and is running Prestoserve locally, the
+battery state can also be \*Lin self test\*O or \*Lis charging\*O.
+Note that if you use the \*L\-p\*O flag with the \*L\-h\*O flag (or
+if you use the \*Ldxpresto\*O command,
+batteries that are being self tested or charged will
+be displayed as \*Ldisabled\*O.
+.IP \-R
+Writes as much of the Prestoserve cache data as possible to disk,
+discards the data it could not write, purges all the Prestoserve
+buffers, and sets the Prestoserve state to DOWN.
+.IP
+Unlike the \f3\-d\f1 flag, the \f3\-R\f1
+flag discards the Prestoserve cache data that could not be written to
+disk.  The flag is useful when Prestoserve cache data
+is not needed or if you cannot get Prestoserve out of the ERROR state.
+You should note that, because the \f3\-R\f1
+flag destroys Prestoserve cache data, it should be used carefully.
+.IP
+The \f3\-R\f1 flag takes effect before the \f3\-u\f1 flag.
+.IP "\-s \f2size\f1"
+Sets the size of the Prestoserve cache to \f2size\f1
+bytes.  The \f2size\f1 can be specified using the
+decimal or hexadecimal conventions.  For example, both 262144 and 0x40000
+represent 256 Kbytes.
+.IP
+If the \f3\-s\f1
+flag is used and the current Prestoserve state is UP, the state
+is set to DOWN, the Prestoserve cache is resized, and the state is set
+to UP.
+.IP
+You may want to use the \f3\-s\f1
+flag to determine how Prestoserve performs with a reduced amount of
+nonvolatile memory.  Note that the size of the Prestoserve cache
+cannot be larger than the default maximum size.  If you specify
+a \f2size\f1 that is larger than the default maximum size, the
+default maximum size is used.
+.IP "\-u [\f2filesystem...\f1]"
+Sets Prestoserve state to UP, and enables acceleration.
+.IP
+Only those file systems specified by \f2filesystem\f1 are
+enabled.  You specify \f2filesystem\f1 as a
+directory mount point (for example, \*L/usr\*O).  Do not specify a block
+device because some functional subsystems, such as the
+Advanced File System (advfs), can map more than one block device to
+a mount point.  If no file systems are specified, all local
+writable file systems that are mounted
+will have Prestoserve enabled.  File systems that are presently
+accelerated will remain accelerated.
+.IP
+If Prestoserve state was ERROR, Prestoserve attempts to write any blocks
+that are in the cache to disk to ensure that
+the previous error condition has been corrected.
+.IP "\-U [\f2filesystem...\f1]"
+Similar to the \*L\-u\*O flag, but sets the Prestoserve state to UP only if
+the specified directory is the root of a mounted file system.
+Otherwise, the following message is displayed:
+.oS
+presto: directory is not a file system root
+.oE
+.IP \-v
+Specifies verbose mode.  This flag prints extra information to standard
+output.  The information can be used for debugging purposes.
+.SH FILES
+.PP
+.TP 18
+\*L/dev/pr0\*O
+.SH RELATED INFORMATION
+.PP
+\*Lprestoctl_svc\*O(8), \*Ldxpresto\*O(8X), \*Lpresto\*O(7),
+\*Lprestotab\*O(4), \*Lprestosetup\*O(8)
+.PP
+\*VGuide to Prestoserve\*O
+.EQ
+delim off
+.EN

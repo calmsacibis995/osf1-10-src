@@ -1,0 +1,1626 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9206022240.AA06599@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2583) close XBUG #5232, #5275, #5288, #5308, #5309: various PEX BUGS
+Date: Tue, 02 Jun 92 18:40:50 EDT
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX : renderer attribute problems
+        ### bug number:   5232
+        ### area:         pex
+        ### severity:     medium high
+        ### comments:     
+
+
+        Subject: PEX : Pipeline Context bugs
+        ### bug number:   5275
+        ### area:         pex
+        ### severity:     medium high
+        ### comments:     
+
+
+        Subject: PEX : Problems with CHK_PEX_BUF macro
+        ### bug number:   5288
+        ### area:         pex
+        ### severity:     medium high
+        ### comments:     
+
+
+        Subject: PEX BUG: byte swapping for get EnumInfo Mnemonic and Both broken
+        ### bug number:   5308
+        ### area:         pex
+        ### severity:     medium-high
+        ### comments:     
+
+
+        Subject: PEX BUG: Pipeline Context byte swapping uses bogus bitmask test
+        ### bug number:   5309
+        ### area:         pex
+        ### severity:     medium-high
+        ### comments:     
+
+
+sorry about the big patch, things kind of snowballed and kept getting 
+interrelated.....
+
+*** /tmp/da5960	Tue Jun  2 18:10:37 1992
+--- extensions/server/PEX/dipex/objects/pexRndr.c	Tue Jun  2 17:25:21 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexRndr.c,v 5.9 92/05/01 17:42:47 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexRndr.c,v 5.10 92/06/02 17:24:38 mor Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 101,114 ****
+  
+  
+  #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) { \
+! 	SIZE+=INCR; \
+! 	if (pPEXBuffer->dataSize < SIZE) { \
+  	    ErrorCode err = Success; \
+! 	    int offset = (int)ptr - (int)(pPEXBuffer->pHead); \
+  	    err = puBuffRealloc(pPEXBuffer,(ddULONG)(SIZE)); \
+  	    if (err) PEX_ERR_EXIT(err,0,cntxtPtr); \
+! 	    REPLY = (TYPE *)(pPEXBuffer->pHead); \
+! 	    PTR = (unsigned char *)(pPEXBuffer->pHead + offset); } \
+      }
+  
+  
+--- 101,114 ----
+  
+  
+  #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) { \
+! 	(SIZE)+=(INCR); \
+! 	if (pPEXBuffer->bufSize < (SIZE)) { \
+  	    ErrorCode err = Success; \
+! 	    int offset = (int)(((unsigned char *)(PTR)) - ((unsigned char *)(pPEXBuffer->pHead))); \
+  	    err = puBuffRealloc(pPEXBuffer,(ddULONG)(SIZE)); \
+  	    if (err) PEX_ERR_EXIT(err,0,cntxtPtr); \
+! 	    (REPLY) = (TYPE *)(pPEXBuffer->pHead); \
+! 	    (PTR) = (unsigned char *)(pPEXBuffer->pHead + offset); } \
+      }
+  
+  
+***************
+*** 295,305 ****
+  
+  
+      if (strmPtr->itemMask & PEXRDViewport) {
+! 	EXTRACT_CARD16(prend->viewport.minval.x,ptr);
+! 	EXTRACT_CARD16(prend->viewport.minval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.minval.z,ptr);
+! 	EXTRACT_CARD16(prend->viewport.maxval.x,ptr);
+! 	EXTRACT_CARD16(prend->viewport.maxval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.maxval.z,ptr);
+  	EXTRACT_CARD8(prend->viewport.useDrawable,ptr);
+  	SKIP_PADDING(ptr,(sizeof(CARD8)+sizeof(CARD16)));
+--- 295,305 ----
+  
+  
+      if (strmPtr->itemMask & PEXRDViewport) {
+! 	EXTRACT_INT16(prend->viewport.minval.x,ptr);
+! 	EXTRACT_INT16(prend->viewport.minval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.minval.z,ptr);
+! 	EXTRACT_INT16(prend->viewport.maxval.x,ptr);
+! 	EXTRACT_INT16(prend->viewport.maxval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.maxval.z,ptr);
+  	EXTRACT_CARD8(prend->viewport.useDrawable,ptr);
+  	SKIP_PADDING(ptr,(sizeof(CARD8)+sizeof(CARD16)));
+***************
+*** 340,349 ****
+          PEX_ERR_EXIT(BadAlloc,0,cntxtPtr);
+      }
+      if (strmPtr->itemMask & PEXRDPickStartPath) {
+! 	unsigned long numpaths;
+  	EXTRACT_CARD32( numpaths, ptr);
+  	puAddToList((ddPointer)ptr, numpaths, prend->pickStartPath);
+! 	SKIP_STRUCT(ptr, numpaths, pexElementRef);
+      }
+  
+      if (strmPtr->itemMask & PEXRDBackgroundColour) {
+--- 340,361 ----
+          PEX_ERR_EXIT(BadAlloc,0,cntxtPtr);
+      }
+      if (strmPtr->itemMask & PEXRDPickStartPath) {
+! 	pexElementRef *per;
+! 	diStructHandle sh, *psh;
+! 	CARD32 i, numpaths;
+! 	extern ddpex4rtn ValidateStructurePath();
+! 
+  	EXTRACT_CARD32( numpaths, ptr);
++ 	for (i=0, per = (pexElementRef *)ptr; i<numpaths; i++, per++) {
++ 		LU_STRUCTURE(per->structure,sh);
++ 		psh = (diStructHandle *)&(per->structure);
++ 		*psh = sh;
++ 	}
++ 
+  	puAddToList((ddPointer)ptr, numpaths, prend->pickStartPath);
+! 	err = ValidateStructurePath(prend->pickStartPath);
+! 	if (err != Success) PEX_ERR_EXIT(err,0,cntxtPtr);
+! 	ptr = (unsigned char *)per;
+      }
+  
+      if (strmPtr->itemMask & PEXRDBackgroundColour) {
+***************
+*** 520,530 ****
+      }
+  
+      if (strmPtr->itemMask & PEXRDViewport) {
+! 	EXTRACT_CARD16(prend->viewport.minval.x,ptr);
+! 	EXTRACT_CARD16(prend->viewport.minval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.minval.z,ptr);
+! 	EXTRACT_CARD16(prend->viewport.maxval.x,ptr);
+! 	EXTRACT_CARD16(prend->viewport.maxval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.maxval.z,ptr);
+  	EXTRACT_CARD8(prend->viewport.useDrawable,ptr);
+  	SKIP_PADDING(ptr,(sizeof(CARD8)+sizeof(CARD16)));
+--- 532,542 ----
+      }
+  
+      if (strmPtr->itemMask & PEXRDViewport) {
+! 	EXTRACT_INT16(prend->viewport.minval.x,ptr);
+! 	EXTRACT_INT16(prend->viewport.minval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.minval.z,ptr);
+! 	EXTRACT_INT16(prend->viewport.maxval.x,ptr);
+! 	EXTRACT_INT16(prend->viewport.maxval.y,ptr);
+  	EXTRACT_FLOAT(prend->viewport.maxval.z,ptr);
+  	EXTRACT_CARD8(prend->viewport.useDrawable,ptr);
+  	SKIP_PADDING(ptr,(sizeof(CARD8)+sizeof(CARD16)));
+***************
+*** 549,559 ****
+      }
+  
+      if (strmPtr->itemMask & PEXRDPickStartPath) {
+! 	unsigned long numpaths;
+  	EXTRACT_CARD32( numpaths, ptr);
+  	PU_EMPTY_LIST(prend->pickStartPath);
+  	puAddToList((ddPointer)ptr, numpaths, prend->pickStartPath);
+! 	SKIP_STRUCT(ptr, numpaths, pexElementRef);
+      }
+  
+  
+--- 561,583 ----
+      }
+  
+      if (strmPtr->itemMask & PEXRDPickStartPath) {
+! 	pexElementRef *per;
+! 	diStructHandle sh, *psh;
+! 	CARD32 i, numpaths;
+! 	extern ddpex4rtn ValidateStructurePath();
+! 
+  	EXTRACT_CARD32( numpaths, ptr);
++ 	for (i=0, per = (pexElementRef *)ptr; i<numpaths; i++, per++) {
++ 		LU_STRUCTURE(per->structure,sh);
++ 		psh = (diStructHandle *)&(per->structure);
++ 		*psh = sh;
++ 	}
++ 
+  	PU_EMPTY_LIST(prend->pickStartPath);
+  	puAddToList((ddPointer)ptr, numpaths, prend->pickStartPath);
+! 	err = ValidateStructurePath(prend->pickStartPath);
+! 	if (err != Success) PEX_ERR_EXIT(err,0,cntxtPtr);
+! 	ptr = (unsigned char *)per;
+      }
+  
+  
+***************
+*** 691,703 ****
+      if (strmPtr->itemMask & PEXRDViewport) {
+  	CHK_PEX_BUF(size, sizeof(pexViewport),
+  		    reply, pexGetRendererAttributesReply, ptr);
+! 	PACK_CARD32( prend->viewport.minval.x, ptr);
+! 	PACK_CARD32( prend->viewport.minval.y, ptr);
+  	PACK_FLOAT( prend->viewport.minval.z, ptr);
+! 	PACK_CARD32( prend->viewport.maxval.x, ptr);
+! 	PACK_CARD32( prend->viewport.maxval.y, ptr);
+  	PACK_FLOAT( prend->viewport.maxval.z, ptr);
+! 	PACK_CARD32( prend->viewport.useDrawable, ptr);
+      }
+  
+      if (strmPtr->itemMask & PEXRDClipList) {
+--- 715,728 ----
+      if (strmPtr->itemMask & PEXRDViewport) {
+  	CHK_PEX_BUF(size, sizeof(pexViewport),
+  		    reply, pexGetRendererAttributesReply, ptr);
+! 	PACK_INT16( prend->viewport.minval.x, ptr);
+! 	PACK_INT16( prend->viewport.minval.y, ptr);
+  	PACK_FLOAT( prend->viewport.minval.z, ptr);
+! 	PACK_INT16( prend->viewport.maxval.x, ptr);
+! 	PACK_INT16( prend->viewport.maxval.y, ptr);
+  	PACK_FLOAT( prend->viewport.maxval.z, ptr);
+! 	PACK_CARD8( prend->viewport.useDrawable, ptr);
+! 	SKIP_PADDING( ptr, (sizeof(CARD8)+sizeof(CARD16)));
+      }
+  
+      if (strmPtr->itemMask & PEXRDClipList) {
+***************
+*** 706,712 ****
+  		    reply, pexGetRendererAttributesReply, ptr);
+  	PACK_CARD32(prend->clipList->numObj, ptr);
+  	bcopy((char *)(prend->clipList->pList), (char *)ptr, num_bytes);
+! 	ptr += num_bytes + 4;
+      }
+  
+      if (strmPtr->itemMask & PEXRDPickInclusion)
+--- 731,737 ----
+  		    reply, pexGetRendererAttributesReply, ptr);
+  	PACK_CARD32(prend->clipList->numObj, ptr);
+  	bcopy((char *)(prend->clipList->pList), (char *)ptr, num_bytes);
+! 	ptr += num_bytes;
+      }
+  
+      if (strmPtr->itemMask & PEXRDPickInclusion)
+***************
+*** 741,747 ****
+      if (strmPtr->itemMask & PEXRDEchoMode) PACK_CARD32( prend->echoMode, ptr);
+  
+  
+!     reply->length = (unsigned long)(ptr) - (unsigned long)(pPEXBuffer->pBuf) +1;
+      reply->length = LWORDS(reply->length);
+      WritePEXReplyToClient(	cntxtPtr, strmPtr,
+  				sizeof(pexGetRendererAttributesReply)
+--- 766,772 ----
+      if (strmPtr->itemMask & PEXRDEchoMode) PACK_CARD32( prend->echoMode, ptr);
+  
+  
+!     reply->length = (unsigned long)(ptr) - (unsigned long)(pPEXBuffer->pBuf);
+      reply->length = LWORDS(reply->length);
+      WritePEXReplyToClient(	cntxtPtr, strmPtr,
+  				sizeof(pexGetRendererAttributesReply)
+*** /tmp/da6025	Tue Jun  2 18:13:07 1992
+--- extensions/server/PEX/dipex/objects/pexSc.c	Tue Jun  2 18:12:53 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexSc.c,v 5.4 92/05/12 18:37:30 mor Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexSc.c,v 5.5 92/06/02 18:12:19 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 56,71 ****
+  
+  #define SC_NS_LIMIT  20				/* arbitrary value */
+  
+! #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) \
+!     SIZE+=INCR; \
+!     if (pPEXBuffer->dataSize < SIZE) { \
+  	ErrorCode err = Success; \
+! 	int offset = (int)PTR - (int)(pPEXBuffer->pHead); \
+! 	err = puBuffRealloc(pPEXBuffer,(ddULONG)SIZE); \
+  	if (err) PEX_ERR_EXIT(err,0,cntxtPtr); \
+! 	REPLY = (TYPE *)(pPEXBuffer->pHead); \
+! 	PTR = (unsigned char *)(pPEXBuffer->pHead + offset); }
+!     
+  
+  static ErrorCode
+  AddToNSPair( incl, excl, pair )
+--- 56,71 ----
+  
+  #define SC_NS_LIMIT  20				/* arbitrary value */
+  
+! #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) {\
+!     (SIZE)+=(INCR); \
+!       if (pPEXBuffer->bufSize < (SIZE)) { \
+  	ErrorCode err = Success; \
+! 	int offset = (int)(((unsigned char *)(PTR)) - ((unsigned char *)(pPEXBuffer->pHead))); \
+! 	err = puBuffRealloc(pPEXBuffer,(ddULONG)(SIZE)); \
+  	if (err) PEX_ERR_EXIT(err,0,cntxtPtr); \
+! 	(REPLY) = (TYPE *)(pPEXBuffer->pHead); \
+! 	(PTR) = (unsigned char *)(pPEXBuffer->pHead + offset); } \
+! }
+  
+  static ErrorCode
+  AddToNSPair( incl, excl, pair )
+*** /tmp/da6087	Tue Jun  2 18:14:25 1992
+--- extensions/server/PEX/dipex/objects/pexPc.c	Tue Jun  2 18:14:09 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexPc.c,v 5.6 92/03/03 16:20:45 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexPc.c,v 5.7 92/06/02 18:13:33 mor Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 51,70 ****
+  #endif
+  
+  /* need to do this to return correct ASF_ENABLES bits per Encoding */
+! #define ASF_ALL   0x01FFFFFF
+  
+! #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) \
+      (SIZE)+=(INCR); \
+! /*    if (pPEXBuffer->dataSize < (SIZE)) { \
+! */    if (pPEXBuffer->bufSize < (SIZE)) { \
+! 	int check_size = 0; \
+  	int offset = (int)(((unsigned char *)(PTR)) - ((unsigned char *)(pPEXBuffer->pHead))); \
+! 	check_size = puBuffRealloc(pPEXBuffer,(ddULONG)(SIZE)); \
+! /*	if (check_size <= 0) PEX_ERR_EXIT(BadAlloc,0,cntxtPtr); \
+! */	if (!check_size) PEX_ERR_EXIT(BadAlloc,0,cntxtPtr); \
+  	(REPLY) = (TYPE *)(pPEXBuffer->pHead); \
+! 	(PTR) = (unsigned char *)(pPEXBuffer->pHead + offset); }
+  
+  
+  ErrorCode
+  UpdatePCRefs (pc, pr, action)
+--- 51,70 ----
+  #endif
+  
+  /* need to do this to return correct ASF_ENABLES bits per Encoding */
+! #define ASF_ALL   0x3FFFFFFF
+  
+! #define CHK_PEX_BUF(SIZE,INCR,REPLY,TYPE,PTR) {\
+      (SIZE)+=(INCR); \
+!       if (pPEXBuffer->bufSize < (SIZE)) { \
+! 	ErrorCode err = Success; \
+  	int offset = (int)(((unsigned char *)(PTR)) - ((unsigned char *)(pPEXBuffer->pHead))); \
+! 	err = puBuffRealloc(pPEXBuffer,(ddULONG)(SIZE)); \
+! 	if (err) PEX_ERR_EXIT(err,0,cntxtPtr); \
+  	(REPLY) = (TYPE *)(pPEXBuffer->pHead); \
+! 	(PTR) = (unsigned char *)(pPEXBuffer->pHead + offset); } \
+! }
+  
++ #define PADDING(n) ( (n)&3 ? (4 - (n)&3) : 0)
+  
+  ErrorCode
+  UpdatePCRefs (pc, pr, action)
+***************
+*** 86,92 ****
+  UpdatePipelineContext (cntxtPtr, pca, itemMask, ptr)
+  pexContext	*cntxtPtr;
+  ddPCAttr	*pca;
+! CARD32		itemMask[2];
+  unsigned char	*ptr;
+  {
+      ErrorCode err = Success;
+--- 86,92 ----
+  UpdatePipelineContext (cntxtPtr, pca, itemMask, ptr)
+  pexContext	*cntxtPtr;
+  ddPCAttr	*pca;
+! CARD32		itemMask[3];
+  unsigned char	*ptr;
+  {
+      ErrorCode err = Success;
+***************
+*** 409,414 ****
+--- 409,415 ----
+  		SKIP_PADDING(ptr,2);
+  		EXTRACT_CARD16(pca->psc.data.isoCurves.numUcurves, ptr);
+  		EXTRACT_CARD16(pca->psc.data.isoCurves.numVcurves, ptr);
++ 		break;
+  	    }
+  	    case PEXPSCMcLevelCurves: {
+  		EXTRACT_COORD3D((&(pca->psc.data.mcLevelCurves.origin)),ptr);
+***************
+*** 415,426 ****
+  		EXTRACT_COORD3D((&(pca->psc.data.mcLevelCurves.direction)),ptr);
+  		EXTRACT_CARD16(pca->psc.data.mcLevelCurves.numberIntersections,ptr);
+  		SKIP_PADDING(ptr,2);
+! 		pca->psc.data.mcLevelCurves.pPoints = (ddCoord3D *)
+! 		    Xalloc((unsigned long) (sizeof(ddCoord3D) *
+  			    pca->psc.data.mcLevelCurves.numberIntersections));
+  		EXTRACT_STRUCT(	pca->psc.data.mcLevelCurves.numberIntersections,
+! 				pexCoord3D, pca->psc.data.mcLevelCurves.pPoints,
+  				ptr);
+  	    }
+  
+  	    case PEXPSCWcLevelCurves: {
+--- 416,428 ----
+  		EXTRACT_COORD3D((&(pca->psc.data.mcLevelCurves.direction)),ptr);
+  		EXTRACT_CARD16(pca->psc.data.mcLevelCurves.numberIntersections,ptr);
+  		SKIP_PADDING(ptr,2);
+! 		pca->psc.data.mcLevelCurves.pPoints = (ddFLOAT *)
+! 		    Xalloc((unsigned long) (sizeof(ddFLOAT) *
+  			    pca->psc.data.mcLevelCurves.numberIntersections));
+  		EXTRACT_STRUCT(	pca->psc.data.mcLevelCurves.numberIntersections,
+! 				PEXFLOAT, pca->psc.data.mcLevelCurves.pPoints,
+  				ptr);
++ 		break;
+  	    }
+  
+  	    case PEXPSCWcLevelCurves: {
+***************
+*** 428,439 ****
+  		EXTRACT_COORD3D(&(pca->psc.data.wcLevelCurves.direction),ptr);
+  		EXTRACT_CARD16(pca->psc.data.wcLevelCurves.numberIntersections,ptr);
+  		SKIP_PADDING(ptr,2);
+! 		pca->psc.data.wcLevelCurves.pPoints = (ddCoord3D *)
+! 		    Xalloc((unsigned long) (sizeof(ddCoord3D) *
+  			    pca->psc.data.wcLevelCurves.numberIntersections));
+  		EXTRACT_STRUCT(	pca->psc.data.wcLevelCurves.numberIntersections,
+! 				pexCoord3D, pca->psc.data.wcLevelCurves.pPoints,
+  				ptr);
+  	    }
+  
+  	}
+--- 430,442 ----
+  		EXTRACT_COORD3D(&(pca->psc.data.wcLevelCurves.direction),ptr);
+  		EXTRACT_CARD16(pca->psc.data.wcLevelCurves.numberIntersections,ptr);
+  		SKIP_PADDING(ptr,2);
+! 		pca->psc.data.wcLevelCurves.pPoints = (ddFLOAT *)
+! 		    Xalloc((unsigned long) (sizeof(ddFLOAT) *
+  			    pca->psc.data.wcLevelCurves.numberIntersections));
+  		EXTRACT_STRUCT(	pca->psc.data.wcLevelCurves.numberIntersections,
+! 				PEXFLOAT, pca->psc.data.wcLevelCurves.pPoints,
+  				ptr);
++ 		break;
+  	    }
+  
+  	}
+***************
+*** 1316,1328 ****
+  
+      CHECK_BITMASK_ARRAY(strmPtr->itemMask, PEXPCModelClipVolume) {
+  	int i;
+! 	pexHalfSpace **pphs = (pexHalfSpace **)(pca->modelClipVolume->pList);
+  	CHK_PEX_BUF(size, sizeof(CARD32)+(pca->modelClipVolume->numObj * sizeof(pexHalfSpace)),
+  	    reply, pexGetPipelineContextReply, replyPtr);
+  	PACK_CARD32 ( pca->modelClipVolume->numObj, replyPtr);
+! 	for (i=0; i<pca->modelClipVolume->numObj; i++) {
+! 	    PACK_COORD3D( (&((*pphs)->point)), replyPtr);
+! 	    PACK_VECTOR3D( (&((*pphs)->vector)), replyPtr);
+  	}
+      }
+  
+--- 1319,1331 ----
+  
+      CHECK_BITMASK_ARRAY(strmPtr->itemMask, PEXPCModelClipVolume) {
+  	int i;
+! 	pexHalfSpace *pphs = (pexHalfSpace *)(pca->modelClipVolume->pList);
+  	CHK_PEX_BUF(size, sizeof(CARD32)+(pca->modelClipVolume->numObj * sizeof(pexHalfSpace)),
+  	    reply, pexGetPipelineContextReply, replyPtr);
+  	PACK_CARD32 ( pca->modelClipVolume->numObj, replyPtr);
+! 	for (i=0; i<pca->modelClipVolume->numObj; i++, pphs++) {
+! 	    PACK_COORD3D( &pphs->point, replyPtr);
+! 	    PACK_VECTOR3D( &pphs->vector, replyPtr);
+  	}
+      }
+  
+***************
+*** 1337,1348 ****
+  		    replyPtr);
+  	PACK_CARD32 ( pca->lightState, replyPtr);
+  */	int i;
+  	CARD16 *pLS = (CARD16 *)(pca->lightState->pList);
+! 	CHK_PEX_BUF(size,sizeof(CARD32)+(pca->lightState->numObj*sizeof(CARD16)),
+  		    reply, pexGetPipelineContextReply, replyPtr);
+  	PACK_CARD32(pca->lightState->numObj, replyPtr);
+! 	for (i=0; i<pca->lightState->numObj; i++) {
+! 	    PACK_CARD16(pLS, replyPtr); 
+  	}
+          if (pca->lightState->numObj % 2)
+  	    SKIP_PADDING(replyPtr,2);
+--- 1340,1352 ----
+  		    replyPtr);
+  	PACK_CARD32 ( pca->lightState, replyPtr);
+  */	int i;
++ 	int sz = pca->lightState->numObj*sizeof(CARD16);
+  	CARD16 *pLS = (CARD16 *)(pca->lightState->pList);
+! 	CHK_PEX_BUF(size,sizeof(CARD32)+sz+PADDING(sz),
+  		    reply, pexGetPipelineContextReply, replyPtr);
+  	PACK_CARD32(pca->lightState->numObj, replyPtr);
+! 	for (i=0; i<pca->lightState->numObj; i++, pLS++) {
+! 	    PACK_CARD16(*pLS, replyPtr); 
+  	}
+          if (pca->lightState->numObj % 2)
+  	    SKIP_PADDING(replyPtr,2);
+***************
+*** 1403,1415 ****
+  		sze = 8;
+  		break;
+              case PEXPSCMcLevelCurves: 
+! 		sze = (6 * sizeof(PEXFLOAT)) + 4 + (3 * 
+! 		  pca->psc.data.mcLevelCurves.numberIntersections *
+  		  sizeof(PEXFLOAT)) ;
+  		break;
+  	    case PEXPSCWcLevelCurves: 
+! 		sze = (6 * sizeof(PEXFLOAT)) + 4 + (3 * 
+! 		  pca->psc.data.wcLevelCurves.numberIntersections *
+  		  sizeof(PEXFLOAT)) ;
+  		break;
+  	    default:
+--- 1407,1419 ----
+  		sze = 8;
+  		break;
+              case PEXPSCMcLevelCurves: 
+! 		sze = (6 * sizeof(PEXFLOAT)) + 4 +  
+! 		  (pca->psc.data.mcLevelCurves.numberIntersections *
+  		  sizeof(PEXFLOAT)) ;
+  		break;
+  	    case PEXPSCWcLevelCurves: 
+! 		sze = (6 * sizeof(PEXFLOAT)) + 4 +  
+! 		  (pca->psc.data.wcLevelCurves.numberIntersections *
+  		  sizeof(PEXFLOAT)) ;
+  		break;
+  	    default:
+***************
+*** 1430,1435 ****
+--- 1434,1440 ----
+  		SKIP_PADDING(replyPtr,2);
+  		PACK_CARD16(pca->psc.data.isoCurves.numUcurves, replyPtr);
+  		PACK_CARD16(pca->psc.data.isoCurves.numVcurves, replyPtr);
++ 		break;
+  	    }
+  	    case PEXPSCMcLevelCurves: {
+  		PACK_COORD3D(&(pca->psc.data.mcLevelCurves.origin),replyPtr);
+***************
+*** 1437,1444 ****
+  		PACK_CARD16(pca->psc.data.mcLevelCurves.numberIntersections,replyPtr);
+  		SKIP_PADDING(replyPtr,2);
+  		PACK_LISTOF_STRUCT(pca->psc.data.mcLevelCurves.numberIntersections,
+! 			    pexCoord3D, pca->psc.data.mcLevelCurves.pPoints,
+  			    replyPtr);
+  	    }
+  
+  	    case PEXPSCWcLevelCurves: {
+--- 1442,1450 ----
+  		PACK_CARD16(pca->psc.data.mcLevelCurves.numberIntersections,replyPtr);
+  		SKIP_PADDING(replyPtr,2);
+  		PACK_LISTOF_STRUCT(pca->psc.data.mcLevelCurves.numberIntersections,
+! 			    PEXFLOAT, pca->psc.data.mcLevelCurves.pPoints,
+  			    replyPtr);
++ 		break;
+  	    }
+  
+  	    case PEXPSCWcLevelCurves: {
+***************
+*** 1447,1454 ****
+  		PACK_CARD16(pca->psc.data.wcLevelCurves.numberIntersections,replyPtr);
+  		SKIP_PADDING(replyPtr,2);
+  		PACK_LISTOF_STRUCT(pca->psc.data.wcLevelCurves.numberIntersections,
+! 				pexCoord3D, pca->psc.data.wcLevelCurves.pPoints,
+  				replyPtr);
+  	    }
+  	}
+      }
+--- 1453,1461 ----
+  		PACK_CARD16(pca->psc.data.wcLevelCurves.numberIntersections,replyPtr);
+  		SKIP_PADDING(replyPtr,2);
+  		PACK_LISTOF_STRUCT(pca->psc.data.wcLevelCurves.numberIntersections,
+! 				PEXFLOAT, pca->psc.data.wcLevelCurves.pPoints,
+  				replyPtr);
++ 		break;
+  	    }
+  	}
+      }
+*** /tmp/da6379	Tue Jun  2 18:29:43 1992
+--- extensions/server/PEX/dipex/swap/convReq.c	Tue Jun  2 18:28:05 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: convReq.c,v 5.12 92/04/23 16:14:51 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: convReq.c,v 5.13 92/06/02 18:27:35 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 52,58 ****
+--- 52,60 ----
+  
+  extern RequestFunction PEXRequest[];
+  
++ #define PADDING(n) ( (n)&3 ? (4 - (n)&3) : 0)
+  
++ 
+  /****************************************************************
+   *  		REQUESTS 					*
+   ****************************************************************/
+***************
+*** 2224,2231 ****
+  		num = *((CARD16 *)ptr);
+  		ptr += sizeof(CARD32);
+  		for (i=0; i<num; i++) {
+! 		    SWAP_COORD3D((*((pexCoord3D *)ptr)));
+! 		    ptr += sizeof(pexCoord3D);
+  		}
+  	    }
+  	}
+--- 2226,2233 ----
+  		num = *((CARD16 *)ptr);
+  		ptr += sizeof(CARD32);
+  		for (i=0; i<num; i++) {
+! 		    SWAP_FLOAT((*((PEXFLOAT *)ptr)));
+! 		    ptr += sizeof(PEXFLOAT);
+  		}
+  	    }
+  	}
+***************
+*** 2277,2283 ****
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	len = (int)(*ptr);
+  	ptr += sizeof(CARD32);
+! 	ptr += (len + 3)/4;		    /*	pad it out  */
+      };
+  
+      if (im & PEXPDPickPromptEchoType) {
+--- 2279,2285 ----
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	len = (int)(*ptr);
+  	ptr += sizeof(CARD32);
+! 	ptr += len + PADDING(len);		    /*	pad it out  */
+      };
+  
+      if (im & PEXPDPickPromptEchoType) {
+*** /tmp/da6416	Tue Jun  2 18:30:01 1992
+--- extensions/server/PEX/dipex/swap/uconvRep.c	Tue Jun  2 18:29:27 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: uconvRep.c,v 5.9 92/04/23 16:15:03 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: uconvRep.c,v 5.10 92/06/02 18:28:26 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 54,59 ****
+--- 54,61 ----
+  #define LOCAL_FLAG
+  #include "uconvRep.h"
+  
++ #define PADDING(n) ( (n)&3 ? (4 - (n)&3) : 0)
++ 
+  /*************************************************************
+  	Replies
+  
+***************
+*** 83,89 ****
+  {
+      pexSwap *swapPtr = cntxtPtr->swap;
+      int i, j, pad;
+-     CARD16 *ptr, *optr;
+  
+      SWAP_CARD16 (reply->sequenceNumber);
+      SWAP_CARD32 (reply->length);	/* NOT 0 */
+--- 85,90 ----
+***************
+*** 91,103 ****
+      switch (strmPtr->itemMask) {
+  
+  	case PEXETIndex : {
+! 		/* PEXETIndex =1 per define in PEX.h */
+  	    for (i=0, ptr = (CARD16 *)(reply+1); i < reply->numLists; i++) {
+! 		j = *((CARD32 *)ptr);
+! 		pad = j & 1;
+  		SWAP_CARD32(*((CARD32 *)ptr));
+  		ptr += 2;
+! 		while (--j >= 0) {
+  		    SWAP_CARD16((*ptr));
+  		    ptr++;
+  		}
+--- 92,107 ----
+      switch (strmPtr->itemMask) {
+  
+  	case PEXETIndex : {
+! 	    CARD16 *ptr;
+! 	    /* PEXETIndex =1 per define in PEX.h */
+! 	    /* a LISTofLISTofINT16               */
+! 	    int numints;
+  	    for (i=0, ptr = (CARD16 *)(reply+1); i < reply->numLists; i++) {
+! 		numints = *((CARD32 *)ptr);
+! 		pad = numints & 1;
+  		SWAP_CARD32(*((CARD32 *)ptr));
+  		ptr += 2;
+! 		for (j=0; j < numints; j++) {
+  		    SWAP_CARD16((*ptr));
+  		    ptr++;
+  		}
+***************
+*** 108,144 ****
+  	}
+  
+  	case PEXETMnemonic : {
+! 		/* PEXETMnemonic =2 per define in PEX.h */
+! 	    for (i=0, ptr = (CARD16 *)(reply+1); i < reply->numLists; i++) {
+! 		j = *((CARD32 *)ptr);
+  		SWAP_CARD32(*((CARD32 *)ptr));
+! 		ptr += 2;
+! 		optr = ptr;
+! 		while (--j >= 0) {
+! 		    pad = *ptr;
+! 		    SWAP_CARD16((*ptr));
+! 		    ptr += 1 + ((pad + 1) >> 1);;
+  		}
+- 		ptr += (ptr - optr) & 1;
+  	    }
+  	  break;
+  	}
+  
+  	case PEXETBoth : {
+! 		/* PEXETBOTH =3 per define in PEX.h */
+! 	    for (i=0, ptr = (CARD16 *)(reply+1); i < reply->numLists; i++) {
+! 		j = *((CARD32 *)ptr);
+  		SWAP_CARD32(*((CARD32 *)ptr));
+! 		ptr += 2;
+! 		optr = ptr;
+! 		while (--j >= 0) {
+  		    SWAP_CARD16((*ptr));
+! 		    ptr++;
+! 		    pad = *ptr;
+! 		    SWAP_CARD16((*ptr));
+! 		    ptr += 1 + ((pad + 1) >> 1);;
+  		}
+- 		ptr += (ptr - optr) & 1;
+  	    }
+  	  break;
+          }
+--- 112,150 ----
+  	}
+  
+  	case PEXETMnemonic : {
+! 	    CARD8 *ptr;
+! 	    /* PEXETMnemonic =2 per define in PEX.h */
+! 	    /* a LISTofLISTofSTRING                 */
+! 	    int numstrings, numbytes;
+! 	    for (i=0, ptr = (CARD8 *)(reply+1); i < reply->numLists; i++) {
+! 		numstrings = *((CARD32 *)ptr);
+  		SWAP_CARD32(*((CARD32 *)ptr));
+! 		ptr += 4;
+! 		for (j=0; j < numstrings; j++) {
+! 		    numbytes = *((CARD16 *)ptr);
+! 		    SWAP_CARD16(*((CARD16 *)ptr));
+! 		    ptr += 2 + numbytes + PADDING(2+numbytes);
+  		}
+  	    }
+  	  break;
+  	}
+  
+  	case PEXETBoth : {
+! 	    CARD8 *ptr;
+! 	    /* PEXETBOTH =3 per define in PEX.h */
+! 	    /* a LISTofLISTofENUM_DESC 		*/
+! 	    int numenums, numbytes;
+! 	    for (i=0, ptr = (CARD8 *)(reply+1); i < reply->numLists; i++) {
+! 		numenums = *((CARD32 *)ptr);
+  		SWAP_CARD32(*((CARD32 *)ptr));
+! 		ptr += 4;
+! 		for (j=0; j < numenums; j++) {
+  		    SWAP_CARD16((*ptr));
+! 		    ptr += 2;
+! 		    numbytes = *((CARD16 *)ptr);
+! 		    SWAP_CARD16(*((CARD16 *)ptr));
+! 		    ptr += 2 + numbytes + PADDING(numbytes);
+  		}
+  	    }
+  	  break;
+          }
+***************
+*** 145,150 ****
+--- 151,157 ----
+  
+  	default: { /* counts */
+  
++ 	    CARD16 *ptr;
+  		/* swap the counts */
+  	    for (i=0, ptr = (CARD16 *)(reply+1); i < reply->numLists; i++) {
+  		SWAP_CARD32(*((CARD32 *)ptr));
+***************
+*** 1479,1535 ****
+  
+      CARD8 *ptr = p_data;
+  
+!     if (itemMask[0] & PEXPCMarkerType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCMarkerScale) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCMarkerColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[0] & PEXPCMarkerBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCTextFont) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCTextPrecision) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCCharExpansion) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCCharSpacing) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCTextColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[0] & PEXPCCharHeight) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCCharUpVector) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1486,1542 ----
+  
+      CARD8 *ptr = p_data;
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCMarkerType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCMarkerScale) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCMarkerColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCMarkerBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextFont) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextPrecision) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCharExpansion) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCharSpacing) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCharHeight) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCharUpVector) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1536,1547 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCTextPath) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCTextAlignment) {
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+  	ptr += sizeof(CARD16);
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+--- 1543,1554 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextPath) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextAlignment) {
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+  	ptr += sizeof(CARD16);
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+***************
+*** 1548,1559 ****
+  	ptr += sizeof(CARD16);
+      }
+  
+!     if (itemMask[0] & PEXPCAtextHeight) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCAtextUpVector) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1555,1566 ----
+  	ptr += sizeof(CARD16);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCAtextHeight) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCAtextUpVector) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1560,1571 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCAtextPath) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCAtextAlignment) {
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+  	ptr += sizeof(CARD16);
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+--- 1567,1578 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCAtextPath) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCAtextAlignment) {
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+  	ptr += sizeof(CARD16);
+  	SWAP_CARD16 ((*((CARD16 *)ptr)));
+***************
+*** 1572,1603 ****
+  	ptr += sizeof(CARD16);
+      }
+  
+!     if (itemMask[0] & PEXPCAtextStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCTextBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCLineType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCLineWidth) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCLineColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[0] & PEXPCCurveApproximation) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1579,1610 ----
+  	ptr += sizeof(CARD16);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCAtextStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCTextBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLineType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLineWidth) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLineColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCurveApproximation) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1604,1635 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[0] & PEXPCPolylineInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCLineBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCInteriorStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCInteriorStyleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCSurfaceColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[0] & PEXPCSurfaceReflAttr) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1611,1642 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPolylineInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLineBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCInteriorStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCInteriorStyleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceReflAttr) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1644,1675 ****
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[0] & PEXPCSurfaceReflModel) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCSurfaceInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[0] & PEXPCBfInteriorStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCBfInteriorStyleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCBfSurfaceColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[1] & PEXPCBfSurfaceReflAttr) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1651,1682 ----
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceReflModel) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfInteriorStyle) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfInteriorStyleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfSurfaceColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfSurfaceReflAttr) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1684,1700 ****
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[1] & PEXPCBfSurfaceReflModel) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCBfSurfaceInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCSurfaceApproximation) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1691,1707 ----
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfSurfaceReflModel) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCBfSurfaceInterp) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceApproximation) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1703,1719 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCCullingMode) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCDistinguishFlag) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCPatternSize) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1710,1726 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCCullingMode) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCDistinguishFlag) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPatternSize) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1720,1726 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCPatternRefPt) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1727,1733 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPatternRefPt) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1729,1735 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCPatternRefVec1) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1736,1742 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPatternRefVec1) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1738,1744 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCPatternRefVec2) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+--- 1745,1751 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPatternRefVec2) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+***************
+*** 1747,1783 ****
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCInteriorBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCSurfaceEdgeFlag) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCSurfaceEdgeType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCSurfaceEdgeWidth) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     if (itemMask[1] & PEXPCSurfaceEdgeColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     if (itemMask[1] & PEXPCEdgeBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCLocalTransform) {
+  	int i, j;
+  	for (i=0; i<4; i++)
+  	    for (j=0; j<4; j++) {
+--- 1754,1790 ----
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCInteriorBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceEdgeFlag) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceEdgeType) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceEdgeWidth) {
+  	SWAP_FLOAT ((*((PEXFLOAT *)ptr)));
+  	ptr += sizeof(PEXFLOAT);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSurfaceEdgeColour) {
+  	ptr = SWAP_FUNC_PREFIX(SwapColourSpecifier) (swapPtr,
+  						     (pexColourSpecifier *)ptr);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCEdgeBundleIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLocalTransform) {
+  	int i, j;
+  	for (i=0; i<4; i++)
+  	    for (j=0; j<4; j++) {
+***************
+*** 1786,1792 ****
+  	    }
+      }
+  
+!     if (itemMask[1] & PEXPCGlobalTransform) {
+  	int i, j;
+  	for (i=0; i<4; i++)
+  	    for (j=0; j<4; j++) {
+--- 1793,1799 ----
+  	    }
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCGlobalTransform) {
+  	int i, j;
+  	for (i=0; i<4; i++)
+  	    for (j=0; j<4; j++) {
+***************
+*** 1795,1806 ****
+  	    }
+      }
+  
+!     if (itemMask[1] & PEXPCModelClip) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCModelClipVolume) {
+  	CARD32 i, numHalfSpace;
+  	pexHalfSpace *ph;
+  	numHalfSpace = *((CARD32 *)ptr);
+--- 1802,1813 ----
+  	    }
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCModelClip) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCModelClipVolume) {
+  	CARD32 i, numHalfSpace;
+  	pexHalfSpace *ph;
+  	numHalfSpace = *((CARD32 *)ptr);
+***************
+*** 1812,1823 ****
+  	ptr = (CARD8 *)ph;
+      }
+  
+!     if (itemMask[1] & PEXPCViewIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCLightState) {
+  	CARD32 i, numLights;
+  	numLights = *((CARD32 *)ptr);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+--- 1819,1830 ----
+  	ptr = (CARD8 *)ph;
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCViewIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCLightState) {
+  	CARD32 i, numLights;
+  	numLights = *((CARD32 *)ptr);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+***************
+*** 1830,1841 ****
+  	    ptr += sizeof(CARD16);
+      }
+  
+!     if (itemMask[1] & PEXPCDepthCueIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCSetAsfValues) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));     /* enables BITMASK */
+  	ptr += sizeof(CARD32);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));     /* asfs themselves */
+--- 1837,1848 ----
+  	    ptr += sizeof(CARD16);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCDepthCueIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCSetAsfValues) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));     /* enables BITMASK */
+  	ptr += sizeof(CARD32);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));     /* asfs themselves */
+***************
+*** 1842,1873 ****
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCPickId) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCHlhsrIdentifier) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCNameSet) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCColourApproxIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCRenderingColourModel) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     if (itemMask[1] & PEXPCParaSurfCharacteristics) {
+  	INT16 type;
+  	type = *((INT16 *)ptr);
+  	SWAP_INT16((*((INT16 *)ptr)));
+--- 1849,1880 ----
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCPickId) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCHlhsrIdentifier) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCNameSet) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCColourApproxIndex) {
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCRenderingColourModel) {
+  	SWAP_CARD32((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+      }
+  
+!     CHECK_BITMASK_ARRAY(itemMask, PEXPCParaSurfCharacteristics) {
+  	INT16 type;
+  	type = *((INT16 *)ptr);
+  	SWAP_INT16((*((INT16 *)ptr)));
+***************
+*** 1901,1908 ****
+  		SWAP_CARD16((*((CARD16 *)ptr)));
+  		ptr += sizeof(CARD32);
+  		for (i=0; i<num; i++) {
+! 		    SWAP_COORD3D((*((pexCoord3D *)ptr)));
+! 		    ptr += sizeof(pexCoord3D);
+  		}
+  	    }
+  	}
+--- 1908,1915 ----
+  		SWAP_CARD16((*((CARD16 *)ptr)));
+  		ptr += sizeof(CARD32);
+  		for (i=0; i<num; i++) {
+! 		    SWAP_FLOAT((*((PEXFLOAT *)ptr)));
+! 		    ptr += sizeof(PEXFLOAT);
+  		}
+  	    }
+  	}
+***************
+*** 1954,1960 ****
+  	len = (int)(*ptr);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+! 	ptr += (len + 3)/4;		    /*	pad it out  */
+      };
+  
+      if (im & PEXPDPickPromptEchoType) {
+--- 1961,1967 ----
+  	len = (int)(*ptr);
+  	SWAP_CARD32 ((*((CARD32 *)ptr)));
+  	ptr += sizeof(CARD32);
+! 	ptr += len + PADDING(len);		    /*	pad it out  */
+      };
+  
+      if (im & PEXPDPickPromptEchoType) {
+
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

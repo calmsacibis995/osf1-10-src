@@ -1,0 +1,70 @@
+#! /bin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: rcfileprep,v $ $Revision: 1.1.2.2 $ (DEC) $Date: 1994/02/14 16:53:54 $
+# 
+#
+# This script creates rc files from templates shipped with the source
+# distribution, customizing them for the actual location the source
+# has been installed in.
+#
+
+Customize_rcfile()
+{
+	sed -e "s#BLDBASE#${BLDBASE}#" -e "s#BLDNAME#${BLDNAME}#" \
+		${TOOLSHELP}/$1 >${BASE}/$2
+}
+
+Main()
+{
+	PATH=/usr/bin:/usr/sbin:/sbin
+	BLDBASE=$1
+	BLDNAME=$2
+	BASE=${BLDBASE}/${BLDNAME}
+	TOOLSHELP=${BASE}/tools/help
+
+	[ -d ${TOOLSHELP} ] || {
+		echo '
+Usage:	rcfileprep BLDBASE BLDNAME
+	so that ${BLDBASE}/${BLDNAME}/src is base of source tree.
+'
+		return 1
+		}
+
+	Customize_rcfile .sandboxrc.template .sandboxrc
+	Customize_rcfile .newpath.template .newpath
+
+	[ -d ${BASE}/rc_files ] || mkdir ${BASE}/rc_files
+	Customize_rcfile local.template rc_files/local
+	Customize_rcfile shared.template rc_files/shared
+
+	[ -d ${BASE}/obj/alpha ] || mkdir -p ${BASE}/obj/alpha
+	[ -d ${BASE}/export/alpha ] || mkdir -p ${BASE}/export/alpha
+	[ -d ${BASE}/Logs ] || mkdir ${BASE}/Logs
+
+	return 0
+}
+
+[ "${CHECK_SYNTAX}" ] || Main "$@"

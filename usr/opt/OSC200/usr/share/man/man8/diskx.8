@@ -1,0 +1,448 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: diskx.8,v $ $Revision: 3.2.4.3 $ (DEC) $Date: 1993/12/28 17:49:46 $
+.\" 
+.TH diskx 8
+.SH NAME
+.PP
+diskx \- disk exerciser program
+.SH SYNOPSIS
+.PP
+\*L/usr/field/diskx\*O
+[
+\*Voption(s)\*O
+]
+[
+\*Vparameter(s)\*O
+]
+.SH DESCRIPTION
+.PP
+The \*Ldiskx\*O program is intended to test various
+aspects of disk driver functionality.
+.iX "diskx program"
+These tests provide more comprehensive functional coverage than the \*Ldskx\*O
+utility.  Main functional areas which are tested include:
+.RS 3
+.IP \(bu 5
+Read testing.
+.IP \(bu 5
+Write testing.
+.IP \(bu 5
+Seek testing.
+.IP \(bu 5
+Performance analysis.
+.IP \(bu 5
+Disktab entry verification.
+.RE
+.PP
+Some of the tests involve writing to the disk.  For this reason
+the exerciser should be used with caution on disks which may contain
+useful data which could be over-written.  Tests which write to the
+disk will first check for the existence of file systems on the test
+partitions and partitions which overlap the test partitions.  If a
+file system is found on these partitions, a prompt will appear
+asking if testing should continue.
+.PP
+There are a number of options that \*Ldiskx\*O
+accepts.  These options control which tests are performed and also
+specify parameters of test operation.
+.SH FLAGS
+.PP
+The following is a description of the \*Ldiskx\*O
+options:
+.iX "diskx program" "options"
+.IP \-d 5
+Disktab entry test.  The \*Ldisktab\*O(4)
+entry for the test disk is obtained by using the \*Lgetdiskbyname\*O(3)
+library routine.
+This
+test will only work if the specified disk is a character special file.
+.IP \-h 5
+Help.  Displays a help message describing test options and functionality.
+.IP \-p 5
+Performance test.  Read and write transfers will be timed to
+measure device throughput.  No data validation is performed as
+part of this test.  Testing will be done using a range of transfer
+sizes if the \*L\-F\*O
+option is not specified.  The transfer size used for testing a range
+of record sizes will start at the minimum value
+and be incremented by the reciprocal of the number of specified "splits".
+For example if the number of splits is set to 10, the
+transfer size will start at the minimum value, the next transfer
+size will be the minimum value added to 1/10th of the range of
+values, similarly the next transfer size will increase by 1/10th of
+the range during each testing interval.  If a specific number of
+transfers are not specified, the transfer count will be set to
+allow the entire partition to be read or written; this number will
+vary depending on the transfer size and the partition size.
+The performance test will run until completed or interrupted
+and is not time limited by the \*L\-minutes\*O
+parameter.  This test may take a long time to complete depending
+on the test parameters.
+.IP \-S 5
+In order to achieve maximum throughput the \*L\-S\*O
+attribute should be specified on the command line.  This will cause
+sequential transfers.  If the sequential attribute is not specified,
+transfers will be done to random locations.  This may slow down the
+observed throughput due to associated head seeks on the device.
+.\" .PP
+.\" In order to acheive maximum throughput when testing the character
+.\" special file, n-buffered I/O should be enabled.  For this reason
+.\" for better measurements the
+.\" \*L\-n\*O
+.\" attribute should not be used when testing the character special file.
+.\" On the other hand since n-buffered I/O is not supported on the block
+.\" special file the
+.\" \*L\-n\*O
+.\" attribute must be specified when testing the block special file.
+.\"
+.IP \-r 5
+Read-only test.  Reads from the specified partitions.
+To run this test on the block special file the -n attribute must
+be specified on the command line.
+.IP
+This test is useful for generating system I/O activity.  Because
+it is a read-only test, it is possible to run more than one instance
+of the exerciser on the same disk.
+
+.IP \-w 5
+Write test.  The purpose of this test is to verify that data can
+be written to the disk and read back for validation.  Seeks are
+also done as part of this test.  This test provides the most
+comprehensive coverage of disk transfer functionality due to
+the usage of reads, write, and seeks.  The test also combines
+sequential and random access patterns.
+.PP
+The test performs the following operations using a range of
+transfer sizes.  A single transfer size will be utilized if the \*L\-F\*O
+attribute is specified.  The first step is to sequentially
+write the entire test partition (unless the number of transfers
+has been specified using \*L\-num_xfer\*O).  Next the test partition
+is sequentially read.  The data read from disk is examined to
+insure that it is the same as what was originally written.  At
+this point if random transfer testing has not been disabled
+(using the \*L\-S\*O attribute) then writes will be issued to random
+locations on the partition.  After completion of the random writes,
+reads will be issued to random locations on the partition.  The
+data read in from random locations will be examined for validity.
+.PP
+The following options are testing attributes which modify how tests are
+to be run.
+.IP \-F 5
+Perform fixed size transfers.  If this option is not specified
+transfers will be done using random sizes.  This attribute is associated
+with the following tests: \*L\-p\*O, \*L\-r\*O, \*L\-w\*O.
+.IP \-i 5
+Interactive mode.  Under this mode the user will be prompted
+for various test parameters.  Typical parameters include the
+transfer size and the number of transfers.
+The following scaling factors are allowed:
+.RS 5
+.TP 7
+k or K
+for kilobyte (1024 * n)
+.TP 7
+b or B
+block (512 * n)
+.TP 7
+m or M
+megabyte (1024 * 1024 * n)
+.PP
+For example 10k would specify 10240 bytes.
+.RE
+.\"
+.\" .IP \-n 5
+.\" Disable usage of n-buffered transfers.  This attribute is associated
+.\" with the following tests:
+.\" \*L\-r\*O
+.\" ,
+.\" \*L\-w\*O
+.\" ,
+.\" \*L\-p\*O
+.\" .\n
+.\" The default mode of operation is to enable the usage of n-buffered
+.\" I/O.  Usage of n-buffered I/O is not supported on the block special
+.\" file.  For this reason, it is required that the
+.\" \*L\-n\*O
+.\" attribute be
+.\" specified on the command line when requesting testing on the block
+.\" special file involves transfer operations (reads or writes).
+.IP \-Q 5
+Do not perform performance analysis of read transfers.  This
+will cause only write performance testing to be performed.  To
+perform only read testing and to skip the write performance tests
+the \*L\-R\*O attribute must be specified.  This attribute is
+associated with the following tests: \*L\-p\*O.
+.IP \-R
+Opens the disk in read-only mode.  This attribute is associated with all
+tests.
+.IP \-S 5
+Perform sequential transfers.  Transfers will be performed
+to sequential disk locations.  If this option is not specified
+transfers will be done to random disk locations.
+This attribute is associated with the following tests: \*L]-p\*O, \*L\-r\*O,
+\*L\-w\*O.
+.IP \-T 5
+Directs output to the terminal.  This attribute is useful when
+output is directed to a logfile using the \*L\-o\*O
+option.  By also specifying this parameter after the \*L\-o\*O
+filename options will cause output to be directed to both the terminal
+and the log file.  This attribute is associated with all tests.
+.IP \-Y 5
+If any of the selected tests write to the disk, the disk will
+be examined for any existing file systems.  If it appears that file
+systems exist, the exerciser will prompt for confirmation before
+proceeding.  When this attribute is specified the exerciser will
+NOT prompt for confirmation before proceeding.
+.PP
+The following options are used to specify test parameters.  These
+options are followed by an associated parameter specification.
+Test parameters may also be modified in an interactive manner.
+Refer to the description of the \*L\-i\*O
+test attribute for details.  To specify a numerical value, type the
+parameter name followed by a space and then the number.  For example
+\*L-perf_min 512\*O
+.PP
+The following scaling factors are allowed:
+.RS 5
+.TP 7
+k or K
+for kilobyte (1024 * n)
+.TP 7
+b or B
+for block (512 * n)
+.TP 7
+m or M
+for megabyte (1024 * 1024 * n)
+.RE
+.PP
+For example, 10K would specify 10240 bytes.
+
+As an example, \*L-perf_min 10K\*O,
+causes transfers to be done in sizes of 10240 bytes.
+.IP \-debug 5
+Specifies the level of diagnostic output to display.  The
+higher this number is, a greater volume of output will be produced
+describing the operations the exerciser is performing.
+This parameter is associated with all tests.
+.IP \-err_lines 5
+Specifies the maximum number of error messages may be produced as a
+result of an individual test.  Limits on error output is done to prevent
+a flooding of diagnostic messages in the event of persistent errors.
+This parameter is associated with all tests.
+.IP "\-f devname" 5
+Used to specify the device special file to perform testing on.  The
+devname parameter is the name associated with either a block or character
+special file which represents the disk to be tested.  The file name must
+begin with an "r" as in rz0 or rz1.  The last character of the file name
+may represent the disk partition to test, if no partitions are specified
+it is assumed that testing is to be done to all partitions.  For example
+if the specified devname is /dev/rrz0 then testing will be done to all
+partitions.  If devname is /dev/rrz0a then testing will be done
+on only the "a" partition.  This parameter must be specified
+in order to allow any testing to be performed.
+This parameter is associated with all tests.
+.IP \-minutes  5
+Specifies how many minutes to allow testing to continue.
+This parameter is associated with the following tests: \*L\-r\*O, \*L\-w\*O.
+.IP \-max_xfer 5
+Specifies the maximum transfer size to be performed.  When transfers are
+to be done using random sizes, the sizes will be within the range specified
+by the \*L\-max_xfer\*O and \*L\-min_xfer\*O parameters.
+If fixed size transfers are specified (see the \*L\-F\*O test attribute)
+then transfers will be done in a size specified by the \*L\-min_xfer\*O
+parameter.  Transfer sizes to the character special file should be
+specified in multiples of 512 bytes.  If the specified transfer size
+is not an even multiple the value will be rounded down to the nearest
+512 bytes.  This parameter is associated with the following tests:
+\*L\-r\*O, \*L\-w\*O.
+.IP \-min_xfer 5
+Specifies the minimum transfer size to be performed.
+This parameter is associated with the following tests: \*L\-r\*O, \*L\-w\*O.
+.\"
+.\" .IP \-num_nbuf 5
+.\" Specifies how many buffers to use for n-buffered transfers.
+.\" This parameter is associated with the following tests:
+.\" \*L\-r\*O
+.\" ,
+.\" \*L\-w\*O
+.\" ,
+.\" \*L\-p\*O
+.\" \.
+.IP \-num_xfer 5
+Specifies how many transfers to perform before changing
+the partition that is currently being tested.  This parameter is
+only useful when more than one partition is being tested.  If this
+parameter is not specified then the number of transfers will be set
+to be enough to completely cover a partition.
+This parameter is associated with the following tests:
+\*L\-r\*O, \*L\-w\*O.
+.IP "\-o filename" 5
+Sends output to the specified filename.  The default
+is to not create an output file and send output to the terminal.
+This parameter is associated with all tests.
+.IP \-perf_max 5
+Specifies the maximum transfer size to be performed.
+When transfers are to be done using random sizes, the sizes will
+be within the range specified by the \*L\-perf_min\*O
+and \*L\-perf_max\*O
+parameters.  If fixed size transfers are specified (see the \*L\-F\*O
+test attribute) then transfers will be done in a size specified
+by the \*L\-perf_min\*O
+parameter.  This parameter is associated with the following tests:
+\*L\-p\*O.
+.IP \-perf_min 5
+Specifies the minimum transfer size to be performed.
+This parameter is associated with the following tests: \*L\-p\*O.
+.IP \-perf_splits 5
+Specifies how the transfer size will be changed when
+testing a range of transfer sizes.  The range of transfer sizes is
+divided by perf_splits to obtain a transfer size increment.  For
+example if perf_splits is set to 10, tests will be run by starting
+with the minimum transfer size and increasing the size by 1/10th of
+the range of values for each test iteration.  The last transfer
+size will be set to the specified maximum transfer size.
+This parameter is associated with the following tests: \*L\-p\*O.
+.IP \-perf_xfers 5
+Specifies the number of transfers to be performed in
+performance analysis.  If this value is not explicitly specified
+the number of transfers will be set equal to the number required
+to read the entire partition.
+This parameter is associated with the following tests: \*L\-p\*O.
+.SH EXAMPLES
+.PP
+The following are example command lines with a description of what
+the resulting test action will be.
+.oS
+diskx -f /dev/rrz0 -r
+.oE
+The above example will perform read-only testing on the
+character device special file that rrz0 represents.  Since
+no partition is specified, reading will be done from all
+partitions.  The default range of transfer sizes will be used.
+Output from the exerciser program will be displayed on the
+terminal.
+.oS
+diskx -f /dev/rz0a -o diskx.out -d -debug 10
+.oE
+The disktab test will be run on the "a" partition of rz0.
+Program output will be logged to the file diskx.out.  The
+program output level is set to 10 which will cause additional
+output to be generated.
+.oS
+diskx -f /dev/rz0a -o diskx.out -p -n -S
+.oE
+Performance tests will be run in the "a" partition of rz0.
+Program output will be logged to the file diskx.out.
+.\" The
+.\" \*L\-n\*O
+.\" parameter will disable the usage on n-buffered I/O.
+The \*L\-S\*O option will cause sequential transfers for best test results.
+Testing will be done over the default range of transfer sizes.
+.oS
+diskx -f /dev/rrz0 -r &; diskx -f /dev/rrz1 -r &; diskx -f /dev/rrz2 -r &
+.oE
+This command will run the read test on all partitions of the disks.
+The disk exerciser is being invoked here as 3 separate
+processes.  In this manner the 3 processes will be generating
+a lot of system I/O activity.  This may be useful for system
+stress testing purposes.
+.SH PROGRAM OUTPUT
+.PP
+The following are descriptions of some of the tables which are
+produced by the disk exerciser:
+.PP
+This is the header used to describe the results of the transfer
+tests followed by a description of each column:
+.RS 3
+.sp
+Disk Transfer Statistics
+.sp
+Part Seeks  Seek_Er  Writes Writ_Er  MB_Write  Reads Read_Er  MB_Read  Data_Er
+.TP 7
+Part
+A letter used to represent the disk partition.
+.TP 7
+Seeks
+The number of seek system calls that were issued.
+.TP 7
+Seek_Er
+The number of seek system calls returning error status.
+.TP 7
+Writes
+The number of write system calls issued.
+.TP 7
+Writ_Er
+The number of write system calls returning error status.
+.TP 7
+MB_Write
+The number of megabytes of data written.
+.TP 7
+Reads
+The number of read system calls issued.
+.TP 7
+Read_Er
+The number of read system calls returning error status.
+.TP 7
+MB_Read
+The number of megabytes of data read.
+.TP 7
+Data_Er
+The number of transfers which had data validation errors.
+This does not specify the number of bytes that were in
+error; rather it specifies that the transfer had at least
+one byte in error.
+.RE
+.PP
+This header is used to describe the results of the performance tests.
+.RS 3
+.sp
+Performance test results:
+.sp
+Part-    Transfer  Count of          Read            Write   Transfer
+ition    Size      Transfers         Rate            Rate     Errors
+.RE
+.TP 7
+Partition
+A letter used to represent the disk partition.
+.TP 7
+Transfer Size
+This is the size of the read or write system call.
+.TP 7
+Count of Transfers
+Specifies the number of read or write system calls.
+.TP 7
+Read Rate
+The observed disk throughput obtained by timing the
+specified number of read system calls.
+.TP 7
+Write Rate
+The observed disk throughput obtained by timing the
+specified number of write system calls.
+.TP 7
+Transfer Errors
+Shows how many read and write system calls resulted
+in a return value of error status.  If this value
+is nonzero then the values displayed in the Read
+and Write Rate columns may not accurately reflect
+correct device performance.
+.SH RELATED INFORMATION
+.PP
+getdiskbyname(3), disktab(4), cmx(8), fsx(8), shmx(8), tapex(8), memx(8)
+.EQ
+delim off
+.EN

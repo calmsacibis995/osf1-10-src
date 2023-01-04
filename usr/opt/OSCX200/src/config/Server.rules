@@ -1,0 +1,103 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/*
+ * generic server rules for dealing with loadable's
+ */
+
+/*
+ * Warning, when defining rules: make sure you do not include both a trailing
+ * backslash and double ampersand backslash or else you will get an extra
+ * backslash in the Makefile.
+ * 
+ * The following macros are defined for the various server 
+ * templates and Imakefiles
+ * (for a list of the applicable make variables, see the template files):
+ * 
+ * SaberProgramTarget		(program,srclist,objlist,locallibs,syslibs)
+ */
+
+XCOMM $XConsortium: Server.rules$
+
+#ifdef HasSharedLibraries
+#undef HasSharedLibraries
+#endif
+#define HasServerLoadables YES
+#define HasSharedLibraries HasServerLoadables
+#undef SharedRegistry
+#define SharedRegistry 
+/*#define SharedRegistry -update_registry $(CROSSBASE)/shlib/so_locations*/
+#include <osfLib.rules>
+
+#ifndef ExternalsListTarget
+#define	ExternalsListTarget(libname,objlist)				@@\
+									@@\
+Concat(libname,_externals.c): objlist					@@\
+	$(RM) $@							@@\
+	$(SHELL) $(EXTERN_LIST) libname $(NM) objlist 
+#endif /* ExternalsListTarget */
+
+/*
+ * NormalSharedLibraryTarget - generate rules to create a shared library;
+ * build it from the existing normal library
+ */
+
+#ifdef SharedLibraryTarget
+#undef SharedLibraryTarget
+#endif
+#ifndef SharedLibraryTarget
+#define SharedLibraryTarget(libname,rev,solist)				@@\
+									@@\
+AllTarget(Concat(lib,libname.so))					@@\
+									@@\
+ExternalsListTarget(libname,solist)					@@\
+									@@\
+Concat(lib,libname.so)::  solist Concat(libname,_externals.o)  		@@\
+	$(RM) $@ 							@@\
+	$(RM) Concat(lib,_unresolved)					@@\
+	$(LD) $(LDSERVERFLAGS) -O2 -shared -all \			@@\
+		-o $@ solist \						@@\
+		Concat(libname,_externals.o) \				@@\
+		-none > Concat(lib,_unresolved) 2>&1			@@\
+									@@\
+clean::									@@\
+	$(RM) Concat(lib,libname.so)					@@\
+	$(RM) Concat(libname,_externals.c)				@@\
+	$(RM) Concat(lib,_unresolved)					@@\
+
+#endif /* SharedLibraryTarget */
+
+/*
+ * InstallSharedLibrary - generate rules to install the shared library.
+ */
+#ifdef InstallSharedLibrary
+#undef InstallSharedLibrary
+#endif
+#define	InstallSharedLibrary(libname,rev,dest)				@@\
+install:: Concat(lib,libname.so)					@@\
+	MakeDir(dest)							@@\
+	$(INSTALL) -c $(INSTLIBFLAGS) Concat(lib,libname.so) dest	
+
+

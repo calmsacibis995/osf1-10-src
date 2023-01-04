@@ -1,0 +1,176 @@
+.\"##
+.\" $XConsortium: p391,v 5.1 91/02/16 09:44:45 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "SET WORKSTATION WINDOW" 3P "29 February 1991"
+.SH NAME
+SET WORKSTATION WINDOW \- specify a \s-2\&2D\s+2 window to be displayed on the
+workstation
+.IX "Workstation Transformation" "SET WORKSTATION WINDOW"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.5i 3.25i
+.nf
+void
+pset_ws_win ( ws, window )
+Pint	ws;	\fIworkstation id\fP
+Plimit	*window;	\fIworkstation window limits\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2SET WORKSTATION WINDOW\s+2
+defines the \s-2\&2D\s+2 area in Normalized Projection Coordinate 
+(\s-2NPC\s+2) space to be displayed on the specified workstation.  
+The workstation window is a rectangular box in \s-2NPC\s+2 space, 
+which is mapped to the workstation viewport, defined in 
+Device Coordinate (\s-2DC\s+2) space.  
+.LP
+Together, the workstation window and the workstation viewport
+define the \fIworkstation transformation\fP that converts the image
+from \s-2NPC\s+2 to \s-2DC\s+2 on the workstation's physical display surface.  
+The workstation window defines what within \s-2NPC\s+2 space is displayed;  
+the workstation viewport defines where the image is displayed in \s-2DC\s+2
+space.  
+.LP
+Control of the workstation window allows you to choose
+a portion of the abstract image
+composed in \s-2NPC\s+2 space for display on the workstation,
+without changing the definition of the image in \s-2NPC\s+2 space.  
+.SS C Input Parameters
+.IP \fIws\fP
+The identifier of the workstation for which the window is to be set.  
+.IP \fIwindow\fP
+A pointer to a structure containing the four \s-2\&2D\s+2 \s-2NPC\s+2
+\fIworkstation window limits\fP,
+defined as follows:  
+.nf
+.ta .5i +\w'Pfloat     'u +\w'x_max;     'u
+.sp .4
+typedef struct  {
+.sp .2
+	Pfloat	x_min;	/* x minimum */
+	Pfloat	x_max;	/* x maximum */
+	Pfloat	y_min;	/* y minimum */
+	Pfloat	y_max;	/* y maximum */
+.sp .2
+} Plimit;
+.fi
+.SS Execution
+.LP
+The current workstation window defines the rectangular box in
+Normalized Projection Coordinates (\s-2NPC\s+2) containing the portion of
+the abstract image to be displayed within the current workstation viewport.  
+Together, the workstation window and the workstation viewport
+define an isotropic \fIworkstation transformation\fP that converts the image
+from \s-2NPC\s+2 to \s-2DC\s+2 on the workstation's physical display surface.  
+.LP
+The range for each of the workstation window limits is [0,1].  
+In addition, \fIx minimum\fP must be less than \fIx maximum\fP, and
+\fIy minimum\fP must be less than \fIy maximum\fP.  
+Output is automatically clipped at the workstation window limits, and
+this clipping cannot be disabled.
+.LP
+\s-2SET WORKSTATION WINDOW\s+2 sets the \fIx\fP and \fIy\fP
+components of the requested workstation window in the specified
+workstation's state list to the values specified.  The \fIz\fP component
+of the requested workstation window and current workstation window is
+not changed.  The effect of calling \s-2SET WORKSTATION WINDOW\s+2 is
+visible only after the requested workstation window replaces the
+current workstation window.  The time at which this occurs depends on
+the workstation's display update state.  This action is performed
+immediately, and the \fIworkstation transformation update state\fP is set to
+\s-2NOTPENDING\s+2, if any one of the following is true:  
+.sp .5v
+.in +0.5i
+.ta +0.2i
+.ti -0.2i
+\(bu	The workstation's display update state allows update.
+.sp .5v
+.ti -0.2i
+\(bu	The workstation's modification mode is any value other than
+\fINo Immediate Visual Effect\fP,
+and the \fIdynamic modification accepted for workstation transformation\fP 
+entry in the workstation description table is set to Immediate.
+.sp .5v
+.ti -0.2i
+\(bu	The \fIdisplay space empty\fP status in the workstation state list
+is \s-2EMPTY\s+2.
+.LP
+Otherwise,
+the workstation transformation update state is set to \s-2PENDING\s+2,
+and the requested workstation window will not replace
+the current workstation window until
+the next time the workstation is updated.  
+The workstation transformation update state will be set to \s-2NOTPENDING\s+2
+at that time.  
+.LP
+If the current workstation window and viewport do not have the same aspect
+ratios, the workstation transformation will preserve the proportions of the
+image by mapping the workstation window to the largest possible area within
+of workstation viewport so that: 
+.sp .5v
+.in +0.5i
+.ta +0.2i
+.ti -0.2i
+\(bu	The aspect ratio of the window in \fIx\fP
+and \fIy\fP is maintained.
+.sp .5v
+.ti -0.2i
+\(bu	The lower left hand corner of the window
+is mapped to the lower left hand corner of the viewport.
+.LP
+If the aspect ratios of the workstation window and viewport are different,
+there will be unused space along the upper or
+right-hand edges of the viewport, but not both.
+.LP
+The default workstation transformation maps the entire \s-2NPC\s+2 view plane,
+[0,1] \(mu [0,1], onto the largest square in the
+workstation display space including the display's lower left corner.  
+.\"different:	The workstation transformation can be changed at any time after
+.\"different:	the workstation is opened. However, changing the transformation
+.\"different:	may cause an implicit regeneration of the picture regardless of
+.\"different:	the explicit setting of the workstation's display update state.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 057
+Ignoring function, specified workstation is of category \s-2MI\s+2
+.IP 151
+Ignoring function, invalid window;
+\s-2XMIN \(>= XMAX\s+2 or \s-2YMIN \(>= YMAX\s+2
+.IP 156
+Ignoring function, the workstation window limits are not within \s-2NPC\s+2 range
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET WORKSTATION VIEWPORT (3P)"
+.SM "SET WORKSTATION WINDOW 3 (3P)"
+.fi

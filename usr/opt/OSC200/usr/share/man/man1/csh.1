@@ -1,0 +1,1943 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: csh.1,v $ $Revision: 3.5.7.3 $ (DEC) $Date: 1993/11/30 16:04:38 $
+.\" 
+...\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 Release 1.0.4
+...\"build rmifdef
+.TH csh 1
+.SH NAME
+\*Lcsh\*O \- C shell command interpreter
+.SH SYNOPSIS
+.PP
+.iX "csh command"
+.iX "commands" "interpreting"
+.iX "interpreting" "commands"
+.iX "shell" "C"
+.sS
+\*Lcsh\*O
+\*O[\*L\-bcefinstvVxX\*O]
+\*O[\*Vargument\*O
+\&.\&.\&.]
+.sE
+.PP
+The \*Lcsh\*O command invokes the C shell and interprets C shell commands.
+.SH DESCRIPTION
+.PP
+The C shell is an interactive command interpreter and a command
+programming language that uses a syntax similar to the C programming
+language.  The shell carries out commands either from a file (called a
+shell script or procedure) or interactively from a terminal keyboard.
+.PP
+When you run \*Lcsh\*O, it begins by executing commands from
+the file \*L\&.cshrc\*O in your home directory, if it exists.
+If the shell is invoked with a name that starts with \*L\-\*O,
+as when started by \*Llogin\*O, the shell runs as a login shell.
+If \*Lcsh\*O runs as a login shell, it executes
+commands from your \*L$HOME/\&.cshrc\*O file and your
+\*L$HOME/\&.login\*O file in that order.  (If argument zero (\*L$0\*O)
+to the shell is a \*L\-\*O (dash), then the shell is a login shell.)
+.PP
+In the normal case, the shell begins reading commands from the
+terminal, prompting with \*L%\*O (percent sign) or \*L#\*O
+(number sign) for the superuser.
+Processing of arguments and the use of the shell to process files
+containing command scripts is described later.
+.PP
+The shell then repeatedly performs the following actions:
+.AL
+.LI
+A line of command input is read and broken into words.
+.LI
+This sequence of words is placed on the command history list and then parsed.
+.LI
+Each command in the current line is executed.
+.LE
+.PP
+When a login shell terminates, it
+executes commands from the file \*L\&.logout\*O
+in your home directory.
+.SS Shell Features
+.\"
+.ML
+.LI
+Job control and status reporting
+.LI
+Filename completion
+.LI
+History substitution
+.LI
+Command aliasing
+.LI
+Variable substitution
+.LI
+Command substitution
+.LI
+Filename substitution
+.LI
+Input/output redirection and control flow
+.LI
+Built-in commands
+.LE
+.SS Lexical Structure
+A simple command is a sequence of words separated by spaces or tabs.
+The shell splits input lines into words at spaces and tabs with the
+following exceptions:
+.ML
+.LI
+The characters \*L&\*O, \*L|\*O, \*L;\*O, \*L<\*O, \*L>\*O, \*L(\*O,
+\*L)\*O, and \*L#\*O form separate words.
+If doubled in \*L&&\*O, \*L||\*O, \*L<<\*O, or \*L>>\*O,
+these pairs form single words.
+.LI
+Preceding parser metacharacters
+with a \*L\e\*O (backslash) prevents the shell from interpreting them
+as special characters.  A newline preceded by a \*L\e\*O (backslash)
+is equivalent to a space.
+.LI
+Strings enclosed in \*L" "\*O (double quotes),
+\*L` `\*O (grave accents), or \*L' '\*O (single quotes)
+form parts of a word; metacharacters in these strings, including spaces
+and tabs, do not form separate words.  For more information,
+see the section "Quoting with Single and
+Double Quotes".  Within pairs of \*L'\*O or \*L"\*O
+characters, you can include the newline character by preceding it
+with a \*L\e\*O (backslash).
+.LI
+When the shell is not reading input from a terminal,
+it treats any word that begins with a \*L#\*O (number sign) character
+as a comment and ignores that word and all characters following up to
+the next newline character.
+This special meaning is prevented when the \*L#\*O character is
+preceded by a \*L\e\*O (backslash) or when the string is enclosed in
+quotes using \*L`\*O, \*L'\*O, or \*L"\*O.
+.LE
+.ne 10
+.SS Shell Commands
+A simple command is a sequence of words, the first of which
+(numbered 0) specifies the command to be executed.
+Any remaining words, with a few
+exceptions, are passed to that command.  If the command specifies an
+executable file that is a compiled program, the shell immediately
+runs that program.  If the file is marked executable but is not a
+compiled program, the shell assumes that it is a shell script.  In
+this case, it starts another shell to read the file and execute
+the commands included in it.  (See the section
+\*LNonBuilt-In Command Execution\*O for information about using
+the \*L$shell\*O variable to determine which shell is executed.)
+.PP
+A pipeline is a sequence of one or more commands
+separated by either the \*L|\*O (vertical bar) or \*L|&\*O
+(vertical bar and ampersand) characters.
+With \*L|\*O, the standard output of the preceding command is
+redirected to the standard input of the command that follows.  With
+\*L|&\*O, both the standard error and the standard output are
+redirected.  A list is a sequence of pipelines
+separated by a \*L;\*O (semicolon), \*L&\*O (ampersand), \*L&&\*O (two
+ampersands), or \*L||\*O (two vertical bars) and optionally ended by a
+\*L;\*O (semicolon) or an \*L&\*O (ampersand).  These separators and
+terminators have the following effects:
+.VL 4m
+.LI "\*L;\*O"
+Causes sequential execution of the preceding pipeline (the shell waits
+for the pipeline to finish).
+.LI "\*L&\*O"
+Causes asynchronous execution of the preceding pipeline (the shell does
+not wait for the pipeline to finish).
+.LI "\*L&&\*O"
+Causes the list following it to be executed only if the preceding
+pipeline returns a 0 (zero) exit value.
+.LI "\*L||\*O"
+Causes the list following it to be executed only if the preceding
+pipeline returns a nonzero exit value.
+.LE
+.PP
+The \*L;\*O (semicolon) and \*L&\*O (ampersand) separators have equal
+precedence, as do \*L&&\*O and \*L||\*O.  The single-character
+separators have lower precedence than the double-character separators.
+A newline character without quotes following a pipeline
+functions the same as a \*L;\*O (semicolon).  A pipeline or sequence
+can be enclosed in \*L()\*O (parentheses) to form a simple command.
+.SS Job Control
+The shell associates a job with each pipeline.  It keeps
+a table of current jobs and assigns them small integer numbers.  When
+you start a job asynchronously by terminating the command with \*L&\*O,
+the shell displays a line that looks like this:
+.oS
+[1] 1234
+\*O\c
+.oE
+.PP
+This line indicates that the job number is \*L1\*O and that the job is
+composed of one process with the process ID of \*L1234\*O.  Use the built-in
+\*Ljobs\*O command to see the table of current jobs.
+.PP
+If you are running a job and want to do something else, you can enter the
+Suspend key sequence (normally \*L<Ctrl-z>\*O,
+which sends a \*LSIGINT\*O signal to the current job.  The shell
+then normally indicates that the job has been stopped,
+and it prints another prompt.  You can then manipulate the state of this job,
+putting it in the background with the \*Lbg\*O command, or run some other
+commands and then eventually bring the job back into the foreground with
+the foreground command \*Lfg\*O.  The job suspension
+takes effect immediately, and corresponds to the Interrupt key
+sequence in that pending output and unread input
+are discarded.  A special key sequence, \*L<Ctrl-y>\*O, does
+not generate a \*LSIGINT\*O signal until a program attempts to read it.
+(See the \*Lread()\*O system call for more information.)  This key sequence
+can usefully be typed ahead when you have prepared some commands
+for a job that you wish to stop after it has read them.
+.PP
+A job being run in the background stops if it tries to read
+from the terminal.  Background jobs are normally allowed to produce output,
+but this can be disabled by entering the \*Lstty tostop\*O command.
+If you set this
+tty option, background jobs stop when they try to produce
+output like they do when they try to read input.
+.PP
+There are several ways to refer to jobs in the shell.  Use the \*L%\*O
+(percent sign) with the \*Lfg\*O and \*Lbg\*O built-in commands
+to control the job.  This name can be
+either the job number or a prefix of the string that started
+the job, if this name is unique.  (\*L%\*O can be used
+to refer to both background and foreground jobs.)
+.PP
+For example, if a \*Lmake\*O process is running as job number 1, you
+can refer to it as \*L%1\*O.  You can also refer to it as \*L%make\*O,
+if there is only one job with a name that begins with the
+string \*Lmake\*O.  You can also use the following characters
+to specify a job whose name contains \*Vstring\*O, if there is only one
+such job:
+.iS
+%?\*Vstring\*O
+.iE
+.PP
+Just naming a job brings it to the foreground; thus
+\*L%1\*O is a synonym for \*Lfg %1\*O,
+bringing job 1 back into the foreground.
+Similarly, entering \*L%1 &\*O resumes job 1 in the background.
+Thus, \*L%ex\*O normally restarts a suspended \*Lex\*O
+job, if there were only one suspended job whose name began with
+the string \*Lex\*O.
+.PP
+The shell maintains a notion of the current and previous jobs.
+In output produced by the built-in command \*Ljobs\*O,
+the current job is marked with a \*L+\*O (plus sign)
+and the previous job with a \*L\-\*O (dash).
+The abbreviation \*L%+\*O refers to the current job and \*L%\-\*O
+refers to the previous job.  For close
+analogy with the syntax of the history mechanism (described later),
+\*L%\&%\&\*O is also a synonym for the current job.
+.SS Status Reporting
+The shell tracks the state of each job and reports whenever a job
+finishes or becomes blocked.  The shell prints the status information
+just before it prints the prompt to avoid disturbing the appearance of
+the terminal screen.  If, however, you set the \*Lnotify\*O shell variable,
+the shell notifies you immediately of changes of status in background
+jobs.  There is also a \*Lnotify\*O shell command
+that marks a single process so that its status changes are immediately
+reported.  By default \*Lnotify\*O marks the current process.
+Simply enter \*Lnotify\*O after starting a background job to mark the job.
+.PP
+When you try to leave the shell while jobs are stopped, you are
+warned that you have stopped jobs.  You can use the
+built-in \*Ljobs\*O command to see what they are.  If you then
+immediately exit the shell, or use \*Ljobs\*O and then exit, the shell
+does not warn you a second time, and the suspended jobs are terminated.
+.SS Filename Completion
+The filename completion feature is enabled by setting
+the shell variable \*Lfilec\*O.  The \*Lcsh\*O
+interactively completes filenames and usernames from unique
+prefixes when they are input from the terminal followed by
+the escape character (the \*L<ESC>\*O key or \*L<Ctrl-[>\*O)).
+For example, assume the current directory looks like this:
+.oS
+DSC.OLD  bench  chaos  cmd     dev  mail  xmpl.c  xmpl.out
+DSC.NEW  bin    class  cmtest  lib  mbox  xmpl.o
+\*O\c
+.oE
+.PP
+The input is as follows:
+.iS
+% vi ch<ESC>
+\*O\c
+.iE
+.PP
+\*Lcsh\*O
+completes the prefix \*Lch\*O
+to the only matching filename \*Lchaos\*O:
+.iS
+vi chaos
+\*O\c
+.iE
+.PP
+However, given the following command line:
+.iS
+vi D<ESC>
+\*O\c
+.iE
+.PP
+\*Lcsh\*O only expands the input as follows:
+.iS
+vi DSC.
+\*O\c
+.iE
+.PP
+\*Lcsh\*O sounds the terminal bell to indicate that the expansion is
+incomplete, because two filenames match the prefix \*LD\*O.
+.PP
+If a partial filename is followed by the End-of-File character
+(shown here as \*L<Ctrl-d>\*O),
+then instead of completing the name,
+\*Lcsh\*O lists all filenames matching the prefix.  For example,
+the following input
+causes all files beginning with \*LD\*O to be listed:
+.iS
+vi D<Ctrl-d>
+\*O\c
+.iE
+.oS
+DSC.NEW DSC.OLD
+\*O\c
+.oE
+.PP
+The input line is then echoed again for you to complete.
+.PP
+The same system of \*L<ESC>\*O and \*L<EOF>\*O can also be used to
+expand partial usernames, if the word to be completed
+(or listed) begins with \*L~\*O (tilde).  For example, entering
+the following command line
+.iS
+cd ~ro<ESC>
+\*O\c
+.iE
+.PP
+can produce the following expansion:
+.iS
+cd ~root
+\*O\c
+.iE
+.PP
+The use of the terminal bell to signal errors or multiple matches
+can be inhibited by setting the variable \*Lnobeep\*O.
+.PP
+Normally, all files in the particular directory are candidates
+for name completion.  Files with certain suffixes can be excluded
+from consideration by setting the variable
+\*Lfignore\*O to the
+list of suffixes to be ignored.  Thus, if \*Lfignore\*O is set by the
+following command:
+.iS
+% set fignore = (.o .out)
+\*O\c
+.iE
+.PP
+typing
+.iS
+% vi x<ESC>
+\*O\c
+.iE
+.PP
+results in the completion to
+.iS
+% vi xmpl.c
+\*O\c
+.iE
+.PP
+ignoring the files \*Lxmpl.o\*O and \*Lxmpl.out\*O.
+However, if the only completion possible requires not ignoring these
+suffixes, then they are not ignored.  In addition, \*Lfignore\*O
+does not affect the listing of filenames by \*L<Ctrl-d>\*O.  All files
+are listed regardless of their suffixes.
+.SS \&History Substitution
+History substitution places words from previous command input as portions
+of new commands, making it easy to repeat commands, repeat arguments
+of a previous command in the current command, or fix spelling mistakes
+in the previous command with little typing.
+History substitutions begin with the \*L!\*O (exclamation point)
+character and can begin anywhere on the command line, provided they do
+not nest (in other words, a history substitution cannot contain another
+history substitution).
+You can precede the \*L!\*O with a \*L\e\*O (backslash)
+to prevent the exclamation point's
+special meaning.  In addition, if you place
+an \*L!\*O (exclamation point) before
+a space, tab, newline, \*L=\*O (equal sign), or \*L(\*O (left parenthesis),
+the exclamation point is passed to the parser unchanged.
+(History substitutions also
+occur when you begin an input line with a \*L^\*O (circumflex).
+This special abbreviation is described later.)
+The shell echoes any input line containing history substitutions
+before it executes that command line.
+.PP
+Commands input from the terminal that consist of one or more words
+are saved on the history list.  The history substitutions reintroduce
+sequences of words from these saved commands into the input stream.
+.PP
+The \*Lhistory\*O shell variable controls the size of the history
+list.  You must set the \*Lhistory\*O shell variable either in
+the \*L\&.cshrc\*O file or on the command line with the built-in \*Lset\*O
+command.  The previous command is always retained, however,
+regardless of the value of \*Lhistory\*O.  Commands in the history
+list are numbered sequentially, starting from 1.  The built-in \*Lhistory\*O
+command produces output of the type:
+.oS
+ 9  write michael
+10  ex write.c
+11  cat oldwrite.c
+12  diff *write.c
+\*O\c
+.oE
+.PP
+The command strings are shown with their event numbers.  It is
+not usually necessary to use event numbers to refer to events, but
+you can have the current event number displayed as part of your system
+prompt by placing an ! (exclamation point)
+in the prompt string assigned to the \*Lprompt\*O variable.
+.PP
+A full history reference contains an event specification, a word
+designator, and one or more modifiers in the following general format:
+.PP
+\*Vevent\*O[:]\*Vword\*O:\*Vmodifier\*O[:\*Vmodifier\*O]\&.\&.\&.
+.PP
+Note that only one word can be modified.  A string that
+contains spaces is not allowed.
+.PP
+In the previous sample of \*Lhistory\*O command output, the
+current event number is 13.  Using this example, the following refer
+to previous events:
+.VL 4m
+.LI "\*L!10\*O"
+Refers to event number 10.
+.LI "\*L!\-2\*O"
+Refers to event number 11 (the current event minus 2).
+.LI "\*L!d\*O"
+Refers to a command word beginning with \*Ld\*O (in this
+case, event number 12).
+.LI "\*L!?mic?\*O"
+Refers to a command word that contains the string
+\*Lmic\*O (in this case, event number 9).
+.LE
+.PP
+These forms, without further modification, simply reintroduce the words
+of the specified events, each separated by a single space.
+As a special case, \*L!!\*O refers to the previous command.
+(The \*L!!\*O command alone on an input line reruns the previous command.)
+.PP
+To select words from an event, follow the event specification by
+a \*L:\*O (colon) and one of the following word designators.
+The words of an input line are numbered sequentially, starting from 0
+(zero), with
+the first (usually command) word being 0 (zero),
+the second word (first argument)
+being 1, and so on.  The basic word designators are as follows:
+.VL 4m
+.LI "\*L0\*O"
+First word (command).
+.LI "\*Vn\*O"
+\*Vn\*Oth argument, where \*Vn\*O > 0.
+.LI "\*L^\*O"
+First word (word \*L1\*O).
+.LI "\*L$\*O"
+Last word.
+.LI "\*L%\*O"
+Word matched by (the immediately preceding) ?\*Vstring\*O? history search.
+.LI "\*Vx\-y\*O"
+Range of words from \*Vx\*O through \*Vy\*O.
+.LI "\*L\-\*Vy\*O"
+Words 0\-\*Vy\*O.
+.LI "\*L*\*O"
+The second through the last words,
+or nothing if only one word in event.
+.LI "\*Vx\*L*\*O"
+Words \*Vx\*L\- $\*O
+.LI "\*Vx\*L\-\*O"
+Like \*Vx\*L*\*O, but omits the last word (\*L$\*O).
+.LE
+.PP
+You can omit the \*L:\*O (colon) separating the event specification
+from the word designator if the word designator
+begins with a \*L^\*O, \*L$\*O, \*L*\*O, \*L\-\*O,
+or \*L%\*O.  You can also place a sequence of modifiers, each preceded by
+a \*L:\*O (colon), after the optional word designator.
+The following modifiers are defined:
+.VL 4m
+.LI "\*L&\*O"
+Repeats the previous substitution.
+.LI "\*Le\*O"
+Removes all but the trailing extension \*V.xxx\*O.
+.LI "\*Lg\*O"
+Applies the change globally, prefixing another modifier, for example \*Lg&\*O.
+.LI "\*Lh\*O"
+Removes a trailing pathname extension, leaving the head.
+.LI "\*Lp\*O"
+Prints the new command, but does not execute it.
+.LI "\*Lq\*O"
+Quotes the substituted words, thus preventing further substitutions.
+.LI "\*Lr\*O"
+Removes a trailing \*V.xxx\*O component, leaving the root name.
+.LI "\*Ls\*V/l/r/\*O"
+Substitutes \*Vr\*O for \*Vl\*O.  It is an error for no word to be applicable.
+.LI "\*Lt\*O"
+Removes all leading pathname components, leaving the tail.
+.LI "\*Lx\*O"
+Like \*Lq\*O, but breaks into words at space, tab or newline.
+.LE
+.PP
+Unless the modifier is preceded by a \*Lg\*O, the change is applied
+only to the first modifiable word.
+.PP
+The \*Vl\*O (left) side of a substitution is not a pattern
+in the sense of a string recognized by an editor; rather, it is a
+word, a single unit without spaces. Normally, a \*L/\*O (slash) delimits
+the word (\*Vl\*O) and its replacement (\*Vr\*O). However, you
+can use any character as the delimiter.  Thus, in the following example
+the \*L=\*O character becomes the delimiter, allowing you to include the
+\*L/\*O in your word:
+.iS
+s=/usr/myfile=/usr/yourfile=
+\*O\c
+.iE
+.PP
+If you include an \*L&\*O (ampersand) in the
+replacement (\*Vr\*O), it is replaced by the text from the
+left-hand side (\*Vl\*O).
+A null \*Vl\*O side is replaced by either the last \*Vl\*O string
+or by the last string used in the contextual scan \*L!?\*Vstring\*L?\*O.
+You can omit the trailing delimiter (\*L/\*O) if a newline
+character follows immediately.
+.PP
+A history reference can be given without an event specification.  For example,
+\*L!$\*O refers to the last argument of the previous command.
+If a history reference without an event specification is not the first history
+reference on the line, it refers to the previous history reference on the line
+and not to a previous event.  For example, in \*L!?foo?^ !$\*O, \*L!?foo?^\*O
+gives the first argument of the command matching \*L?foo?\*O, and the \*L!$\*O
+gives the last argument of that same command, not the last argument
+of the previous command (as it would if it were on a line by itself).
+.PP
+A special abbreviation of a history reference occurs when the first
+nonspace character of an input line is a \*L^\*O (circumflex).
+This is equivalent to \*L!:s^\*O, providing a convenient shorthand for
+substitutions on the text of the previous line.
+Thus, \*L^lb^lib\*O corrects the spelling of \*Llib\*O in the previous command.
+Finally, a history substitution can be enclosed in \*L{\*O \*L}\*O
+(braces) to insulate it from the characters that follow.
+Thus, after \*Lls \-ld ~paul\*O
+you might specify \*L!{l}a\*O to do \*Lls \-ld ~paula\*O,
+or \*L!la\*O to rerun a command starting with \*Lla\*O.
+.\" Begin Digital-specific information
+.SS Command Line Editing
+If you are using a video display terminal or a workstation terminal
+emulator, \*Lcsh\*O allows you to recall and edit commands as if you
+were using an editor; this capability is in addition to the history
+mechanism.  See \*Lcmdedit\*O(1) for complete information on command
+line editing.
+.\" End Digital-specific information
+.SS Quoting with Single and Double Quotes
+Enclose strings in single and double quotes to prevent
+all or some of the substitutions that remain.  Enclosing strings in \*L' '\*O
+(single quotes) prevents any further interpretation.
+Enclosing strings in \*L" "\*O (double quotes) allows further variable and
+command expansion. In both cases, the text that results becomes (all or part
+of) a single word.  Only in one special case does a string quoted
+by \*L" "\*O yield parts of more than one word; strings quoted by \*L' '\*O
+never do (see \*LCommand Substitution\*O).
+.SS Alias Substitution
+The shell maintains a list of aliases that the \*Lalias\*O and
+\*Lunalias\*O built-in commands can establish, display, and modify.
+After the shell scans a command line, it divides the line into distinct
+commands and checks the first word of each command, left to right,
+to see if it has an alias.  If an alias exists, the text defined as the alias
+for that command is reread with the history mechanism, as if the
+alias were the previous input line.  The words that result replace
+the command and argument list.  If no reference is made to the history list,
+the argument list is left unchanged.
+.PP
+Thus, if the alias for \*Lls\*O is \*Lls \-l\*O,
+the shell replaces the command \*Lls /usr\*O with
+\*Lls \-l /usr\*O.  The argument list is left unchanged because there
+is no reference to the history list in the command with an alias.
+Similarly, if the alias for \*Llookup\*O
+is \*Lgrep !^ /etc/passwd\*O, then
+\*Llookup bill\*O maps to \*Lgrep bill /etc/passwd\*O.
+.PP
+Here \*L!^\*O refers to the history list and the shell replaces it with
+the first argument in the input line, in this case \*Lbill\*O.  Note
+that you can use special pattern-matching characters in an alias.  Thus,
+the line:
+.iS
+alias lprint 'pr \e!* | lpr'
+\*O\c
+.iE
+.PP
+makes a command that formats its arguments to the line printer.  The
+\*L!\*O (exclamation point) is protected from the shell in the alias so that
+it is not expanded until \*Lpr\*O runs.
+.PP
+If an alias is found, the word transformation of the input text
+is performed and the aliasing process begins again on the reformed input line.
+If the first word of the new text is the same as the old, looping is
+prevented by flagging it to terminate the alias process.
+Other loops are detected and cause an error.
+.SS Variable Substitution
+The shell maintains a set of variables, each of which has as its value a list
+of zero or more words.
+Some of these variables are set by the shell or referred to by it.
+For instance, the \*Largv\*O
+variable is an image of the shell variable list, and words that comprise
+the value of this variable are referred to in special ways.
+.PP
+You can display and change the values of variables by using the
+\*Lset\*O and \*Lunset\*O commands.
+Of the variables referred to by the shell, a number are toggles
+(variables that turn on and off);
+the shell does not care what their value is, only whether they are set
+or unset.  For instance, the \*Lverbose\*O
+variable is a toggle that causes the words of each command to be echoed.
+The setting of this variable results from the \*L\-v\*O flag on the
+command line.
+.PP
+Other operations treat variables numerically.  The \*L@\*O command
+performs numeric calculations and the result is assigned to a variable.
+Variable values are, however, always represented as (zero or more) strings.
+For the purposes of numeric operations, the null string is considered to be
+0 (zero), and the second and subsequent words of multiword values are ignored.
+.PP
+After the input line is parsed and alias substitution is performed,
+and before each command is executed, variable substitution
+is performed, keyed by \*L$\*O (dollar sign) characters.
+You can prevent this expansion by preceding the \*L$\*O
+with a \*L\e\*O (backslash) except within \*L" "\*O (double quotes),
+where it always occurs, or by using \*L' '\*O (single quotes),
+where it never occurs.  Strings quoted by \*L` `\*O (grave accents)
+are interpreted later (see \*LCommand Substitution\*O), so
+variable substitution does not occur there until later, if at all.
+A \*L$\*O is passed unchanged if followed by a space, tab, or newline.
+.PP
+Input/output redirection is recognized and expanded before variable expansion
+occurs.  Otherwise, the command name and
+complete argument list are expanded together.
+Therefore, it is possible for the first (command) word to this point to generate
+more than one word, the first of which becomes the command name,
+and the rest of which become arguments.
+.PP
+Unless enclosed in \*L" "\*O or given the \*L:q\*O modifier, the results of
+variable substitution can themselves eventually be command and filename
+substituted.  Within pairs of double quotes, a variable whose value consists
+of multiple words expands to a (portion of a) single word, with the
+words of the variable's value separated by spaces.  When you apply the
+\*L:q\*O modifier to a substitution, the variable expands to multiple words.
+The individual words are separated by spaces and quoted to prevent later
+command or filename substitution.
+.PP
+The following notation allows you to introduce variable values into
+the shell input.
+Except as noted, it is an error to reference a variable that is not set.
+.VL 4m
+.LI "\*L$\*Vname\*O"
+.LI "\*L${\*Vname\*L}\*O"
+Are replaced by the words assigned to the variable \*Vname\*O,
+each separated by a space.  Braces insulate \*Vname\*O
+from following characters that would otherwise be part of it.
+Shell variable names begin with a letter and consist of up to 20
+letters and digits, including the underscore character.
+.IP
+If \*Vname\*O
+is not a shell variable but is set in the environment, then
+that value is returned.  Be aware that the \*L:\*O (colon) modifiers and
+the other forms given below are not available in this case.
+.LI "\*L$\*Vname\*O[\*Vselector\*O]"
+.LI "\*L${\*Vname\*O[\*Vselector\*O]\*L}\*O"
+Can be used to select only some of the words from the value of
+\*Vname\*O.  The selector is subjected to variable
+substitution and can consist of a single
+number or two numbers separated by a \*L\-\*O (dash).
+The first word of a variable's string value is numbered \*L1\*O.
+If the first number of a range is omitted, it defaults to \*L1\*O.
+If the last member of a range is omitted, it defaults to \*L$#\*Vname\*O
+(the total number of words in the variable).  The \*L*\*O (asterisk)
+selects all words.  It is not an error for
+a range to be empty if the second argument is omitted or in range.
+.LI "\*L$#\*Vname\*O"
+.LI "\*L${#\*Vname\*L}\*O"
+Gives the number of words in the variable.
+This can be used as a [\*Vselector\*O] (see previous notation).
+.LI "\*L$0\*O"
+Substitutes the name of the file from which command input is being read.
+An error occurs if the name is not known.
+.LI "\*L$\*Vnumber\*O"
+.LI "\*L${\*Vnumber\*O}"
+Equivalent to \*L$argv\*O[\*Vnumber\*O].
+.LI "\*L$*\*O"
+Equivalent to \*L$argv\*O[\*L*\*O].
+.LE
+.PP
+You can apply the modifiers \*L:gh\*O, \*L:gt\*O, \*L:gr\*O,
+\*L:h\*O, \*L:t\*O, \*L:r\*O, \*L:q\*O and \*L:x\*O
+to the preceding substitutions.
+If \*L{ }\*O (braces) appear in the command form, the modifiers
+must appear within the braces.
+Note that the current implementation allows only one
+\*L:\*O (colon) modifier on each \*L$\*O variable expansion.
+.PP
+The following substitutions cannot be changed with \*L:\*O modifiers.
+.VL 4m
+.LI "\*L$?\*Vname\*O"
+.LI "\*L${?\*Vname\*L}\*O"
+Substitutes the string \*L1\*O if name is set,
+\*L0\*O if it is not.
+.LI "\*L$?0\*O"
+Substitutes \*L1\*O if the current input filename is known,
+\*L0\*O (zero) if it is not.
+.LI "\*L$$\*O"
+Substitutes the (decimal) process number of the (parent) shell.
+.LI "\*L$<\*O"
+Substitutes a line from the standard
+input, with no further interpretation.  Use it
+to read from the keyboard in a shell script.
+.LE
+.SS Command and Filename Substitution
+The shell performs command and filename substitution
+selectively on the arguments of built-in commands.
+This means that it does not expand those parts of expressions
+that are not evaluated.
+For commands that are not internal (that is, built in) to the shell, the
+shell substitutes
+the command name separately from the argument list.
+This occurs very late,
+after the shell performs input/output redirection, and in a child
+of the main shell.
+.SS Command Substitution
+The shell performs command
+substitution on a command string enclosed in \*L` `\*O (grave accents).
+The shell normally breaks the
+output from such a command into separate words
+at spaces, tabs and newline characters, with null words being discarded;
+this text then replaces the original command string.
+Within strings surrounded by \*L" "\*O (double quotes),
+the shell treats only the newline character as a word separator,
+thus preserving spaces and tabs.
+.PP
+In any case, the single final newline character does not force a new word.
+Note that it is therefore possible for a command substitution to yield
+only part of a word, even if the command outputs a complete line.
+.SS Filename Substitution
+If a word contains any of the characters \*L*\*O, \*L?\*O, \*L[\*O, or \*L{\*O
+or begins with a \*L~\*O (tilde), then that word is a candidate for
+filename substitution, also known as \*Vglobbing\*O.
+This word is then regarded as a pattern, and replaced with a
+sorted list of filenames that match the pattern.
+.\" Begin Digital-specific information
+.\" Take out ref to collating sequence per rmiller - rfb 9302.23
+.\" The current collating sequence is used, which can be specified by the
+.\" \*LLC_COLLATE\*O or \*LLANG\*O environment variable.
+.\" End Digital-specific information
+.PP
+In a list of words specifying filename substitution, it is an error for
+no pattern to match an existing filename, but it is not required
+that each pattern match.
+Only the character-matching symbols (metacharacters) \*L*\*O,
+\*L?\*O and \*L[\*O imply pattern matching;
+the characters \*L~\*O and \*L{\*O are more like abbreviations.
+.PP
+In matching filenames, the \*L.\*O (dot) character at
+the beginning of a filename
+or immediately following a \*L/\*O (slash),
+as well as the \*L/\*O character, must be matched explicitly.
+The \*L*\*O (asterisk) character matches any string of characters,
+including the null string.
+The \*L?\*O (question mark) character matches any single character.
+The sequence \*L[abcd]\*O
+matches any one of the enclosed characters.
+Within \*L[\ ]\*O, a lexical range of characters can be indicated by two
+characters separated by a \*L\-\*O (dash), as in \*L[a-z]\*O.  The characters
+that match this pattern are defined by the current collating sequence.
+The collating sequence is determined by the value of the \*LLC_COLLATE\*O
+or \*LLANG\*O environment variable.
+.PP
+The \*L~\*O (tilde) character
+at the beginning of a filename is used to refer to home directories.
+Standing alone, the \*L~\*O
+expands to your home directory as reflected
+in the value of the \*Lhome\*O shell variable.
+When followed by a name that consists of letters, digits, and
+\*L\-\*O (dash) characters,
+the shell searches for a user with that name and substitutes that user's
+home directory.  Thus, \*L~ken\*O
+might expand to \*L/users/ken\*O and \*L~ken/chmach\*O
+to \*L/users/ken/chmach\*O.  If the \*L~\*O (tilde) character
+is followed by a character other than a letter or \*L/\*O (slash)
+or does not appear at the beginning of a word, it is left undisturbed.
+.PP
+The pattern \*La{b,c,d}e\*O is a shorthand for
+\*Labe\*O \*Lace\*O \*Lade\*O.
+Left-to-right order is preserved, with the results of the matches being sorted
+separately at a low level to preserve this order.
+This construct can be nested.
+Thus, the shell expands:
+.iS
+\&~source/s1/{oldls,ls}.c
+\*O\c
+.iE
+.PP
+to the filenames:
+.iS
+/usr/source/s1/oldls.c /usr/source/s1/ls.c
+\*O\c
+.iE
+.PP
+The preceding example
+assumes the home directory for \*Lsource\*O is \*L/usr/source\*O.
+(Note that these files may or may not exist.)
+.PP
+Similarly, the shell expands:
+.iS
+\&.\&./{memo,*box}
+\*O\c
+.iE
+.PP
+to the paths:
+.iS
+\&.\&./memo \&.\&./box \&.\&./mbox
+\*O\c
+.iE
+.PP
+(Note that \*Lmemo\*O was not sorted with the results
+of matching \*L*box\*O.)  As a special case, \*L{\*O, \*L}\*O,
+and \*L{\^}\*O are passed undisturbed.
+.SS Redirecting Input and Output
+You can redirect the
+standard input and standard output of a command with the following syntax:
+.VL 4m
+.LI "\*L<\*O \*Vfile\*O"
+Opens \*Vfile\*O
+(which is first variable, command and filename expanded) as the standard
+input.
+.LI "\*L<<\*O \*Vword\*O"
+Reads the shell input up to a line that is identical to \*Vword.\*O
+\*Vword\*O is not subjected to variable, filename or command substitution;
+each input line is compared to \*Vword\*O
+before any substitutions are done on this input line.
+Unless a quoting character (\*L\e\*O, \*L"\*O, \*L`\*O, or \*L'\*O)
+appears in \*Vword\*O, the shell performs
+variable and command substitution on the intervening lines,
+allowing \*L\e\*O to quote \*L$\*O, \*L\e\*O, and \*L`\*O.
+Commands that are substituted have all spaces, tabs, and newline
+characters preserved, except for the final newline character, which is dropped.
+The resulting text is placed in an anonymous temporary file and
+given to the command as standard input.
+.LI "\*L>\*O \*Vfile\*O"
+.LI "\*L>!\*O \*Vfile\*O"
+.LI "\*L>&\*O \*Vfile\*O"
+.LI "\*L>&!\*O \*Vfile\*O"
+Uses \*Vfile\*O as standard output.
+If the file does not exist, it is created;
+if the file exists, it is truncated, and its previous contents are lost.
+.IP
+If the \*Lnoclobber\*O shell variable
+is set, then the file must not exist or be a character special file
+(for example, a
+terminal or \*L/dev/null\*O) or an error results.
+This helps prevent the accidental destruction of files.
+In this case, use the \*L!\*O (exclamation point) forms to suppress this check.
+.IP
+The forms involving \*L&\*O (ampersand)
+route the diagnostic output into the specified
+file as well as the standard output.  \*Vfile\*O
+is expanded in the same way as \*L<\*O input filenames.
+.LI "\*L>>\*O \*Vfile\*O"
+.LI "\*L>>&\*O \*Vfile\*O"
+.LI "\*L>>!\*O \*Vfile\*O"
+.LI "\*L>>&!\*O \*Vfile\*O"
+Uses \*Vfile\*O as standard output like \*L>\*O
+but places output at the end of the file.
+If the \*Lnoclobber\*O shell variable
+is set, it is an error for the file not to exist unless
+one of the \*L!\*O forms is given.  Otherwise, it is similar to \*L>\*O.
+.LE
+.PP
+A command receives the environment in which the shell was
+invoked, as changed by the input/output parameters and
+the presence of the command in a pipeline.
+Thus, unlike some previous shells, commands run from a shell script
+have no access to the text of the commands by default; rather
+they receive the original standard input of the shell.
+Use the \*L<<\*O mechanism to present inline data.
+This lets shell scripts function as components of pipelines
+and lets the shell read its input in blocks.
+.PP
+To redirect diagnostic output through a pipe with the standard output,
+use the form \*L|&\*O (vertical bar, ampersand)
+rather than \*L|\*O (vertical bar) alone.
+.SS Control Flow
+The shell contains a number of commands that can be used to regulate the
+flow of control in command files (shell scripts) and
+(in limited but useful ways) from terminal input.
+These commands all operate by forcing the shell to reread or skip in its
+input and, because of the implementation, restrict the placement of some
+of the commands.
+.PP
+The \*Lforeach\*O, \*Lswitch\*O, and \*Lwhile\*O statements,
+and the \*Lif\-then\-else\*O form of the \*Lif\*O
+statement, require that the major keywords appear in a single simple command
+on an input line.
+.PP
+If the shell input is not seekable,
+the shell buffers input whenever a loop is being read
+and performs seeks in the internal buffer to do the rereading
+implied by the loop.  (To the extent that this allows, backward
+\*Lgoto\*Os succeed on non-seekable inputs.)
+.SS Built-In Commands
+Built-in commands are executed within the shell.
+If a built-in command occurs as any component of a pipeline
+except the last, it is executed in a subshell.
+The \*Lcsh\*O searches for a \*Lcsh\*O built-in command first.  If a
+built-in does not exist, the \*Lcsh\*O searches through the
+directories specified by the environment variable \*Lpath\*O
+for a system-level command to execute.
+.VL 4m
+.LI "\*Lalias\*O [\*Vname\*O [\*Vword_list\*O]]"
+If no arguments are specified, displays all aliases.
+If \*Vname\*O is specified, displays the alias for \*Vname\*O.
+If a \*Vword_list\*O is also specified, \*Lalias\*O assigns the specified
+\*Vword_list\*O as the alias of \*Vname\*O.  Command and filename
+substitution are performed on \*Vword_list\*O.
+.LI "\*Lalloc\*O"
+Shows the amount of dynamic memory acquired broken down into used and
+free memory.  With an argument, shows the number of free and used
+blocks in each size category.  The categories start at size 8 and
+double at each step.
+.LI "\*Lbg\*O [\*L%\*Vjob\*O \&.\&.\&.]"
+Puts the current (if \*L%\*Vjob\*O is not specified)
+or specified jobs into the background, continuing them
+if they were stopped.
+.LI "\*Lbreak\*O"
+Causes execution to resume after the
+\*Lend\*O of the nearest enclosing \*Lforeach\*O or \*Lwhile\*O.
+The remaining commands on the current line are executed.
+Multilevel breaks are therefore possible by writing them all on one line.
+.LI "\*Lbreaksw\*O"
+Causes a break from a \*Lswitch\*O; resumes after the \*Lendsw\*O.
+.LI "\*Lcase\*O \*Vlabel\*L:\*O"
+Defines a label in a \*Lswitch\*O statement.  (See \*Lswitch\*O.)
+.LI "\*Lcd\*O [\*Vdirectory\*O]"
+.LI "\*Lchdir\*O [\*Vdirectory\*O]"
+Changes the shell's working directory to \*Vdirectory\*O.
+If no argument is given, it changes to your home directory.
+.IP
+If \*Vdirectory\*O
+is not found as a subdirectory of the current directory (and does not begin
+with \*L/\*O, \*L./\*O or \*L../\*O), then each
+component of the \*Lcdpath\*O shell variable
+is checked to see if it has a subdirectory \*Vdirectory\*O.
+Finally, if all else fails, but \*Vdirectory\*O
+is a shell variable whose value begins with \*L/\*O, this
+is tried to see if it is a directory.
+.LI "\*Lcontinue\*O"
+Continues execution of the nearest enclosing \*Lwhile\*O or \*Lforeach\*O.
+The rest of the commands on the current line are executed.
+.LI "\*Ldefault:\*O"
+Labels the default case in a \*Lswitch\*O statement.
+The default should come after all \*Lcase\*O labels.
+.LI "\*Ldirs\*O"
+Displays the directory stack; the top of the stack is at the left,
+the first directory in the stack being the current directory.
+.LI "\*Lecho\*O [\*L\-n\*O] \*Vword_list\*O"
+Writes the specified words to the shell's standard output, separated
+by spaces, and terminated with a newline character, unless the \*L\-n\*O
+flag is specified.
+.LI "\*Lelse\*O"
+.LI "\*Lend\*O"
+.LI "\*Lendif\*O"
+.LI "\*Lendsw\*O"
+See the description of \*Lforeach\*O, \*Lif\*O, \*Lswitch\*O,
+and \*Lwhile\*O below.
+.LI "\*Leval\*O \*Vargument\*O \&.\&.\&."
+Reads \*Vargument\*Os as input to the shell and executes the resulting
+commands.  This is usually used to execute commands
+generated as the result of command or variable substitution, since
+parsing occurs before these substitutions.
+.LI "\*Lexec\*O \*Vcommand\*O"
+Executes the specified command in place of the current shell.
+.LI "\*Lexit\*O [(\*Vexpression\*O)]"
+Exits the shell with either the value of the \*Lstatus\*O
+shell variable, if no expression is specified, or with the value
+of the specified \*Vexpression\*O.
+.LI "\*Lfg\*O [\*L%\*Vjob\*O \&.\&.\&.]"
+Brings the current (if \*L%\*Vjob\*O is not specified)
+or specified job into the foreground, continuing them if they were stopped.
+.LI "\*Lforeach\*O \*Vname (word_list)\*O"
+.sp -.5
+.LI "\&.\&.\&."
+.LI "\*Lend\*O"
+Sets the variable \*Vname\*O to each member of \*Vword_list\*O successively
+and executes the sequence of commands between the \*Lforeach\*O command
+and the matching \*Lend\*O.  (\*Lforeach\*O and \*Lend\*O commands
+must appear alone on separate lines.)
+.IP
+Use the built-in \*Lcontinue\*O command
+to continue the loop and the built-in \*Lbreak\*O command to
+terminate it prematurely.
+When this command is read from the terminal, the loop is read once,
+prompting with\ \*L?\*O before any statement in the loop is executed.
+If you make a mistake in entering a loop at the terminal, it can be
+corrected before you run the loop.  Commands within loops prompted for
+by\ \*L?\*O are not placed in the \*Lhistory\*O list.
+.LI "\*Lglob\*O \*Vword_list\*O"
+Functions like \*Lecho\*O, but does not recognize \*L\e\*O (backslash)
+escapes and delimits words by null characters in the output.
+Useful if you want to use the shell to perform filename substitution
+to expand a list of words.
+.LI "\*Lgoto\*O \*Vword\*O"
+Performs filename and command expansion on the specified \*Vword\*O
+to yield a string of the form \*Vlabel\*L:\*O.  The shell rewinds
+its input as much as possible
+and searches for a line of the form \*Vlabel\*L:\*O,
+possibly preceded by spaces or tabs.
+Execution continues after the line specified by \*Vword\*O.
+.LI "\*Lhistory\*O [\*L\-h\*O] [\*L\-r\*O] [\*Vnumber\*O]"
+Displays the history event list;
+by default, the oldest events are displayed first.
+If you specify a \*Vnumber\*O,
+only the \*Vnumber\*O most recent events are displayed.  The \*L\-r\*O
+flag reverses the display order to the most recent first,
+rather than the oldest first.  The \*L\-h\*O
+flag displays the history list without leading numbers.
+Use this to produce files suitable for
+sourcing using the \*Lsource\*O command.
+.LI "\*Lif\*O (\*Vexpression\*O) \*Vcommand\*O"
+Executes the single command (including its arguments)
+if the specified \*Vexpression\*O evaluates TRUE.  Variable substitution on
+\*Vcommand\*O happens early, at the same time it does for the rest of the
+\*Lif\*O command.  The \*Vcommand\*O argument must be a simple command
+(rather than a pipeline, command list, alias, or parenthesized command list).
+Note that input/output redirection occurs even if \*Vexpression\*O
+is FALSE and \*Vcommand\*O is not executed.
+.LI "\*Lif\*O (\*Vexpression\*O) \*Lthen\*O"
+.sp -.5
+.LI "\&.\&.\&."
+.LI "\*Lelse if\*O (\*Vexpression2\*O) \*Lthen\*O"
+.sp -.5
+.LI "\&.\&.\&."
+.LI "\*Lelse\*O"
+.sp -.5
+.LI "\&.\&.\&."
+.LI "\*Lendif\*O"
+If \*Vexpression\*O is TRUE, executes the commands following the first
+\*Lthen\*O up to the first \*Lelse\*O;
+otherwise, if \*Vexpression2\*O is TRUE, executes the commands
+following the second \*Lthen\*O up to the
+second \*Lelse\*O.  Any number of \*Lelse\-if\*O
+pairs are possible; only one \*Lendif\*O is needed.  The
+\*Lelse\*O part is optional.  (The words \*Lelse\*O
+and \*Lendif\*O must appear at the beginning of input lines.  The
+\*Lif\*O command must appear alone on its input line or after
+an \*Lelse\*O.)
+.\" Begin Digital-specific information
+.LI "\*Linlib\*O \*Vlibrary_name\*O"
+.\" Installs the specified shared library into the shell's private
+.\" table of installed libraries.  This makes the library available
+.\" for resolution of unresolved symbols in commands subsequently
+.\" executed from this shell.
+This command is no longer supported.  See the \*Lloader\*O(5) reference
+page for information on using shared libraries.
+.\" End Digital-specific information
+.LI "\*Ljobs\*O [\*L\-l\*O]"
+Lists the active jobs; with the \*L\-l\*O
+flag, lists process IDs in addition to job numbers, status,
+and the command.
+.LI "\*Lkill\*O [\*L-l\*O] [\*L-\*Vsig\*O] [\*L%\*Vjob\*O \&.\&.\&.] | \*O[\*L-\*Vsig\*O] [\*VPID\*O \&.\&.\&.]"
+Sends either the \*LTERM\*O (terminate) signal or the
+specified signal to the jobs or processes that you specify.
+Signals are either given by number or by name (as given in
+\*L/usr/include/sys/signal.h\*O, stripped of the prefix \*LSIG\*O).
+The signal names are listed by \*Lkill \-l\*O.
+There is no default job; specifying \*Lkill\*O with no \*Vjob\*O or \*VPID\*O
+does not send a signal to the current job.
+If the signal being sent is \*LSIGTERM\*O (terminate) or \*LSIGHUP\*O (hangup),
+then the job or process is sent a \*LSIGCONT\*O (continue) signal as well.
+.LI "\*Llimit\*O [\*L\-h\*O] [\*Vresource\*O] [\*Vmaximum_use\*O]"
+Limits the usage by the current process and each process
+it creates not to (individually) exceed \*Vmaximum_use\*O on the
+specified \*Vresource\*O.  If no \*Vmaximum_use\*O is given, then
+the current limit is displayed; if no \*Vresource\*O is given, then
+all limitations are given.
+.IP
+If the \*L\-h\*O
+flag is given, the hard limits are used instead of the current
+limits.  The hard limits impose a ceiling on the values of
+the current limits.  Only the superuser can raise the hard limits,
+but a user can lower or raise the current limits within the legal range.
+.IP
+Controllable resources currently include
+.\" Begin Digital-specific information CORRECTION
+.\" Fixed typo in 'maximum' per QAR 6104.
+\*Vaddresspace\*O (the maximum address space in bytes for a process),
+.\" End Digital-specific information CORRECTION
+\*Vcoredumpsize\*O
+(the size of the largest core dump that is created),
+\*Vcputime\*O (the maximum number of CPU seconds to be used by
+each process),
+\*Vdatasize\*O
+(the maximum growth of the data region allowed
+beyond the end of the program text),
+\*Vdescriptors\*O (the maximum number of open files
+for each process),
+\*Vfilesize\*O (the largest
+single file that can be created),
+\*Vmemoryuse\*O (the maximum size to which a process's resident
+set size can grow),
+and \*Vstacksize\*O (the maximum
+size of the automatically extended stack region).
+.IP
+The \*Vmaximum_use\*O can be specified as a floating-point or integer
+number followed by a scale factor:
+\*Lk\*O or \*Lkilobytes\*O (1024 bytes), \*Lm\*O or \*Lmegabytes\*O,
+.\" Begin Digital-specific information
+.\" remove ref to ulimit() per rmiller - rfb 9302.23
+or \*Lb\*O or \*Lblocks\*O.
+.\" (the units used by the \*Lulimit\*O system call).
+.\" End Digital-specific information
+For both \*Vresource\*O names and scale factors, unambiguous prefixes
+of the names suffice.
+\*Vfilesize\*O can be lowered by an instance of \*Lcsh\*O, but can
+only be raised by an instance whose effective user ID is \*Lroot\*O.
+For more information, refer to the documentation for the \*Lulimit\*O
+system call.
+.LI "\*Llogin\*O"
+Terminates a login shell and replaces it with an instance
+of \*L/usr/bin/login\*O.  This is one way to
+log out (included for compatibility with \*Lsh\*O).
+.LI "\*Llogout\*O"
+Terminates a login shell.  Especially useful if \*Lignoreeof\*O is set.
+.LI "\*Lnewgrp\*O [\*L\-\*O] [\*Vgroup\*O]"
+.iX "newgrp command"
+.iX "shell" "newgrp command"
+Changes the primary group identification of the current shell process to
+\*Vgroup\*O.  If you specify a \*L\-\*O
+(dash), \*Lnewgrp\*O changes the login
+environment to the login environment of the new group.  If you do not specify
+a \*Vgroup\*O, \*Lnewgrp\*O changes the group identification to that specified
+for the current user in the \*L/etc/passwd\*O file.  \*Lnewgrp\*O recognizes
+group names only; it does not recognize group ID numbers.
+.IP
+Only a user
+who is root
+can change the primary group of the shell to one in which the user
+does not have membership.
+Any active user-generated shell is terminated when the \*Lnewgrp\*O
+command is used.
+.LI "\*Lnice\*O [\*L+\*Vnumber\*O] [\*Vcommand\*O]"
+Without arguments, \*Lnice\*O
+sets the priority of commands run in this shell to 4.  The \*L+\*Vnumber\*O
+arguments sets the priority to the specified \*Vnumber\*O.
+The \*Vcommand\*O argument causes \*Vcommand\*O to run at priority 4
+(without the \*L+\*Vnumber\*O argument) or at priority \*Vnumber\*O
+(if \*L+\*Vnumber\*O is specified).  The greater the number,
+the less CPU the process gets.  The superuser can raise the priority by using
+\*Lnice\*O with a negative \*Vnumber\*O.  The \*Vcommand\*O is always
+executed in a subshell, and the restrictions placed on commands in simple
+\*Lif\*O statements apply.
+.LI "\*Lnohup\*O [\*Vcommand\*O]"
+The first form causes hangups to be
+ignored for the remainder of the shell script.
+The second form causes the specified \*Vcommand\*O to be
+run with hangups ignored.
+To run a pipeline or list of commands with this form, put the pipeline
+or list in a shell script, give the script execute permission, and use
+the shell script as the \*Vcommand\*O.
+All processes run in the background with \*L&\*O are effectively
+protected from being sent a hangup signal when you log out, but are
+still subject to explicitly sent hangups unless \*Lnohup\*O is used.
+.LI "\*Lnotify\*O [\*L%\*Vjob\*O \&.\&.\&.]"
+Causes the shell to notify you asynchronously when the status of the
+current (if \*L%\*Vjob\*O is not specified)
+or specified jobs changes.  Normally, notification is presented
+immediately before the shell prompt.  This is automatic if the
+\*Lnotify\*O shell variable is set.
+.LI "\*Lonintr\*O [\*L\-\*O] [\*Vlabel\*O]"
+Controls the action of the shell on interrupts.
+The first form restores the default action of the shell on interrupts,
+which is to terminate shell scripts or to return to the terminal command
+input level.  The second form causes all interrupts to be ignored.
+The third form causes the shell to execute a \*Lgoto\*O label when
+it receives an interrupt or when a child process terminates due to an
+interruption.
+.IP
+In any case, if the shell is running in the background and interrupts are
+being ignored, all forms of \*Lonintr\*O have no meaning and interrupts
+continue to be ignored by the shell and all invoked commands.
+.LI "\*Lpopd\*O [\*L+\*Vnumber\*O]"
+Pops the directory stack (removes the top entry), changing directories
+to the new top directory.  With a \*L+\*Vnumber\*O argument,
+\*Lpopd\*O discards the \*Vnumber\*O
+entry in the stack.
+The elements of the directory stack are numbered from the top, starting
+at 0 (zero).
+.LI "\*Lpushd\*O [\*Vname\*O] [\*L+\*Vn\*O]"
+Changes to the directory that comes to the top of the stack.  With no
+arguments, \*Lpushd\*O exchanges the top two elements of the directory stack.
+With a \*Vname\*O argument, \*Lpushd\*O changes to the new directory (that
+is, \*Lcd\*O) and pushes the old current working directory
+(given in the \*Lcwd\*O shell variable)
+onto the directory stack.  With a numeric argument,
+\*Lpushd\*O rotates the \*Vnumber\*O argument of the directory
+stack around to be the top element and changes directory to it.  The members
+of the directory stack are numbered from the top, starting at 0 (zero).
+.LI "\*Lrehash\*O"
+Causes the internal hash table of the contents of the directories in
+the \*Lpath\*O shell variable to be recomputed.
+This is needed if new commands are added to directories in \*Lpath\*O
+while you are logged in.  This should be necessary only if
+commands are added to one of your own directories, or if someone
+changes the contents of one of the system directories.
+.LI "\*Lrepeat\*O \*Vcount command\*O"
+Executes the specified command, which is subject to the same restrictions
+as in the simple \*Lif\*O statement, \*Vcount\*O times.
+Note that input/output
+redirections occur exactly once, even if \*Vcount\*O is 0 (zero).
+.\" Begin Digital-specific information
+.LI "\*Lrmlib\*O \*Vlibrary_name\*O"
+This command is no longer supported.  See the \*Lloader\*O(5) reference
+page for information on using shared libraries.
+.\" End Digital-specific information
+.LI "\*Lset\*O"
+.LI "\*Lset\*O \*Vname\*O"
+.LI "\*Lset\*O \*Vname\*L=\*Vword\*O"
+.LI "\*Lset\*O \*Vname\*O[\*Vindex\*O]\*L=\*Vword\*O"
+.LI "\*Lset\*O \*Vname\*L=\*O(\*Vword_list\*O)"
+The first form of the command displays the value of all shell variables.
+Variables that have values other than a single word are displayed
+as a parenthesized word list.
+The second form sets \*Vname\*O to the null string.
+The third form sets \*Vname\*O to the single \*Vword\*O.
+The fourth form sets the \*Vindex\*Oth component of \*Vname\*O to \*Vword\*O;
+this component must already exist.  The final form sets
+\*Vname\*O to the list of words in \*Vword_list\*O.
+In all cases, the value is command and filename expanded.
+These arguments can be repeated
+to set multiple values in a single \*Lset\*O command.
+Note however, that variable expansion happens for all arguments before any
+setting occurs.
+.LI "\*Lsetenv\*O \*Vname value\*O"
+Sets the value of the environment variable
+\*Vname\*O to be \*Vvalue\*O, a single string.
+The most commonly used environment variables \*LUSER\*O, \*LTERM\*O,
+\*LHOME\*O, and \*LPATH\*O are automatically imported to and exported from the
+\*Lcsh\*O variables \*Luser\*O, \*Lterm\*O, \*Lhome\*O, and \*Lpath\*O, so
+there is no need to use \*Lsetenv\*O for these common environment variables.
+.IP
+If you modify the
+\*LLC_COLLATE\*O or \*LLANG\*O environment variables, the current
+international character support environment and collating sequence are
+changed as specified for subsequent commands executed from the shell.
+.LI "\*Lshift\*O [\*Vvariable\*O]"
+Shifts to the left the members of \*Largv\*O (discarding
+\*Largv[1]\*O) or the specified variable.
+An error occurs if \*Largv\*O is not set or has fewer than two strings
+assigned to it.
+.LI "\*Lsource\*O [\*L\-h\*O] \*Vname\*O"
+Causes the shell to read commands from \*Vname\*O.  You can nest \*Lsource\*O
+commands.  However, if they are nested too deeply, the shell can
+run out of file descriptors.  An error in a \*Lsource\*O
+at any level terminates all nested \*Lsource\*O commands.
+Normally, input during \*Lsource\*O commands is not placed on the history list.
+The \*L\-h\*O flag causes the commands to be placed in the
+history list without being executed.
+.LI "\*Lstop\*O [\*L%\*Vjob\*O \&.\&.\&.]"
+Stops the current (if \*L%\*Vjob\*O is not specified)
+or specified job that is executing in the background.
+.LI "\*Lsuspend\*O"
+Causes the shell to suspend execution, by sending itself a
+\*LSIGINT\*O signal.  This command gives an error message
+if attempted from a login shell.
+.LI "\*Lswitch\*O (\*Vstring\*O)"
+.LI "\*Lcase\*O \*Vstring1\*L:\*O \&.\&.\&."
+.LI "\*Lbreaksw\*O \&.\&.\&."
+.LI "\*Ldefault:\*O \&.\&.\&."
+.LI "\*Lbreaksw\*O"
+.LI "\*Lendsw\*O"
+Successively matches each case label (\*Vstring1\*O) against \*Vstring\*O,
+which is first command and filename expanded.
+Use the pattern-matching characters \*L*\*O, \*L?\*O, and \*L[\&.\&.\&.]\*O
+in the case labels, which are variable expanded.
+If none of the labels match before a default label is found, then
+execution begins after the default label.
+Each case label and the default label must appear at the beginning of a line.
+.IP
+The \*Lbreaksw\*O command causes execution to continue after the \*Lendsw\*O
+command.  Otherwise, control can fall through
+case labels and the default labels, as in C.
+.IP
+If no label matches and there is no default, execution continues after
+the \*Lendsw\*O command.
+.LI "\*Ltime\*O [\*Vcommand\*O]"
+With no argument, displays a summary of time used by this shell and
+its children.  If arguments are given,
+the specified \*Vcommand\*O is timed and a time summary
+(as described under the \*Ltime\*O shell variable) is displayed.
+If necessary, an extra shell is created to display the time
+when the command completes.
+.LI "\*Lumask\*O [\*Vvalue\*O]"
+Displays the file creation mask (first form) or sets it to the specified
+value (second form).  The mask is given as an octal value.  Common values for
+the mask are 002, giving all access to the owner and group, and
+assigning read and execute
+access to others, or 022, giving all access to the owner, and
+assigning read and execute access to users in the group and others.
+.LI "\*Lunalias\*O \*Vpattern\*O"
+Discards all aliases with names that match \*Vpattern\*O.
+Thus, all aliases are removed by \*Lunalias *\*O.
+The absence of aliases that match \*Vpattern\*O does not cause an error.
+.LI "\*Lunhash\*O"
+Disables the use of the internal hash table to speed location of executed
+programs.
+.LI "\*Lunlimit\*O [\*L\-h\*O] [\*Vresource\*O]"
+Removes the limitation on \*Vresource\*O.  If no resource
+is specified, then all resource limitations are removed.
+.IP
+If \*L\-h\*O is given, the corresponding hard limits are removed.  Only the
+superuser can do this.
+.LI "\*Lunset\*O \*Vpattern\*O"
+Removes all variables with names that match \*Vpattern\*O.
+Use \*Lunset *\*O to remove all variables.
+The absence of variables that match \*Vpattern\*O is not an error.
+.LI "\*Lunsetenv\*O \*Vpattern\*O"
+Removes all variables with names that match \*Vpattern\*O from the
+environment.  See also the \*Lsetenv\*O command (discussed earlier
+in this list).
+.LI "\*Lwait\*O"
+Waits for all background jobs to terminate.
+If the shell is interactive, an interrupt can disrupt the wait,
+at which time the shell displays the names and job numbers of all jobs
+known to be outstanding.
+.\" Begin Digital-specific information
+.\" Reverse sense of -u, now named -U, per rmiller - rfb 9302.23
+.LI "\*Lwhich\*O [ \*L\-U\*O ] \*Vname ...\*O"
+Takes a list of names and looks for the files which would be executed
+had these names been given as commands.  This built-in command works
+like \*L/usr/bin/which\*O if the \*L\-U\*O flag is given; without
+the flag, the built-in command provides more useful information by
+identifying shell built-ins and aliases.  See \*Lwhich\*O(1) for more
+information.
+.\" End Digital-specific information
+.LI "\*Lwhile\*O (\*Vexpression\*O)"
+.sp -.5
+.LI "\&.\&.\&."
+.LI "\*Lend\*O"
+While \*Vexpression\*O evaluates as nonzero, executes the commands between
+the \*Lwhile\*O and the matching \*Lend\*O.  You can use the
+\*Lbreak\*O command to terminate the loop prematurely and
+the \*Lcontinue\*O command to continue the loop.
+(The \*Lwhile\*O and \*Lend\*O must appear alone on their input lines.)
+If the input is a terminal, prompting
+occurs the first time through the loop, as for the \*Lforeach\*O statement.
+.LI "\*L%\*Vjob\*O"
+Brings the specified job into the foreground.
+.LI "\*L%\*Vjob\*O \*L&\*O"
+Continues the specified job in the background.
+.LI "\*L@\*O"
+.LI "\*L@\*O \*Vname\*O \*L=\*O \*Vexpression\*O"
+.LI "\*L@\*O \*Vname\*O[\*Vindex\*O] \*L=\*O \*Vexpression\*O"
+The first form displays the values of all the shell variables.
+The second form sets the specified name to the value of \*Vexpression\*O.
+If the expression contains
+\*L<\*O, \*L>\*O, \*L&\*O, or \*L|\*O, at least
+this part of the expression must be placed within \*L(  )\*O
+(parentheses).
+The third form assigns the value of \*Vexpression\*O to the \*Vindex\*Oth
+argument of \*Vname\*O.  Both \*Vname\*O and its \*Vindex\*Oth
+component must already exist.
+.IP
+C operators, such as \*L*=\*O and \*L+=\*O, are available.
+White space separating the name from the assignment operator is optional.
+Spaces are, however, mandatory in separating components of \*Vexpression\*O,
+which would otherwise be single words.
+.IP
+Special postfix \*L++\*O and \*L\- \-\*O operators increment and decrement
+\*Vname\*O, respectively, for example \*L@ i++\*O.
+.LE
+.SS Expressions
+The built-in commands \*L@\*O, \*Lexit\*O, \*Lif\*O, and \*Lwhile\*O
+.\" Begin Digital-specific information - CORRECTION
+.\" Precedence is, and has always been, right to left instead of C's
+.\" left to right.
+.\" accept expressions that include operators similar to those of C, with
+.\" the same precedence.  The following operators are available:
+accept expressions that include operators similar to those of C, but
+with a precedence from right to left instead of from left to right.
+The following operators are available:
+.\" End Digital-specific information - CORRECTION
+.iS
+( )
+~
+!
+*	/	%
++	\-
+<<	>>
+<=	>=	<	>
+==	!=	=~	!~
+&
+^
+|
+&&
+||
+\*O\c
+.iE
+.PP
+In the preceding list, operators of equal precedence appear on the same
+line, below those lines containing operators (if any) that have greater
+precedence, and above those lines containing operators having lesser
+precedence.  The \*L=\^=\*O, \*L!=\*O, \*L=~\*O, and \*L!~\*O operators
+compare their arguments as strings; all others operate on numbers.
+The \*L=~\*O and \*L!~\*O operators are similar to \*L!=\*O and
+\*L=\^=\*O, except that the rightmost side is a pattern against which
+the left-hand operand is matched.
+This reduces the need for use of the switch statement in shell
+scripts when all that is really needed is pattern matching.
+.PP
+.\" Begin Digital-specific information
+.\" Delete ref to octal numbers per rmiller - rfb 9302.23
+.\" Strings that begin with 0 (zero) are considered octal numbers.
+.\" End Digital-specific information
+Null or missing arguments are considered 0 (zero).
+The result of all expressions are strings, which represent decimal numbers.
+It is important to note that no two components of an expression can appear
+in the same word.  Except when next to components of expressions that
+are syntactically significant to the parser
+(\*L&\*O, \*L|\*O, \*L<\*O, \*L>\*O, \*L\-\*O, \*L(\*O, and \*L)\*O )
+expression components should be surrounded with spaces.
+.PP
+Also available in expressions as primitive operands are command executions
+enclosed in \*L{\*O and \*L}\*O
+and file inquiries of the form \*L\-\*Vl name\*O where \*Vl\*O
+is one of the following:
+.VL 4m
+.LI "\*Lr\*O"
+Read access
+.LI "\*Lw\*O"
+Write access
+.LI "\*Lx\*O"
+Execute access
+.LI "\*Le\*O"
+Existence
+.LI "\*Lo\*O"
+Ownership
+.LI "\*Lz\*O"
+Zero size
+.LI "\*Lf\*O"
+Plain file
+.LI "\*Ld\*O"
+Directory
+.\" Begin Digital-specific information
+.LI "\*Ll\*O"
+Symbolic link
+.\" End Digital-specific information
+.LE
+.PP
+The specified file is command and filename expanded and then tested
+to see if it has the specified relationship to the real user.
+If the file does not exist or is inaccessible, then all enquiries return
+FALSE, that is, \*L0\*O (zero).  Command executions succeed,
+returning TRUE (\*L1\*O),
+if the command exits with status 0 (zero); otherwise, they fail, returning
+FALSE (\*L0\*O).
+If more detailed status information is required, execute the command
+outside of an expression and examine the \*Lstatus\*O shell variable.
+.SS Predefined and Environment Variables
+The following variables have special meaning to the shell.
+Of these, \*Largv\*O, \*Lcwd\*O, \*Lhome\*O, \*Lpath\*O,
+\*Lprompt\*O, \*Lshell\*O, and \*Lstatus\*O are always set by the shell.
+Except for \*Lcwd\*O and \*Lstatus\*O,
+this setting occurs only at initialization;
+the remaining variables maintain their settings unless you explicitly
+reset them.
+.PP
+The \*Lcsh\*O command copies the
+\*LUSER\*O environment variable into the variable \*Luser\*O,
+\*LTERM\*O into \*Lterm\*O, and \*LHOME\*O into \*Lhome\*O, and
+copies these back into the environment whenever the normal shell
+variables are reset.  The \*LPATH\*O environment variable is
+handled similarly; it is not necessary to worry about their settings
+other than in the \*L\&.cshrc\*O
+file.  \*Lcsh\*O subprocesses import the definition of \*Lpath\*O
+from the environment, and export it again if you then change it.
+.VL 4m
+.LI "\*Largv\*O"
+Is set to the arguments to the shell.  It is from this variable that
+positional parameters are substituted, for example, \*L$1\*O is replaced by
+\*L$argv[1]\*O, and so on.
+.LI "\*Lcdpath\*O"
+Gives a list of alternate directories to be searched to find subdirectories
+in \*Lchdir\*O commands.
+.LI "\*Lcwd\*O"
+Is set to the full pathname of the current directory.
+.LI "\*Lecho\*O"
+Causes each command and its arguments
+to be echoed to standard output just before it is executed.  It is set
+when the \*L\-x\*O command line flag is specified.
+For nonbuilt-in commands, all expansions occur before echoing.
+Built-in commands are echoed before command and filename substitution,
+since these substitutions are then done selectively.
+.LI "\*Lfilec\*O"
+Enables filename completion.
+.LI "\*Lhistchars\*O"
+Changes the characters used in history substitution when given a string value.
+The first character of its value is used as the
+history substitution character, replacing the default character \*L!\*O
+(exclamation point).
+The second character of its value replaces the character \*L^\*O
+(circumflex) in quick substitutions.
+.LI "\*Lhistory\*O"
+Controls the existence and size of the history buffer.
+All commands (executable or not) are saved in the history buffer.
+Values of \*Lhistory\*O that are too large
+can run the shell out of memory.
+The last executed command is always saved on the history list
+even if \*Lhistory\*O is left unset.
+.LI "\*Lhome\*O"
+Contains the absolute pathname to
+the home directory of the user, initialized from the environment.
+The filename expansion of \*L~\*O (tilde) refers to this variable.
+.LI "\*Lignoreeof\*O"
+Causes the shell to ignore
+End-of-File characters from input devices that are terminals.
+This prevents shells from accidentally being killed when they read an
+End-of-File character.
+.LI "\*LLANG\*O"
+Specifies the locale of your system, which is comprised of three parts:
+language, territory, and codeset.  The default locale is the
+\*LC\*O locale, which specifies the value \*LEnglish\*O
+for language, \*LU.S.\*O for territory, and \*LASCII\*O for codeset.
+.\" Begin Digital-specific information CORRECTION
+.\" LANG locale controls language used for messages until I18N 
+.\" changes integrated; LC_MESSAGES controls only yes/no in R1.0.
+The locale specified for the \*LLANG\*O variable controls
+the language applied to messages.  Unless set explicitly, the
+\*LLC_COLLATE\*O, \*LLC_CTYPE\*O, \*LLC_MESSAGES\*O, \*LLC_MONETARY\*O,
+\*LLC_NUMERIC\*O, and \*LLC_TIME\*O variables also derive their
+settings from the locale set for \*LLANG\*O.
+.\" End Digital-specific information CORRECTION
+.LI "\*LLC_COLLATE\*O"
+Specifies the collating sequence to use when sorting names and when
+character ranges occur in patterns.  The default value is the collating
+sequence for American English.
+.LI "\*LLC_CTYPE\*O"
+Specifies the character classification information to use on your
+system.  The default value is American English.
+.LI "\*LLC_MESSAGES\*O"
+Specifies
+.\" Begin Digital-specific information CORRECTION
+.\" Until I18N (R1.1) changes are integrated, LANG locale controls
+.\" messages and LC_MESSAGES locale controls only yes/no prompts.
+.\"
+.\" the language in which system messages appear, and 
+.\" End Digital-specific information CORRECTION
+the language that the system expects for user input of yes and no strings.
+The default value is American English.
+.LI "\*LLC_MONETARY\*O"
+Specifies the monetary format for your system.  The default value
+is the monetary format for American English.
+.LI "\*LLC_NUMERIC\*O"
+Specifies the numeric format for your system.  The default value is
+the numeric format for American English.
+.LI "\*LLC_TIME\*O"
+Specifies the date and time format for your system.  The default value
+is the date and time format for American English.
+.LI "\*Lmail\*O"
+Specifies the files where the shell checks for mail.
+This is done after each command completion that results in a prompt,
+if a specified interval has elapsed.  The shell displays
+the message \*CYou have new mail\*O if the file has
+been modified since the last check.
+.IP
+If the first word of the value of \*Lmail\*O
+is numeric, it specifies a different mail checking interval (in seconds)
+than the default (10 minutes).
+.IP
+If you specify multiple mail files, the shell displays the message
+\*CNew mail in \*Vfile\*O when there is mail in \*Vfile\*O.
+.LI "\*LNLSPATH\*O"
+Specifies a list of directories to search to find message catalogs.
+.LI "\*Lnoclobber\*O"
+If set, places restrictions on output redirection to ensure that
+files are not accidentally destroyed, and that \*L>>\*O redirections
+refer to existing files.
+(See also \*LRedirecting Input and Output\*O.)
+.LI "\*Lnoglob\*O"
+If set, inhibits filename expansion.
+This is most useful in shell scripts that do not deal with filenames,
+or after a list of filenames is obtained and further expansions
+are not desirable.
+.LI "\*Lnonomatch\*O"
+If set, does not return an error for a filename expansion that
+does not match any existing files; rather, the primitive pattern is returned.
+It is still an error for the primitive pattern to be malformed, for
+example, \*Lecho [\*O still gives an error.
+.LI "\*Lnotify\*O"
+If set, causes the shell to notify you asynchronously of background job
+completion.  The default is to present job
+status changes immediately before printing a prompt.
+.LI "\*Lpath\*O"
+Each word of the path variable specifies a directory in which
+commands are to be sought for execution.
+A null word specifies the current directory.
+If no \*Lpath\*O variable is set, then only full pathnames are executed.
+The usual search path is the current directory
+and \*L/usr/bin\*O, but this can vary from system to system.
+A shell that is given neither the \*L\-c\*O nor the \*L\-t\*O
+flag normally hashes the contents of the directories in the
+\*Lpath\*O variable after reading \*L.cshrc\*O and each time the \*Lpath\*O
+variable is reset.  If new commands are added to these directories
+while the shell is active, it is necessary to execute the \*Lrehash\*O
+command in order to access the new commands.
+.LI "\*Lprompt\*O"
+The string that is printed before each command is read from
+an interactive terminal input.  If a \*L!\*O (exclamation point)
+appears in the string, it is replaced by the current event number,
+unless it is preceded by a \*L\e\*O (backslash).
+The default prompt is \*L%\*O, \*L#\*O for the superuser.
+.LI "\*Lsavehist\*O"
+When given a numeric value, controls the number of entries of the
+history list that are saved in \*L~/.history\*O when you log out.
+All commands (executable or not) that are in the history list are saved.
+During startup, the shell sources \*L~/.history\*O into the history list,
+enabling history to be saved across logins.
+Very large values of \*Lsavehist\*O slow down the shell during startup.
+.LI "\*Lshell\*O"
+The file in which the shell resides.
+This is used in forking shells to interpret files that have execute
+bits set, but that are not executable by the system.
+(See \*LNonbuilt-In Command Execution\*O.)
+This is initialized to the (system-dependent) location of the shell.
+.LI "\*Lstatus\*O"
+The status returned by the last command.
+If it terminated abnormally, then 0200 is added to the status.
+Built-in commands that fail return exit status 1;
+all other built-in commands set status 0 (zero).
+.LI "\*Ltime\*O"
+Controls automatic timing of commands, and the line displayed by a built-in
+\*Ltime\*O command.  The value can consist of zero, one, or two words.
+.IP
+The first word is the threshhold for automatic timing, measured in CPU
+seconds; for any command that takes at least that many CPU seconds, the shell
+displays a line showing the timing information when that command finishes.
+.IP
+The second word is a string, enclosed in \*L' '\*O (single quotes)
+or \*L" "\*O (double quotes),
+specifying the timing line to be displayed; it controls both the automatic
+display and the output of the \*Ltime\*O command.  The string can contain any
+combination of text as well as the following specifiers, which must be
+uppercase characters and preceded by a \*L%\*O (percent sign)
+as shown.  Sequences such
+as \*L\en\*O are not treated as special characters in the string.
+.VL 4m
+.LI "\*L%D\*O"
+Kilobytes of data space.
+.LI "\*L%E\*O"
+Elapsed time, measured in seconds.
+.LI "\*L%F\*O"
+Number of page faults.
+.LI "\*L%I\*O"
+Number of blocks read during I/O operations.
+.LI "\*L%K\*O"
+Kilobytes of stack space.
+.LI "\*L%M\*O"
+Total kilobytes of memory.
+.LI "\*L%O\*O"
+Number of blocks written during I/O operations.
+.LI "\*L%P\*O"
+CPU time (both system and user) as a percentage of elapsed time.
+.LI "\*L%S\*O"
+System time: CPU seconds used by system calls.
+.LI "\*L%U\*O"
+User time: CPU seconds used by the process outside of system calls.
+.LI "\*L%W\*O"
+Number of times the process was swapped.
+.LI "\*L%X\*O"
+Kilobytes of text space.
+.LE
+.IP
+If the first word is zero or if the \*Ltime\*O variable is set with no value,
+every command is timed.  The default string displayed, when the second word is
+not supplied, is as follows:
+.oS
+.\" Begin Digital-specific information - CORRECTION
+.\" Protect the fourth word from SCCS keyword expansion.
+%Uu %Ss %E %\&P% %X+%Dk %I+%Oio %Fpf+%Ww
+.\" End Digital-specific information - CORRECTION
+\*O
+.oE
+.LI "\*Lverbose\*O"
+Causes the words of each command to be displayed on the standard
+output after history substitution.  Set by the \*L\-v\*O command line flag.
+.LE
+.SS Nonbuilt-In Command Execution
+When a command to be executed is found not to be a built-in command,
+the shell attempts to execute the command with the \*Lexecv\*O() system call.
+.PP
+Each word in the \*Lpath\*O shell variable
+names a directory from which the shell attempts to execute the command
+(if the command does not begin with a \*L/\*O (slash)).
+If it is given neither a \*L\-c\*O nor a \*L\-t\*O
+flag, the shell hashes the names in these directories into an internal
+table so that it only tries an \*Lexecv\*O
+in a directory if there is a possibility that the command resides there.
+This greatly speeds command location when a large number of directories
+are present in the search path.  If this mechanism was turned off (with
+\*Lunhash\*O), or if the shell was given a \*L\-c\*O or \*L\-t\*O
+argument (and in any case, for each directory component of \*Lpath\*O
+that does not begin with a \*L/\*O),
+the shell concatenates the directory name
+with the given command name to form a pathname
+of a file, which it then attempts to execute.
+.PP
+Commands in parentheses are always executed in a subshell.
+Thus, \*L(cd ; pwd) ; pwd\*O displays the \*Lhome\*O directory
+and then the current directory, without changing the
+current directory location;
+whereas, \*Lcd ; pwd\*O changes the current directory location to
+the \*Lhome\*O directory, and prints the home directory.
+Commands in parentheses are most often used to prevent \*Lchdir\*O
+from affecting the current shell.
+.PP
+If the file has execute permissions but is not an
+executable binary to the system, then it is assumed to be a
+file containing shell commands and a new shell is created to read it.
+.PP
+If there is an alias for \*Lshell\*O,
+then the words of the alias are prefixed to the argument list to form
+the shell command.  The first word of the alias
+should be the full pathname of the shell (for example, \*L$shell\*O).
+Note that this is a special, late-occurring case of alias substitution
+and only allows words to be prefixed to
+the argument list without modification.
+.SS Signal Handling
+The shell normally ignores \*LSIGQUIT\*O signals.
+Jobs running in the background
+(either by \*L&\*O or the \*Lbg\*O or \*L%\&.\&.\&.&\*O
+commands) are immune to signals generated from the keyboard
+(\*LSIGINT\*O, \*LSIGQUIT\*O, and \*LSIGHUP\*O).
+Other signals have the values the shell inherited from its parent.
+You can control the shell's handling of interrupts and terminate signals
+in shell scripts with \*Lonintr\*O.
+Login shells catch the \*LSIGTERM\*O (terminate) signal;
+otherwise, this signal is passed on to children from the state in the
+shell's parent.  In no case are interrupts allowed when a login shell
+is reading the \*L\&.logout\*O file.
+.SS Limitations
+The following are \*Lcsh\*O limitations:
+.ML
+.LI
+Words can be no longer than 1024 bytes.
+.LI
+.\" Begin Digital-specific information
+.\" Was 5120 bytes - changed and added "However..." per rmiller - rfb 9302.23
+Argument lists are limited to 38912 bytes.  However, the argument list
+space is shared with the space for environment variables; having a
+large list of environment variables can severely limit the allowable
+argument list length.
+.\" End Digital-specific information
+.LI
+The number of arguments to a command that involves filename expansion is
+limited to 1/6th the number of characters allowed in an argument list.
+.LI
+Command substitutions can substitute no more characters than are
+allowed in an argument list.
+.LI
+To detect looping, the shell restricts the number of alias substitutions
+on a single line to 20.
+.LI
+Words can also be separated by double spaces.
+.LE
+.SS Character Classes
+You can use the following notation to match filenames within
+a range indication:
+.iS
+[:\*Vcharclass\*L:]
+.iE
+.PP
+This format instructs the system to match any single character
+belonging to \*Vcharclass\*O; the defined classes correspond to
+\*Lctype()\*O subroutines as follows:
+.iS
+alnum
+alpha
+cntrl
+digit
+graph
+lower
+print
+punct
+space
+upper
+xdigit
+.iE
+.PP
+Your locale might define additional character properties, such as
+the following:
+.iS
+[:vowel:]
+.iE
+.PP
+The preceding character class could be TRUE for \*La\*O, \*Le\*O,
+\*Li\*O, \*Lo\*O, \*Lu\*O, or \*Ly\*O.  You could then use
+\*L[:vowel]\*O inside a \*Lset\*O construction to
+match any vowel.  Refer to \*LThe LC_CTYPE Category\*O section of the
+\*Llocale\*O file format reference page for more information.
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L\-b\*O"
+Forces a break from option processing, causing any further
+shell arguments to be treated as nonoption arguments.  This can
+be used to pass options to a shell script without confusion
+or possible subterfuge.  The shell cannot run
+a set-user-ID script without this flag.
+.LI "\*L\-c\*O"
+Reads commands from the following single argument, which must
+be present.  Any remaining arguments are placed in \*Largv\*O.
+.LI "\*L\-e\*O"
+Causes the shell to exit if any invoked command terminates abnormally
+or yields a nonzero exit status.
+.LI "\*L\-f\*O"
+Causes the shell to start faster, because it neither searches for nor
+executes the \*L.cshrc\*O file in the invoker's home directory.
+.LI "\*L \-i\*O"
+Causes the shell to be interactive,
+even if the input does not come from a terminal.  Shells are
+always interactive when invoked from a terminal.
+.LI "\*L\-n\*O"
+Parses commands, but does not execute them.
+This aids in syntactic checking of shell scripts.
+.LI "\*L\-s\*O"
+Takes command input from the standard input.
+.LI "\*L\-t\*O"
+Reads and executes a single line of input.
+You can use a \*L\e\*O (backslash)
+to escape the newline character at the end of the
+current line to continue onto another line.
+.LI "\*L\-v\*O"
+Sets the \*Lverbose\*O shell variable, with the effect
+that command input is echoed to the standard output
+after history substitution.
+.LI "\*L\-V\*O"
+Sets the \*Lverbose\*O shell
+variable, even before \*L.cshrc\*O is executed.
+.LI "\*L\-x\*O"
+Sets the \*Lecho\*O shell
+variable, so that commands are echoed to the standard error after
+all substitutions and immediately before execution.
+.LI "\*L\-X\*O"
+Sets the \*Lecho\*O shell variable, even before \*L\&.cshrc\*O is
+executed.
+.LE
+.PP
+After processing of flag arguments, if arguments remain but none of the
+\*L\-c\*O, \*L\-i\*O, \*L\-s\*O, or \*L\-t\*O
+flags was given, the first argument is taken as the name of a file of
+commands to be executed (that is, a shell script).
+The shell opens this file, and saves its name for possible resubstitution
+by \*L$0\*O.  If the first
+characters of the shell script are \*L#!\*Vshell_pathname\*O
+or \*L#csh\*O,
+\*Lcsh\*O runs the specified shell to process the script.
+Otherwise, \*Lcsh\*O runs.  Remaining parameters initialize
+the \*Largv\*O variable.
+.\" Begin Digital-specific information
+.\" Information in this section comes from the BL11 Release Notes.
+.SH RESTRICTIONS
+.PP
+Due to problems with the \*Lgetrusage\*O system call, \*Lcsh\*O
+incorrectly returns a value of 0 for each of the following fields
+when the built-in \*Ltime\*O(3) function or the \*Ltime\*O shell
+variable is used:
+.PP
+.TS
+tab(@);
+l l .
+T{
+\*L%D\*O
+T}@Kilobytes of data space
+.sp
+T{
+\*L%F\*O
+T}@Number of page faults
+.sp
+T{
+\*L%K\*O
+T}@Kilobytes of stack space
+.sp
+T{
+\*L%M\*O
+T}@Total kilobytes of memory
+.sp
+T{
+\*L%W\*O
+T}@Number of times the process was swapped
+.sp
+T{
+\*L%X\*O
+T}@Kilobytes of text space
+.sp
+.TE
+.\" End Digital-specific information
+.SH RETURN VALUES
+.PP
+For information about return values, see the following sections:
+\*LShell Commands\*O, \*LExpressions\*O, \*LPredefined and
+Environment Variables\*O, and \*LFLAGS\*O.
+.SH FILES
+.PP
+.VL 11m
+.LI "\*L$HOME/.cshrc\*O"
+C shell startup file; read at beginning of execution by each C shell.
+.LI "\*L$HOME/.login\*O"
+Read by login shell (after \*L.cshrc\*O) at login.
+.LI "\*L$HOME/.logout\*O"
+Read by login shell at logout.
+.LI "\*L/usr/bin/sh\*O"
+The path to the default shell.
+.LI "\*L/tmp/sh*\*O"
+Temporary file for \*L<<\*O.
+.LI "\*L/etc/passwd\*O"
+Contains user information.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lcmdedit\*O(1), \*Lksh\*O(1), \*Lsh\*O(1).
+.PP
+.\" Begin Digital-specific information
+Functions:  \*Laccess\*O(2), \*Lexec\*O(2), \*Lfork\*O(2),
+\*Lpipe\*O(2),
+.\" Add ref to setrlimit(2) per rmiller - rfb 9302.23
+\*Lsetrlimit\*O(2),
+\*Lumask\*O(2), \*Lwait\*O(2).
+.PP
+Library routines: \*Lldr_install\*O(3), \*Lldr_remove\*O(3)
+.PP
+Files:  \*Lnull\*O(7).
+.\" Commented out locale(4). No such manpage in DEC OSF/1 V1.2
+.\"\*Llocale\*O(4), 
+.PP
+Miscellaneous:  \*Lloader\*O(5)
+.\" End Digital-specific information
+.EQ
+delim off
+.EN

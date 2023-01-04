@@ -1,0 +1,131 @@
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.TH XAU 3X "" "" "" "X11R5"
+.SH NAME
+XauFileName, XauReadAuth, XauLockAuth, XauUnlockAuth, XauWriteAuth, XauGetAuthByAddr \- X authority database routines
+.SH SYNOPSIS
+.B "#include <X11/Xauth.h>"
+.PP
+.nf
+.ta .5i 2i
+typedef struct xauth {
+	unsigned short	family;
+	unsigned short	address_length;
+	char	*address;
+	unsigned short	number_length;
+	char	*number;
+	unsigned short	name_length;
+	char	*name;
+	unsigned short	data_length;
+	char	*data;
+} Xauth;
+
+.ft B
+char *XauFileName ()
+
+.ft B
+Xauth *XauReadAuth (auth_file)
+.ft I
+	FILE *auth_file;
+
+.ft B
+int XauWriteAuth (auth_file, auth)
+.ft I
+	FILE *auth_file;
+	Xauth *auth;
+
+.ft B
+Xauth *XauGetAuthByAddr (\kAfamily,
+\h'|\nAu'address_length, address,
+\h'|\nAu'number_length, number)
+.ft I
+	unsigned short family;
+	unsigned short address_length;
+	char *address;
+	unsigned short number_length;
+	char *number;
+
+.ft B
+int XauLockAuth (file_name, retries, timeout, dead)
+.ft I
+	char *file_name;
+	int retries;
+	int timeout;
+	long dead;
+
+.ft B
+int XauUnlockAuth (file_name)
+.ft I
+	char *file_name;
+
+.ft B
+XauDisposeAuth (auth)
+.ft I
+	Xauth *auth;
+
+.ft R
+.SH DESCRIPTION
+.PP
+\f3XauFileName\fP generates the default authorization file name by first
+checking the XAUTHROTIY environment variable if set, else it returns
+$HOME/.Xauthority.  This name is statically allocated and should
+not be freed.
+.PP
+\f3XauReadAuth\fP reads the next entry from \f2auth_file\fP.  The entry is
+\f3not\fP statically allocated and should be freed by calling
+\f2XauDisposeAuth\fP.
+.PP
+\f3XuWriteAuth\fP writes an authorization entry to \f2auth_file\fP.  It
+returns 1 on success, 0 on failure.
+.PP
+\f3XauGetAuthByAddr\fP searches for an entry which matches the given network
+address/display number pair.  The entry is \f3not\fP statically allocated
+and should be freed by calling \f2XauDisposeAuth\fP
+.PP
+\f3XauLockAuth\fP does the work necessary to synchronously update an
+authorization file.  First it makes two file names, one with ``-c'' appended
+to \f2file_name\fP, the other with ``-l'' appended.  If the ``-c'' file
+already exists and is more than \f2dead\fP seconds old, \f2XauLockAuth\fP
+removes it and the associated ``-l'' file.  To prevent possible
+synchronization troubles with NFS, a \f2dead\fP value of zero forces the
+files to be removed.  \f2XauLockAuth\fP makes \f2retries\fP attempts to
+create and link the file names, pausing \f2timeout\fP seconds between each
+attempt.  \f2XauLockAuth\fP returns a collection of values depending on the
+results:
+.TP 8
+LOCK_ERROR
+A system error occurred, either a file_name
+which is too long, or an unexpected failure from
+a system call.  errno may prove useful.
+.TP 8
+LOCK_TIMEOUT
+\f2retries\fP attempts failed.
+.TP 8
+LOCK_SUCCESS
+The lock succeeded.
+.PP
+\f3XauUnlockAuth\fP undoes the work of \f2XauLockAuth\fP by unlinking both
+the ``-c'' and ``-l'' file names.
+.PP
+\f3XauDisposeAuth\fP frees storage allocated to hold an authorization entry.
+.SH "SEE ALSO"
+xauth(1X), xdm(1X)
+.SH COPYRIGHT
+Copyright 1988, Massachusetts Institute of Technology.
+.br
+See \f2X(1X)\fP for a full statement of rights and permissions.
+.SH AUTHOR
+Keith Packard, MIT X Consortium
+.EQ
+delim off
+.EN

@@ -1,0 +1,354 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211142159.AA08038@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2726) close XBUG #5533: server: MBX fatal server error after running "ico -dbl -r"
+Date: Sat, 14 Nov 92 16:59:29 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5533
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d08004	Sat Nov 14 16:46:45 1992
+--- extensions/server/multibuf.c	Sat Nov 14 16:40:35 1992
+***************
+*** 24,30 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: multibuf.c,v 1.13 92/10/15 16:15:57 hersh Exp $ */
+  #define NEED_REPLIES
+  #define NEED_EVENTS
+  #include <stdio.h>
+--- 24,30 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: multibuf.c,v 1.16 92/11/14 16:40:25 rws Exp $ */
+  #define NEED_REPLIES
+  #define NEED_EVENTS
+  #include <stdio.h>
+***************
+*** 77,82 ****
+--- 77,83 ----
+  typedef struct _Multibuffers {
+      WindowPtr	pWindow;		/* associated window */
+      int		numMultibuffer;		/* count of buffers */
++     int		refcnt;			/* ref count for delete */
+      int		displayedMultibuffer;	/* currently active buffer */
+      int		updateAction;		/* Undefined, Background, Untouched, Copied */
+      int		updateHint;		/* Frequent, Intermittent, Static */
+***************
+*** 111,118 ****
+  static unsigned char	MultibufferReqCode;
+  static int		MultibufferEventBase;
+  static int		MultibufferErrorBase;
+! static int		MultibufferScreenIndex = -1;
+! static int		MultibufferWindowIndex = -1;
+  
+  static int		BlockHandlerRegistered;
+  static void		MultibufferBlockHandler(), MultibufferWakeupHandler();
+--- 112,119 ----
+  static unsigned char	MultibufferReqCode;
+  static int		MultibufferEventBase;
+  static int		MultibufferErrorBase;
+! int			MultibufferScreenIndex = -1;
+! int			MultibufferWindowIndex = -1;
+  
+  static int		BlockHandlerRegistered;
+  static void		MultibufferBlockHandler(), MultibufferWakeupHandler();
+***************
+*** 123,130 ****
+  
+  static void		BumpTimeStamp ();
+  
+! static void		MultibufferExpose ();
+! static void		MultibufferUpdate ();
+  static void		AliasMultibuffer ();
+  int			CreateImageBuffers ();
+  void			DestroyImageBuffers ();
+--- 124,131 ----
+  
+  static void		BumpTimeStamp ();
+  
+! void			MultibufferExpose ();
+! void			MultibufferUpdate ();
+  static void		AliasMultibuffer ();
+  int			CreateImageBuffers ();
+  void			DestroyImageBuffers ();
+***************
+*** 136,142 ****
+   * The Pixmap associated with a buffer can be found as a resource
+   * with this type
+   */
+! static RESTYPE		MultibufferDrawableResType;
+  static void		MultibufferDrawableDelete ();
+  /*
+   * The per-buffer data can be found as a resource with this type.
+--- 137,143 ----
+   * The Pixmap associated with a buffer can be found as a resource
+   * with this type
+   */
+! RESTYPE			MultibufferDrawableResType;
+  static void		MultibufferDrawableDelete ();
+  /*
+   * The per-buffer data can be found as a resource with this type.
+***************
+*** 296,319 ****
+      MultibufferPtr	pMultibuffer;
+      ScreenPtr		pScreen;
+      int			width, height, depth;
+!     int			i, j;
+  
+!     pMultibuffers = (MultibuffersPtr) xalloc (sizeof (MultibuffersRec));
+      if (!pMultibuffers)
+  	return BadAlloc;
+      pMultibuffers->pWindow = pWin;
+!     pMultibuffers->buffers = (MultibufferPtr) xalloc (nbuf * sizeof (MultibufferRec));
+!     if (!pMultibuffers->buffers)
+!     {
+! 	xfree (pMultibuffers);
+! 	return BadAlloc;
+!     }
+      if (!AddResource (pWin->drawable.id, MultibuffersResType, (pointer) pMultibuffers))
+-     {
+- 	xfree (pMultibuffers->buffers);
+- 	xfree (pMultibuffers);
+  	return BadAlloc;
+-     }
+      width = pWin->drawable.width;
+      height = pWin->drawable.height;
+      depth = pWin->drawable.depth;
+--- 297,314 ----
+      MultibufferPtr	pMultibuffer;
+      ScreenPtr		pScreen;
+      int			width, height, depth;
+!     int			i;
+  
+!     DestroyImageBuffers(pWin);
+!     pMultibuffers = (MultibuffersPtr) xalloc (sizeof (MultibuffersRec) +
+! 					      nbuf * sizeof (MultibufferRec));
+      if (!pMultibuffers)
+  	return BadAlloc;
+      pMultibuffers->pWindow = pWin;
+!     pMultibuffers->buffers = (MultibufferPtr) (pMultibuffers + 1);
+!     pMultibuffers->refcnt = pMultibuffers->numMultibuffer = 0;
+      if (!AddResource (pWin->drawable.id, MultibuffersResType, (pointer) pMultibuffers))
+  	return BadAlloc;
+      width = pWin->drawable.width;
+      height = pWin->drawable.height;
+      depth = pWin->drawable.depth;
+***************
+*** 342,347 ****
+--- 337,343 ----
+  	pMultibuffer->pPixmap->drawable.id = ids[i];
+      }
+      pMultibuffers->numMultibuffer = i;
++     pMultibuffers->refcnt = i;
+      pMultibuffers->displayedMultibuffer = -1;
+      if (i > 0)
+  	AliasMultibuffer (pMultibuffers, 0);
+***************
+*** 432,438 ****
+      int		    nbuf;
+      XID		    *ids;
+      int		    i, j;
+!     CARD32	    minDelay, maxDelay;
+      TimeStamp	    activateTime, bufferTime;
+      
+      REQUEST_AT_LEAST_SIZE (xMbufDisplayImageBuffersReq);
+--- 428,434 ----
+      int		    nbuf;
+      XID		    *ids;
+      int		    i, j;
+!     CARD32	    minDelay;
+      TimeStamp	    activateTime, bufferTime;
+      
+      REQUEST_AT_LEAST_SIZE (xMbufDisplayImageBuffersReq);
+***************
+*** 440,446 ****
+      if (!nbuf)
+  	return Success;
+      minDelay = stuff->minDelay;
+-     maxDelay = stuff->maxDelay;
+      ids = (XID *) &stuff[1];
+      ppMultibuffers = (MultibuffersPtr *) xalloc (nbuf * sizeof (MultibuffersPtr));
+      pMultibuffer = (MultibufferPtr *) xalloc (nbuf * sizeof (MultibufferPtr));
+--- 436,441 ----
+***************
+*** 1218,1228 ****
+      return TRUE;
+  }
+  
+  static void
+  MultibufferBlockHandler (data, wt, LastSelectMask)
+      pointer	    data;		/* unused */
+      struct timeval  **wt;		/* wait time */
+!     long	    *LastSelectMask;
+  {
+      DisplayRequestPtr	    pReq, pNext;
+      unsigned long	    newdelay, olddelay;
+--- 1213,1224 ----
+      return TRUE;
+  }
+  
++ /*ARGSUSED*/
+  static void
+  MultibufferBlockHandler (data, wt, LastSelectMask)
+      pointer	    data;		/* unused */
+      struct timeval  **wt;		/* wait time */
+!     long	    *LastSelectMask;	/* unused */
+  {
+      DisplayRequestPtr	    pReq, pNext;
+      unsigned long	    newdelay, olddelay;
+***************
+*** 1260,1265 ****
+--- 1256,1262 ----
+      }
+  }
+  
++ /*ARGSUSED*/
+  static void
+  MultibufferWakeupHandler (data, i, LastSelectMask)
+      pointer	    data;
+***************
+*** 1331,1337 ****
+   * Send Expose events to interested clients
+   */
+  
+! static void
+  MultibufferExpose (pMultibuffer, pRegion)
+      MultibufferPtr	pMultibuffer;
+      RegionPtr	pRegion;
+--- 1328,1334 ----
+   * Send Expose events to interested clients
+   */
+  
+! void
+  MultibufferExpose (pMultibuffer, pRegion)
+      MultibufferPtr	pMultibuffer;
+      RegionPtr	pRegion;
+***************
+*** 1372,1378 ****
+      }
+  }
+  
+! static void
+  MultibufferUpdate (pMultibuffer, time)
+      MultibufferPtr	pMultibuffer;
+      CARD32	time;
+--- 1369,1375 ----
+      }
+  }
+  
+! void
+  MultibufferUpdate (pMultibuffer, time)
+      MultibufferPtr	pMultibuffer;
+      CARD32	time;
+***************
+*** 1391,1397 ****
+   * events
+   */
+  
+! static void
+  MultibufferClobber (pMultibuffer)
+      MultibufferPtr	pMultibuffer;
+  {
+--- 1388,1394 ----
+   * events
+   */
+  
+! void
+  MultibufferClobber (pMultibuffer)
+      MultibufferPtr	pMultibuffer;
+  {
+***************
+*** 1568,1573 ****
+--- 1565,1571 ----
+  }
+  
+  /* Resource delete func for MultibufferDrawableResType */
++ /*ARGSUSED*/
+  static void
+  MultibufferDrawableDelete (pDrawable, id)
+      DrawablePtr	pDrawable;
+***************
+*** 1591,1605 ****
+  }
+  
+  /* Resource delete func for MultibufferResType */
+  static void
+  MultibufferDelete (pMultibuffer, id)
+      MultibufferPtr	pMultibuffer;
+      XID		id;
+  {
+!     return;
+  }
+  
+  /* Resource delete func for MultibuffersResType */
+  static void
+  MultibuffersDelete (pMultibuffers, id)
+      MultibuffersPtr	pMultibuffers;
+--- 1589,1613 ----
+  }
+  
+  /* Resource delete func for MultibufferResType */
++ /*ARGSUSED*/
+  static void
+  MultibufferDelete (pMultibuffer, id)
+      MultibufferPtr	pMultibuffer;
+      XID		id;
+  {
+!     MultibuffersPtr	pMultibuffers;
+! 
+!     pMultibuffers = pMultibuffer->pMultibuffers;
+!     if (--pMultibuffers->refcnt == 0)
+!     {
+! 	FreeResourceByType (pMultibuffers->pWindow->drawable.id,
+! 			    MultibuffersResType, TRUE);
+! 	xfree (pMultibuffers);
+!     }
+  }
+  
+  /* Resource delete func for MultibuffersResType */
++ /*ARGSUSED*/
+  static void
+  MultibuffersDelete (pMultibuffers, id)
+      MultibuffersPtr	pMultibuffers;
+***************
+*** 1607,1619 ****
+  {
+      int	i;
+  
+!     for (i = 0; i < pMultibuffers->numMultibuffer; i++)
+! 	FreeResource (pMultibuffers->buffers[i].pPixmap->drawable.id, 0);
+!     xfree (pMultibuffers->buffers);
+!     xfree (pMultibuffers);
+  }
+  
+  /* Resource delete func for DisplayRequestResType */
+  static void
+  DisplayRequestDelete (pRequest, id)
+      DisplayRequestPtr	pRequest;
+--- 1615,1629 ----
+  {
+      int	i;
+  
+!     if (pMultibuffers->refcnt == pMultibuffers->numMultibuffer)
+!     {
+! 	for (i = pMultibuffers->numMultibuffer; --i >= 0; )
+! 	    FreeResource (pMultibuffers->buffers[i].pPixmap->drawable.id, 0);
+!     }
+  }
+  
+  /* Resource delete func for DisplayRequestResType */
++ /*ARGSUSED*/
+  static void
+  DisplayRequestDelete (pRequest, id)
+      DisplayRequestPtr	pRequest;

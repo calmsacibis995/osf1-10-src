@@ -1,0 +1,271 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202250013.AA23423@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2378) close XBUG #4402: Xt: hangs while parsing certain translations
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Mon, 24 Feb 92 19:13:10 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: hangs while parsing certain translations
+        ### bug number:   4402
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:   The "certain translations" are those with count > 1
+        ### status:     fixed, TranslateI.h 1.43, TMparse.c 1.124, and
+        ### status:     TMstate.c 1.160
+
+
+*** /tmp/,RCSt1a23292	Mon Feb 24 19:04:51 1992
+--- lib/Xt/TranslateI.h	Mon Feb 24 17:44:54 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TranslateI.h,v 1.42 91/06/14 17:58:41 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: TranslateI.h,v 1.43 92/02/24 17:42:20 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 59,64 ****
+--- 59,65 ----
+  typedef struct _LateBindings {
+      unsigned int knot:1;
+      unsigned int pair:1;
++     unsigned short ref_count;	/* garbage collection */
+      KeySym keysym;
+  } LateBindings, *LateBindingsPtr;
+  
+*** /tmp/,RCSt1a23317	Mon Feb 24 19:04:59 1992
+--- lib/Xt/TMparse.c	Mon Feb 24 17:47:08 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMparse.c,v 1.123 91/07/28 11:52:14 swick Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: TMparse.c,v 1.124 92/02/24 17:44:56 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 528,533 ****
+--- 528,535 ----
+          *lateBindings = temp;
+          temp[count].knot = notL;
+          temp[count].pair = pair;
++ 	if (count == 0)
++ 	    temp[count].ref_count = 1;
+          temp[count++].keysym = keysymL;
+          if (keysymR){
+              temp[count].knot = notR;
+***************
+*** 1136,1141 ****
+--- 1138,1151 ----
+      return str;
+  }
+  
++ 
++ static EventSeqRec timerEventRec = {
++     {0, 0, NULL, _XtEventTimerEventType, 0L, 0L, NULL},
++     /* (StatePtr) -1 */ NULL,
++     NULL,
++     NULL
++ };
++ 
+  static void RepeatDown(eventP, reps, actionsP)
+      EventPtr *eventP;
+      int reps;
+***************
+*** 1146,1158 ****
+      EventPtr upEvent = &upEventRec;
+      register int i;
+  
+-     static EventSeqRec timerEventRec = {
+- 	{0, 0,NULL, _XtEventTimerEventType, 0L, 0L,NULL},
+- 	/* (StatePtr) -1 */ NULL,
+- 	NULL,
+- 	NULL
+-     };
+- 
+      downEvent = event = *eventP;
+      *upEvent = *downEvent;
+      upEvent->event.eventType = ((event->event.eventType == ButtonPress) ?
+--- 1156,1161 ----
+***************
+*** 1163,1168 ****
+--- 1166,1174 ----
+  	upEvent->event.modifiers
+  	    |= buttonModifierMasks[event->event.eventCode];
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += (reps - 1) * 2;
++ 
+      for (i=1; i<reps; i++) {
+  
+  	/* up */
+***************
+*** 1197,1209 ****
+      EventPtr upEvent = &upEventRec;
+      register int i;
+  
+-     static EventSeqRec timerEventRec = {
+- 	{0, 0,NULL, _XtEventTimerEventType, 0L, 0L,NULL},
+- 	/* (StatePtr) -1 */ NULL,
+- 	NULL,
+- 	NULL
+-     };
+- 
+      downEvent = event = *eventP;
+      *upEvent = *downEvent;
+      upEvent->event.eventType = ((event->event.eventType == ButtonPress) ?
+--- 1203,1208 ----
+***************
+*** 1214,1219 ****
+--- 1213,1221 ----
+  	upEvent->event.modifiers
+  	    |= buttonModifierMasks[event->event.eventCode];
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += reps * 2 - 1;
++ 
+      for (i=0; i<reps; i++) {
+  
+  	if (i > 0) {
+***************
+*** 1251,1263 ****
+      EventPtr upEvent = &upEventRec;
+      register int i;
+  
+-     static EventSeqRec timerEventRec = {
+- 	{0, 0,NULL, _XtEventTimerEventType, 0L, 0L,NULL},
+- 	/* (StatePtr) -1 */ NULL,
+- 	NULL,
+- 	NULL
+-     };
+- 
+      /* the event currently sitting in *eventP is an "up" event */
+      /* we want to make it a "down" event followed by an "up" event, */
+      /* so that sequence matching on the "state" side works correctly. */
+--- 1253,1258 ----
+***************
+*** 1272,1277 ****
+--- 1267,1275 ----
+  	downEvent->event.modifiers
+  	    &= ~buttonModifierMasks[event->event.eventCode];
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += reps * 2 - 1;
++ 
+      /* up */
+      event->next = XtNew(EventSeqRec);
+      event = event->next;
+***************
+*** 1311,1323 ****
+      EventPtr upEvent = &upEventRec;
+      register int i;
+  
+-     static EventSeqRec timerEventRec = {
+- 	{0, 0,NULL, _XtEventTimerEventType, 0L, 0L,NULL},
+- 	/* (StatePtr) -1 */ NULL,
+- 	NULL,
+- 	NULL
+-     };
+- 
+      /* the event currently sitting in *eventP is an "up" event */
+      /* we want to make it a "down" event followed by an "up" event, */
+      /* so that sequence matching on the "state" side works correctly. */
+--- 1309,1314 ----
+***************
+*** 1332,1337 ****
+--- 1323,1331 ----
+  	downEvent->event.modifiers
+  	    &= ~buttonModifierMasks[event->event.eventCode];
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += reps * 2;
++ 
+      for (i=0; i<reps; i++) {
+  
+  	/* up */
+***************
+*** 1366,1371 ****
+--- 1360,1368 ----
+  
+      tempEvent = event = *eventP;
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += reps - 1;
++ 
+      for (i=1; i<reps; i++) {
+  	event->next = XtNew(EventSeqRec);
+  	event = event->next;
+***************
+*** 1386,1391 ****
+--- 1383,1391 ----
+  
+      tempEvent = event = *eventP;
+  
++     if (event->event.lateModifiers)
++ 	event->event.lateModifiers->ref_count += reps - 1;
++ 
+      for (i=1; i<reps; i++) {
+  	event->next = XtNew(EventSeqRec);
+  	event = event->next;
+***************
+*** 1439,1445 ****
+      ScanFor(right_paren, ')');
+      if (isascii(*str) && isdigit(*str)) {
+  	String start = str;
+! 	char repStr[100];
+  	int len;
+  
+  	ScanNumeric(str);
+--- 1439,1445 ----
+      ScanFor(right_paren, ')');
+      if (isascii(*str) && isdigit(*str)) {
+  	String start = str;
+! 	char repStr[7];
+  	int len;
+  
+  	ScanNumeric(str);
+*** /tmp/,RCSt1a23342	Mon Feb 24 19:05:09 1992
+--- lib/Xt/TMstate.c	Mon Feb 24 17:48:24 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMstate.c,v 1.159 91/12/03 16:33:34 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: TMstate.c,v 1.160 92/02/24 17:47:10 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+***************
+*** 299,305 ****
+  		 * late modifiers. If there isn't a match we use the
+  		 * parser's copy
+  		 */
+! 		if (event->lateModifiers) {
+  		    XtFree((char *)event->lateModifiers);
+  		    event->lateModifiers = NULL;
+  		}
+--- 299,306 ----
+  		 * late modifiers. If there isn't a match we use the
+  		 * parser's copy
+  		 */
+! 		if (event->lateModifiers &&
+! 		    --event->lateModifiers->ref_count == 0) {
+  		    XtFree((char *)event->lateModifiers);
+  		    event->lateModifiers = NULL;
+  		}

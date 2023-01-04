@@ -1,0 +1,306 @@
+.\"
+.\" $XConsortium: p085,v 5.1 91/02/16 09:38:16 rws Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "INITIALIZE VALUATOR" 3P "29 February 1991"
+.SH NAME
+INITIALIZE VALUATOR \- initialize a valuator input device
+using \s-2\&2D\s+2 data 
+.IX "Valuator Input Devices" "INITIALIZE VALUATOR"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3.25i
+.nf
+void
+pinit_val ( ws, dev, init, pet, echo_area, record )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	dev;	\fIvaluator device number\fP
+Pfloat	init;	\fIinitial value\fP
+Pint	pet;	\fIprompt and echo type\fP
+Plimit	*echo_area;	\fIecho area pointer\fP
+Pval_data	*record;	\fIdata record pointer\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+Use \s-2INITIALIZE VALUATOR\s+2 to set the initialization parameters of a
+\s-2VALUATOR\s+2 device.
+This function stores these parameters in the workstation state list
+of the workstation associated with the specified device.
+The specified \fBdevice must be in \s-2REQUEST\s+2 mode\fP when this
+function is called.
+.SS C Input Parameters
+.IP \fIws\fP
+The workstation identifier of the workstation associated with the device.
+.IP \fIdev\fP
+The device number of the \s-2VALUATOR\s+2 device to initialize.
+See the \fIAVAILABLE DEVICES\fP section below for a description of the
+available devices.
+.IP \fIinit\fP
+The initial valuator value.
+.IP \fIpet\fP
+The prompt/echo type desired.
+Those supported by each device are listed in the
+\fIAVAILABLE DEVICES\fP section below.
+.IP \fIecho_area\fP
+A pointer to a Plimit structure defining the
+\fIx\fP and \fIy\fP
+components of the echo volume, in Device Coordinates (\s-2DC\s+2).  
+The existing \fIz\fP component in the workstation state list is left unchanged.
+Plimit is defined in phigs.h as follows:
+.\" Plimit
+.sp .4
+.ta .5i +1i  +1i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	x_min;	/* minimum x coordinate value */
+	Pfloat	x_max;	/* maximum x coordinate value */
+	Pfloat	y_min;	/* minimum y coordinate value */
+	Pfloat	y_max;	/* maximum y coordinate value */
+.sp .2
+} Plimit;
+.fi
+.IP \fIrecord\fP
+A pointer to a Pval_data structure containing the data record information.
+The contents of the data record for each device and prompt/echo type are
+described below in the \fIAvailable Devices\fP section.
+.IP
+Some members of the data record correspond to the prompt/echo type
+being used.
+As an example, the appropriate member of the Pval_data structure for
+prompt/echo type 1 is
+\fIpet_r1\fP.
+.IP
+For some prompt/echo types the data record is not used.
+The \fIrecord\fP parameter, however, must still be passed.
+.IP
+Pval_data is defined in phigs.h as:
+.bp
+.ta .5i +1.5i  +1.25i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	low;            /* low range limit */
+	Pfloat	high;           /* high range limit */
+	union {
+	    struct {
+	          Pint	unused;
+	    } pet_r1;
+	    struct {
+	          Pchar	*label;	/* the device label widget string */
+	          Pchar	*format;	/* the current value widget format string */
+	          Pchar	*low_label;	/* the low value widget format string */
+	          Pchar	*high_label;	/* the low value widget format string */
+	    } pet_u1;
+	} pets;
+.sp .2
+} Pval_data;
+.fi
+.SS Execution
+.LP
+\s-2INITIALIZE VALUATOR\s+2 sets the initialization parameters of a
+\s-2VALUATOR\s+2 device.
+This function stores these parameters in the workstation state list
+of the workstation associated with the specified device.
+The specified device must be in \s-2REQUEST\s+2 mode when this
+function is called.
+.LP
+The parameters that are initialized by this function are 
+\fIinitial value\fP,
+\fIprompt/echo type\fP,
+\fIecho volume\fP,
+and
+\fIinput data record\fP.
+.LP
+The \fIinitial value\fP is the logical input value the device will take on
+whenever it is enabled.
+The device's measure will retain this value until operator input changes it.
+A device is enabled when the appropriate \s-2REQUEST\s+2 function is called,
+or when its input mode is set to \s-2SAMPLE\s+2 or \s-2EVENT\s+2.
+.LP
+A \s-2VALUATOR\s+2 device measure consists of a floating point number.
+This number is between the device's low value and high value, inclusive.
+.LP
+The \fIprompt/echo type\fP determines how the device will be presented to
+the operator and respond to his actions.  
+Each device supports one or more prompt/echo types.  
+Those supported by each device are listed in the device's
+description in the \fIAVAILABLE DEVICES\fP section below.  
+All devices support prompt/echo type 1.  
+Positive prompt/echo types are defined by the \s-2PHIGS\s+2 standard.  
+Negative types are implementation-dependent.  
+.LP
+The \fIecho volume\fP defines the region of the display surface in which to
+echo the device.  It is specified in \s-2DC\s+2.  
+Devices that use the echo volume may restrict their display to this region.  
+Some of these devices may still recognize operator input
+outside the region even though they do not display there.  
+This function specifies only the \fIx\fP and \fIy\fP components of the echo volume.  
+The existing \fIz\fP component in the workstation state list is left unchanged.
+.LP
+The \fIinput data record\fP contains the prompt/echo type specific
+information that controls the device's appearance and characteristics.
+Not all of the data record contents are used by some devices.
+The device descriptions in the \fIAVAILABLE DEVICES\fP section below
+list the data record contents that each device recognizes.
+.LP
+All the initialization parameters must be specified properly,
+or this function will generate an error.
+The \s-2\fIERRORS\fP\s+2 section below lists the possible error conditions.
+.LP
+The default initialization parameters and the list of prompt/echo types
+supported by a \s-2VALUATOR\s+2 input device can be inquired with the function
+\s-2INQUIRE DEFAULT VALUATOR DEVICE DATA\s+2.
+The current state of the device can be inquired with the function
+\s-2INQUIRE VALUATOR DEVICE STATE\s+2.
+.SH AVAILABLE DEVICES
+.SS Device 1 - "Athena Scrollbar Widget"
+.LP
+The valuator device realization is a collection of widgets from the Athena 
+widget set. It consists of a Shell widget, a Pane widget, 4 Label widgets 
+and a Scrollbar widget. The Scrollbar is the item manipulated by the 
+operator to change the valuator value. The four Label widgets display 
+a label for the device and labels for each of the current value, low
+value and high value of the device. The device label, current value 
+and low value are all displayed (by default) to the left of the Scrollbar. 
+The high value is displayed to the right. The Pane, Label, and Scrollbar 
+widgets are children of the Shell widget.
+.LP
+Each of the four Label widgets has a character string associated with it
+that indicates what to display in that widget.  The strings for the
+current value, low value and high value widgets may contain printf(3)
+format descriptors.  \s-2PEX-SI\s+2 will expand these descriptors with the
+corresponding device value so that the value appears in the widget.
+For example, if the low value widget string is ``the low value is %f'' and
+the low value is 5, \s-2PEX-SI\s+2 will display the widget as ``the low value is 5.0''.
+.LP
+The echo volume is not used for this device.
+.LP
+\fBPrompt/echo types supported\fP: 1, -1
+.IP "PET 1" .8i
+Display the valuator item as specified above.
+The string for the label widget is ``value.''
+The strings for the current value, low value, and high value strings are all \fI%8.3g\fP.
+(Use \s-2PET -1\s+2 if these values are not as desired.)
+No data record is used with \s-2PET 1\s+2.
+.IP "PET -1"
+Display the valuator item as specified for \s-2PET 1\s+2
+but with application-specified widget strings.
+The label, low value, and high value strings are specified in the data record.
+.LP
+The widgets used and their names, in decreasing hierarchy, are:
+.IP
+valuator1 \(-> \fIapplicationShellWidgetClass\fR
+.RS
+.br
+pane \(-> \fIpanedWidgetClass\fR
+.RS
+.br
+label \(-> \fIlabelWidgetClass\fR
+.br
+readout \(-> \fIlabelWidgetClass\fR
+.br
+low_label \(-> \fIlabelWidgetClass\fR
+.br
+scrollbar \(-> \fIscrollbarWidgetClass\fR
+.br
+high_label \(-> \fIlabelWidgetClass\fR
+.br
+.RE
+.RE
+.LP
+Fallback resources for valuator devices are specified in the \s-1API\s+1.  They
+are:
+.IP
+*valuator1.pane.orientation \(-> \fIhorizontal\fR
+.IP
+*valuator1*scrollbar.orientation \(-> \fIhorizontal\fR
+.IP
+*valuator1*scrollbar.length \(-> \fI50\fR
+.IP
+*valuator1*scrollbar.translations \(em
+.RS
+.br
+<Btn1Down> \(-> \fIStartScroll(Continuous) MoveThumb() NotifyThumb()\fR
+.br
+<Btn1Motion> \(-> \fIMoveThumb() NotifyThumb()\fR 
+.br
+<Btn1Up> \(-> \fINotifyScroll(Proportional) RequestSatisfied()  EndScroll()\fR
+.RE
+.IP
+*valuator1*scrollbar.skipAdjust \(-> \fI\s-1FALSE\s+1\fR
+.IP
+*valuator1*skipAdjust \(-> \fI\s-1TRUE\s+1\fR
+.IP
+*valuator1*showGrip \(-> \fI\s-1FALSE\s+1\fR
+.LP
+The fully qualified name of all widgets is
+<appl_name>.workstation<ws_id>.valuator<dev_id>.<widget_name>, where
+<appl_name> is the application name specified in the call to OPEN XPHIGS.
+(This will be "phigs" if OPEN XPHIGS was not called.)
+For example, phigs.workstation1.valuator1.pane is the name of the
+pane widget of valuator device 1 on workstation 1.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 061
+Ignoring function, specified workstation is neither of category \s-2INPUT\s+2
+nor of category \s-2OUTIN\s+2
+.IP 250
+Ignoring function, the specified device is not available
+on the specified workstation
+.IP 251
+Ignoring function, the function requires the input device to be in \s-2REQUEST\s+2 mode
+.IP 253
+Warning, the specified prompt/echo type is not available on the specified
+workstation.
+Prompt/echo type one will be used in its place
+.IP 254
+Ignoring function, invalid echo area/volume;
+\s-2XMIN \(>= XMAX, YMIN \(>= YMAX, or ZMIN > ZMAX\s+2
+.IP 255
+Ignoring function, one of the echo area/volume boundary points
+is outside the range of the device
+.IP 260
+Ignoring function, one of the fields within the input device data record
+is in error
+.IP 261
+Ignoring function, initial value is invalid
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET VALUATOR MODE (3P)"
+.SM "REQUEST VALUATOR (3P)"
+.SM "SAMPLE VALUATOR (3P)"
+.SM "GET VALUATOR (3P)"
+.SM "INQUIRE VALUATOR DEVICE STATE (3P)"
+.SM "INITIALIZE VALUATOR 3 (3P)"
+.fi

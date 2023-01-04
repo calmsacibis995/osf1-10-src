@@ -1,0 +1,191 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: mprotect.2,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/11/24 21:00:16 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH mprotect 2
+.SH NAME
+\*Lmprotect\*O \- Modifies access protections of memory mapping
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.sp .4v
+\*L#include <sys/mman.h>\*O
+.sp .4v
+\*Lint mprotect (\*O
+.nL
+	\*Lcaddr_t \*Vaddr\*O,
+.nL
+	\*Lsize_t \*Vlen\*O,
+.nL
+	\*Lint \*Vprot\*O  \*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vaddr\*O"
+Specifies the address of the region to be modified.
+.\"from TP "  
+.LI "\*Vlen\*O"
+Specifies the length in bytes of the region to be modified.
+.\"from TP "  
+.LI "\*Vprot\*O"
+Specifies access permissions
+as any combination of PROT_READ, PROT_WRITE, and PROT_EXEC ORed together,
+or PROT_NONE.
+.LE
+.SH DESCRIPTION
+.iX "mprotect function"
+.iX "access modes" "changing for a mapped file"
+.iX "access modes" "changing for a shared memory region"
+.iX "mapped file" "changing access modes"
+.iX "shared memory region" "changing access modes"
+.PP
+The \*Lmprotect(\|)\*O function modifies the access protection of a
+mapped file or shared memory region. The
+\*Vaddr\*O
+and
+\*Vlen\*O
+parameters specify the address and length in bytes of the
+region to be modified.
+The
+\*Vlen\*O
+parameter must be a multiple of the page size as returned by
+\*Lsysconf(_SC_PAGE_SIZE)\*O.
+If
+\*Vlen\*O
+is not a multiple of the page size as returned by
+\*Lsysconf(_SC_PAGE_SIZE)\*O,
+the length of the region will be rounded up to the next multiple of
+the page size.
+.PP
+The
+\*Vprot\*O
+parameter specifies the new access protection for the region.
+The \*Lsys/mman.h\*O header file defines the following access
+options:
+.\"from TP 1i"  
+.VL 1i
+.LI "PROT_READ"
+The mapped region can be read.
+.\"from TP 1i"  
+.LI "PROT_WRITE"
+The mapped region can be written.
+.\"from TP 1i"  
+.LI "PROT_EXEC"
+The mapped region can be executed.
+.\"from TP 1i"  
+.LI "PROT_NONE"
+The mapped region cannot be accessed.
+.LE
+.PP
+The \*Vprot\*O parameter can be PROT_NONE, or any combination of
+PROT_READ, PROT_WRITE, and PROT_EXEC ORed together.  If PROT_NONE is
+not specified, access permissions may be granted to
+the region in addition to those explicitly requested, except that
+write access will not be granted unless PROT_WRITE is specified.
+.PP
+If the region is a mapped file which was mapped with MAP_SHARED, the
+\*Lmprotect(\|)\*O
+function grants read or execute access permission
+only if the file descriptor used to map the file is open for
+reading, and grants write access permission only if the file
+descriptor used to map the file is open for writing.  If the region
+is a mapped file which was mapped with MAP_PRIVATE, the
+\*Lmprotect(\|)\*O
+function grants read, write, or execute access permission only if the file
+descriptor used to map the file is open for reading.  If the region
+is a shared memory region which was mapped with MAP_ANONYMOUS, the
+\*Lmprotect(\|)\*O
+function grants all requested access permissions.
+.PP
+The
+\*Lmprotect(\|)\*O
+function does not modify the access permission of any region which
+lies outside of the specified region, except that the effect on
+addresses between the end of the region and the end of the page
+containing the end of the region is unspecified.
+.PP
+If the \*Lmprotect(\|)\*O function fails under a condition other than
+that specified by
+[EINVAL], the access protection of some of the pages in the range
+[\*Vaddr\*O, \*Vaddr\*O + \*Vlen\*O) may have been changed.
+Suppose the error occurs on some page at an \*Vaddr2\*O;
+\*Lmprotect(\|)\*O may have modified the protections of all whole pages
+in the range [\*Vaddr\*O, \*Vaddr2\*O).
+.SH NOTES
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Trial use
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion,
+the \*Lmprotect(\|)\*O
+function returns 0 (zero).  Otherwise,
+\*Lmprotect(\|)\*O returns -1 and sets \*Lerrno\*O to indicate the
+error.
+.SH ERRORS
+.PP
+If the \*Lmprotect(\|)\*O function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.PP
+.\"from TP 1i"  
+.VL 1i
+.LI "[EACCES]"
+The \*Vprot\*O parameter
+specifies a protection that conflicts with the access
+permission set for the underlying file.
+.\"from TP 1i"  
+.LI "[EINVAL]"
+The \*Vprot\*O parameter is invalid, or the \*Vaddr\*O parameter is not
+a multiple of the page size as returned by \*Lsysconf(_SC_PAGE_SIZE)\*O.
+.\"from TP 1i"  
+.LI "[EFAULT]"
+The range [\*Vaddr\*O, \*Vaddr\*O + \*Vlen\*O) includes an invalid
+address.
+.\" Begin Digital-specific information
+.LI "[ENOMEM]"
+A system resource was exhausted or a system limit was exceeded.
+The most common case occurs when the calling process exceeds the kernel
+configuration parameter VPAGEMAX.  This limit specifies the maximum
+number of pages per process that can reside in regions of contiguous
+virtual address space which have mixed page protections.  The system
+administrator can override the default VPAGEMAX value of 16384 by
+specifying the \*Lvpagemax \*Vnnn\*O option in the system
+configuration file, then reconfiguring the kernel, and finally rebooting
+the system.
+.\" End Digital-specific information
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgetpagesize\*O(2),
+\*Lmmap\*O(2),
+\*Lmsync\*O(2),
+\*Lsysconf\*O(3)
+.iX "mprotect function"
+.EQ
+delim off
+.EN

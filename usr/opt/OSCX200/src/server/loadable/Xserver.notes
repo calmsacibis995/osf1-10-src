@@ -1,0 +1,237 @@
+JLudwig 25 Sep 92
+Creation of this stuff.
+
+This is the spec until I get to write something more formal. This and
+the code....
+
+Changes made (in general):
+	server:
+	dix: 	loadable font renderers
+		new main
+		close down extensions
+	os:	static things made even more local
+	ddx/mi: init extensions strategy changed. 
+		extensions now done from dix layer and extensions/server
+		(mit extensions) get hardcoded there and not in the mi
+		directory. This stuff remains for static building only.
+	ddx/cfb*:changed naming of libraries
+		made cfbcolormap stuff 8-,16-,32-bit separated
+	ddx/dec/ws:
+		changed loading of ddx handlers
+		acc's no longer used for loadable server (still for
+		static though)
+	ddx/dec/sfb:
+		moved sfbInitProc down here
+	ddx/dec/tx:
+		moved video stuff into video extension
+	lib/Xau:moved some statics out of the shared library
+	fonts/lib/fonts:
+		moved some statics out of miscutil
+		moved some static to be more local in decompress
+		broke out font server code into separate loadable
+	extensions/server/:
+		redid the equiv of miinitext down here for the mit
+		extensions
+	extensions/server/Xie:
+		groups Xie and smi library into one shared library
+	extensions/xv:
+		got this stuff in
+		server has loadable stuff
+		server loads sub components that are device specific
+		(this is one way of an extension handling device
+		specific components).
+
+Building loadable libraries for the X server:
+	you merely need to add the following someplace in your
+	Imakefile. I assume you build with normal imake library rules so
+	if you don't convert your Imakefile to be proper.
+
+	#include <Server.tmpl>
+
+	should go up top of the Imakefile to include all the proper
+	stuff and override the default shared library rules (server
+	needs special stuff).
+	Then, someplace after your NormalLibraryTarget do
+
+	#if SharedServerLibs
+	SharedLibraryTarget(ext,.,$(OBJS) $(SHOBJS))
+	InstallSharedLibrary(ext,.,$(INSTALLSERVERLIBSDIR))
+	#endif
+
+	ext is the name of the library (libext.so). Put any special
+	files you need in SHOBJS for loadable stuff. If you have any
+	objects that are for the static library only, I suggest putting
+	them in STATICOBJS and adding that in the same manner to
+	NormalLibraryTarget. 
+
+	If you have a dec specific library, then instead of the
+	InstallSharedLibrary rule use InstallDecSharedLibrary rule which
+	is exactly the same except that when it installs the library it
+	renames it from libext.so to lib_dec_ext.so. In this way,
+	layered products from other vendors won't overwrite DEC provided
+	libraries. (At some point, we need to set a vendor someplace and
+	change this rule to InstallVendorSharedLibrary.... so other
+	vendors can share our rules.)
+
+Some things to keep in mind about sharable libraries:
+	since things are being dynamically loaded, they are being loaded
+	either randomly or in reverse order from a static link line.
+	Therefore, things like this may happen:
+	dix layer defines serverGeneration as a global long.
+	font layer, linked further down the line, also defines it.
+	The linker, under static conditions, gets the dix one and
+	ignores the font one. All works nicely. (by the way, the font
+	one exists so that the font code can be used unchanged inside
+	and outside of the X server).
+	When dynamically loaded, it's up for grabs as to which one gets
+	used and by whom. So make sure you have no duplicates.
+	First, make sure you don't access any global symbols aside from
+	the ones provided in the Dec base components (as we'll be
+	spec'ing out). That basically means the globals in
+	x11/server/all, x11/fonts/lib/font/all, x11/lib/[Xau,Xdmcp].
+	There should be few if any globals in the extensions or lower
+	ddx handlers or font renderers. You should only be accessing
+	other's globals from the base components and not exporting any.
+	If everyone cooperates, then there won't be extraneous globals
+	floating around. Never, from an extension, access globals from
+	another extension. Same goes for a ddx to an extension or an
+	extension to a ddx. There may be some exceptions and the only
+	one we recommend are those where the extension has a device
+	specific component which accesses routines from a ddx handler.
+	At that point, the ddx handler global symbols are considered
+	spec'able (you can document the interface and keep it
+	unchanged). ddx's and extensions should be prefixing their
+	symbol names to prevent possible conflicts.
+	To aid this, you can add your library to the list in the
+	server/Imakefile as if you were building a static Xdec server.
+	Then to a make check (after your done a build). It will look at
+	all the lib_externals.c and make sure there are no duplicate
+	conflicting global symbols. This only works when you have all
+	the libraries, though.... and is no guarentee that you own the
+	name space you're claiming.
+
+how the libraries get built:
+	all the .o's that are required for the shared library are built.
+	They are then passed as arguments to the script
+	utils/loadables/ExternList.sh. It runs nm across them, gets out
+	the global symbols, strips out all the unresolved and unused
+	symbols, and leaves just the symbols that should be exported
+	from the library. (you may want to check this to make sure
+	things aren't slipping through). The list is then placed into a
+	.c file to make sure that the linker doesn't strip any of these
+	away (it may if they aren't referenced) and gives them a version
+	number. At this point the version number is bogus but at some
+	point in the future they will be important.
+	The lib_externals.c is included in the shared library.
+
+Misc:
+	the static server is still built. It is now called Xdec and is
+	left in server/Xdec.
+	The loadable bootstrap is in server/loadable/Xdec.
+
+Otherwise, this is all a piece of cake for the time being.
+
+loading things:
+	The config file is in /usr/lib/X11/Xserver.conf, or in
+	server/loadable/config in the build tree.
+	Syntax is in the man page, though until it is released, the man
+	page is in this directory as Xserver.man.
+
+	The library name is random, but should match the name you call
+	it in the Imake rules since it is used to create the symbols
+	for the versions and the bootstrap code relies on being able to
+	create the symbol names from this library name.
+	The file name is completely arbitrary and just needs to map to a
+	file someplace.
+	The device name must match that on the device, though trailing
+	spaces are stripped.
+	The init proc name should be the init proc available to
+	initialize the component, in whatever way initialization is done
+	for the component.
+
+	All core libraries must be loaded.
+	All system libraries must be loaded.
+	Device libraries must be available for devices found. It is
+		fatal if they are not found.
+	Font renderers and extensions are loaded only if the libraries
+		are found. Since they register themselves, there is
+		nothing fatal about not finding them.
+	Extensions have the option of how they handle not finding device
+		component libraries. They should never abort though. They
+		should either not enable the extension on that device or
+		substitute a generic solution. The Video extension must
+		ignore the device since it would be presumed the device
+		either had not video hardware or no generic extension
+		could handle the board. The DPS extension can fall back
+		to a handler that uses the gc ops only rather than
+		trying to use frame buffer code or even more specific
+		device code.
+
+	Extensions and font renderers are unloaded at server reset time.
+	Device handlers and core libraries are not.
+
+Writing code to use the loadable features:
+	server/loadable/loadable.c has comments all over and should
+	be a good reference until we can write one.
+
+	server/ddx/dec/ws/load.c is an example of loading stuff based on
+		device name matching
+	server/dix/extensions_load.c loads extensions if it finds them.
+		it walks the list of extensions rather than trying to
+		find a match in a list like the ws/load.c does.
+	extensions/xv/server/xv_load loads a device specific sub library.
+
+Things to be done:
+	argv and argc:
+		we need to have these sent to every init routine so that
+		extra arguments can be added by all.
+		a generic RegisterUsage needs to be created so that each
+		component can register a usage message. When at some
+		point the server decides enough is enough, it will see
+		if there are any more arguments left unprocessed and if
+		there are it calls down the list of usage routines to
+		print out the messages. 
+		In this way, the tx options can be made available if the
+		tx is loaded. The user should also be able to specify
+		that they want a usage message printed if the stuff
+		doesn't get found but continue anyhow, so that a tx
+		option on a machine temporarily without it's tx doesn't
+		just fail.
+		How to do usage alone without loading everything up?
+		Expensive, eh?
+	font renderers
+		I believe all of these need to be made loadable since
+		the i18n folks may want to muck with some of the basic
+		ones to add in font caching.
+	performance
+		things are really slow to load right now and I'll be taking a
+		look at that once we get going with bl9
+		Otherwise, performance isn't suffering much.
+		Things using the math lib heavily seem to be suffering
+		and I'll look into that.
+	errors
+		throughout the server we need a consistent exit
+		interface so that xdm can handle things a bit better.
+		When the server dies and knows it is going to keep
+		dying (can't open workstation device) there is no need
+		for xdm to keep starting it.
+	ws interface
+		this needs to be a bit more general, maybe. Some of the
+		name really suck and are no longer intuitive (they were
+		fine when they were created for what they were created
+		for, but the entire kitchen sink is now stuffed into the
+		old names...). Some more generic interface for the
+		screen descriptor passed with wsScreenPrivateIndex might
+		be done so that the VMS and OSF code outside the device
+		area can be shared (like in the xv tx code).
+	what should be installed?
+		should things like ws.h be installed somewhere for other
+		extensions to use?
+	-x option
+		no extension currently uses this which is great since we
+		don't have any mechanism to pass it to the extensions
+		just yet....
+
+	-x option to ld
+		doesn't work on at least the font directory. languages
+		is looking at it.

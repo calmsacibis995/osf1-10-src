@@ -1,0 +1,426 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: mount.2,v $ $Revision: 3.5.5.9 $ (DEC) $Date: 1994/01/11 21:23:57 $
+.\" 
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 Release 1.0.4
+.\"
+.\" Copyright (c) 1980, 1989 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.\" @(#)mount.2	6.10 (Berkeley) 6/23/90
+.\"
+.TH mount 2
+.SH NAME
+.PP
+\*Lmount\*O, \*Lumount\*O \- Mounts or unmounts a file system
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/mount.h>
+.sp 0.4v
+\*Lmount(
+.nL
+	int \*Vtype\*L,
+.nL
+	char *\*Vmnt-path\*L,
+.nL
+	int \*Vmnt_flag\*L,
+.nL
+	caddr_t \*Vdata\*L );
+.sp 0.4v
+\*Lumount(
+.nL
+	char *\*Vmnt-path\*L,
+.nL
+	int \*Vumnt_flag\*L );
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vtype\*O"
+Defines the type of the file system.
+The types of recognized file systems are MOUNT_UFS, MOUNT_NFS, MOUNT_MFS,
+.\"Begin Digital correction.
+.\"DEC OSF/1 V 1.2 does not do System V.
+.\"MOUNT_S5FS,
+.\"and
+.\"MOUNT_FFS.
+.\"End Digital correction.
+.\" Begin Digital-specific information
+MOUNT_PROCFS, MOUNT_CDFS, and MOUNT_MSFS (AdvFS).
+.\" End Digital-specific information
+.LI "\*Vmnt-path\*O"
+Points to a null-terminated string
+containing the appropriate pathname.
+.LI "\*Vmnt_flag\*O"
+Specifies whether certain semantics should be
+suppressed when accessing the file system.
+Valid flags are:
+.VL
+.LI "M_RDONLY"
+The file system should be treated as read-only;
+no writing is allowed (even by a process with appropriate privilege).
+Physically write-protected and magnetic
+tape file systems must be mounted read-only or
+errors will occur when access times are updated,
+whether or not any
+explicit write is attempted.
+.LI "M_NOEXEC"
+Do not allow files to be executed from the file system.
+.LI "M_NOSUID"
+Do not honor setuid or setgid bits on files when executing them.
+.LI "M_NODEV"
+Do not interpret special files on the file system.
+.LI "M_SYNCHRONOUS"
+All I/O to the file system should be done synchronously.
+.LI "M_FMOUNT"
+Forcibly mount, even if the file system is unclean.
+.LI "M_UPDATE"
+The mount command is being applied
+to an already mounted file system.
+This allows the mount flags to be changed without requiring
+that the file system be umounted and remounted.
+.LE
+.IP
+Some file systems may not allow all flags to be changed.
+For example,
+most file systems do not allow a change from read/write to read-only.
+.LI "\*Vdata\*O"
+Points to a structure that contains the type-specific parameters to mount.
+.LI "\*Vumnt_flag\*O"
+Specifies one of the following values:
+.VL
+.LI "MNT_FORCE"
+The file system should be forcibly umounted even if files are
+still active.
+Active special devices continue to work,
+but any further accesses to any other active files result in errors
+even if the file system is later remounted.
+Support for a forcible unmount is file system dependent.
+.LE
+.LE
+.SH DESCRIPTION
+.PP
+.iX "file system" "mounting"
+.iX "file system" "umounting"
+.iX "directory" "mounting a file system on"
+.iX "file-on-file mounting"
+.iX "mount function"
+.iX "umount function"
+Except in the case of file-on-file mounting, the
+\*Lmount(\|)\*O
+function
+mounts a file system
+on the directory pointed to by the
+\*Vmnt-path\*O
+parameter.
+Following the mount, references to
+\*Vmnt-path\*O
+refer to
+the root of the newly mounted file system.
+.PP
+The
+\*Vmnt-path\*O
+parameter
+must point to a directory or file that already exists.
+.PP
+For file-on-file mounting, the \*Lmount(\|)\*O
+function mounts a file specified by the \*Vdata\*O parameter onto
+another file specified by the \*Vmnt-path\*O parameter.  Either file may be
+of any type, but  \*Vmnt-path\*O cannot already have a file
+system or another file mounted on it.
+.PP
+The
+\*Lumount(\|)\*O
+function
+unmounts a file system mounted at the directory pointed to by the
+\*Vmnt-path\*O
+parameter.
+The associated directory reverts to its ordinary interpretation.
+.PP
+.\"Begin Digital correction.
+Except for file-on-file mounting and Network File System (NFS) file system
+mounts, to call either
+.\"End Digital correction.
+the \*Lmount(\|)\*O
+or
+\*Lumount(\|)\*O
+function, the calling process must have
+superuser
+privilege.
+.SH NOTES
+.PP
+Two
+\*Lmount(\|)\*O
+functions are supported by DEC OSF/1: the BSD
+\*Lmount(\|)\*O
+and the System V
+\*Lmount(\|)\*O.
+The default
+\*Lmount(\|)\*O
+function is the BSD
+\*Lmount(\|)\*O
+documented on this reference page.
+.\"Begin Digital specific information.
+The operating system does not support the System V
+\*Llmount\*O function.
+.\" Not supported in Silver. Tom Wolklin
+.\"To use the System V version of
+.\"\*Lmount(\|)\*O,
+.\"you must link with the
+.\"\*Llibsys5\*O
+.\"library before you link with
+.\"\*Llibc\*O.
+.\".PP
+.\"For file-on-file mounting the \*Vdata\*O argument points to a \*Vffs_args\*O
+.\"structure containing flags and the file to be mounted.  In
+.\"\*Vffs_flags\*O if FFS_FD is true, then the file is specified by the file
+.\"descriptor, \*Vffs_filedesc\*O, otherwise by the
+.\"pathname\*V*ffs_pathname\*O.  If FFS_CLONE is true, then new
+.\"mount point should exhibit CLONE behaviour; specifically, calls such
+.\"as \*Lchmod()\*O and \*Lchown()\*O should have no effect on the
+.\"mounted file.  (The original file is, of course, always unaffected,
+.\"since the mount point hides it.)  If the file descriptor refers to a
+.\"pipe, a call to \*Lstat()\*O will return the number of unread bytes in
+.\"the \*Vst_size\*O field.
+.\".PP
+.\"If file systems other than FFS (such as UFS or NFS) are modified to
+.\"permit mounts by unprivileged users, it may be appropriate to ensure
+.\"that the M_NODEV flag is set in the mount structure that is created,
+.\"so that users cannot obtain undeserved access through devices.
+.SH RETURN VALUES
+.PP
+The
+\*Lmount(\|)\*O
+function
+returns 0 (zero) if the file system was successfully mounted.
+Otherwise, \-1 is returned.  The mount can fail if the \*Vmnt-path\*O parameter
+does not exist or is of the wrong type.
+.PP
+For an Advanced File System (AdvFS), the mount can fail if the domain or
+fileset (or both) specified in the data parameter does not exist or is
+inaccessible.
+.PP
+For a UNIX File System (UFS),
+.\"Begin Digital specific information.
+.\"DEC OSF/1 doesn't support System V.
+.\"or S5FS
+.\"End Digital specific information.
+the mount can fail if the special device
+specified in the
+\*Lufs_args\*O
+structure is
+inaccessible, is not an appropriate file, or is already mounted.
+.\" Begin Digital-specific information
+The same failure can occur for a PROCFS file system.
+.\" End Digital-specific information
+A mount can also fail if there are already too many
+file systems mounted, either systemwide or for a specific file
+system type.
+.PP
+The
+\*Lumount(\|)\*O
+function returns 0 (zero) if the file system was successfully unmounted.
+Otherwise, \-1 is returned.
+The unmount will fail
+if there are active files in the mounted file system, unless the
+MNT_FORCE flag is set and the file system supports forcible unmounting.
+.SH ERRORS
+.PP
+If the
+\*Lmount(\|)\*O
+function
+fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL
+.LI "[EPERM]"
+The caller does not have appropriate privilege.
+.LI "[ENAMETOOLONG]"
+A component of a pathname exceeded NAME_MAX characters,
+or an entire pathname exceeded PATH_MAX characters.
+.LI "[ELOOP]"
+Too many symbolic links were encountered in translating a pathname.
+.\"Begin Digital correction
+.\"EMFILE is command to all file sytems.
+.LI "[EMFILE]"
+No space remains in the mount table.
+.\"End Digital correction.
+.LI "[ENOENT]"
+A component of the \*Vmnt-path\*O parameter does not exist.
+.LI "[ENOTDIR]"
+A component of the \*Vname\*O parameter is not a directory,
+or a path prefix of the \*Vspecial\*O
+parameter is not a directory.
+.LI "[EINVAL]"
+A pathname contains a character with the high-order bit set.
+.LI "[EBUSY]"
+Another process currently holds a reference to the
+\*Vmnt-path\*O
+parameter.
+.LI "[EDIRTY]"
+The file system is not clean and M_FORCE is not set.
+.LI "[EFAULT]"
+The
+\*Vmnt-path\*O parameter points outside the process' allocated address space.
+.LE
+.PP
+The following errors can occur for a UFS
+.\"Begin Digital specific information.
+.\"DEC OSF/1 V1.2 does not support System V.
+.\"or S5FS
+file system mount:
+.VL 1i
+.LI "[ENODEV]"
+A component of
+\*Lufs_args\*O
+\*Lfspec\*O does not exist.
+.LI "[ENOTBLK]"
+The
+\*Lfspec\*O
+field
+is not a block device.
+.LI "[ENXIO]"
+The major device number of
+\*Lfspec\*O
+is out of range (this indicates no device driver exists
+for the associated hardware).
+.LI "[EBUSY]"
+The device pointed to by the
+\*Lfspec\*O
+field is already mounted.
+.LI "[EINVAL]"
+The superblock for the file system had a bad magic
+number or an out-of-range block size.
+.LI "[ENOMEM]"
+Not enough memory was available to read the cylinder
+group information for the file system.
+.LI "[EIO]"
+An I/O error occurred while reading the superblock or
+cylinder group information.
+.LI "[EFAULT]"
+The \*Lfspec\*O field points outside the process' allocated address space.
+.LE
+.PP
+The following errors can occur for an NFS-compatible file system mount:
+.VL
+.LI "[ETIMEDOUT]"
+NFS
+timed out trying to contact the server.
+.LI "[EFAULT]"
+Some part of the information described by
+\*Lnfs_args\*O
+points outside the process' allocated address space.
+.LE
+.\"Begin Digital correction.
+.\"Removed as per Paul and Diane's comments.
+.\".PP
+.\"The following error can occur for a MFS file system mount:
+.\".VL
+.\".LI "[EMFILE]"
+.\"No space remains in the mount table.
+.\".LI "[EINVAL]" 
+.\"The superblock for the file system had a bad magic
+.\"number or an out of range block size.
+.\".LI "[ENOMEM]"
+.\"Cannot allocate enough space for the file system.
+.\".LI "[EIO]" 
+.\"A paging error occurred while reading the superblock or
+.\"cylinder group information.
+.\".LI "[EFAULT]" 
+.\"The \*Lname\*O field points outside the process' allocated address space.
+.\".LE
+.\" Begin Digital-specific information
+.PP
+The following errors can occur for a PROCFS file system mount:
+.VL 1i
+.LI "[EBUSY]"
+The device pointed to by the \*Lfspec\*O field is already mounted.
+.LI "[EMFILE]"
+No space remains in the mount table.
+.LI "[EFAULT]"
+The \*Lfspec\*O field points outside the process's allocated address space.
+.LI "[ENFILE]"
+Free vnodes are not available.
+.LI "[ENOMEM]"
+Memory is insufficient for the \*L/proc\*O directory table.
+.LE
+.\" End Digital-specific information
+.PP
+If the
+\*Lumount(\|)\*O
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL
+.LI "[EPERM]"
+The caller does not have appropriate privilege.
+.LI "[ENOTDIR]"
+A component of the path is not a directory.
+.LI "[EINVAL]"
+The pathname contains a character with the high-order bit set.
+.LI "[ENAMETOOLONG]"
+A component of a pathname exceeded NAME_MAX characters,
+or an entire pathname exceeded PATH_MAX characters.
+.LI "[ELOOP]"
+Too many symbolic links were encountered in translating the pathname.
+.LI "[EINVAL]"
+The requested directory is not in the mount table.
+.LI "[EBUSY]"
+A process is holding a reference to a file located
+on the file system.
+.LI "[EIO]"
+An I/O error occurred while writing cached file system information.
+.LI "[EFAULT]"
+The
+\*Vmnt-path\*O parameter points outside the process' allocated address space.
+.LE
+.SH FILES
+.PP
+\*L/usr/include/sys/mount.h\*O
+.SH RELATED INFORMATION
+.PP
+.\" SecureWare "labeled" filesystem stuff - lmount(3)  -  Pulled per Spider
+.\" for T2.0-6  dms
+.\" #ifdef SEC_PRIV
+Functions:
+\*Lmount\*O(3)
+.PP
+.\" #endif /* SEC_PRIV */
+Commands:
+\*Lmount\*O(8)
+.iX "mount function"
+.iX "umount function"
+.EQ
+delim off
+.EN

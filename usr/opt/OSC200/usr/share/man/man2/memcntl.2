@@ -1,0 +1,260 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: memcntl.2,v $ $Revision: 1.1.2.6 $ (DEC) $Date: 1993/12/08 15:37:57 $
+.\"
+.\"
+.TH memcntl 2
+.SH NAME
+.PP
+\*Lmemcntl\*O \-  memory management control
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.nL
+\*L#include <sys/mman.h>\*O
+.PP
+\*Lint  memcntl (
+.nL
+        caddr_t \*Vaddr\*L,
+.nL
+        size_t \*Vlen\*L,
+.nL
+        int \*Vcmd\*L,
+.nL
+        caddr_t \*Varg\*L,
+.nL
+        int \*Vattr\*L,
+.nL
+        int \*Vmask\*O );
+.sE
+.SH PARAMETERS
+.PP
+.VL 4m
+.LI "\*Vaddr\*O"
+Specifies a multiple of pagesize as returned by the \*Lsysconf\*O
+routine where implemented; otherwise, \*Vaddr\*O must contain
+the value NULL.  Where used, control operations can be further
+defined with the bit pattern contained in \*Vattr\*O.
+.LI "\*Vlen\*O"
+Must specify zero (0).
+.LI "\*Vcmd\*O"
+Specifies the operation to be performed.  See the Operations
+section for a list of the symbolic names used for the operations
+as they are defined by \*L<sys/mman.h>\*O.
+.LI "\*Varg\*O"
+Specifies a bit pattern built from the flags used to control the
+behavior of the operation where implemented; otherwise, \*Varg\*O
+must contain the value zero (0).
+.LI "\*Vattr\*O"
+Specifies the page attributes.  If an operation is
+not to be controlled by these attributes, the \*Vattr\*O argument
+must contain the value zero (0).
+.LI "\*Vmask\*O"
+Must specify zero (0).  Reserved for future use.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "memcntl function"
+The \*Lmemcntl\*O function enables the calling process to
+exercise various control operations over the address space which
+is identified by the mappings set for the address range
+[\*Vaddr, addr, + len\*O].
+.SS Selection Criteria
+.if n .PP
+The scope of the control operations can be further specified with
+additional selection criteria (in the form of attributes) according
+to the bits contained in the \*Vattr\*O parameter.
+.PP
+To specify the selection criteria for page mapping, use the
+following attributes:
+.VL
+.LI "\*LSHARED\*O"
+Page is mapped shared.
+.LI "\*LPRIVATE\*O"
+Page is mapped private.
+.LE
+.PP
+To specify the selection criteria for page protection, use the
+following attributes:
+.VL
+.LI "\*LPROT_READ\*O"
+Page is readable.
+.LI "\*LPROT_WRITE\*O"
+Page is writable.
+.LI "\*LPROT_EXEC\*O"
+Page is executable.
+.LE
+.PP
+Additional criteria includes the following:
+.VL
+.LI "\*LPROC_TEXT\*O"
+Process Text.  When used, it provides all privately mapped segments
+with read and execute permission.
+.LI "\*LPROC_DATA\*O"
+Process Data.  When used, it provides all privately mapped segments
+with write permissions.
+.LE
+.PP
+The selection criteria are constructed by an OR of the attributes
+bits and must match exactly.  The selection criteria can be used to
+describe many abstract memory objects with the address space on
+which to operate.
+.SS Operations
+.if n .PP
+This section lists the symbolic names for operations as defined
+in \*L<sys/mman.h>\*O:
+.VL
+.LI "\*LMC_LOCK\*O"
+Lock in memory all pages in the range with attributes defined
+by the \*Vattr\*O parameter.  Although a specified page may be
+locked multiple times through different mappings, page locks do
+not nest within a specified mapping.
+.IP
+A single unlock operation removes multiple lock operations that
+occur on a page with the same address in the same process.  If
+a page is locked in one process, but mapped in another, or visible
+through a different mapping in the locking process, the lock
+remains in memory until the locking process completes either
+implicit or explicit unlock operation.
+.IP
+Removing a locked mapping or deleting a page through file removal
+or truncation causes an implicit unlock operation.  However, if
+a writable \*LMAP_PRIVATE\*O page in the address range is changed,
+the lock is transferred to the private page.
+.IP
+The \*Varg\*O parameter is currently unused; however, it must be
+specified as zero (0) for future compatibility.
+.LI "\*LMC_LOCKAS\*O"
+Lock in memory all pages mapped by the address space with attributes
+defined by \*Vattr\*O.  The \*Varg\*O parameter controls whether the
+locked pages will be those mapped by the current address space,
+those that will be mapped later, or both.  The \*Varg\*O is a bit
+pattern built from the following flags:
+.VL
+.LI "\*LMCL_CURRENT\*O"
+Locks the current mappings.
+.LI "\*LMCL_FUTURE\*O"
+Locks the future mappings.  That is, all mappings subsequently
+added to the address space are locked if sufficient memory is
+available.
+.LE
+.IP
+The \*Vaddr\*O and \*Vlen\*O are not currently used in this
+operation.  However, their values must be specified as NULL and
+zero (0) respectively.
+.LI "\*LMC_SYNC\*O"
+Write all modified pages with the attributes defined by \*Vattr\*O
+to their backing storage, and if specified, invalidate the cache
+copies.
+.IP
+For modified pages mapped shared (\*LMAP_SHARED\*O), the backing
+storage is the file to which the page is mapped.
+For modified pages mapped private (\*LMAP_PRIVATE\*O), the backing
+storage is its swap area.
+.IP
+The \*Varg\*O parameter is a bit pattern built from the following
+flags:
+.VL
+.LI "\*LMS_ASYNC\*O"
+Performs asynchronous write operations, and returns once all
+write operations are scheduled.
+.LI "\*LMS_SYNC\*O"
+Performs synchronous write operations and returns after all
+write operations are complete.
+.LI "\*LMS_INVALIDATE\*O"
+Invalidates the mappings of cache copies in memory forcing all
+future references of the pages to be obtained from the backing
+storage location by the system.  Use this operation for applications
+that require a memory object to be in a known state.
+.LE
+.LI "\*LMC_UNLOCK\*O"
+Unlocks all pages in the range that have the attributes specified
+by \*Vattr\*O.
+.IP
+The \*Varg\*O parameter is unused, but it must specify zero (0).
+.LI "\*LMC_UNLOCKAS\*O"
+Removes address space memory locks and locks on all pages in
+the address space that have the attributes specified by \*Vattr\*O.
+.IP
+After \*Lfork\*O, the child process does not inherit locks established
+with lock operations.  The \*Lmemcntl\*O function fails if memory
+locks exceed a system specific limit.
+.IP
+With the exception of \*LMC_SYNC\*O, all operations are restricted
+to processes that have superuser effective user ID.  The \*Lmemcntl\*O
+function subsumes the operations of \*Lplock\*O and \*Lmctl\*O.
+.IP
+The parameters, \*Vaddr\*O, \*Varg\*O, \*Vlen\*O and \*Vmask\*O are unused,
+but an argument of NULL must be specified for \*Vaddr\*O, with the
+other fields specifying zero (0).
+.LE
+.SH NOTES
+.PP
+\*LMS_SYNC\*O can only be used on nonprivately mapped files.
+.SH RETURN VALUES
+.PP
+On successful completion, the \*Lmemcntl\*O function returns
+zero (0).  To indicate error, \*Lerrno\*O is set and a value
+of -1 is returned.
+.SH ERRORS
+.PP
+One or more of the following may be returned on failure:
+.VL
+.LI "[EAGAIN]"
+Indicates that part or all of the memory specified by the operation
+could not be locked by \*LMC_LOCK\*O or \*LMC_LOCKAS\*O, or unlocked
+when \*LMC_UNLOCK\*O or \*LMC_UNLOCKAS\*O is specified.
+.LI "[EBUSY]"
+Indicates that part or all of the addresses in the range
+[\*Vaddr, addr\*O, + \*Vlen\*O) are locked, and \*LMC_SYNC\*O was
+specified with \*LMC_INVALIDATE\*O or \*LMC_INVALIDATE\*O.
+.LI "[EINVAL]"
+Indicates that the \*Vaddr\*O parameter does not specify a multiple
+of the page size as returned by the \*Lsysconf\*O routine.
+.LI "[EINVAL]"
+Indicates that \*LMC_LOCKAS\*O or \*LMC_UNLOCKAS\*O was specified
+and the \*Vaddr\*O parameter is not specified as NULL, the \*Vlen\*O
+parameter is not specified as zero (0), or both.
+.LI "[EINVAL]"
+Indicates that the \*Varg\*O parameter is invalid
+for the operation specified.
+.LI "[EINVAL]"
+Indicates that the \*Vattr\*O parameter contains the invalid selection criteria.
+.LI "[ENOMEM]"
+Indicates that part or all of the addresses in the range [\*Vaddr,
+addr\*O + \*Llen\*O) are invalid as the address space of the process or
+pages not mapped are specified.
+.LI "[ENOMEM]"
+Indicates that there was insufficient system storage available when
+\*LMC_LOCK, MC_LOCKAS, MC_UNLOCK\*O, or \*LMC_UNLOCKAS\*O was specified.
+.LI "[ENOSYS]"
+Indicates that \*Vcmd\*O parameter specified with \*LMC_SYNC\*O is not
+supported on the address space specified.
+.LI "[EPERM]"
+Indicates that the effective user ID of the
+process is not superuser and one of the following
+was specified: \*LMC_LOCK, MC_LOCKAS, MC_UNLOCK\*O, or \*LMC_UNLOCKAS\*O.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lmmap\*O(2), \*Lmprotect\*O(2), \*Lplock\*O(2), \*Lmsync\*O(2).
+.PP
+Routines: \*Lmlock\*O(3), \*Lmlockall\*O(3), \*Lsysconf\*O(3).
+.EQ
+delim off
+.EN

@@ -1,0 +1,196 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" This is the source file from himel. As of sept 24, some of the routine
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" names changed.
+.\" 
+.\" set_unhandled_exception --    name stays the same
+.\" __exc_last_chance         --    not on lesniaks list
+.\" RtlSetLastChanceHandler --    exc_set_last_chance_handler
+.\" 
+.\" 
+.TH set_unhandled_exception 3
+.PP
+.SH NAME
+.PP
+\*Lset_unhandled_exception\*O, \*L_\|_exc_last_chance\*O, \*Lexc_set_last_chance_handler\*O - support routines for unhandled exceptions
+.SH LIBRARY
+.PP
+\*OException Handling Library (\*Llibexc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+.iX "set_unhandled_exception" "unhandled exception support routine"
+.iX "__exc_last_chance" "unhandled exception support routine"
+.iX "exc_set_last_chance_handler" "unhandled exception support routine"
+\*L#include <excpt.h>\*O
+.PP
+\*Lvoid set_unhandled_exception(
+.nL
+        exception_handler_type  \*Vhandler\*O);
+.nL
+\*Lstatic void _\|_exc_last_chance(
+.nL
+        system_exrec_type       \*V*exceptionRecord,\*L
+.nL
+        void                    \*V*EstablisherFrame,\*L
+.nL
+        CONTEXT                 \*V*contextRecord,\*L
+.nL
+        DISPATCHER_CONTEXT      \*V*dispatcherContext\*O);
+.PP
+\*Lvoid exc_set_last_chance_handler(
+.nL
+        exception_handler_type  \*Vlast_chance\*O);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vhandler"
+\*OAddress of last chance handler.
+.LI "\*VexceptionRecord"
+\*OAddress of primary exception record.
+.LI "\*VEstablisherFrame"
+\*OVirtual frame pointer of handler's establisher.
+.LI "\*VcontextRecord"
+\*OPointer to a \*Lstruct sigcontext\*O (see \*Lsignal\*O(2)) used to represent
+a procedure's context.
+.LI "\*VdispatcherContext"
+\*OAddress of exception dispatcher's control record.
+.LI "\*Vlast_chance"
+\*OAddress of last chance handler.
+.LE
+.SH DESCRIPTION
+.PP
+When called as the result of an exception, \*Lexc_dispatch_exception\*O(3)
+attempts to find a handler to process the exception by searching the
+stack frames of procedures in the call chain.
+It does this by virtually unwinding the stack (see \*Lunwind\*O(3)).
+\*Lexc_dispatch_exception\*O invokes a handler, if one exists, for each
+procedure in the call chain until it finds one that handles the exception.
+If no handler handles the exception, the dispatcher returns to its caller
+(for instance, such \*Lexc_raise_exception\*O(3)).  The caller
+typically calls \*Lexc_unwind\*O to perform an exit unwind.
+.PP
+During an exit unwind, existing handlers for procedures in the call chain
+are invoked with notification that unwinding is in progress,
+thus allowing handlers to perform scope cleanup.
+Once the stack has been unwound and all frames for procedures in the call chain
+have been removed from the stack, \*L_\|_exc_last_chance\*O is
+called. \*L_\|_exc_last_chance\*O calls a user specified handler, if present,
+or print a message using \*Lstdio\*O and call \*Lexit\*O(2) with
+an argument of 1.
+.PP
+You can establish a last chance handler by calling
+either \*Lset_unhandled_exception\*O or
+\*Lexc_set_last_chance_handler\*O specifying a non-zero value as a handler.
+There is only one last chance handler per process and it is
+inherited over forks.
+.PP
+The type \*Lexception_handler_type\*O is defined in \*Lexcpt.h\*O and matches
+the prototype for \*L_\|_exc_last_chance\*O.
+.PP
+.SH EXAMPLES
+.PP
+In the following example, \*Lexc_set_unhandled_exception\*O installs
+my_lastchance as the last chance handler.  Because the \*Lexception_dispatcher\*O
+is installed as the signal handler for SIGSEGV signals, the dispatcher begins
+searching for a frame-based handler, by virtually unwinding the context of
+the current and previous procedure call frames,
+when the segmentation violation occurs. When it determines that no
+frame-based handler exists for this exception, the dispatcher performs
+an exit unwind of the procedure call stack (see \*Lexc_resume\*O(3)). Eventually
+the last-chance handler, my_last_chance, executes.
+.PP
+.oS
+#include <stdio.h>
+#include <signal.h>
+#include <excpt.h>
+char                *x=0;
+EXCEPTION_DISPOSITION
+my_lastchance(system_exrec_type *exceptionRecord,
+              void *establisherFrame,
+              CONTEXT *contextRecord,
+              DISPATCHER_CONTEXT *dispatcherContext)
+{
+  printf("Handler: executing... ") ;
+  printf("The signal code is 0x%lx\n", exceptionRecord->ExceptionCode);
+  printf("The exception PC is 0x%lx\n", contextRecord->sc_pc);
+  /* Print flag mask values */
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_NONCONTINUABLE)
+    printf("NONCONTINUABLE ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_UNWINDING)
+    printf("UNWINDING ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_EXIT_UNWIND)
+    printf("EXIT_UNWIND ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_STACK_INVALID)
+    printf("STACK_INVALID ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_NESTED_CALL)
+    printf("NESTED_CALL ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_TARGET_UNWIND)
+    printf("TARGET_UNWIND ") ;
+  if (exceptionRecord->ExceptionFlags & EXCEPTION_COLLIDED_UNWIND)
+    printf("COLLIDED_UNWIND ") ;
+  printf ("\n");
+  exit(0);
+}
+/*
+  main program
+*/
+int main()
+{
+  struct sigaction action ;
+  action.sa_handler = exception_dispatcher ;
+  action.sa_mask = 0 ;
+  action.sa_flags = 0 ;
+  /* Request frame based exception dispatcher to be invoked on a signal */
+  if (sigaction(SIGSEGV, &action, NULL) == -1)
+    {
+      perror("sigaction") ;
+      exit(1) ;
+    }
+  set_unhandled_exception(my_lastchance) ; /* establish last-chance handler */
+  *x=55;    /* Let's SEGV now! */
+  return 0 ;
+}
+.oE
+.PP
+.SH FILES
+.PP
+\*L\/usr/ccs/lib/cmplrs/cc/libexc.a\*O - exception handling library
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/pdsc.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.PP
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lexception_intro\*O(3), \*Lexc_lookup_function_entry\*O(3),
+\*Lsignal\*O(2), \*Lsigaction\*O(2), \*Lsetjmp\*O(3), \*Lexc_unwind\*O(3),
+\*Lexception_dispatcher\*O(3), \*Lieee\*O(3).
+.PP
+Files: \*Lexcpt\*O(4), \*Lc_excpt\*O(4), \*Lsignal\*O(4), \*Lpdsc\*O(4).
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.EQ
+delim off
+.EN

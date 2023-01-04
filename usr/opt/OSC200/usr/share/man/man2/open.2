@@ -1,0 +1,533 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: open.2,v $ $Revision: 3.5.8.7 $ (DEC) $Date: 1994/01/11 21:27:23 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 Release 1.0.4
+.\"build rmifdef
+.\"
+.\"
+.TH open 2
+.SH NAME
+.PP
+\*Lopen\*O, \*Lcreat\*O \- Opens a file for reading or writing
+.SH SYNOPSIS
+.PP
+.sS
+.sp 0.4v
+\*L#include <fcntl.h>
+.nL
+\*L#include <sys/stat.h>
+.nL
+\*L#include <sys/types.h>
+.sp 0.4v
+\*Lint open (
+.nL
+	\*Lconst char *\*Vpath\*L,
+.nL
+	\*Lint \*Voflag\*O [ \*L,
+.nL
+	\*Lmode_t \*Vmode\*O ] \*L);
+.sp 0.4v
+\*Lint creat (
+.nL
+	\*Lconst char *\*Vpath\*L,
+.nL
+	\*Lmode_t \*Vmode \*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vpath\*O"
+Specifies the file to be opened or created.
+If the
+\*Vpath\*O parameter refers to a symbolic link, the
+\*Lopen\*O(\|) function opens the file
+pointed to by the symbolic link.
+.LI "\*Voflag\*O"
+Specifies the type of access, special open
+processing, the type of update, and the initial state of the open
+file. The parameter value is constructed by logically ORing special
+open processing flags.  These flags are defined in the \*Lfcntl.h\*O
+header file and are described below.
+.LI "\*Vmode\*O"
+Specifies the read, write, and execute permissions
+of the file to be created (requested by the O_CREAT flag in the
+\*Lopen\*O(\|)
+interface).
+If the file already exists, this parameter is ignored. This parameter
+is constructed by logically ORing values described in
+the \*Lsys/mode.h\*O header file.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "open function"
+.iX "creat function"
+.iX "file" "opening for reading or writing"
+.iX "file" "creating"
+.iX "file" "access flags"
+.iX "file" "status flags"
+.PP
+.\" Begin Digital-specific information
+The function call:
+.nL
+      \*Lcreat\*O (\*Vpath\*L, \*Vmode\*O)\*L;\*O
+.nL
+is equivalent to:
+.nL
+      \*Lopen\*O (\*Vpath\*L, O_WRONLY \*O| \*LO_CREAT \*O| \*LO_TRUNC, \*Vmode\*O)
+.\" End Digital-specific information
+.PP
+The \*Lopen\*O(\|) and \*Lcreat\*O(\|) functions
+establish a connection between the file named by the \*Vpath\*O
+parameter and a file descriptor. The opened file descriptor is used
+by subsequent I/O functions, such as\*L read\*O(\|) and\*L write\*O(\|),
+to access that file.
+.PP
+The returned file descriptor is the lowest file descriptor
+not previously open for that process. No process can have more than OPEN_MAX
+file descriptors open simultaneously.
+.\" Begin Digital-specific information
+.\" Adding Environment Note information
+On
+DEC OSF/1
+systems, the fixed limit on the number of
+file descriptors that a process can have open simultaneously is configurable.
+The minimum value is 64.  Use \*Lgetdtablesize\*O(2) to find this
+system-defined limit.
+.\" End Digital-specific information
+.PP
+The
+\*Lopen\*O(\|)
+and
+\*Lcreat\*O(\|)
+functions, which suspend the calling process until the request is
+completed, are redefined so that only the calling thread is
+suspended.
+.PP
+The file offset, marking the current position within the file,
+is set to the beginning of the file.  The new file descriptor is set
+to remain open across \*Lexec\*O functions.  (See the
+\*Lfcntl\*O(\|)
+function.)
+.PP
+The file status flags and file access flags are designated by the
+\*Voflag\*O
+parameter.
+The
+\*Voflag\*O
+parameter is constructed by bitwise-inclusive ORing exactly one of the
+file access flags (O_RDONLY, O_WRONLY, or O_RDWR)
+with one or more of the file status flags.
+.SS "File Access Flags"
+The file access flags are as follows:
+.VL 1i
+.LI "O_RDONLY"
+The file is open for reading only.
+.LI "O_WRONLY"
+The file is open for writing only.
+.LI "O_RDWR"
+The file is open for reading and writing.
+.LE
+.PP
+Exactly one of the file access values (O_RDONLY, O_WRONLY, or O_RDWR)
+must be
+specified.
+If none is set, O_RDONLY is assumed.
+.SS "File Status Flags"
+File status flags that specify special open processing are as follows:
+.VL 1i
+.LI "O_CREAT"
+If the file exists, this flag has no effect
+except as noted under
+O_EXCL. If the file
+does not exist, a regular file is created with the following characteristics:
+.wH 0.RS  Can not be used in nested lists
+.RS
+.ML
+.LI
+The owner ID of the file is set to the effective user ID of the
+process.
+.LI
+The group ID of the file is set to the group ID of its parent
+directory.
+.\" Begin Digital-specific information
+However, when the \*Lsys_v_mode\*O tunable is
+set to 1, the group ID of the file is set to the group ID of the
+process.
+With exception, if the S_ISGID bit of the parent directory is set,
+the group ID of the file is set to the group ID of the parent directory.
+.sp
+If the group ID of the new file does not match the effective group of
+the process or one of the supplementary group IDs of the process, the
+S_ISGID bit of the new file is cleared.
+.sp
+The access permission bits of the file mode are set to the value of mode
+as follows:  The corresponding bits are AND-ed with the complement of
+the file mode creation mask of the process.
+Refer to the
+\*ESystem V Compatibility User's Guide\*O
+for information on the System V habitat.
+.\" End Digital-specific information
+.LI
+The file permission and attribute bits are set to the value of
+the \*Vmode\*O parameter, modified as follows:
+.wH 0.RS  Can not be used in nested lists
+.VL 0.5i
+.LI
+\- All bits set in the process file mode creation mask are cleared.
+.LI
+\- The set-user ID attribute (S_ISUID bit) is cleared.
+.LI
+\- The set-group ID attribute (S_ISGID bit) is cleared.
+.LI
+\- The S_ISVTX attribute bit is cleared.
+.wH 0.RE
+.LE
+.RE
+.LE
+.sp 4p
+The calling process must have write permission to the file's parent
+directory with respect to all access control policies to create a new
+file.
+.wH 0.RE
+.LI "O_EXCL"
+If O_EXCL and O_CREAT are set,
+the open fails if the file exists.
+.LI "O_NOCTTY"
+If the
+\*Vpath\*O
+parameter
+identifies a terminal device, this flag assures that the terminal
+device does not become the controlling terminal for the process.
+.sp
+System V Compatibility
+.sp 4p
+In the
+DEC OSF/1
+operating system, O_NOCTTY is set by default and cannot
+be unset.  In the System V habitat, however, O_NOCTTY is not set by default,
+which means that a terminal device can become the controlling terminal
+for the process if both of the following conditions are met:
+.ML
+.LI
+The process does not already have a controlling terminal
+.LI
+The terminal device pointed to by \*Vpath\*O is not already a
+controlling terminal
+.LE
+.LI "O_TRUNC"
+If the file does not exist, this flag has no
+effect. If the file exists and is a regular file, and if the file
+is successfully opened O_RDWR or O_WRONLY:
+.wH 0.RS  Can not be used in nested lists
+.RS
+.ML
+.LI
+The length of the file is truncated to 0 (zero).
+.LI
+The owner and group of the file are unchanged.
+.LI
+The set-user ID attribute of the file mode is cleared.
+.\" Begin Digital-specific information
+However, when the \*Lsys_v_mode\*O tunable
+is set to 1, the file exists and is a regular file.  Its length is
+truncated to 0 and the mode, owner, and group remain unchanged.
+.\" End Digital-specific information
+.LI
+The set-user ID attribute of the file is cleared.
+.LE
+.sp
+The open fails if either of the following conditions are true:
+.ML
+.LI
+The file supports enforced record locks and another process has
+locked a portion of the file.
+.LI
+The file does not allow write access.
+.LE
+.RE
+.sp
+If the \*Voflag\*O parameter also specifies O_SYNC,
+the truncation is a synchronous update.
+.sp
+A program can request some control over when updates should be
+made permanent for a regular file opened for write access.
+.LE
+.PP
+File status flags that
+define the initial state
+of the open file are as follows:
+.VL
+.LI "O_SYNC"
+If set,
+updates and writes to regular files and
+block devices are synchronous updates.
+File update is performed
+by:
+.wH 0.RS  Can not be used in nested lists
+.RS
+.ML
+.LI
+\*Lfclear\*O(\|)
+.LI
+\*Lftruncate\*O(\|)
+.LI
+\*Lopen\*O(\|) with O_TRUNC
+.LI
+\*Lwrite\*O(\|)
+.LE
+.RE
+.sp 4p
+On return from a function that performs a synchronous update
+(any of the above system calls, when O_SYNC is set), the
+calling process is assured that all data for the file has been written to
+permanent storage, even if the file is also open for deferred
+update.
+.LI "O_APPEND"
+If set, the file pointer is set to the end of
+the file prior to each write.
+.LI "O_NONBLOCK, O_NDELAY"
+If set, the call to
+\*Lopen\*O(\|)
+will not block, and subsequent
+\*Lread\*O(\|)
+or
+\*Lwrite\*O(\|)
+operations on the file will be nonblocking.
+.LE
+.SS "General Notes on oflag Parameter Flag Values"
+The effect of O_CREAT is immediate.
+.PP
+When opening a FIFO with O_RDONLY:
+.ML
+.LI
+If neither O_NDELAY nor O_NONBLOCK is set, the \*Lopen\*O(\|) function
+blocks until another process opens the file for writing. If the file is
+already open for writing (even by the calling process), the \*Lopen\*O(\|)
+function returns without delay.
+.LI
+If O_NDELAY or O_NONBLOCK is set, the \*Lopen\*O(\|) function
+returns immediately.
+.LE
+.PP
+When opening a FIFO with O_WRONLY:
+.ML
+.LI
+If neither O_NDELAY nor O_NONBLOCK is set,
+the \*Lopen\*O(\|) function
+blocks until another process opens the file for reading.
+If the file is already open for
+reading (even by the calling process), the \*Lopen\*O(\|) function returns
+without delay.
+.LI
+If O_NDELAY or O_NONBLOCK is set, the \*Lopen\*O(\|)
+function returns an error if no process currently has the file
+open for reading.
+.LE
+.PP
+When opening a block special or character special file that supports
+nonblocking opens, such as a terminal device:
+.ML
+.LI
+If neither O_NDELAY nor O_NONBLOCK is set, the
+\*Lopen\*O(\|)
+function blocks until the device is ready or available.
+.LI
+If O_NDELAY or O_NONBLOCK is set, the \*Lopen\*O(\|)
+function returns without waiting for the device to be ready or
+available. Subsequent behavior of the device is device-specific.
+.LE
+.PP
+When opening a STREAMS file,
+\*Loflag\*O
+may be constructed from O_NDELAY or O_NONBLOCK or-ed with either
+O_RDONLY,
+O_WRONLY or O_RDWR.
+Other flag values are not applicable to STREAMS devices and have no
+effect
+on them.
+The value of O_NDELAY or NON_BLOCK affects the operation of STREAMS
+drivers and certain
+system calls [see
+\*Lread(\|)\*O,
+\*Lgetmsg(\|)\*O,
+\*Lputmsg(\|)\*O
+and
+\*Lwrite(\|)\*O].
+For drivers, the implementation of O_NDELAY or NON_BLOCK is
+device-specific.
+Each STREAMS device driver may treat this option differently.
+.SH NOTES
+.PP
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Full use
+.LE
+.\" Begin Digital-specific information
+.SH RESTRICTIONS
+.PP
+Since a file newly created by \*Lcreat \*O() is write_only, an \*Lfdopen\*O
+function following a \*Lcreat\*O fails when using the \*Lr+\*O parameter.  A
+solution to this problem is to create the file using
+\*Lopen\*O (\*Vpath\*L, O_RDWR \*O| \*LO_CREAT, 0666\*O).
+.\" End Digital-specific information
+.SH RETURN VALUES
+.PP
+Upon successful completion, the
+\*Lopen\*O(\|)
+and
+\*Lcreat\*O(\|)
+functions return
+the file descriptor, a nonnegative
+integer.  Otherwise, a value of -1 is returned and
+\*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the \*Lopen\*O(\|) or \*Lcreat\*O(\|) function
+fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL 1i
+.LI "[ENXIO]"
+A STREAMS module or driver open routine failed.
+.LI "[EIO]"
+A hangup or error occurred during a STREAMS
+\*Lopen(\|)\*O.
+.LI "[EINVAL]"
+The owner or group ID is not a value supported
+by this implementation.
+.LI "[EMULTIHOP]"
+Components of \*Lpath\*O require hopping to multiple
+remote machines.
+.LI "[ENOLINK]"
+\*LPath\*O points to a remote machine, and the link to that
+machine is no longer active.
+.LI "[ENOSR]"
+Unable to allocate a \*Lstream\*O.
+.LI "[EACCES]"
+Search permission is denied on a component of the path prefix, or the
+type of access specified by the \*Voflag\*O
+parameter is denied for the named file, or the file does not exist and
+write permission is denied for the parent directory, or O_TRUNC is
+specified and write permission is denied.
+.LI "[EAGAIN]"
+The O_TRUNC flag is set, the named file exists with enforced record
+locking enabled, and there are
+record locks on the file.
+.LI "[EDQUOT]"
+The directory in which the entry for the new link
+is being placed cannot be extended because the quota of disk blocks
+or i-nodes defined for the user on the file system containing the
+directory has been exhausted.
+.LI "[EEXIST]"
+The O_CREAT and O_EXCL flags are set
+and the named file exists.
+.LI "[EFAULT]"
+The
+\*Vpath\*O
+parameter is an invalid address.
+.LI "[EINTR]"
+A signal was caught during the \*Lopen\*O(\|) function.
+.LI "[EISDIR]"
+The named file is a directory and write access is
+requested.
+.\" Begin Digital-specific information
+However, in a System V habitat,
+the named file is a directory and the \*Voflag\*O
+permission is write or read/write.
+.\" End Digital-specific information
+.LI "[ELOOP]"
+Too many links were encountered in translating
+\*Vpath\*O.
+.LI "[EMFILE]"
+The system limit for open file descriptors per
+process has already reached OPEN_MAX.
+.\" Begin Digital-specific information
+.\" Adding Environment Note information.
+The system limit for open file descriptors has already
+been reached.
+.\" End Digital-specific information
+.LI "[ENAMETOOLONG]"
+The length of the
+\*Vpath\*O
+string exceeds PATH_MAX, or a pathname component is longer than
+NAME_MAX.
+.LI "[ENFILE]"
+The system file table is full.
+.LI "[ENOENT]"
+The O_CREAT flag is not set and the named file
+does not exist, or
+O_CREAT is set and the path prefix does not exist, or the
+\*Vpath\*O
+parameter
+points to the empty string.
+.\" Begin Digital-specific information
+.\" Adding Environment Note information.
+.LI "[ENOMEM]"
+The system was unable to allocate kernel memory for more
+file descriptors.
+.\" End Digital-specific information
+.LI "[ENOSPC]"
+The directory that would contain the new file cannot
+be extended, the file does not exist, and O_CREAT is requested.
+.LI "[ENOTDIR]"
+A component of the path prefix is not a directory.
+.LI "[ENXIO]"
+The named file is a character special or block special
+file, and the device associated with this special file does not exist.
+.sp 4p
+The named file is a multiplexed special file and either
+the channel number is outside of the valid range or no more channels
+are available.
+.sp 4p
+The O_NONBLOCK flag is set,
+the named file is a FIFO, O_WRONLY is set, and no process
+has the file open for reading.
+.LI "[EOPNOTSUPP]"
+The named file is a socket bound to the file system (a UNIX domain
+socket) and cannot be opened.
+.LI "[EROFS]"
+The named file resides on a read-only file system
+and write access is required.
+.\" Digital-specific information CORRECTION
+.\" Commenting out ETXTBSY per Bob Picco.  It's not supported.
+.\" .LI "[ETXTBSY]"
+.\" The file is being executed and
+.\" \*Voflag\*O
+.\" is O_WRONLY or O_RDWR.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lchmod\*O(2),
+\*Lclose\*O(2),
+\*Lfcntl\*O(2),
+\*Lgetmsg\*O(2),
+\*Llseek\*O(2),
+\*Lputmsg\*O(2)
+\*Lread\*O(2),
+\*Lstat\*O(2),
+\*Ltruncate\*O(2),
+\*Lumask\*O(2),
+\*Lwrite\*O(2),
+\*Llockf\*O(3)
+.iX "open function"
+.iX "creat function"
+.EQ
+delim off
+.EN

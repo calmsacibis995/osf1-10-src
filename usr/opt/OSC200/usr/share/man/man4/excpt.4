@@ -1,0 +1,356 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: excpt.4,v $ $Revision: 1.1.6.4 $ (DEC) $Date: 1993/12/15 20:16:03 $
+.\"
+.\"
+.\" this is the massaged version
+.\" this is from himel's mail, edited and formatted. 
+.\" it is essentially the excpt.h header file
+.TH excpt 4
+.SH NAME
+\*Lexcpt\*O \- Data structures and prototypes for exception handling support
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <excpt.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "excpt.h include file"
+.iX "include files" "excpt.h"
+The \*Lexcpt.h\*O include file brings together all of the data structures
+and prototypes required to support the exception handling system.
+.\" See the 
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+for an overview of the system.
+.PP
+The \*Lexcpt.h\*O file also includes the following include files:
+\*Lsignal.h\*O, \*Lpdsc.h\*O, and \*Lc_excpt.h\*O
+(which contains some C structured exception specific definitions described
+in \*Lc_excpt\*O(4)).
+The \*Lexcpt.h\*O include file defines the following:
+.ML
+.LI
+Exception code encoding
+.LI
+System exception record
+.LI
+System context record
+.LI
+System context pointers record
+.LI
+Exception flags
+.LI
+Exception dispositions
+.LI
+Language handler definitions
+.LI
+Run-time procedure type definition
+.LI
+Macros to access runtime procedure descriptor fields
+.LI
+Exception system prototypes
+.LE
+.PP
+.SS Exception Encoding
+Existing exception code formats have been merged
+to represent them in a new format. The existing codes are:
+.if t .pg
+.PP
+.TS
+tab(@);
+lfHB lfHB lfHB lfHB
+l l l l .
+_
+.sp 4p
+@LIBEXC@NT@VMS
+.sp 4p
+_
+.sp 6p
+Code/NUMBER@32 bits@0:16@3:13
+.sp
+Facility@--@16:13@16:11
+.sp
+Customer@--@29:1@27:1
+.sp
+Severity@--@30:2@0:3
+.sp
+Control@--@--@28:4
+.sp 6p
+_
+.TE
+.PP
+Libexc segments the address space into signals and other constants.
+There is no compatibility with old LIBEXC constants. Instead,
+everything is a case from the facility field.
+.\" We will not try to make NT interoperate with VMS.
+.PP
+The following example shows the typedef for a union for exception codes:
+.PP
+.iS
+typedef union exception_code {
+    struct {
+        pdsc_uint_16        facility_dependent_1:16;
+        pdsc_uint_16        facility:12;
+        pdsc_uint_16        facility_dependent_2:4;
+        pdsc_uint_32        facility_dependent_3;
+    } exception_code_base;
+    struct {
+        pdsc_uint_32        osf_facility;
+                               /* osf marker+signal,lang,etc */
+        pdsc_uint_32        code;       /* subcode */
+    } exception_code_osf;
+    struct {
+        pdsc_uint_16        code:16;    /* subcode */
+        pdsc_uint_16        facility:13;   /* base distinguisher */
+        pdsc_uint_16        customer:1; /* nt versus customer */
+        pdsc_uint_16        severity:2; /* as it says */
+        pdsc_uint_32        reserved;  /* sign extension of bit 31 */
+    } exception_code_nt;
+    struct {
+        pdsc_uint_16        severity:3;       /* as it says */
+        pdsc_uint_16        message_number:13;       /* subcode */
+        pdsc_uint_16        facility:11;  /* base distinguisher */
+        pdsc_uint_16        customer:1;   /* vms versus customer */
+        pdsc_uint_16        control:4;    /* 1=>prnt,rest resrv */
+        pdsc_uint_32        reserved;  /* sign extension of bit 31 */
+    } exception_code_vms;
+} exception_code; /* exception_code */
+.iE
+.PP
+A facility code for OSF is used as a base for all other OSF codes.
+Constants chosen for the \*Losf_facility\*O let the program set the code
+based on information it has (for example, the signal code for \*LEXC_SIGNAL\*O).
+.PP
+The possible values for the \*Losf_facility\*O field are in the
+\*Lexcpt.h\*O include file.
+.PP
+An example of using \*LEXC_VALUE\*O is defining the codes for the
+\*LEXC_INTERNAL\*O \*Losf_facility\*O (Note that some of the following
+definitions are shown on two lines with the continuation character due
+to the space limitations of a reference page):
+.PP
+\*L#define EXC_STATUS_UNWIND             EXC_VALUE(EXC_INTERNAL, 0)
+.nL
+#define EXC_STATUS_NONCONTINUABLE_EXCEPTION  \e
+.nL
+   EXC_VALUE(EXC_INTERNAL, 1)
+.nL
+#define EXC_STATUS_INVALID_DISPOSITION \e
+.nL
+   EXC_VALUE(EXC_INTERNAL,2)
+.nL
+#define EXC_SIGNAL_EXPECTED             EXC_VALUE(EXC_INTERNAL,3)
+.nL
+#define EXC_RUNTIME_FUNCTION_NOT_FOUND  \e
+.nL
+  EXC_VALUE(EXC_INTERNAL,4)
+.nL
+#define EXC_INFINITE_LOOP_UNWIND   \e
+.nL
+  EXC_VALUE(EXC_INTERNAL,5)\*O
+.PP
+Typically, users either will print out the ascii values for the preceding
+fields, or do final cleanup and call for operator assistance. There is little
+in the way of recovery that can usually occur when these errors are
+encountered. Usually, these errors indicate a programming error
+(for example, attempted to continue a non-continuable exception)
+or some corruption in the exception system data structures
+causes the exception system to not be able to perform any useful task.
+.SS System Exception Record
+The system exception record provides a handle to identify an exception.
+This data structure communicates to routines that raise
+and dispatch exceptions as well as the routine that unwinds and
+executes finally handlers. The definition of the exception record
+follows:
+.iS
+typedef struct system_exrec *exrec_ptr;
+/* UNIX Exception Record */
+typedef struct system_exrec {
+  long              ExceptionCode;       /* reason for exception */
+  unsigned long     ExceptionFlags;  /* in progress, e.g. unwind */
+  exrec_ptr         ExceptionRecord; /* rec chain, e.g.nested info */
+  void             *ExceptionAddress;    /* where error occurred */
+  unsigned long     NumberParameters; /* # of ExceptionInformation's*/
+  unsigned long     ExceptionInformation[1];   /* additional info */
+} system_exrec_type;
+.iE
+.PP
+The exception record pointer allows for nested exceptions to be
+chained. The \*LExceptionAddress\*O is the address at which
+the error occurred. The parameters may be
+arguments which qualify an exception. The \*LNumberParameters\*O is dictated
+by the \*LExceptionCode\*O. Currently, \*LNumberParameters\*O is always
+zero.
+.SS Activation Context Record
+This record defines the state of the machine registers and system
+software flags (for signals and traps) for a procedure's activation
+on the stack. The \*Lstruct sigcontext\*O found in \*Lsignal.h\*O (which is
+also used by \*Lsetjmp/longjmp\*O) represents a procedure's context.
+.iS
+    #include <signal.h>
+    typedef struct sigcontext CONTEXT, *PCONTEXT;
+.iE
+.PP
+The following code example defines context pointers to
+support \*Lexc_virtual_unwind\*O(3). These pointers
+can also provide a set of addresses from which the registers
+in the \*LCONTEXT\*O are filled:
+.iS
+    typedef exc_address          CONTEXT_POINTERS[64];
+    typedef CONTEXT_POINTERS     *PCONTEXT_POINTERS;
+.iE
+.PP
+.SS Exception Disposition
+An exception disposition is returned by a language exception handler. The
+handler may also choose not to return and call a routine
+such as \*Lexc_unwind\*O(3)
+directly.
+.\" See the \*EDEC OSF/1 Calling Standard for AXP Systems\*O for a discussion on what
+.\" happens in each of the following cases:
+.iS
+    typedef enum _EXCEPTION_DISPOSITION {
+        ExceptionContinueExecution,
+        ExceptionContinueSearch,
+        ExceptionNestedException,
+        ExceptionCollidedUnwind
+    } EXCEPTION_DISPOSITION;
+.iE
+.SS Exception Record Flags
+The exception record flags are used to communicate what is going on
+with a particular exception. Both the exception system and user code
+may set these flags. Macros are provided to easily test the
+\*LExceptionFlags\*O field of the exception record (\*Lsystem_exrec_type\*O):
+.PP
+\*L#define EXCEPTION_NONCONTINUABLE 0x1 /* Noncontinuable exception */
+.nL
+#define EXCEPTION_UNWINDING      0x2    /* Unwind is in progress */
+.nL
+#define EXCEPTION_EXIT_UNWIND    0x4    /* Exit unwind is in progress */
+.nL
+#define EXCEPTION_STACK_INVALID  0x08   /* Stack out of limits
+.nL
+  or unaligned */
+.nL
+#define EXCEPTION_NESTED_CALL  0x10   /* Nested exception handler call */
+.nL
+#define EXCEPTION_TARGET_UNWIND  0x20 /*Execute termination handler
+.nL
+  for it*/
+.nL
+#define EXCEPTION_COLLIDED_UNWIND  0x40 /*unwind through unwind
+.nL
+  dispatcher*/\*O
+.PP
+\*L#define EXCEPTION_UNWIND     (EXCEPTION_UNWINDING | \e
+.nL
+                              EXCEPTION_EXIT_UNWIND | \e
+.nL
+                              EXCEPTION_TARGET_UNWIND | \e
+.nL
+                              EXCEPTION_COLLIDED_UNWIND)\*O
+.PP
+\*L#define IS_UNWINDING(flag)     (((flag) & EXCEPTION_UNWIND) != 0)
+.nL
+#define IS_DISPATCHING(flag)   (((flag) & EXCEPTION_UNWIND) == 0)
+.nL
+#define IS_TARGET_UNWIND(flag) ((flag) \e
+  & EXCEPTION_TARGET_UNWIND)\*O
+.PP
+.SS Run-time Function Type
+The run-time function is used to access information regarding how to
+unwind a procedure's activation and where it has a handler.
+On
+DEC OSF/1
+this structure is defined to be a code range descriptor
+(see \*Lpdsc\*O(4)). Although it does not provide direct access to most of
+the information required, the run-time function indirectly does the following:
+.PP
+\*Ltypedef union pdsc_crd RUNTIME_FUNCTION, *PRUNTIME_FUNCTION, \e
+.nL
+  *PRUNTIME_FUNCTION;\*O
+.PP
+The macros in the following table facilitate accessing the information
+related to the procedures the preceding structures represent.
+The argument for each macro is \*LPRUNTIME_FUNCTION\*O.
+.\" /* define macros to make this work with existing code */
+.PP
+.TS
+tab(@);
+lfHB lfHB
+ll.
+_
+.sp 4p
+Macro@Comment
+.sp 4p
+_
+.sp 6p
+EXCEPT_PD@return pointer to pdsc_rpd
+.sp
+EXCPT_BEGIN_ADDRESS@first address in code range
+.sp
+EXCPT_END_ADDRESS@last address in code range +4
+.sp
+EXCPT_LANG_HANDLER@handler address
+.sp
+EXCPT_LANG_HANDLER_DATA@handler data address
+.sp
+EXCPT_PROLOG_END_ADDRESS@end address of prolog +4
+.sp 4p
+_
+.sp 6p
+.TE
+.PP
+The \*Lexcpt.h\*O include file also provides direct access to the code
+range descriptor table and its number of elements with \*Lfunction_table\*O and
+\*Lfunction_table_size\*O variables (actually macros) respectively.
+.PP
+The dispatcher context contains enough information for the dispatcher
+to deliver pertinent information to language handlers about what it
+was asked to do and by whom and enough information
+for them to detect collided unwinds.
+.\" [ note to jeff:
+.\" [  the code is not currently thread safe. This structure will change
+.\" [  to support thread safety.
+.iS
+typedef struct {
+    unsigned long      pc;                  /* current pc in backup */
+    pRUNTIME_FUNCTION  functionTable;       /* entry matching pc */
+    PCONTEXT           originating_context; /* disp called with this */
+} DISPATCHER_CONTEXT;
+.iE
+.SS Function prototypes
+This include file includes function prototypes for all of the external routines
+listed in \*Lexception_intro\*O(3).
+.SH RELATED INFORMATION
+.PP
+\*Lc_excpt\*O(4), \*Lexception_intro\*O(3),
+.\" RtlContinue(3E), RtlDispatchException(3E), RtlLongjmp(3E),
+.\" RtlLookupFunctionEntry(3E), RtlLookupFunctionTableAddress(3E),
+.\" RtlLookupGp(3E), RtlRaiseException(3E), RtlRaiseStatus(3E),
+.\" RtlSetLastChanceHandler(3E), RtlUnwind(3E), RtlVirtualUnwind(3E),
+.\" __RtlLastChance(3E), exc_resume(3E), exception_dispatcher(3E),
+.\" find_framePtr(3E), find_rpd(3E), lib_add_gp_range(3E),
+.\" lib_add_pc_range_table(3E), lib_remove_gp_range(3E),
+.\" lib_remove_pc_range_table(3E), lib_signal_to_expt(3E),
+.\" set_unhandled_exception(3E), unwind(3E), virtual_unwind(3E),
+\*Llongjmp\*O(3), \*Lsignal\*O(2), \*Lsignal\*O(4), \*Lpdsc\*O(4),
+.\" .PP
+.\" \*EDEC OSF/1 Calling Standard for AXP Systems\*O
+.EQ
+delim off
+.EN

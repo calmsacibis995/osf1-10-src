@@ -1,0 +1,180 @@
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+#
+# HISTORY
+#
+/======= i18n Keyboard support ========/
+
+Keyboard mode-switching
+
+    A KeySym map table contains a list of KeySym values for each KeyCode. 
+   Elements of this list are separeated into two groups. Group 1 contains
+   the first and second KeySym, and Group 2 contains the third and fourth 
+   KeySym.The selection of which Group KeySym to use when a keycode is pr-
+   essed is determined by the modifier state. 
+   "Switching between groups is controlled by the KeySym named MODE_SWITCH,
+   by attaching that KeySym to some KeyCode and attaching that Keycode to 
+   any one of the modifiers Mod1 through Mod5. This modifier is called 
+   'group modifier'. For any keycode,Group 1 is used when the group modifier
+   is off, and group 2 is used when group modifier is on."
+
+
+   Three types of keyboard mode-switching
+
+       Lock Down modifier
+  
+       if a key or key combination is bound as  a  "lock-down" modifier, it 
+       serves as a "toggled key". Press it once to lock the keyboard into
+       group 2, and press it the second time to unlock the keyboard.  When the
+       lock-down cycle is active, the modifier state for the KeyPress events 
+       will have the lock-down group modifier bit marked.  
+
+
+       One Shot modifier 
+
+       if a key or key combination is bound as  a  "one shot"  modifier ,the 
+       modifier state only affects the next key pressed immediately following
+       this pressed key or key combinaion. This means,only the KeyPress event
+       sent for the very next key will have the modifier state marked with the
+       one-shot modifier as active. You can treat one-shot modifier as a lock 
+       key that unlock automatically after typing in one more key.
+       
+
+       Normal modifier
+
+       if a key or key combination is bound as  a   "normal"  modifier , the
+       modifier state affects another key pressed as active during pressing 
+       this key or key combination. When once this key or key combination is
+       released, the modifier state is non-active.
+
+
+    How is bound a key and key combination as keyboard mode-switching ?
+
+    Currently each keysym map is either a two-column table or four-column table.
+    Within each keysym table, there are some unused entries.
+
+    The vehicle for making the key binding dynamic is by borrowing unused 
+    entries in each keysym map for mode switching. We will borrow a fixed 
+    entry, which is commonly free in all keysym maps, as a pointer entry 
+    into all other key binding definition entries. This is entry index 6E
+    (in hex). So the key binding definition for keyboard mode switching is 
+    done in keymap file. And then , it is possible to bind any key or key 
+    combination to MODE-SWITCH keysym. But We have no more than two key
+    combinations can be bound to the group modifier.
+
+
+    Entry index 6E
+
+    The first longword of this entry has the following format. The reamining 
+    longwords of this entry are not used and have a value of zero. 
+
+                   Byte Byte Byte Byte 
+         6E(hex)    1    2    3    4    00000000 00000000 00000000 
+
+               Byte 1 : The number of entry to key binding defiention
+                    2 : Entry index to key binding definition
+                    3 : Entry index to key binding definition
+                    4 : Entry index to key binding definition
+         
+
+    Entry index to key binding definition
+
+    The first longword of the entry that holds the key binding definition has
+    following format. And then the second longword of this entry contains the 
+    keycode values for the key combination as following format. The reamining 
+    longwords of this entry are not used and have a value of zero
+
+    Entry index   Byte Byte Byte Byte   Byte Byte Byte Byte
+      ?? (hex)     1    2    3    4      1    2    3    4    00000000 00000000
+
+          
+        (first longword)
+               Byte 1 : Key Binding Type ( 1=lock-down, 2=one-shot, 3=normal )
+                    2 : Equivalent keycode value
+                    3 : The number of key combination
+                    4 : ignored
+
+        (second longword)
+               Byte 1 : 1st keycode of the 1st key combination
+                    2 : 2nd keycode of the 1st key combination (optional)
+                    3 : 1st keycode of the 2nd key combination 
+                    4 : 2nd keycode of the 2nd key combination (optional)
+
+
+    Example
+
+    If we were to bind key combination of ALT/Space (keycode B1/D4) to an 
+    unused keycode 7A (in hex) for lock-down type of mode-switching on an
+    LK201 keyboard, and we chose to place the definition of the lock-down
+    mode-switching modifier in keysym map entry A5 (in hex).The keysym 
+    table entry for keycode 7A would have the value of MODE-SWITCH keysym,
+    i.e FF7E(in hex), for each of its longwords.
+
+         :
+         6E(hex)   01A50000 00000000 00000000 00000000
+         :
+         7A(hex)   FF7E                                 ! MODE_SWITCH keysym.
+         :
+         :
+         A5(hex)   017A0100 B1D40000 00000000 00000000
+         :
+
+
+
+    Soft mode-switch interface
+
+    To allow a smart X client to instruct the server to cause the keyboard 
+    mode-switching, a new function named XKMEDoKBModeSwitch is provieded by
+    Server Extension.
+     When the user have any key or key combination that is bound to the group
+    modifier as Lock Down modifier, this function would only allow the smart 
+    X client to lock down the keyboard mode-switching function or unlock it.
+
+    Function for client (C lanauage binding)
+        Status XKMEDoKBModeSwitch( display , mode ) 
+
+        Display *display;
+        int     mode;
+
+
+        display 	Specifies the connection to the X server.
+
+        mode            Specifies the mode of locking down the keyboard
+		        mode-switching or unlocking it.
+
+                        The definitions for mode-switching mode are
+                       
+                	       #define LockDownModeSwitch      1
+                               #define UnlockModeSwitch        2
+
+
+        Status
+
+        Mode successfully switched        #define KBModeSwitchSuccess
+  0 
+        Mode failed to switch             #define KBModeSwitchFailure
+  1   
+        Invalid Mode-switch command       #define KBModeSwitchInvalidCmd  2   
+        It's already in the request mode  #define KBModeSwitchNoop     
+  3   
+					

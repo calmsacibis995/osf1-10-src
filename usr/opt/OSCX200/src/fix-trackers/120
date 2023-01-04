@@ -1,0 +1,100 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202042033.AA15612@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2343) close XBUG #4790: fontserver: crash if filename & XLFD name contradict
+Date: Tue, 04 Feb 92 15:33:03 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: fontserver: crash if filename & XLFD name contradict
+        ### bug number:   4790
+        ### area:         fontlib
+        ### severity:     high
+        ### comments:     
+
+FontFileAddFontFile() now returns FALSE if the renderer cannot support
+the scalable/nonscalable attribute suggested by the XLFD name. This
+causes the fontserver to abort and print a message that the font
+directory is bad.
+
+
+*** /tmp/,RCSt1Er4Ac5	Tue Feb  4 15:17:51 1992
+--- fonts/lib/font/fontfile/fontdir.c	Tue Feb  4 15:18:40 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: fontdir.c,v 1.6 91/12/11 19:46:47 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: fontdir.c,v 1.7 92/02/04 15:17:02 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 425,430 ****
+--- 425,436 ----
+  					     &vals, FONT_XLFD_REPLACE_NONE)) ||
+  	  vals.pixel != 0)
+      {
++         /* If the fontname says it is nonScalable, make sure that the
++          * renderer supports OpenBitmap and GetInfoBitmap.
++          */
++         if (!renderer->OpenBitmap || !renderer->GetInfoBitmap)
++ 	    return FALSE;
++ 
+  	entry.type = FONT_ENTRY_BITMAP;
+  	entry.u.bitmap.renderer = renderer;
+  	entry.u.bitmap.pFont = NullFont;
+***************
+*** 442,447 ****
+--- 448,459 ----
+       */
+      if (isscale)
+      {
++         /* If the fontname says it is scalable, make sure that the
++          * renderer supports OpenScalable and GetInfoScalable.
++          */
++         if (!renderer->OpenScalable || !renderer->GetInfoScalable)
++ 	    return FALSE;
++ 
+  	if (vals.pixel != 0)
+  	{
+  	    zeroVals.pixel = 0;
+*** /tmp/,RCSt1OtQCSM	Tue Feb  4 15:18:55 1992
+--- fonts/server/os/config.c	Tue Feb  4 15:16:41 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: config.c,v 1.6 91/07/25 12:15:45 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: config.c,v 1.7 92/02/04 15:14:37 eswu Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 248,254 ****
+  
+      err = SetFontCatalogue(font_catalogue, &num);
+      if (err != FSSuccess) {
+! 	FatalError("Element #%d of font path \"%s\" is bad\n",
+  		   num, font_catalogue);
+      }
+      InitErrors();
+--- 248,254 ----
+  
+      err = SetFontCatalogue(font_catalogue, &num);
+      if (err != FSSuccess) {
+! 	FatalError("Element #%d (starting at 0) of font path is bad:\"%s\"\n",
+  		   num, font_catalogue);
+      }
+      InitErrors();

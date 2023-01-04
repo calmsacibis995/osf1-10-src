@@ -1,0 +1,585 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rz.7,v $ $Revision: 3.3.8.3 $ (DEC) $Date: 1993/12/21 15:34:23 $
+.\" 
+.TH rz 7
+.SH NAME
+.PP
+rz \- SCSI disk interface
+.SH SYNOPSIS
+.PP
+.sS
+DEC 7000 DEC XZA:
+ \*Lbus xmi0 at iop0 vector xmierror
+ bus xza0 at xmi?
+ controller skz0 at xza0
+ controller skz0 at xza0
+ tape tz0 at xza0 drive 0\*O
+.sp
+DEC 4000 DEC SIOP:
+ \*Lbus ibus0 at nexus?
+ bus lbus0 at ibus0?
+ controller siop0 at lbus0 slot 0 vector siopcointr
+ tape tz0 at siop0 drive 0\*O
+.sp
+DEC 3000 NCR ASC:
+ \*Lbus tc0 at nexus?
+ controller asc0 at * vector tcdsintr
+ tape tz0 at asc0 drive 0\*O
+.sE
+
+.SH DESCRIPTION
+.PP
+.iX "rz interface" "SCSI disk interface"
+.iX "SCSI disk interface"
+.iX "uda interface" "SCSI disk interface"
+.PP
+.\" These are from Synopsis and are out for silver"
+.\" RISC DEC SII:
+.\" .br
+.\" 	\f3adapter	ibus0	at nexus?
+.\" .br
+.\" 	controller	sii0	at ibus?	vector sii_intr
+.\" .br
+.\" 	disk	rz0	at sii0	drive 0\fP
+.\" .PP
+.\" RISC DEC KZQ:
+.\" .br
+.\" 	\f3adapter	uba0	at nexus?
+.\" .br
+.\" 	controller	kzq0	at ibus? csr 0761300	vector sii_intr
+.\" .br
+.\" 	disk	rz0	at kzq0	drive 0\fP
+.\" .PP
+.\" RISC NCR ASC:
+.\" .br
+.\" 	\f3adapter	ibus0	at nexus?
+.\" .br
+.\" 	controller	asc0	at ibus?	vector ascintr
+.\" .br
+.\" 	disk	rz0	at asc0	drive 0\fP
+.\" 
+The
+\*Lrz\*O
+driver is for all Digital Small Computer System Interface (SCSI)
+disk drives.
+.PP
+The following rules are used to determine the major and minor numbers that
+are associated with an
+\*Lrz\*O
+type disk.  There is one major number used to represent
+\*Lrz\*O
+disks.
+.\" The major number represents 256 disks.
+The minor number is used to represent both the SCSI unit
+number and partition.  A disk partition refers to a designated portion
+of the physical disk.
+To accomplish this, the 20-bit minor number is broken up
+into two parts.  The low six bits of the minor number specify a disk
+partition.  The
+partitions use a letter, \*La\*O through \*Lh\*O, as their name.
+The next 14 bits of the minor number specify the SCSI unit number within
+a group of 128 disks.
+.PP
+The device special file names associated with
+\*Lrz\*O
+disks are based on conventions that are closely associated with
+the minor number assigned to the disk.
+The standard device names begin with
+\*Lrz\*O
+for the block special file and
+\*Lrrz\*O
+for the raw (character) special file.
+Following the
+\*Lrz\*O
+is the logical unit number (LUN) and then a letter, \*La\*O through \*Lh\*O,
+that represents the partition.  Throughout this reference page, the
+question mark (?) character represents the logical unit number in the
+name of the device special
+file.  For example, rz?b could represent rz0b, rz1b, and so on.
+.PP
+The SCSI unit number can be calculated if the major and minor number of an
+\*Lrz\*O disk is provided.  For example, for the device special
+file \*Lrrz6a\*O, the major number is 8, and the
+minor number is 6144.  The partition is represented by the lower six
+bits of the number 6144.  The lower
+six bits are 0, which specifies the \*La\*O partition.  The
+next four bits of the minor number 6144 specify the SCSI logical unit
+number, which is zero.  The next four bits of 6144 specify the target ID
+of 6.  The next six bits specify the SCSI bus number, which is zero.
+Because 8 is the base major number, it represents the group of 128
+disks.  Putting all these pieces together reveals that the major/minor
+number pair 8/6144 refers to the \*La\*O partition of SCSI unit 6.
+.PP
+A disk can be accessed through either the block special file or the
+character special file.  The block special file accesses the disk using
+the file system's normal buffering mechanism.  Reads and writes to the block
+special file can specify any size.  This avoids the need to limit data
+transfers to the size of physical disk records and to calculate offsets
+within disk records.
+The file system can break up large read and write requests into smaller
+fixed size transfers to the disk.
+.PP
+The character special file provides a raw interface that allows for
+direct transmission between the disk and the user's read or write buffer.
+.\" In contrast to the block special file, reads and writes to 
+.\" the raw interface must be done on full sectors only.
+.\" For this reason
+.\" in raw I/O, counts must be a multiple of 512 bytes (a disk sector).
+.\" In the same manner,
+.\" \*Lseek\*O
+.\" calls must specify a multiple of 512 bytes.
+A single read or write to the raw interface results in
+exactly one I/O operation.
+Consequently, raw I/O may be considerably more efficient for large transfers.
+.PP
+For systems with SCSI disks, the first software boot after
+the system is powered on may take longer than expected.  This delay is
+normal and is caused by the software spinning up the SCSI disk drives.
+.SS Disk Support
+.iX "SCSI disk interface" "disk support"
+This driver handles all disk drives that can be connected to the SCSI bus.
+Consult the Software Product Description (SPD) to determine which drives
+are supported for which CPU types and hardware configurations.
+.PP
+SCSI \*LRAID\*O Controllers are viewed in most cases as RZ type
+disks.  There are some notable differences that should be taken into
+consideration when configuring a \*LRAID\*O device:
+.ML
+.LI
+Currently only sector sizes of 512 bytes are supported.
+.LI
+Logical Volume sizes are not a fixed size as compared to other SCSI
+disk devices. The size of the Logical Volume is configurable based on
+needs. The \*LDYNAMIC\*O nature of Logical Volume sizes are dealt
+with by defining \*LRAID\*O devices as DYNAMIC. Only partitions a, b, c,
+and g are defined. If needed the \*Ldisklabel\*O(8) command can be run to
+change and define partitions for \*LRAID\*O devices.
+.LE
+.PP
+Usually, the rz?a partition is used for the root file system and
+the rz?b partition as a paging area.  The rz?c partition can be used
+for disk-to-disk copying because it maps the entire disk.
+.PP
+The starting location and length (in 512 byte sectors)
+of the disk partitions of each
+drive are shown in the following table.
+Partition sizes can be changed by using the
+\*Ldisklabel\*O(8) command.
+.PP
+.iX "SCSI disk interface" "partition tables"
+.nf
+.ta 0.5i +\w'000000    'u +\w'000000    'u +\w'000000	'u +\w'000000	 'u
+.\" .PP
+.\" .B "RZ23 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	58498
+.\" 	rz?c	0	204864
+.\" 	rz?d	99458	35135
+.\" 	rz?e	134593	35135
+.\" 	rz?f	169728	35136
+.\" 	rz?g	99458	105406
+.\" 	rz?h	134593	70271
+.\" .PP
+.\" .B "RZ23L partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	58498
+.\" 	rz?c	0	237588
+.\" 	rz?d	99458	35135
+.\" 	rz?e	134593	35135
+.\" 	rz?f	169728	67860
+.\" 	rz?g	99458	138130
+.\" 	rz?h	0	102995
+.\" .PP
+.\" .B "RZ24 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	122880
+.\" 	rz?c	0	409792
+.\" 	rz?d	163840	81984
+.\" 	rz?e	245824	81984
+.\" 	rz?f	327808	81984
+.\" 	rz?g	163840	245952
+.\" 	rz?h	0	0
+.PP
+.B "RZ24L partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	40960
+	rz?b	40960	122880
+	rz?c	0	479350
+	rz?d	163840	105170
+	rz?e	269010	105170
+	rz?f	374180	105170
+	rz?g	163840	315510
+	rz?h	0	0
+.\" .PP
+.\" .B "RZ25 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	122880
+.\" 	rz?c	0	832527
+.\" 	rz?d	163840	222896
+.\" 	rz?e	386736	222896
+.\" 	rz?f	609632	222895
+.\" 	rz?g	163840	668687
+.\" 	rz?h	0	0
+.\" 
+.PP
+.B "RZ25 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	832527
+	rz?d	393216	146437
+	rz?e	539653	146437
+	rz?f	686090	146437
+	rz?g	393216	439311
+	rz?h	0	0
+.\" .PP
+.\" .B "RZ26 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	122880
+.\" 	rz?c	0	2050860
+.\" 	rz?d	163840	629006
+.\" 	rz?e	792846	629006
+.\" 	rz?f	1421852	629008
+.\" 	rz?g	163840	819200
+.\" 	rz?h	983040	1067820
+.PP
+.B "RZ26 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	2050860
+	rz?d	393216	552548
+	rz?e	945764	552548
+	rz?f	1498312	552548
+	rz?g	393216	819200
+	rz?h	1212416	838444
+.\" .PP
+.\" .B "RZ35 partitions for systems
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	131072
+.\" 	rz?b	131072	262144
+.\" 	rz?c	0	1664628
+.\" 	rz?d	393216	423804
+.\" 	rz?e	817020	423804
+.\" 	rz?f	1240824	423804
+.\" 	rz?g	393216	819200
+.\" 	rz?h	1212416	452212
+.\" .PP
+.\" .B "RZ55 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	122880
+.\" 	rz?c	0	649040
+.\" 	rz?d	163840	152446
+.\" 	rz?e	316286	152446
+.\" 	rz?f	468732	180308
+.\" 	rz?g	163840	485200
+.\" 	rz?h	0	0
+.PP
+.B "RZ55 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	649040
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	393216	255824
+	rz?h	0	0
+.\" .PP
+.\" .B "RZ56 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	122880
+.\" 	rz?c	0	1299174
+.\" 	rz?d	163840	292530
+.\" 	rz?e	456370	292530
+.\" 	rz?f	748900	550274
+.\" 	rz?g	163840	567666
+.\" 	rz?h	731506	567668
+.\" 
+.PP
+.B "RZ56 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	1299174
+	rz?d	393216	301986
+	rz?e	695202	301986
+	rz?f	997188	301986
+	rz?g	393216	819200
+	rz?h	1212416	86758
+.\" .PP
+.\" .B "RZ57 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	176128
+.\" 	rz?c	0	1954050
+.\" 	rz?d	831488	299008
+.\" 	rz?e	1130496	299008
+.\" 	rz?f	1429504	524546
+.\" 	rz?g	217088	614400
+.\" 	rz?h	831488	1122562
+.\" .PP
+.\" .B "RZ57 partitions for systems based on"
+.\" .B "the Alpha AXP architecture"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	131072
+.\" 	rz?b	131072	262144
+.\" 	rz?c	0	1954050
+.\" 	rz?d	393216	520278
+.\" 	rz?e	913494	520278
+.\" 	rz?f	1433772	520278
+.\" 	rz?g	393216	819200
+.\" 	rz?h	1212416	741634
+.\" .PP
+.\" .B "RZ58 partitions for MIPS-based systems"
+.\" 	disk	start	length
+.\" .sp
+.\" 	rz?a	0	40960
+.\" 	rz?b	40960	196608
+.\" 	rz?c	0	2698061
+.\" 	rz?d	237568	820164
+.\" 	rz?e	1057732	820164
+.\" 	rz?f	1877896	820165
+.\" 	rz?g	237568	819200
+.\" 	rz?h	1056768	1641293
+.PP
+.B "RZ58 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	2698061
+	rz?d	393216	768281
+	rz?e	1161497	768282
+	rz?f	1929779	768282
+	rz?g	393216	819200
+	rz?h	1212416	1485645
+.PP
+.B "RZ73 partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	3907911
+	rz?d	393216	1171565
+	rz?e	1564781	1171565
+	rz?f	2736346	1171565
+	rz?g	393216	819200
+	rz?h	1212416	2695495
+.PP
+.B "HSZ10 (RAID) partitions for systems based on"
+.B "the Alpha AXP architecture"
+	disk	start	length
+.sp
+	rz?a	0	131072
+	rz?b	131072	262144
+	rz?c	0	end of media
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	393216  end of media
+	rz?h	0	0
+.PP
+.B "RRD42 (read only) partitions (CD-ROM)"
+	disk	start	length
+.sp
+	rz?a	0	(size varies per CD)
+	rz?b	0	0
+	rz?c	0	(size varies per CD)
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX23 partitions (high density)"
+	disk	start	length
+.sp
+	rz?a	0	2880
+	rz?b	0	0
+	rz?c	0	2880
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX23DD partitions (double density)"
+	disk	start	length
+.sp
+	rz?a	0	1440
+	rz?b	0	0
+	rz?c	0	1440
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX23SD partitions (single density)"
+	disk	start	length
+.sp
+	rz?a	0	720
+	rz?b	0	0
+	rz?c	0	720
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX26 partitions (extra-density floppy)"
+	disk	start	length
+.sp
+	rz?a	0	5760
+	rz?b	0	0
+	rz?c	0	5760
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX26HD partitions (high-density floppy)"
+	disk	start	length
+.sp
+	rz?a	0	2880
+	rz?b	0	0
+	rz?c	0	2880
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX26DD partitions (double-density floppy)"
+	disk	start	length
+.sp
+	rz?a	0	1440
+	rz?b	0	0
+	rz?c	0	1440
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX26SD partitions (single-density floppy)"
+	disk	start	length
+.sp
+	rz?a	0	720
+	rz?b	0	0
+	rz?c	0	720
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX33 partitions (extra density)"
+	disk	start	length
+.sp
+	rz?a	0	2400
+	rz?b	0	0
+	rz?c	0	2400
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX33HD partitions (high density)"
+	disk	start	length
+.sp
+	rz?a	0	1440
+	rz?b	0	0
+	rz?c	0	1440
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX33DD partitions (double density)"
+	disk	start	length
+.sp
+	rz?a	0	800
+	rz?b	0	0
+	rz?c	0	800
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.PP
+.B "RX33SD partitions (single density)"
+	disk	start	length
+.sp
+	rz?a	0	720
+	rz?b	0	0
+	rz?c	0	720
+	rz?d	0	0
+	rz?e	0	0
+	rz?f	0	0
+	rz?g	0	0
+	rz?h	0	0
+.fi
+.SH FILES
+.PP
+\*L/dev/rz???\*O
+.br
+\*L/dev/rrz???\*O
+.br
+\*L/etc/disktab\*O
+.SH RELATED INFORMATION
+.PP
+.\" dkio(7),
+\*LRAID\*O(7), \*LSCSI\*O(7), \*Ltz\*O(7), \*Ldisklabel\*O(8), \*LMAKEDEV\*O(8),
+\*Luerf\*O(8)
+.EQ
+delim off
+.EN

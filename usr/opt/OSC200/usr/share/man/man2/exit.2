@@ -1,0 +1,238 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: exit.2,v $ $Revision: 3.2.6.2 $ (DEC) $Date: 1994/01/11 19:33:04 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH exit 2
+.SH NAME
+.PP
+\*Lexit\*O, \*Latexit\*O, \*L_exit\*O \- Terminates a process
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O):
+\*Latexit()\*O, \*L_exit()\*O
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <stdlib.h>
+.sp .4v
+\*Lvoid exit (\*O
+        \*Lint \*Vstatus\*O );\*L
+.sp .4v
+\*Lvoid _exit (\*O
+.nL
+        \*Lint \*Vstatus\*O );\*L
+.sp .4v
+\*Lint atexit\& (
+.nL
+        void \& (*\*Vfunction\*L) \&( void ) );
+.sE
+.SH PARAMETERS
+.PP
+.\" from TP 1i  
+.VL 1i
+.LI "\*Vstatus"
+\*OIndicates the status of the process.
+.\" from TP 1i  
+.LI "\*Vfunction"
+\*OPoints to a function that is called
+at normal process termination for cleanup processing.
+A push-down
+stack of functions is kept, such that the last function registered
+is the first function called.
+Any function which is registered more than once will be repeated.
+Up to 32 functions can be specified with
+\*Latexit(\|)\*O.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "exit function"
+.iX "atexit function"
+.iX "_exit function"
+.iX "process" "terminating"
+.iX "process" "cleanup on exit"
+.iX "process" "exiting"
+The \*Latexit(\|)\*O function registers functions to be called
+at normal process termination for cleanup processing.
+.PP
+The \*Lexit(\|)\*O function terminates the calling process after
+calling the Standard I/O Library \*L_cleanup(\|)\*O function to flush
+any buffered output.  Then it calls any functions registered previously
+for the process by the \*Latexit(\|)\*O function, in the reverse order to
+that in which they were registered.
+In addition, the
+\*Lexit(\|)\*O
+function flushes all open output
+streams, closes all open streams, and removes all files created by the
+\*Ltmpfile(\|)\*O
+function.
+Finally, it calls
+the \*L_exit(\|)\*O function, which completes process termination
+and does not return.
+.PP
+The \*L_exit(\|)\*O function terminates the
+calling process and causes the following to occur:
+.\" from TP 4  
+.ML
+.LI
+\*OAll of the file descriptors, directory streams, and message catalog
+descriptors open in the calling process are closed.
+Since the \*Lexit(\|)\*O function terminates
+the process, any errors encountered during these close operations
+go unreported.
+.\" from TP 4  
+.LI
+\*OTerminating a process by exiting does not terminate its child
+processes.
+Instead, the parent process ID of all of the calling process child
+processes and zombie child processes is set to the process ID of \*Linit\*O\&.
+The \*Linit\*O process thus inherits each of these
+processes, catches the SIGCHLD signals they generate, and calls the \*Lwait(\|)\*O
+function for each of them.
+.\" from TP 4  
+.LI
+\*OIf the parent process of the calling process is running a
+\*Lwait(\|)\*O
+or
+\*Lwaitpid(\|)\*O
+function, it is notified of the termination of the calling
+process and the low-order 8 bits (that is, bits 0377 or 0xFF)
+of the \*Vstatus\*O
+parameter are made available to it.
+.\" from TP 4  
+.LI
+\*OIf the parent process is not running a \*Lwait(\|)\*O
+or
+\*Lwaitpid(\|)\*O
+function
+when the child process terminates, it may do so later on, and
+the child's status will be returned to it at that time.
+Meanwhile, the child process is transformed into
+a zombie process, and its parent process is sent a SIGCHLD signal
+to notify it of the termination of a child process.
+.IP
+\*OA zombie process is a process that occupies a slot in the process
+table, but has no other space allocated to it either in user or kernel
+space. The process table slot that it occupies is partially overlaid
+with time accounting information to be used by the \*Ltimes(\|)\*O
+function. (See the \*Lsys/proc.h\*O header file.)
+.IP
+\*OA process remains a zombie until its parent issues one of the \*Lwait
+\*Ofunctions. At this time, the zombie is laid to rest,
+and its process table entry is released.
+.\" from TP 4  
+.LI
+\*OThe parent process is sent a SIGCHLD signal when a child
+terminates; however, since the default action for this signal is to
+ignore it, the signal usually is not seen.
+.\" Begin Digital-specific information CORRECTION
+.\" Commenting out the following paragraph per the answer to QAR 2595.
+.\" According to the QAR answer, this information is incorrect.
+.\" .PP
+.\" \*OIf an exiting child's parent is ignoring the SIGCHLD
+.\" signal, the child's parent process ID is changed to that of the initialization
+.\" process, \*Linit,\*O which will catch the SIGCHLD signal
+.\" and call the \*Lwait(\|)\*O function.
+.\" End Digital-specific information CORRECTION
+.\" from TP 4  
+.LI
+If the process is a controlling process, a SIGHUP signal is sent
+to each process in the foreground process group of the controlling
+terminal belonging to the calling process.  The controlling terminal
+is disassociated from the session, allowing it to be acquired by a new
+controlling process.
+.\" from TP 4  
+.LI
+If the exit of a process causes a process group to become orphaned,
+and if any member of the newly orphaned process group is stopped, then
+a SIGHUP signal is sent to each newly orphaned process.
+.\" from TP 4  
+.LI
+\*OEach attached shared memory segment is detached and the value
+of \*Lshm_nattach\*O in the data structure associated with its
+shared memory identifier is decremented by 1.
+.\" from TP 4  
+.LI
+\*OFor each semaphore for which the calling process has set a
+\*Lsemadj\*O value, that \*Lsemadj\*O value is added to the \*Lsemval\*O
+of the specified semaphore.
+(The\*O \*Lsemop(\|)\*O function provides information about semaphore operations.)
+.\" from TP 4  
+.LI
+\*OIf the process has a process lock, text lock, or data lock, an
+\*Lunlock\*O is performed. (See the \*Lplock(\|)\*O function.)
+.\" from TP 4  
+.LI
+\*OAn accounting record is written on the accounting file if the
+system accounting routine is enabled. (The\*L acct(\|)\*O function
+provides information about enabling accounting routines.)
+.\" from TP 4  
+.LI
+\*OLocks set by the \*Lfcntl(\|)\*O, \*Lflock(\|)\*O,and
+\*Llockf(\|)\*O functions are removed.
+.LE
+.PP
+If a thread calls the
+\*L_exit(\|)\*O
+function, the entire process exits and all threads within the
+process are terminated.
+.SH NOTES
+.PP
+\*OThe
+system \*Linit\*O process is used to
+assist cleanup of terminating processes. If the code for the \*Linit\*O
+process is replaced, the program must be prepared to accept SIGCHLD
+signals and issue a \*Lwait(\|)\*O function for each.
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Full use
+.LE
+.SH RETURN VALUES
+.PP
+The
+\*Lexit(\|)\*O
+function
+and
+\*L_exit(\|)\*O
+function do not return.
+The
+\*Latexit(\|)\*O
+function returns 0 (zero) if successful, and a nonzero value if there has
+been an attempt to register more
+\*Lexit(\|)\*O
+functions than can be held in the
+\*Latexit(\|)\*O
+array.
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lacct\*O(2),
+\*Lsigaction\*O(2),
+\*Ltimes\*O(3),
+\*Lwait\*O(2),
+\*Lsigvec\*O(2)
+.iX "exit function"
+.iX "atexit function"
+.iX "_exit function"
+.EQ
+delim off
+.EN

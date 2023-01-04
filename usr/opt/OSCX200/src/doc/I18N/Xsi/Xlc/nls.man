@@ -1,0 +1,252 @@
+.\"
+.\" *****************************************************************
+.\" *                                                               *
+.\" *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+.\" *                                                               *
+.\" *   All Rights Reserved.  Unpublished rights  reserved  under   *
+.\" *   the copyright laws of the United States.                    *
+.\" *                                                               *
+.\" *   The software contained on this media  is  proprietary  to   *
+.\" *   and  embodies  the  confidential  technology  of  Digital   *
+.\" *   Equipment Corporation.  Possession, use,  duplication  or   *
+.\" *   dissemination of the software and media is authorized only  *
+.\" *   pursuant to a valid written license from Digital Equipment  *
+.\" *   Corporation.                                                *
+.\" *                                                               *
+.\" *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+.\" *   by the U.S. Government is subject to restrictions  as  set  *
+.\" *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+.\" *   or  in  FAR 52.227-19, as applicable.                       *
+.\" *                                                               *
+.\" *****************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+'\" t
+.\" $XConsortium: nls.man,v 1.2 91/10/08 15:24:28 rws Exp $
+.\" Copyright 1990 by OMRON Corp.  All Rights Reserved.
+.TH NLS 3X11 "Release 5" "X Version 11" "XSI FUNCTIONS"
+.SH NAME
+NLS \- Native Language Support
+.SH DESCRIPTION
+.PP
+An X locale definition file consists of four category sources:
+.sp
+.RS
+.TS
+l.
+XLC_ALL
+XLC_ENCODING
+XLC_CODESET
+XLC_FONTSET
+.TE
+.RE
+.LP
+which specify the name, encoding and font charsets of this locale respectively.
+.PP
+Each category source definition starts with a category identifier line
+and ends with a category trailer line.  A category identifier consists of
+the character string XLC_, immediately followed by the name of the category. 
+The category trailer consists of the string END, followed by the category 
+identifier string. Within each category the definition consists of keywords 
+and operands. A line may be continued by placing a backslash as the last
+character on the line.  Keywords and operands shall be seperated by one or 
+more blanks.  Any blanks preceding a keyword or preceding the first nonblank
+character on a continuation line shall be ignored.  Lines containing a #
+character in the first column shall be treated as comments.
+.PP
+The following definition is a rough Backus-Naur form(BNF), just a
+description. 
+.sp
+.RS
+.TS
+l.
+*** start of file ***
+XLC_ALL
+<name>
+END XLC_ALL
+
+XLC_ENCODING
+<encoding_name>
+END XLC_ENCODING
+
+XLC_CODESET
+<type>:<mblen_list>
+<map_table>
+<conversion_list>
+END XLC_CODESET
+
+XLC_FONTSET
+<font_charset_list>
+END XLC_FONTSET
+*** end of file ****
+.sp
+.TE
+.RE
+.TS
+l l1 l.
+<name>	::=	lang_terr.codeset
+
+<encoding_name>	::=	<string>
+
+<type>	::=	L|l|F|f
+
+<mblen_list>	::=	<number> |
+		<number> <colon> <mblen_list>
+
+<map_talbe>	::=	<stateless_map> | <stateful_map>
+<stateless_map>	::=	<LB> <one_map> <RB>|
+		<LB> <one_map> <RB>
+		<map_table>
+<one_map>	::=	<csid> |
+		<csid> <separator> <one_map>
+<stateful_map>	::=	<esc_sequence> |
+		<esc_sequence>
+		<stateful_map>
+
+<conversion_list>	::=	<LP> <rang_list> <RP> |
+		<LP> <range_list> <RP>
+		<conversion_list> 
+<range_list>	::=	<range> |
+		<range> <separator> <range_list>
+<range>	::=	<number> <equal> <number> <colon> <number>
+<font_charset_list>	::=	<font_charset> |
+		<font_charset>
+		<font_charset_list>
+<font_charset>	::=	<font_encoding> <colon> <gflag>
+		[<colon> <woffset> <colon> <esc_sequence>]
+<esc_sequence>	::=	<escape> <string>
+
+<csid>	::=	CS0 | CS1 | CS2 | CS3 |
+		CS4 | CS5 | CS6 | CS7 |
+		CS8 | CS9 | CSA | CSB |
+		CSC | CSD | CSE | CSF |
+		C0 | C1 | ND | 
+		<minus> <number>
+<number>	::=	positive integer
+<LB>	::=	left bracket symbol "{"
+<RB>	::=	right bracket symbol "}"
+<LP>	::=	left paranthesis symbol "(" 
+<RP>	::=	right paranthesis symbol ")" 
+<colon>	::=	colon symbol ":"
+<minus>	::=	minus symbol "-"
+<gflag>	::=	GL | GR
+<separator>	::=	space | tab | newline | comma symbol ","
+<woffset>	::=	4-byte hexdecimal number
+<escape>	::=	\\\\033
+.\" first double \\ given to tbl, second double \\ given to roff,
+.\" so that the result of print is \033.
+<string>	::=	string without quotation.
+<font_encoding>	::=	CharsetRegistry-CharsetEncoding of XLFD name
+.TE
+.PP
+The name is the whole format lang_terr.codeset except the basic locale
+name C which is used for the default locale.  The lang is 2-lowcase-letter
+code for the name of language defined in ISO 639, the terr is 2-upcase-letter
+code for the name of country defined in ISO 3166, the codeset is a name of
+coded character set, such ujis, mscode, etc.
+.PP
+The encoding_name defines the name of this encoding which is commonly 
+used between the inter-client communications, such encoding names are
+STRING, COMPOUND_TEXT, JAPANESE_EUC16 and so on.
+.PP
+The type specifies the type of codeset.  There are 2 types: L for
+state-independent codeset(stateless type) and F for state-dependent codeset
+(stateful type).  
+.PP
+The mblen_list specifies the length of codepoints of each charset in
+the bytes.  It should be noted that the length of designation sequence is not
+included in the mblen while the type of codeset is state-dependent. 
+.PP
+The map_table describes the mapping from codepoint to charset, i.e., 
+classifying codepoints to each charset.  Corresponding to 2 types of codesets,
+there are 2 forms of map_table exclusively:
+.IP "state-independent codset"
+The map_table is 256 elements for the composition of 1 byte.  The
+charsets are numbered to CS0, CS1, CS2, CS3 and so on;  The control
+code set is numbered to C0 and C1; the ND stands for not-defined charset
+in this codeset.  Any codepoint will be mapped to a charset with
+this table from the first byte usually.
+.IP "state-dependent codeset"
+The map_table consists of series of designation sequences for each
+charset.
+.PP
+The conversition_list specifies the conversin of codepoints between
+codeset and font charset.  A conversion_list consists of several range_list's
+for each charset.  A range_list consists of the following list:
+.sp
+.RS
+.TS
+l1 l1 l.
+L-starting1 = R-starting1:R-ending1
+L-starting2 = R-starting2:R-ending2
+	...
+L-startingN = R-startingN:R-endingN
+.TE
+.RE	
+.PP
+The left is a starting codepoint of codeset, the right is a starting
+and ending codepoint of charset.  Every expresstion specifies the conversion 
+range of codepoints from
+.sp
+.RS
+[L-startingN, L-endingN]
+.RE
+to
+.RS
+[R-startingN, R-endingN] 
+.RE
+.PP
+where the L-endingN is equal to (L-startingN + R-endingN - R-startingN) 
+since each range is contiguous codepoints.  
+.PP
+The font_charset_list consists of a series of font encoding of a charset.
+Each font encoding is specified either by the form:
+.sp
+  CharsetRegistry-CharsetEncoding:<gflag>
+.sp
+for the standard font charset registered in X or by the form:
+.sp
+.(l
+  CharsetRegistry-CharsetEncoding:<gflag>:woffset:
+  esc_sequence
+.)l
+.PP
+for the self-defined font charset whose woffset is an offset in the 
+encoding ISO DIS 10646, the esc_sequence should comform with Compound
+Text Encoding of X standard.   The <gflag> will be set to GL for the font
+charset siting on the graphic left encoding, or GR for the font charset
+siting on the graphic right encoding.
+.br
+.PP
+The resource of all locales are stored on NLS database. A native profile
+contains source definitions for locale categories. The file name of the native
+profile is the locale name, e.g., ja_JP.ujis, ja_JP.mscode, ...(see the native
+profiles under the default directory /usr/lib/X11/nls/).
+.PP
+At initialization time, system will load all the locale names from a
+table file "nls.dir" onto the NLS database.  The table file specifies
+which native profiles will be loaded at run time as application requires.  The table file contains the
+native profile names, i.e., the locale names. The table file is in the same
+default directory /usr/lib/X11/nls/.
+.PP
+If the table file doesn't exist.  system will load all native profiles
+under the /usr/lib/X11/nls/.  If the table file exists, but contains the emtpy,
+so nothing will be loaded onto NLS database except the default locale C.
+On this case, system will look for the C locale in the native profile named "C",
+if not found, system will automatically create the default C locale on NLS
+database.
+.PP
+The default directorey /usr/lib/X11/nls can be changed by the environment
+variable $XNLSPATH.
+.PP
+On NLS database, the locale name is the index to the resource, the locale
+value are corresponding to each category.
+.SH SEE ALSO
+.PP
+X/Open Portability Guide, Volume 3, XSI Internationalization.
+.br
+Compound Text Encoding, Version 1.1, X11R5.
+.br
+ISO 639. ISO 3166

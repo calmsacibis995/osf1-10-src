@@ -1,0 +1,139 @@
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished  rights  reserved  under  *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this  media  is  proprietary  to  *
+# *   and  embodies  the  confidential  technology  of   Digital  *
+# *   Equipment  Corporation.  Possession,  use,  duplication or  *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipemnt  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by  the  U.S. Government is subject to restrictions as set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               * 
+# *   This software is  derived  from  software  received  from   *
+# *   the  University  of  California  at  Berkeley,  and  from   *
+# *   AT&T.  Use, duplication, or  disclosure  is  subject   to   *
+# *   restrictions  under license agreements with University of   *
+# *   California and with AT&T.	                                *
+# *                                                               *
+# ***************************************************************** 
+#
+# HISTORY
+#
+# @(#)$RCSfile: Makefile.install,v $ $Revision: 4.1.3.4 $ (DEC) $Date: 1992/11/05 15:06:35 $
+#
+#************************************************************************
+#
+#  DEC		is a trademark of Digital Equipment Corporation
+#  ULTRIX 	is a registered trademark of Digital Equipment Corporation
+#  VAX		is a trademark of Digital Equipment Corporation
+#  VT and VT100	are trademarks of Digital Equipment Corporation
+#  LN03		is a trademark of Digital Equipment Corporation
+#
+#
+#	@(#)Makefile.install	2.1	ULTRIX	4/12/89
+#
+#	Makefile	4.2	83/08/15
+#
+#
+# Modification History
+# --------------------
+#
+# 001	gws		91/05/27
+#	This software is derived from ULTRIX (VAX) V4.2. The ULTRIX software
+#	was derived from software recieved from the University of California,
+#	Berkeley, and from Bell Laboratories.
+#
+#	ALL is updated to be the current Supported list of nroff drivers, 
+#	  with "tab" prefix added.
+#	DEST (for sources) and DESTI (for binaries) are now the same;
+#	  default = /usr/share/lib/term
+#	mktab.o linked with each driver to make it platform-independent
+#	install: uses mkdir "-p" for output directories
+#	install: uses installbsd(1) instead of install(1)
+#	install: installs files as owner "bin", group "bin"
+#
+# 002	gws		91/10/29
+#	link "vt100" to "ln03", instead of to "crt", because VT100 series
+#	terminals are a lot like LN03 printers instead of being a lot like dumb
+#	crt's
+#
+# 003   gws             91/10/25
+#       link "lp" to "vt100", so that man(1) and catman(1) will generate
+#       manpages for VT100 terminals
+#		
+#
+# Possible options:
+#	make		compile source for terminal tables below
+#	make <term>	compile table for a specific <term>
+#	make install	move tables to ${DEST}
+#   	make link_copies   make link_copies for ease of documentation
+#	make clean	remove tab*.o files lying around
+#
+ALL=	tablpr tabln03 
+DESTROOT= 
+DEST=	${DESTROOT}/usr/share/lib/term
+DESTI=	${DESTROOT}/usr/share/lib/term
+
+all:	${ALL}
+
+${ALL}:	mktab.o $${@:=.o}
+	rm -f $@
+	cc mktab.o ${@:=.o}
+	cp ./a.out $@
+	rm -f ./a.out
+
+install: all
+
+	-if [ ! -d ${DEST} ]; then \
+		mkdir -p ${DEST}; \
+	else true; \
+	fi
+	for file in tab*.c; do \
+		installbsd -c -o bin -g bin $$file ${DEST}/`basename $$file`;\
+	done
+	-if [ -f code.* ]; then \
+		for file in code.*; do \
+			installbsd -c -o bin -g bin $$file ${DEST}/`basename $$file`;\
+		done; \
+	fi
+#									# 004
+	installbsd -c -o bin -g bin Makefile.install ${DEST}/Makefile.install
+	installbsd -c -o bin -g bin chartst ${DEST}/chartst
+	-if [ ! -d ${DESTI} ]; then \
+		mkdir -p ${DESTI}; \
+	else true; \
+	fi
+
+#									# 004
+	make ${MFLAGS} -f Makefile.install link_copies DESTI=${DESTI}
+	installbsd -c -o bin -g bin -m 644 README ${DEST}/README
+	installbsd -c -o bin -g bin -m 644 README ${DESTI}/README
+	installbsd -c -o bin -g bin mktab.o ${DEST}/mktab.o
+	installbsd -c -o bin -g bin mktab.o ${DESTI}/mktab.o
+
+link_copies:
+	for file in tab*.o; do \
+		installbsd -c -o bin -g bin -m 755 $$file ${DESTI}/`basename $$file .o`;\
+	done
+
+# 									  # 003
+	@rm -f ${DESTI}/tabcrt; ln ${DESTI}/tablpr ${DESTI}/tabcrt
+	@rm -f ${DESTI}/tabvt100; ln ${DESTI}/tabln03 ${DESTI}/tabvt100   # 002
+	@rm -f ${DESTI}/tablp; ln ${DESTI}/tabvt100 ${DESTI}/tablp	  # 003
+
+clean:
+	rm -f tab*.o errs core a.out
+
+clobber: clean
+	rm -f *.c README chartst code.* Makefile
+
+

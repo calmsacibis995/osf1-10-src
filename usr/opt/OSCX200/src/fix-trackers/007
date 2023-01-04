@@ -1,0 +1,484 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111182237.AA10764@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2230) close XBUG #4655: bitmap editor includes string.h instead of Xos.h
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Mon, 18 Nov 91 17:37:01 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: bitmap editor includes string.h instead of Xos.h
+        ### bug number:   4655
+        ### area:         bitmap
+        ### severity:     low
+
+Changes for the IBM ANSI C compiler for Bitmap.c are included here, too.
+
+
+*** /tmp/,RCSt1a10701	Mon Nov 18 17:31:59 1991
+--- clients/bitmap/Bitmap.c	Mon Nov 18 17:30:50 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Bitmap.c,v 1.38 91/07/24 15:46:52 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: Bitmap.c,v 1.40 91/11/18 17:30:46 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 34,40 ****
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+- #include <string.h>
+  #include <math.h>
+  
+  #ifndef abs
+--- 34,39 ----
+***************
+*** 292,299 ****
+      
+  /* ARGSUSED */
+  
+! void BWDebug(w)
+      Widget w;
+  {
+      DEBUG ^= True;
+  }
+--- 291,301 ----
+      
+  /* ARGSUSED */
+  
+! void BWDebug(w, event, params, num_params)
+      Widget w;
++     XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      DEBUG ^= True;
+  }
+***************
+*** 417,424 ****
+      }
+  }
+  
+! XImage *BWGetImage(w)
+      Widget w;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+--- 419,429 ----
+      }
+  }
+  
+! XImage *BWGetImage(w, event, params, num_params)
+      Widget w;
++     XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+***************
+*** 425,439 ****
+      return BW->bitmap.image;
+  }
+  
+! void BWChangeNotify(w, client_data, call_data)
+!      Widget       w;
+!      caddr_t      client_data;
+!      caddr_t      call_data;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+      if (BW->bitmap.notify)
+! 	(*BW->bitmap.notify)(w, client_data, call_data);
+  }
+  
+  void BWNotify(w, proc)		/* ARGSUSED */
+--- 430,445 ----
+      return BW->bitmap.image;
+  }
+  
+! void BWChangeNotify(w, event, params, num_params)
+!     Widget w;
+!     XEvent *event;
+!     String *params;
+!     Cardinal *num_params;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+      if (BW->bitmap.notify)
+! 	(*BW->bitmap.notify)(w, event, params, num_params);
+  }
+  
+  void BWNotify(w, proc)		/* ARGSUSED */
+***************
+*** 445,452 ****
+      BW->bitmap.notify = proc;
+  }
+  
+! void BWSetChanged(w)
+      Widget w;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  	
+--- 451,461 ----
+      BW->bitmap.notify = proc;
+  }
+  
+! void BWSetChanged(w, event, params, num_params)
+      Widget w;
++     XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  	
+***************
+*** 725,735 ****
+  void TransferImageData();
+  
+  /* ARGSUSED */
+! static void Initialize(request, new, argv, argc)
+!     BitmapWidget request, new;
+      ArgList argv;
+!     Cardinal argc;
+  {
+      XGCValues  values;
+      XtGCMask   mask;
+      char *image_data, *buffer_data;
+--- 734,746 ----
+  void TransferImageData();
+  
+  /* ARGSUSED */
+! static void Initialize(wrequest, wnew, argv, argc)
+!     Widget wrequest, wnew;
+      ArgList argv;
+!     Cardinal *argc;
+  {
++     BitmapWidget new = (BitmapWidget) wnew;
++ 
+      XGCValues  values;
+      XtGCMask   mask;
+      char *image_data, *buffer_data;
+***************
+*** 1454,1462 ****
+  }
+  
+  
+! static void Resize(BW)
+!      BitmapWidget BW;
+  {
+      Dimension squareW, squareH;
+  
+      squareW = max(1, ((int)BW->core.width - 2 * (int)BW->bitmap.margin) / 
+--- 1465,1475 ----
+  }
+  
+  
+! static void Resize(w)
+!     Widget w;
+  {
++     BitmapWidget BW = (BitmapWidget) w;
++ 
+      Dimension squareW, squareH;
+  
+      squareW = max(1, ((int)BW->core.width - 2 * (int)BW->bitmap.margin) / 
+***************
+*** 1485,1495 ****
+  }
+  
+  /* ARGSUSED */
+! static void Redisplay(BW, event, region)
+!      BitmapWidget BW;
+       XEvent      *event;
+       Region       region;
+  {
+    if(event->type == Expose
+       &&
+       BW->core.visible)
+--- 1498,1510 ----
+  }
+  
+  /* ARGSUSED */
+! static void Redisplay(w, event, region)
+!      Widget       w;
+       XEvent      *event;
+       Region       region;
+  {
++      BitmapWidget BW = (BitmapWidget) w;
++ 
+    if(event->type == Expose
+       &&
+       BW->core.visible)
+***************
+*** 1710,1716 ****
+  static Boolean SetValues(old, request, new, args, num_args) /* ARGSUSED */
+       Widget old, request, new;
+       ArgList args;
+!      Cardinal num_args;
+  {
+    BitmapWidget oldbw = (BitmapWidget) old;
+    BitmapWidget newbw = (BitmapWidget) new;
+--- 1725,1731 ----
+  static Boolean SetValues(old, request, new, args, num_args) /* ARGSUSED */
+       Widget old, request, new;
+       ArgList args;
+!      Cardinal *num_args;
+  {
+    BitmapWidget oldbw = (BitmapWidget) old;
+    BitmapWidget newbw = (BitmapWidget) new;
+***************
+*** 1857,1865 ****
+  }
+  
+  
+! void BWTPaste(w, event)
+      Widget  w;
+      XEvent *event;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+--- 1872,1882 ----
+  }
+  
+  
+! void BWTPaste(w, event, params, num_params)
+      Widget  w;
+      XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+***************
+*** 1876,1884 ****
+  	       event);
+  }
+  
+! void BWTMark(w, event)
+      Widget  w;
+      XEvent *event;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+--- 1893,1903 ----
+  	       event);
+  }
+  
+! void BWTMark(w, event, params, num_params)
+      Widget  w;
+      XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BitmapWidget BW = (BitmapWidget) w;
+  
+***************
+*** 1890,1898 ****
+  
+  }
+  
+! void BWTMarkAll(w, event)
+      Widget w;
+      XEvent *event;
+  {
+      BWMarkAll(w);
+  
+--- 1909,1919 ----
+  
+  }
+  
+! void BWTMarkAll(w, event, params, num_params)
+      Widget w;
+      XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BWMarkAll(w);
+  
+***************
+*** 1899,1906 ****
+      BWGrabSelection(w, event->xkey.time);
+  }
+  
+! void BWTUnmark(w)
+      Widget w;
+  {
+      BWUnmark(w);
+  }
+--- 1920,1930 ----
+      BWGrabSelection(w, event->xkey.time);
+  }
+  
+! void BWTUnmark(w, event, params, num_params)
+      Widget w;
++     XEvent *event;
++     String *params;
++     Cardinal *num_params;
+  {
+      BWUnmark(w);
+  }
+*** /tmp/,RCSt1a10711	Mon Nov 18 17:32:01 1991
+--- clients/bitmap/CutPaste.c	Mon Nov 18 17:30:51 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: CutPaste.c,v 1.6 91/07/24 15:33:34 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: CutPaste.c,v 1.7 91/11/18 17:30:49 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 29,35 ****
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+- #include <string.h>
+  #include <math.h>
+  
+  #ifndef abs
+--- 29,34 ----
+*** /tmp/,RCSt1a10721	Mon Nov 18 17:32:02 1991
+--- clients/bitmap/Graphics.c	Mon Nov 18 17:30:53 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Graphics.c,v 1.15 91/07/24 15:24:24 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: Graphics.c,v 1.16 91/11/18 17:30:51 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 23,35 ****
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+- #include <X11/StringDefs.h>
+  #include <X11/IntrinsicP.h>
+  #include <X11/Xfuncs.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+- #include <string.h>
+  #include <math.h>
+  
+  #ifndef abs
+--- 23,34 ----
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+  #include <X11/IntrinsicP.h>
++ #include <X11/StringDefs.h>
+  #include <X11/Xfuncs.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+  #include <math.h>
+  
+  #ifndef abs
+*** /tmp/,RCSt1a10731	Mon Nov 18 17:32:04 1991
+--- clients/bitmap/Handlers.c	Mon Nov 18 17:30:57 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Handlers.c,v 1.10 91/07/24 15:25:01 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: Handlers.c,v 1.11 91/11/18 17:30:53 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 23,34 ****
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+- #include <X11/StringDefs.h>
+  #include <X11/IntrinsicP.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+- #include <string.h>
+  #include <math.h>
+  
+  #ifndef abs
+--- 23,33 ----
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+  #include <X11/IntrinsicP.h>
++ #include <X11/StringDefs.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+  #include <math.h>
+  
+  #ifndef abs
+*** /tmp/,RCSt1a10741	Mon Nov 18 17:32:05 1991
+--- clients/bitmap/ReqMach.c	Mon Nov 18 17:30:58 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ReqMach.c,v 1.10 91/07/24 15:23:52 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: ReqMach.c,v 1.11 91/11/18 17:30:56 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 23,35 ****
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+- #include <X11/StringDefs.h>
+  #include <X11/IntrinsicP.h>
+  #include <X11/Xfuncs.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+- #include <string.h>
+  #include <math.h>
+  
+  #ifndef abs
+--- 23,35 ----
+   * Author:  Davor Matic, MIT X Consortium
+   */
+  
+  #include <X11/IntrinsicP.h>
++ #include <X11/StringDefs.h>
+  #include <X11/Xfuncs.h>
++ #include <X11/Xos.h>
+  #include "BitmapP.h"
+      
+  #include <stdio.h>
+  #include <math.h>
+  
+  #ifndef abs

@@ -1,0 +1,116 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: aud_sitevent.3,v $ $Revision: 1.1.2.7 $ (DEC) $Date: 1994/01/14 23:21:07 $
+.\"
+.\" From scott@grumpy.zk3.dec.com Fri Jul 30 11:55:35 1993
+.\" Created for T2.0-5 by Larry Scoot and Dave Suitor   -   dms
+.TH aud_sitevent 3
+.SH NAME
+.PP
+aud_sitevent, aud_sitevent_num \- audit site-event operations (Enhanced Security)
+.SH SYNOPSIS
+.PP
+.nf
+\*Laud_sitevent(
+	\*Lint \*Vevent,
+	\*Lint \*Vsubevent,
+	\*Lint *\*Veventname,
+	\*Lchar *\*Vsubeventname\*L);
+.PP
+\*Laud_sitevent_num(
+	\*Lchar *\*Veventname,
+	\*Lchar *\*Vsubeventname,
+	\*Lint *\*Vev_num,
+	\*Lint *\*Vsubev_num\*L);
+.fi
+.SH DESCRIPTION
+.PP
+.iX "aud_sitevent library call"
+.iX "aud_sitevent_num library call"
+.PP
+Audit site-events are specific to and defined by a particular installation.
+For example, an installation could have their own
+database program, and wish to have it use the audit
+subsystem.  To do so, their database events and subevents would be
+registered in the \*L/etc/sec/site_events\*O file.
+.PP
+The \*Lsite_events\*O file contains one entry for each site-event.  Each
+site-event entry may contain any number of subevents.  Both preselection
+(see
+\*Lauditmask\*O(8)) and postreduction (see \*Laudit_tool\*O(8)) capabilities
+are supported for site-events.  Postreduction capabilities are also
+supported for subevents.
+.PP
+The \*Laud_sitevent\*O function, when provided \*Vevent\*O and
+\*Vsubevent\*O numbers, copies the corresponding event and subevent names
+into \*Veventname\*O and \*Vsubeventname.\*O  If no \*Vsubevent\*O for that
+site-event exists, \*Vsubevent\*O should be set to -1, and no
+\*Vsubeventname\*O will be copied.  The maximum length of an \*Vevent\*O
+or \*Vsubevent\*O name is AUD_MAXEVENT_LEN bytes. If the requested mapping
+does not exist, -1 is returned.
+.PP
+The \*Laud_sitevent_num\*O function, when provided \*Veventname\*O and
+\*Vsubeventname\*O, copies the corresponding event numbers into
+\*Vev_num\*O and \*Vsubev_num\*O.  If no subevent for that site-event
+exists, \*Vsubeventname\*O should be set to the null string, and
+\*Vsubev_num\*O will be set to -1.  If the requested mapping does not
+exist, -1 is returned.
+.PP
+Mappings between the event/subevent numbers and names are placed into
+the file \*L/etc/sec/site_events\*O.  A sample file follows:
+.nf
+\f(CW
+     eventname 2048,
+         subevent0 0,
+         subevent1 1,
+         ...
+         subevent99 99;
+     my_rdb 2049,
+         rdb_creat 0,
+         rdb_open 1,
+         rdb_delete 2;
+     nosubeventevent 2050;\f1
+.fi
+.PP
+Each line contains an event or subevent name followed by its number.  An
+event number must be between MIN_SITE_EVENT (see \*Lsys/audit.h\*O) and
+MIN_SITE_EVENT + N_SITE_EVENTS (see \*L/sys/data/audit_data.c\*O).  A subevent
+number must
+be a non-negative integer.  The line is terminated either with a ',' if an
+associated subevent follows, or with a ';' if no further associated
+subevents follow.
+.SH EXAMPLES
+.PP
+.iX "aud_sitevent_num library" "examples"
+The following example looks up the event and subevent numbers for
+event "my_rdb", subevent "rdb_open", and generates an audit record
+if the lookup succeeded.
+.sp
+.nf
+\f(CWif ( aud_sitevent_num ( "my_rdb", "rdb_open", 
+                                       &event, &subev ) == 0 )
+   audgenl ( event, T_SUBEVENT, subev, T_CHARP,
+                                       "sample rec", 0 );\f1
+.fi
+.SH RELATED INFORMATION
+.PP
+\*EEnhanced Security\*O
+.PP
+\*EProgramming Support Tools\*O
+.EQ
+delim off
+.EN

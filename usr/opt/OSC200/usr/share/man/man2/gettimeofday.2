@@ -1,0 +1,227 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: gettimeofday.2,v $ $Revision: 1.1.4.2 $ (DEC) $Date: 1994/01/11 23:34:36 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 Release 1.0.4
+.\"
+.TH gettimeofday 2
+.SH NAME
+.PP
+\*Lgettimeofday\*O, \*Lsettimeofday\*O, \*Lftime\*O \- Gets and sets date and time
+.SH LIBRARY
+.PP
+\*OStandard C Library (\*Llibc.a\*O)
+.nL
+\*Lftime()\*O call: Berkeley Compatibility Library (\*Llibbsd.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+.sp
+\*L#include <sys/time.h>
+.nL
+\*Lint gettimeofday (
+.nL
+	struct timeval *\*Vtp\*L,
+.nL
+	struct timezone *\*Vtzp \*L);
+.nL
+\*Lint settimeofday (
+.nL
+	struct timeval *\*Vtp\*L,
+.nL
+	struct timezone *\*Vtzp \*L);
+.sp
+\*L#include <sys/time.h>
+.nL
+#include <sys/timeb.h>
+.nL
+\*Lint ftime (
+.nL
+	struct timeb *\*Vtp \*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL 6m
+.LI "\*Vtp\*O"
+Points to a \*Ltimeval\*O structure, defined in the \*Lsys/time.h\*O file.
+.LI "\*Vtzp\*O"
+Points to a \*Ltimezone\*O structure, defined in the \*Lsys/time.h\*O file.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "gettimeofday function"
+.iX "settimeofday function"
+.iX "ftime function"
+.iX "system time" "returning and setting"
+.iX "system timezone" "returning and setting"
+.iX "time" "returning and setting"
+.iX "timezone" "returning and setting"
+The \*Lgettimeofday(\|)\*O and \*Lsettimeofday(\|)\*O
+are supported only for compatibility with BSD programs.  They have been
+superseded by the \*Lgetclock(\|)\*O and \*Lsetclock(\|)\*O functions for
+getting and setting the time, and by the user-level timezone-handling
+package for getting and setting the timezone.  (See \*Lgetclock\*O(3)
+and \*Lsetclock\*O(3) for information on the primary functions to use
+for getting and setting time.  Also, see the section on Maintaining Timezone
+Information in this reference page.)
+.PP
+The \*Lgettimeofday(\|)\*O and \*Lsettimeofday(\|)\*O functions get and set
+the time and timezone information stored in the kernel.  However, since
+local timezone information is not stored in the kernel (unless you are
+running in the System V Habitat, discussed later in this reference page),
+these functions should not be used to access timezone information.
+.PP
+The timezone structure that is returned by the \*Lgettimeofday()\*O
+call is set at boot tim by the \*L/sbin/init.d/settime\*O script.
+The \*Vtz_minuteswest\*O field of the structure is set to your local
+time zone.  This field is set only for backward compatibility with older
+applications that may use the \*Lgettimeofday()\*O call for timezone
+information.  The \*Vtz_dsttime\*O field is set to zero because this
+field is obsolete.  Therefore, these functions should only be used
+for getting and setting time information.
+.PP
+The \*Vtp\*O parameter returns a pointer to a \*Ltimeval\*O
+structure which contains the time expressed in seconds and microseconds
+since midnight (0 hour), January 1, 1970 Greenwich Mean Time (GMT).
+.PP
+The \*Vtzp\*O parameter should be set to NULL since timezone information
+should not be returned or set by these functions.
+.PP
+A process must have
+the \*Lsysattr\*O effective
+privilege to use \*Lsettimeofday(\|)\*O.
+.SH NOTES
+.PP
+The \*Lftime(\|)\*O function is included in \*Llibbsd.a\*O for
+compatibility with older BSD programs.  Its function has been made
+obsolete by \*Lgetclock(\|)\*O, \*Lsetclock(\|)\*O, and the
+user-level timezone-handling package.
+.SH SYSTEM V COMPATIBILITY
+.PP
+SVID2 maintains local timezone information in the kernel, although the
+information is not as accurate or as complete as the information that can be
+maintained at user level.  On SVID2-compatible systems, you can use the
+\*Vtzp\*O parameter with
+\*Lgettimeofday(\|)\*O and \*Lsettimeofday(\|)\*O to
+get and set timezone information in addition to the time.
+.PP
+The \*Vtzp\*O parameter returns a pointer to a timezone structure that
+contains the local timezone expressed in minutes of time westward from
+Greenwich and a flag that, when nonzero, indicates that daylight
+savings time applies locally during some part of the year.  Note that, if
+the \*Vtzp\*O parameter is set to NULL, timezone information is not returned
+or set.
+.SH MAINTAINING TIMEZONE INFORMATION
+.PP
+DEC OSF/1 systems use a public domain timezone-handling package which
+contains a database of globally accurate timezone information, including
+daylight savings time changes.  Because of the complexity of this
+information and the limitations of the kernel interface with regard to
+timezone information, this information is not stored in the kernel.
+As a result, the kernel time zone is permanently set to GMT and the
+\*Lgettimeofday(\|)\*O and \*Lsettimeofday(\|)\*O functions are not used to
+maintain local timezone information.
+.PP
+The following subsections explain how to get and set the local timezone.
+The \*Lzic\*O(8), \*Lzdump\*O(8), and \*Ltzfile\*O(4) reference pages
+contain details on the timezone-handling package.
+.SS Getting Timezone Information
+The \*Llibc\*O \*Lctime(\|)\*O and \*Llocaltime(\|)\*O routines return
+the local time and timezone information.  The \*Lctime(\|)\*O routine
+returns a string that corresponds to the local time; for example,
+\*LTue Oct 27 13:35:29 1992\*O.
+.PP
+The \*Llocaltime(\|)\*O routine returns a pointer to a \*Ltm\*O structure
+(defined in \*L<sys/time.h>\*O) that contains the local time expressed in
+fields of the \*Ltm\*O structure.  For timezone information, there are
+three relevant fields:
+.VL 4m
+.LI "\*Ltm_isdst\*O"
+A flag that is set to 1 if daylight savings time is currently in effect.
+Otherwise, the flag is set to 0.
+.LI "\*Ltm_gmtoff\*O"
+Seconds east of Greenwich.  For example, \-18000 means 5 hours west of
+Greenwich.
+.LI "\*Ltm_tzone\*O"
+Abbreviation for the current time zone (for example, EST, PDT, GMT).
+.LE
+.SS Setting Timezone Information
+On DEC OSF/1 systems, global timezone information is stored in specially
+formatted files in \*L/etc/zoneinfo\*O.  The file \*L/etc/zoneinfo/localtime\*O
+is a link to the file in the \*L/etc/zoneinfo\*O directory which
+corresponds to the local time.  This link is set by the installation software
+and can be changed by the system administrator to any file in the
+\*L/etc/zoneinfo\*O directory.
+.PP
+For example, to change the default system timezone to Canada's Atlantic
+time zone, enter the following as superuser:
+.PP
+.iS
+# ln \-s /etc/zoneinfo/Canada/Atlantic /etc/zoneinfo/localtime
+.iE
+.PP
+Subsequent calls to the timezone-related functions in \*Llibc\*O
+(\*Lctime(\|)\*O and \*Llocaltime(\|)\*O) use this link for the
+default timezone information.
+.PP
+The \*L/etc/zoneinfo/src\*O directory contains the timezone and daylight
+savings time information that is used to generate the specially formatted
+files in the \*L/etc/zoneinfo\*O directory.  If this information is
+incorrect for your time zone, you can change the information in the
+source files and then use the \*Lzic\*O command to generate a corresponding
+\*L/etc/zoneinfo\*O file.
+.PP
+A user can override the default timezone information by setting the TZ
+environment variable.  (See \*Lctime\*O(3) for information on how to set
+the TZ environment variable.)
+.SH RETURN VALUES
+.PP
+Upon successful completion, a value of 0 (zero) is returned.  Otherwise,
+\-1 is returned and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the \*Lgettimeofday(\|)\*O or \*Lsettimeofday(\|)\*O function fails,
+\*Lerrno\*O may be set the following value:
+.VL 6m
+.LI "[EFAULT]"
+A parameter points to an invalid address.
+.LI "[EPERM]"
+The process's effective user ID does not have
+the \*Lsysattr\*O effective privilege,
+which is required for using \*Lsettimeofday(\|)\*O.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Ladjtime\*O(2),
+\*Lctime\*O(3),
+\*Lgetclock\*O(3),
+\*Lgettimer\*O(3),
+\*Lsetclock\*O(3),
+\*Lstrftime\*O(3)
+.PP
+Files:
+\*Ltzfile\*O(4)
+.PP
+Commands:
+\*Ldate\*O(1),
+\*Lzdump\*O(8),
+\*Lzic\*O(8)
+.EQ
+delim off
+.EN

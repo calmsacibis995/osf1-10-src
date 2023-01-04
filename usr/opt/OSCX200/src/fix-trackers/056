@@ -1,0 +1,2167 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!decvax.dec.com!pa.dec.com!nobody
+Message-Id: <9112202350.AA12985@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2279) close XBUG #4816: ibmddx: faster FillRect and CopyArea (Part 1/3)
+Date: Fri, 20 Dec 91 18:50:34 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+[Part 1/3]
+
+	Subject: ibmddx: faster FillRect and CopyArea
+	### bug number:   4816
+	### area:         ibmddx
+	### severity:     enhancement
+	### comments:     
+
+Code cleanup and performance enhancements for
+skyway adapter on IBM RISC System/6000.
+
+Note: cut portion should be 2140 lines (wc -l).
+
+---------------------------------------------------------------------------
+*** /tmp/,RCSt1IrwCKs	Wed Dec 11 21:42:05 1991
+--- server/ddx/ibm/skyway/Imakefile	Wed Dec 11 21:31:39 1991
+***************
+*** 1,10 ****
+! XCOMM $XConsortium: Imakefile,v 1.5 91/11/08 18:08:34 eswu Exp $
+  
+  #include <Server.tmpl>
+  
+  SRCS =	 	skyInfo.c	\
+- 		skyIO.c	        \
+- 		skyImg.c        \
+  		skyHdwr.c	\
+  		skyCur.c        \
+  		skySave.c       \
+--- 1,8 ----
+! XCOMM $XConsortium: Imakefile,v 1.6 91/12/11 21:22:22 eswu Exp $
+  
+  #include <Server.tmpl>
+  
+  SRCS =	 	skyInfo.c	\
+  		skyHdwr.c	\
+  		skyCur.c        \
+  		skySave.c       \
+***************
+*** 12,22 ****
+  		skyCmap.c       \
+  		skyProbe.c	\
+  		skySGC.c	\
+! 		skyBitBlt.c
+  
+  OBJS =	 	skyInfo.o       \
+- 		skyIO.o	        \
+- 		skyImg.o        \
+  		skyHdwr.o       \
+  		skyCur.o        \
+  		skySave.o       \
+--- 10,22 ----
+  		skyCmap.c       \
+  		skyProbe.c	\
+  		skySGC.c	\
+! 		skyBitBlt.c	\
+! 		skyFillRct.c	\
+! 		skyWin.c	\
+! 		skyFill.c	\
+! 		copyword.s
+  
+  OBJS =	 	skyInfo.o       \
+  		skyHdwr.o       \
+  		skyCur.o        \
+  		skySave.o       \
+***************
+*** 24,30 ****
+  		skyCmap.o       \
+  		skyProbe.o	\
+  		skySGC.o	\
+! 		skyBitBlt.o
+  
+  INCLUDES = -I../ -I../OPERATING_SYSTEM -I../../mfb -I../../cfb -I../ppc -I../../../include -I$(INCLUDESRC) -I../common -I../../mi -I../../../../fonts/include
+  STD_DEFINES = ServerDefines
+--- 24,34 ----
+  		skyCmap.o       \
+  		skyProbe.o	\
+  		skySGC.o	\
+! 		skyBitBlt.o	\
+! 		skyFillRct.o	\
+! 		skyWin.o	\
+! 		skyFill.o	\
+! 		copyword.o
+  
+  INCLUDES = -I../ -I../OPERATING_SYSTEM -I../../mfb -I../../cfb -I../ppc -I../../../include -I$(INCLUDESRC) -I../common -I../../mi -I../../../../fonts/include
+  STD_DEFINES = ServerDefines
+*** /tmp/,RCSt1IswDFW	Wed Dec 11 21:42:07 1991
+--- server/ddx/ibm/skyway/skyBitBlt.c	Wed Dec 11 21:41:11 1991
+***************
+*** 1,5 ****
+  /*
+!  * skyway copy area: same as cfb except uses skyway accelerator.
+   */
+  
+  /*
+--- 1,26 ----
+  /*
+!  * $XConsortium: skyBitBlt.c,v 1.4 91/12/11 21:40:35 eswu Exp $
+!  *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
+!  *
+!  * All Rights Reserved 
+!  *
+!  * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted, provided
+!  * that the above copyright notice appear in all copies and that both that
+!  * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of IBM not be used in advertising or
+!  * publicity pertaining to distribution of the software without specific,
+!  * written prior permission. 
+!  *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+!  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
+!  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+!  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+!  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+!  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+!  * PERFORMANCE OF THIS SOFTWARE. 
+!  *
+   */
+  
+  /*
+***************
+*** 15,23 ****
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  
+  */
+- /* $XConsortium: skyBitBlt.c,v 1.2 91/11/08 19:31:16 eswu Exp $ */
+  
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+--- 36,48 ----
+  representations about the suitability of this software for any
+  purpose.  It is provided "as is" without express or implied warranty.
+  
++ Based on code by Keith Packard.
+  */
+  
++ /*
++  * skyway copy area: same as cfb except uses skyway accelerator.
++  */
++ 
+  #include	"X.h"
+  #include	"Xmd.h"
+  #include	"Xproto.h"
+***************
+*** 32,38 ****
+--- 57,67 ----
+  #include	"cfb8bit.h"
+  #include	"fastblt.h"
+  
++ /*-------*/
++ #include	"skyReg.h"
++ /*-------*/
+  
++ 
+  extern int  cfbDoBitbltCopy();
+  extern int  cfbDoBitbltXor();
+  extern int  cfbDoBitbltOr();
+***************
+*** 57,68 ****
+      
+      doBitBlt = cfbDoBitbltCopy;
+  
+      if ((pSrcDrawable->type == DRAWABLE_WINDOW) &&
+  	(pDstDrawable->type == DRAWABLE_WINDOW))
+      {
+  	doBitBlt = skyDoBitblt_WinToWin;
+      }
+!     else if (pGC->alu != GXcopy || (pGC->planemask & PMSK) != PMSK)
+      {
+  	doBitBlt = cfbDoBitbltGeneral;
+  	if ((pGC->planemask & PMSK) == PMSK)
+--- 86,101 ----
+      
+      doBitBlt = cfbDoBitbltCopy;
+  
++     /*-------*/
+      if ((pSrcDrawable->type == DRAWABLE_WINDOW) &&
+  	(pDstDrawable->type == DRAWABLE_WINDOW))
+      {
+  	doBitBlt = skyDoBitblt_WinToWin;
+      }
+!     else
+!     /*-------*/
+! 
+!     if (pGC->alu != GXcopy || (pGC->planemask & PMSK) != PMSK)
+      {
+  	doBitBlt = cfbDoBitbltGeneral;
+  	if ((pGC->planemask & PMSK) == PMSK)
+***************
+*** 100,111 ****
+  				/* shuffling boxes entails shuffling the
+  				   source points too */
+      int w, h;
+-     int xdir;			/* 1 = left right, -1 = right left/ */
+-     int ydir;			/* 1 = top down, -1 = bottom up */
+- 
+      int careful;
+  
+  
+      /* XXX we have to err on the side of safety when both are windows,
+       * because we don't know if IncludeInferiors is being used.
+       */
+--- 133,144 ----
+  				/* shuffling boxes entails shuffling the
+  				   source points too */
+      int w, h;
+      int careful;
+  
++     int  scrnNum = pDst->pScreen->myNum;
++     long octant  = 0;
+  
++ 
+      /* XXX we have to err on the side of safety when both are windows,
+       * because we don't know if IncludeInferiors is being used.
+       */
+***************
+*** 123,129 ****
+      if (careful && (pptSrc->y < pbox->y1))
+      {
+          /* walk source botttom to top */
+! 	ydir = -1;
+  
+  	if (nbox > 1)
+  	{
+--- 156,163 ----
+      if (careful && (pptSrc->y < pbox->y1))
+      {
+          /* walk source botttom to top */
+! 	/* ydir = -1; */
+! 	octant |= DY;
+  
+  	if (nbox > 1)
+  	{
+***************
+*** 161,173 ****
+      else
+      {
+  	/* walk source top to bottom */
+! 	ydir = 1;
+      }
+  
+      if (careful && (pptSrc->x < pbox->x1))
+      {
+  	/* walk source right to left */
+!         xdir = -1;
+  
+  	if (nbox > 1)
+  	{
+--- 195,208 ----
+      else
+      {
+  	/* walk source top to bottom */
+! 	/* ydir = 1; */
+      }
+  
+      if (careful && (pptSrc->x < pbox->x1))
+      {
+  	/* walk source right to left */
+!         /* xdir = -1; */
+! 	octant |= DX;
+  
+  	if (nbox > 1)
+  	{
+***************
+*** 209,232 ****
+      else
+      {
+  	/* walk source left to right */
+!         xdir = 1;
+      }
+  
+      while(nbox--)
+      {
+  	w = pbox->x2 - pbox->x1;
+  	h = pbox->y2 - pbox->y1;
+  
+- 
+  	/*-------*/
+  
+  
+! 	SkywayBitBlt(alu, pDst->pScreen, planemask,
+! 		pptSrc->x, pptSrc->y,	/* source x,y    */
+! 		pbox->x1, pbox->y1,	/* dest x,y      */
+! 		w, h);			/* width, height */
+! 
+! 
+  	/*-------*/
+  
+  	pbox++;
+--- 244,283 ----
+      else
+      {
+  	/* walk source left to right */
+!         /* xdir = 1; */
+      }
+  
++     /*-------*/
++     SKYSetALU(scrnNum, alu);
++     SKYSetPlaneMask(scrnNum, planemask);
++     /*-------*/
++ 
+      while(nbox--)
+      {
++ 	/*-------*/
++ 	register int src_x = pptSrc->x;
++ 	register int src_y = pptSrc->y;
++ 	register int dst_x = pbox->x1;
++ 	register int dst_y = pbox->y1;
++ 	/*-------*/
++ 
+  	w = pbox->x2 - pbox->x1;
+  	h = pbox->y2 - pbox->y1;
+  
+  	/*-------*/
++ 	if (octant & DX) { src_x += w - 1; dst_x += w - 1; }
++ 	if (octant & DY) { src_y += h - 1; dst_y += h - 1; }
+  
++ 	SKYBusyWait(scrnNum);
++ 	SKYSetOpDim21(scrnNum,w,h);
+  
+! 	SKYSetSrcXY_PatXY_DstXY_PixelOp(scrnNum,
+! 	    src_x, src_y,				/* Src X,Y    */
+! 	    0,0,					/* Don't Care */
+! 	    dst_x, dst_y,				/* Dst X,Y    */
+! 	    POForeSrc | POBackSrc | POStepBlt | 	/* Pixel Op   */
+! 	    POSrcC | PODestC | POPatFore |
+! 	    POMaskDis | POModeAll | octant);
+  	/*-------*/
+  
+  	pbox++;
+***************
+*** 243,246 ****
+--- 294,301 ----
+  	DEALLOCATE_LOCAL(pptNew1);
+  	DEALLOCATE_LOCAL(pboxNew1);
+      }
++ 
++     /*-------*/
++     SKYBusyWait(scrnNum);	/* Must wait or cfb may draw before done */
++     /*-------*/
+  }
+*** /tmp/,RCSt1ItYCKs	Wed Dec 11 21:42:08 1991
+--- server/ddx/ibm/skyway/skyCmap.c	Wed Dec 11 21:31:40 1991
+***************
+*** 1,33 ****
+  /*
+!  * $XConsortium: skyCmap.c,v 1.2 91/07/16 13:13:47 jap Exp $
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+!  * All Rights Reserved
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted,
+!  * provided that the above copyright notice appear in all copies and that
+!  * both that copyright notice and this permission notice appear in
+!  * supporting documentation, and that the name of IBM not be
+!  * used in advertising or publicity pertaining to distribution of the
+!  * software without specific, written prior permission.
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+!  * ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND 
+!  * NONINFRINGEMENT OF THIRD PARTY RIGHTS, IN NO EVENT SHALL
+!  * IBM BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+!  * ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+!  * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+!  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+!  * SOFTWARE.
+   *
+! */
+  
+  /*
+!  * skyCmap.c - colormap routines
+!  *             copied from ibm/pgc/pgcCmap.c
+!  *             revised to be just for skyway
+   */
+  
+  #define NEED_EVENTS
+--- 1,30 ----
+  /*
+!  * $XConsortium: skyCmap.c,v 1.3 91/12/11 21:23:39 eswu Exp $ 
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
+   *
+!  * All Rights Reserved 
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted, provided
+!  * that the above copyright notice appear in all copies and that both that
+!  * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of IBM not be used in advertising or
+!  * publicity pertaining to distribution of the software without specific,
+!  * written prior permission. 
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+!  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
+!  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+!  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+!  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+!  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+!  * PERFORMANCE OF THIS SOFTWARE. 
+   *
+!  */
+  
+  /*
+!  * skyCmap.c - colormap routines 
+   */
+  
+  #define NEED_EVENTS
+***************
+*** 45,179 ****
+  #include "OScompiler.h"
+  #include "ibmTrace.h"
+  
+! /* remember the ONE installed colormap here */
+! static ColormapPtr  InstalledColormap = NULL;
+  
+  void
+! skyStoreColors( pmap, ndef, pdefs )
+! register ColormapPtr pmap ;
+! register int ndef ;
+! register xColorItem *pdefs ;
+  {
+!    register int i ;
+!    int index ;
+  
+!    TRACE(("skyStoreColors(pmap=x%x)\n", pmap)) ;
+!    if ( pmap != InstalledColormap )
+  	return;
+  
+!    index = pmap->pScreen->myNum ;
+! 
+!    while ( ndef-- ) {
+! 	i = pdefs->pixel;
+! 	skySetColor(i, pdefs->red, pdefs->green, pdefs->blue, index);
+  	pdefs++;
+      }
+  }
+  
+- int
+- skyListInstalledColormaps( pScreen, pCmapList )
+- register ScreenPtr pScreen ;
+- register Colormap *pCmapList ;
+- {
+-    int index ;
+  
+-    TRACE(("skyListInstalledColormaps(InstalledColormap=x%x)\n", InstalledColormap)) ;
+-    index = pScreen->myNum ;
+- 
+-    if ( InstalledColormap ) {
+- 	        *pCmapList = InstalledColormap->mid ;
+- 	        return 1 ;
+- 	}
+- 	else {
+- 	        *pCmapList = 0 ;
+- 	        return 0 ;
+- 	}
+- }
+- 
+  void
+! skyInstallColormap( pColormap )
+! register ColormapPtr pColormap ;
+  {
+!     register int i ;
+!     register Entry *pent;
+!     register VisualPtr pVisual = pColormap->pVisual;
+!     int index ;
+!     ScreenPtr pScreen = pColormap->pScreen ;
+!     unsigned int red, green, blue;
+  
+!    TRACE(("skyInstallColormap(pColormap=x%x)\n", pColormap)) ;
+  
+-    index = pScreen->myNum ;
+  
+!    if ( !pColormap ) /* Re-Install of NULL map ?? */
+! 	return ;
+  
+!     if ((pVisual->class | DynamicClass) == DirectColor) {
+! 	for (i = 0; i < 256; i++) {
+  	    pent = &pColormap->red[(i & pVisual->redMask) >>
+! 	                      pVisual->offsetRed];
+  	    red = pent->co.local.red;
+  	    pent = &pColormap->green[(i & pVisual->greenMask) >>
+! 	                        pVisual->offsetGreen];
+  	    green = pent->co.local.green;
+  	    pent = &pColormap->blue[(i & pVisual->blueMask) >>
+! 	                       pVisual->offsetBlue];
+  	    blue = pent->co.local.blue;
+! 	    skySetColor( i, red, green, blue, index );
+  	}
+!     } else {
+  	for (i = 0, pent = pColormap->red;
+  	     i < pVisual->ColormapEntries;
+! 	     i++, pent++) {
+! 	    if (pent->fShared) {
+! 	        red = pent->co.shco.red->color;
+! 	        green = pent->co.shco.green->color;
+! 	        blue = pent->co.shco.blue->color;
+  	    }
+! 	    else {
+! 	        red = pent->co.local.red;
+! 	        green = pent->co.local.green;
+! 	        blue = pent->co.local.blue;
+  	    }
+! 	    skySetColor( i, red, green, blue, index );
+  	}
+      }
+  
+-    if ( InstalledColormap != pColormap ) {
+- 	if (InstalledColormap ) /* Remember it may not exist */
+- 	    WalkTree( pScreen, TellLostMap,
+- 	              &(InstalledColormap->mid) ) ;
+- 	InstalledColormap = pColormap ;
+- 	WalkTree( pScreen, TellGainedMap, &(pColormap->mid) ) ;
+- 	/* should really recolor cursor here for new color map ??? */
+-     }
+  
+!    return ;
+  }
+  
+  void
+! skyUninstallColormap( pColormap )
+! register ColormapPtr pColormap ;
+  {
+!    register ColormapPtr pCmap ;
+  
+!    TRACE(("skyUninstallColormap(pColormap=x%x)\n", pColormap)) ;
+!    if (pColormap != InstalledColormap)
+  	return;
+  
+!    pCmap = (ColormapPtr) LookupIDByType( pColormap->pScreen->defColormap,
+! 	                           RT_COLORMAP ) ;
+!    if ( pCmap != pColormap ) /* never uninstall the default map */
+! 	(* pColormap->pScreen->InstallColormap)( pCmap ) ;
+  
+!    return ;
+  }
+  
+  
+  void
+  skyRefreshColormaps(pScreen)
+! ScreenPtr pScreen ;
+  {
+!    TRACE(("skyRefreshColormaps(pColormap=x%x)\n", InstalledColormap)) ;
+!    skyInstallColormap(InstalledColormap);
+  }
+--- 42,189 ----
+  #include "OScompiler.h"
+  #include "ibmTrace.h"
+  
+! #include "skyHdwr.h"
+! #include "skyProcs.h"
+  
++ 
++ static ColormapPtr InstalledMaps[MAXSCREENS];
++ 
++ 
+  void
+! skyStoreColors(pColormap, ndef, pdefs)
+!     ColormapPtr     pColormap;
+!     int             ndef;
+!     xColorItem     *pdefs;
+  {
+!     int             scrnNum = pColormap->pScreen->myNum;
+  
+!     TRACE(("skyStoreColors(pColormap=x%x)\n", pColormap));
+! 
+!     if (pColormap != InstalledMaps[scrnNum])
+  	return;
+  
+!     while (ndef--)
+!     {
+! 	SKYSetColor(scrnNum, pdefs->pixel,
+! 		pdefs->red, pdefs->green, pdefs->blue);
+  	pdefs++;
+      }
+  }
+  
+  
+  void
+! skyInstallColormap(pColormap)
+!     ColormapPtr     pColormap;
+  {
+!     ScreenPtr       pScreen = pColormap->pScreen;
+!     VisualPtr       pVisual = pColormap->pVisual;
+!     int             scrnNum = pScreen->myNum;
+  
+!     int             i;
+!     Entry          *pent;
+!     unsigned int    red, green, blue;
+!     ColormapPtr     pOldMap;
+  
+  
+!     TRACE(("skyInstallColormap(pColormap=x%x)\n", pColormap));
+  
+!     if ((pVisual->class | DynamicClass) == DirectColor)
+!     {
+! 	for (i = 0; i < 256; i++)
+! 	{
+  	    pent = &pColormap->red[(i & pVisual->redMask) >>
+! 				   pVisual->offsetRed];
+  	    red = pent->co.local.red;
+  	    pent = &pColormap->green[(i & pVisual->greenMask) >>
+! 				     pVisual->offsetGreen];
+  	    green = pent->co.local.green;
+  	    pent = &pColormap->blue[(i & pVisual->blueMask) >>
+! 				    pVisual->offsetBlue];
+  	    blue = pent->co.local.blue;
+! 
+! 	    SKYSetColor(scrnNum, i, red, green, blue);
+  	}
+!     }
+!     else
+!     {
+  	for (i = 0, pent = pColormap->red;
+  	     i < pVisual->ColormapEntries;
+! 	     i++, pent++)
+! 	{
+! 	    if (pent->fShared)
+! 	    {
+! 		red = pent->co.shco.red->color;
+! 		green = pent->co.shco.green->color;
+! 		blue = pent->co.shco.blue->color;
+  	    }
+! 	    else
+! 	    {
+! 		red = pent->co.local.red;
+! 		green = pent->co.local.green;
+! 		blue = pent->co.local.blue;
+  	    }
+! 
+! 	    SKYSetColor(scrnNum, i, red, green, blue);
+  	}
+      }
+  
+  
+!     pOldMap = InstalledMaps[scrnNum];
+!     if (pColormap != pOldMap)
+!     {
+! 	if (pOldMap != (ColormapPtr)None)
+! 	    WalkTree(pScreen, TellLostMap, (char *)&pOldMap->mid);
+! 
+! 	InstalledMaps[scrnNum] = pColormap;
+! 	WalkTree(pScreen, TellGainedMap, (char *)&pColormap->mid);
+! 
+!     }
+!     return;
+  }
+  
++ 
+  void
+! skyUninstallColormap(pColormap)
+!     ColormapPtr     pColormap;
+  {
+!     ColormapPtr     pDefCmap;
+!     ScreenPtr       pScreen = pColormap->pScreen;
+!     int             scrnNum = pScreen->myNum;
+  
+!     TRACE(("skyUninstallColormap(pColormap=x%x)\n", pColormap));
+! 
+!     if (pColormap != InstalledMaps[scrnNum])
+  	return;
+  
+!     pDefCmap = (ColormapPtr) LookupIDByType(pScreen->defColormap, RT_COLORMAP);
+  
+!     if (pDefCmap != pColormap)	/* never uninstall the default map */
+! 	(* pScreen->InstallColormap) (pDefCmap);
+! 
+!     return;
+  }
+  
+  
++ int
++ skyListInstalledColormaps(pScreen, pCmapList)
++     ScreenPtr       pScreen;
++     Colormap       *pCmapList;
++ {
++     int             scrnNum = pScreen->myNum;
++ 
++     TRACE(("skyListInstalledMapss()\n"));
++ 
++     *pCmapList = InstalledMaps[scrnNum]->mid;
++     return 1;
++ }
++ 
++ 
+  void
+  skyRefreshColormaps(pScreen)
+!     ScreenPtr       pScreen;
+  {
+!     int             scrnNum = pScreen->myNum;
+! 
+!     TRACE(("skyRefreshColormaps(pColormap=x%x)\n", InstalledMaps[scrnNum]));
+!     skyInstallColormap(InstalledMaps[scrnNum]);
+  }
+*** /tmp/,RCSt1IuACSM	Wed Dec 11 21:42:09 1991
+--- server/ddx/ibm/skyway/skyCur.c	Wed Dec 11 21:31:41 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: skyCur.c,v 1.3 91/07/16 13:14:04 jap Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: skyCur.c,v 1.4 91/12/11 21:23:51 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 44,50 ****
+  
+  #include "ibmScreen.h"
+  #include "skyHdwr.h"
+- #include "skyReg.h"
+  #include "ibmTrace.h"
+  
+  extern int lastEventTime ;
+--- 44,49 ----
+***************
+*** 173,184 ****
+         return 0;
+  
+      /* disable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* load cursor starting at 0,0 */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursHi_Plane0;
+  
+      /* ASSUME cursor source & mask padded to 32 bit boundary.  May have to
+         mask off pad bits, if not zero already */
+--- 172,183 ----
+         return 0;
+  
+      /* disable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* load cursor starting at 0,0 */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursHi_Plane0;
+  
+      /* ASSUME cursor source & mask padded to 32 bit boundary.  May have to
+         mask off pad bits, if not zero already */
+***************
+*** 197,215 ****
+                src_byte = *src++;
+                mask_byte = *mask++ & ~src_byte;
+  
+! 	      SKYWAY_SINDEX_REG(index) = CursImg_Plane0 | mask_byte;
+! 	      SKYWAY_SINDEX_REG(index) = CursImg_Plane1 | src_byte;
+  	 }
+  	else {
+! 	      SKYWAY_SINDEX_REG(index) = CursImg_Plane0; /* 0 in data byte */
+! 	      SKYWAY_SINDEX_REG(index) = CursImg_Plane1;
+  	    }
+        }
+      }
+  
+      /* enable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      /* try recoloring the cursor */
+      skyRecolorCursor( pScr, pCurs, TRUE );
+--- 196,214 ----
+                src_byte = *src++;
+                mask_byte = *mask++ & ~src_byte;
+  
+! 	      SKY_SINDEX_REG(index) = CursImg_Plane0 | mask_byte;
+! 	      SKY_SINDEX_REG(index) = CursImg_Plane1 | src_byte;
+  	 }
+  	else {
+! 	      SKY_SINDEX_REG(index) = CursImg_Plane0; /* 0 in data byte */
+! 	      SKY_SINDEX_REG(index) = CursImg_Plane1;
+  	    }
+        }
+      }
+  
+      /* enable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      /* try recoloring the cursor */
+      skyRecolorCursor( pScr, pCurs, TRUE );
+***************
+*** 236,254 ****
+      y = y + yc_correct2 - ibmCursorHotY(index);
+  
+      /* disable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* specify low order byte of x */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0 | 0x0001;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | (x & 0x00FF);
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 |  x >> 8;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | (y & 0x00FF);
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 |  y >> 8;
+  
+      /* enable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      return;
+  }
+--- 235,253 ----
+      y = y + yc_correct2 - ibmCursorHotY(index);
+  
+      /* disable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* specify low order byte of x */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0 | 0x0001;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | (x & 0x00FF);
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 |  x >> 8;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | (y & 0x00FF);
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 |  y >> 8;
+  
+      /* enable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      return;
+  }
+***************
+*** 266,272 ****
+    volatile unsigned char *dptr;       /* pointer to palette datab reg*/
+    volatile unsigned short *io_idata;  /* pointer to control index reg*/
+  
+!   TRACE(("skyRecolorCursor(pScr = 0x%x, pCurs = 0x%x, visible = %d)\n", pScr, pCurs, visible));
+  
+    TRACE (("\tforeground=(%d,%d,%d) background=(%d,%d,%d)\n",
+            pCurs->foreRed >> 8, pCurs->foreGreen >> 8, pCurs->foreBlue >> 8, 
+--- 265,272 ----
+    volatile unsigned char *dptr;       /* pointer to palette datab reg*/
+    volatile unsigned short *io_idata;  /* pointer to control index reg*/
+  
+!   TRACE(("skyRecolorCursor(pScr = 0x%x, pCurs = 0x%x, visible = %d)\n",
+!   pScr, pCurs, visible));
+  
+    TRACE (("\tforeground=(%d,%d,%d) background=(%d,%d,%d)\n",
+            pCurs->foreRed >> 8, pCurs->foreGreen >> 8, pCurs->foreBlue >> 8, 
+***************
+*** 277,289 ****
+    if ( ! visible ) return;
+  
+    /* disable the cursor in the DAC */
+!   SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!   SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+    /* Initialize the pointers to the index and data_b registers.        */
+!   io_idata = (unsigned short *) (IOREG[index] + INDEX_OFF);
+!   rptr = (uchar *) (IOREG[index] + INDEX_OFF);
+!   dptr = (uchar *) (IOREG[index] + DATA_B_OFF);
+  
+    /* Load the colormap onto the RGB hardware:			       */
+    /*	 io_idata  defines the cursor colormap hardware address. The   */
+--- 277,289 ----
+    if ( ! visible ) return;
+  
+    /* disable the cursor in the DAC */
+!   SKY_SINDEX_REG(index) = CursLo_Plane0;
+!   SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+    /* Initialize the pointers to the index and data_b registers.        */
+!   io_idata = (unsigned short *) &IOREG[index]->index;
+!   rptr = (uchar *) &IOREG[index]->index;
+!   dptr = (uchar *) &IOREG[index]->data_b;
+  
+    /* Load the colormap onto the RGB hardware:			       */
+    /*	 io_idata  defines the cursor colormap hardware address. The   */
+***************
+*** 303,310 ****
+      *dptr = pCurs->foreBlue >> 8;
+  
+      /* enable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+    return;
+  
+--- 303,310 ----
+      *dptr = pCurs->foreBlue >> 8;
+  
+      /* enable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+    return;
+  
+***************
+*** 326,348 ****
+         return;
+  
+      /* disable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* load cursor starting at 0,0 */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursHi_Plane0;
+  
+      /* move source & mask to skyway.  skyway cursor is 64x64 */
+      for ( i=0; i<64*8; i++ )
+      {
+!       SKYWAY_SINDEX_REG(index) = CursImg_Plane0; /* 0 in data byte */
+!       SKYWAY_SINDEX_REG(index) = CursImg_Plane1;
+      }
+  
+      /* enable the cursor in the DAC */
+!     SKYWAY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKYWAY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      return;
+  }
+--- 326,348 ----
+         return;
+  
+      /* disable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_disable;
+  
+      /* load cursor starting at 0,0 */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursHi_Plane0;
+  
+      /* move source & mask to skyway.  skyway cursor is 64x64 */
+      for ( i=0; i<64*8; i++ )
+      {
+!       SKY_SINDEX_REG(index) = CursImg_Plane0; /* 0 in data byte */
+!       SKY_SINDEX_REG(index) = CursImg_Plane1;
+      }
+  
+      /* enable the cursor in the DAC */
+!     SKY_SINDEX_REG(index) = CursLo_Plane0;
+!     SKY_SINDEX_REG(index) = CursCntl_Plane0 | DAC_enable;
+  
+      return;
+  }
+*** /tmp/,RCSt1KfYCSM	Wed Dec 11 21:42:12 1991
+--- server/ddx/ibm/skyway/skyHdwr.c	Wed Dec 11 21:31:42 1991
+***************
+*** 1,31 ****
+  /*
+!  * $XConsortium: skyHdwr.c,v 1.4 91/09/13 14:28:20 rws Exp $
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+!  * All Rights Reserved
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted,
+!  * provided that the above copyright notice appear in all copies and that
+!  * both that copyright notice and this permission notice appear in
+!  * supporting documentation, and that the name of IBM not be
+!  * used in advertising or publicity pertaining to distribution of the
+!  * software without specific, written prior permission.
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+!  * ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND 
+!  * NONINFRINGEMENT OF THIRD PARTY RIGHTS, IN NO EVENT SHALL
+!  * IBM BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+!  * ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+!  * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+!  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+!  * SOFTWARE.
+   *
+! */
+  
+  /*
+!  * skyHdwr.c - initialize hardware registers
+   */
+  
+  #include <sys/types.h>
+--- 1,30 ----
+  /*
+!  * $XConsortium: skyHdwr.c,v 1.6 91/12/11 21:24:50 eswu Exp $ 
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
+   *
+!  * All Rights Reserved 
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted, provided
+!  * that the above copyright notice appear in all copies and that both that
+!  * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of IBM not be used in advertising or
+!  * publicity pertaining to distribution of the software without specific,
+!  * written prior permission. 
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+!  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
+!  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+!  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+!  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+!  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+!  * PERFORMANCE OF THIS SOFTWARE. 
+   *
+!  */
+  
+  /*
+!  * skyHdwr.c - initialize hardware registers 
+   */
+  
+  #include <sys/types.h>
+***************
+*** 43,430 ****
+  #include "skyHdwr.h"
+  #include "skyReg.h"
+  
+- void SkywayFillSolid();
+- static void SkywaySetCoprocessorInfo();
+- volatile struct SkyCopRegs
+- {
+-         unsigned int  a;
+-         unsigned int  b;
+- 	char          c;      
+- 	unsigned char d;    
+- 	short         e;   
+- 	short         f;   
+-         unsigned char g;
+-         unsigned char h;
+-         short         pix_index; 
+-         unsigned char i;
+-         unsigned char j;   
+- 	char          *pixmap_base;
+- 	ulong         k;    
+- };
+  
+! int skyHdwrInit(index)
+! int index ;
+  {
+  
+!    TRACE(("skyHdwrInit\n"));
+  
+!    skywayWaitFifo2(index);
+!    SKYWAY_CCC_REG(index) = Color_Cmp_Fal;
+!    SKYWAY_MEM_REG(index) = 0x0b ;   /* Motorola order, 8 bits/pixel */
+!    SkywaySetCoprocessorInfo(index);
+  
+!    SkywayFillSolid(0,0x3,0xff,0,0,1280,1024,index);
+  
+-    /* Set the io register pointers					*/
+-    SKYWAY_SINDEX_REG(index) = 0x5600;/* disable the cursor in the DAC   */
+-    SKYWAY_SINDEX_REG(index) = 0x6c04;
+-    SKYWAY_SINDEX_REG(index) = 0x5061; /* set CRTC to prepare for reset  */
+-    SKYWAY_SINDEX_REG(index) = 0x5060; /* set CRTC to reset              */
+  
+!    SKYWAY_INT_REG(index) = 0x00 ;
+!    SKYWAY_INS_REG(index) = 0xff ;    /* clear all interrupt status bits */
+!    SKYWAY_VMC_REG(index) = 0x00 ;    /* disable virtual memory interrupts */
+!    SKYWAY_VMS_REG(index) = 0xff ;    /* clear virtual memory interrupts */
+  
+!    /* native motorola mode ; memory decoding enabled */
+  
+!    SKYWAYSetMode(index,0x0c);
+  
+!    SKYWAY_WINCTRL_REG(index) = 0;    /* No pc window */
+  
+-    /* set the memory configuration register to 64 bit serializer width,
+-       256K x 4 module type, and 64 bit physical width for 64 bit wide
+-       serializer                                                        */
+  
+!    SKYWAY_SINDEX_REG(index) = 0x009e;
+  
+!    /* initialize the DAC                                                */
+  
+! SKYWAY_SINDEX_REG(index) = 0x6006; /* Put '01000011'b into the Brooktree */
+! SKYWAY_SINDEX_REG(index) = 0x6443; /* command register to initialize it. */
+! SKYWAY_SINDEX_REG(index) = 0x6004; /* Turn on all bits in the read mask. */
+! SKYWAY_SINDEX_REG(index) = 0x64FF;
+! SKYWAY_SINDEX_REG(index) = 0x6005;      /*      60  INDX REG = 05 */
+! SKYWAY_SINDEX_REG(index) = 0x6400;      /*      64  BLNK MSK = 00 */
+! SKYWAY_SINDEX_REG(index) = 0x6007;      /*      60  INDX REG = 07 */
+! SKYWAY_SINDEX_REG(index) = 0x6400;      /*      64  TEST REG = 00 */
+  
+-    /* The following values are taken from the Addendum to the SKYWAY1
+-     Video Subsystem Hardware Workbook dated October 3, 1988.    However */
+-    /* some values are taken from swstew.c, and don't match the addendum */
+  
+- SKYWAY_SINDEX_REG(index) = 0x5402;/* Clock Frequency must be set to 0x02 */
+- SKYWAY_SINDEX_REG(index) = 0x3600;/* turn off the sprite control register */
+- SKYWAY_SINDEX_REG(index) = 0x6400;/* use Brooktree Palette DAC control  */
+- 	                        /* register to turn off palette mask    */
+- SKYWAY_SINDEX_REG(index) = 0x5103;/* 8 bits/pixel, x1 scaling factors   */
+- /* pass two start */
+- SKYWAY_SINDEX_REG(index) = 0x0102;/* Set 0.25 clock increment on        */
+- SKYWAY_SINDEX_REG(index) = 0x16db;
+- SKYWAY_SINDEX_REG(index) = 0x18ac;
+- SKYWAY_SINDEX_REG(index) = 0x1a93;
+- SKYWAY_SINDEX_REG(index) = 0x1cc5;
+- SKYWAY_SINDEX_REG(index) = 0x1e06;
+- SKYWAY_SINDEX_REG(index) = 0x2a04;
+- /* pass two end */
+  
+! SKYWAY_SINDEX_REG(index) = 0x10db;/* 1760 pixels per scan line          */
+! SKYWAY_SINDEX_REG(index) = 0x129f;/* 1280 pixels in active picture area */
+! SKYWAY_SINDEX_REG(index) = 0x149f;/* 1280 is end of picture border area */
+! SKYWAY_SINDEX_REG(index) = 0x201f;/* vertical total regs set to 0x41f,  */
+! SKYWAY_SINDEX_REG(index) = 0x2104;/* which is 1056 lines                */
+! SKYWAY_SINDEX_REG(index) = 0x22ff;/* vertical display end registers are */
+! SKYWAY_SINDEX_REG (index)= 0x2303;/* set to 0x3ff, which is 1024 lines  */
+! SKYWAY_SINDEX_REG(index) = 0x241f;/* vertical blanking start registers  */
+! SKYWAY_SINDEX_REG(index) = 0x2504;/* are set to 0x041f                  */
+! SKYWAY_SINDEX_REG(index) = 0x26ff;/* vertical blanking end registers are */
+! SKYWAY_SINDEX_REG(index) = 0x2703;/* set to 0x03ff                      */
+! SKYWAY_SINDEX_REG(index) = 0x2801;/* vertical sync pulse start registers*/
+! SKYWAY_SINDEX_REG(index) = 0x2904;/* are set to 0x0401                  */
+! SKYWAY_SINDEX_REG(index) = 0x4000;/* set the Start Address registers to */
+! SKYWAY_SINDEX_REG(index) = 0x4100;/* define the start address of the    */
+! SKYWAY_SINDEX_REG(index) = 0x4200;/* active picture to address 0        */
+! SKYWAY_SINDEX_REG(index) = 0x43a0;/* buffer pitch registers set to 1280 */
+! SKYWAY_SINDEX_REG(index) = 0x4400;/* pixels per scan line               */
+! SKYWAY_SINDEX_REG(index) = 0x64ff;/* turn on palette mask               */
+! SKYWAY_SINDEX_REG(index) = 0x2cff;/* vertical line compare lo           */
+! SKYWAY_SINDEX_REG(index) = 0x2d07;/* vertical line compare hi           */
+! SKYWAY_SINDEX_REG(index) = 0x5063;/* set Display Mode 1 register to:    */
+! 	                        /*      Normal operation                */
+! 	                        /*      No clock error                  */
+! 	                        /*      Non interlaced                  */
+! 	                        /*      Video Feature Interface disabled*/
+! 	                        /*      Composite syncs enabled         */
+! 	                        /*      + Vertical, - Horizontal        */
+! 	                        /*         sync polarity                */
+  
+  
+!    return( 0 );
+  
+! }
+  
+! static struct { unsigned short r,g,b;} installed[256];
+  
+! skySetColor(number,red,green,blue,index)
+!     register unsigned   number, red, green, blue;
+!     int index ;
+! {
+  
+!     TRACE(("SkywaySetColor(%d,%d,%d,%d,%d)\n",number,red,green,blue,index));
+! 
+!     installed[number].r = red;
+!     installed[number].g = green;
+!     installed[number].b = blue;
+! 
+!     /* I don't know what this does, but it  */
+!     /* prevents blinking from occurring     */
+! 
+!     SKYWAY_SINDEX_REG(index) = (SPINDEXLO << 8 ) | 0x07 ;
+!     /* turn off mask */
+!     SKYWAY_SINDEX_REG(index) = (PALETTEMASK << 8 ) | 0x00 ;
+! 
+!     SKYWAYSetColorIndex(index,number) ;
+!     SKYWAYSetRGBColor(index,red,green,blue) ;
+! 
+!    return;
+! 
+  }
+  
+- void
+- SkywayTileRect(pTile, alu, pm, x, y, w, h, xSrc, ySrc )
+-     PixmapPtr pTile;
+-     int alu ;
+-     unsigned long int pm ;
+-     int x, y, w, h, xSrc, ySrc;
+- {
+- 
+-  register unsigned char	*psrc, *pSRC ;
+-  register volatile unsigned char *pdst, *pDST ;
+-  int	xoff, yoff, i,j ;
+-  int    index ;
+- 
+-  TRACE(("SkywayTileRect(0x%x,%d,0x%x,%d,%d,%d,%d,0x%x,0x%x)\n",
+- 		pTile,alu,pm,x,y,w,h,xSrc,ySrc));
+- 
+-  index = pTile->drawable.pScreen->myNum ;
+-  skywayWaitFifo2(index);
+- 
+-  SKYWAYSetCCC(index,Color_Cmp_Fal);
+-  SKYWAYSetALU(index,alu);
+-  SKYWAYSetPlaneMask(index,pm & 0xffff);
+- 
+-  SKYWAYSetupScreenPixmap(index,PixSize8) ;  /* PixSize4 for skymono */
+- 
+-  SKYWAYSetPixmapDstOffset(index,x,y);
+-  SKYWAYSetWidth(index,w - 1) ;
+-  SKYWAYSetHeight(index,h - 1) ;
+- 
+-  /* Move data into adapter ; wait for DMA */
+- 
+-  skywayWaitFifo2(index);
+- 
+-  pSRC = (unsigned char *) pTile->devPrivate.ptr ;
+-  pDST = (unsigned char *) SKYWAY_TILEOFFSET[index] ; 
+- 
+-  TRACE((" pTile->devKind is %d \n",pTile->devKind));
+- 
+-  for ( i = 0 ; i < pTile->drawable.height ; i++  )
+-  {
+- 	psrc = pSRC ;
+- 	pdst = pDST ;
+- 
+- 	for ( j =0 ; j < pTile->drawable.width ; j++)
+- 	    *pdst++ = *psrc++ ;
+- 
+- 	    pSRC += pTile->devKind ;
+- 	    pDST += pTile->drawable.width ;
+- 
+-  }
+- 
+-  /* src pattern */
+- 
+-  xoff = (x - xSrc) % pTile->drawable.width ;
+-  yoff = (y - ySrc) % pTile->drawable.height ;
+-  TRACE(("xoff is %d yoff is %d \n",xoff,yoff));
+-  TRACE(("xSrc is %d ySrc is %d \n",xSrc,ySrc));
+- 
+-  SKYWAYSetPixmapIndex(index,PixMapA) ;
+-  SKYWAYSetPixmapBase(index,SC_INVBASEOFFSET) ; 
+-  SKYWAYSetPixmapWidth(index,pTile->drawable.width - 1) ;
+-  SKYWAYSetPixmapHeight(index,pTile->drawable.height - 1) ;
+-  SKYWAYSetPixmapFormat(index,MI1 | PixSize8) ;
+-  SKYWAYSetPixmapSrcOffset(index,xoff, yoff);
+- 
+-  SKYWAY_PO_REG(index)   =   POSrcA | POForeSrc | POStepBlt |
+- 		     PODestC | POPatFore |
+- 		     POMaskDis | POModeAll | POOct0 ;
+- 
+-  skywayWaitFifo2(index);
+- 
+- }
+- 
+- void
+- SkywayFillSolid( color, alu, pm, x, y, w, h,index)
+-      int   color ;
+-      unsigned int alu, pm ;
+-      short  x, y ;
+-      short  w, h ;
+-      int    index ;
+- {
+- 
+-  TRACE(("SkywayFillSolid: color %d, alu: %d, pm: %d xy(%d, %d) %dx%d\n",
+- 	color, alu, pm, x, y, w, h));
+- 
+-  skywayWaitFifo2(index);
+- 
+-  SKYWAYSetCCC(index,Color_Cmp_Fal);
+-  SKYWAYSetALU(index,alu);
+-  SKYWAYSetPlaneMask(index,pm & 0xffff);
+-  SKYWAYSetForegroundColor(index,color);	
+- 
+-  /* Set the foreground field for the Pixel Operations Register to */
+-  /* indicate the color is coming from a register */
+- 
+-  SKYWAYSetupScreenPixmap(index,PixSize8) ;
+- 
+-  SKYWAYSetPixmapDstOffset(index,x,y);
+-  SKYWAYSetWidth(index,w - 1) ;
+-  SKYWAYSetHeight(index,h - 1) ;
+- 
+-  SKYWAY_PO_REG(index)   =   POForeReg | POStepBlt |
+- 		     PODestC | POPatFore |
+- 		     POMaskDis | POModeAll | POOct0 ;
+- 
+-  skywayWaitFifo2(index);
+- 
+- } 
+- 
+- skywaySetupMask(xoff,yoff,width,height,pmask,index)
+- int xoff,yoff,width,height,pmask ;
+- int index ;
+- {
+- 
+- 	SKYWAY_PMI_REG(index) = PixMapD ;
+-         SKYWAY_PMB_REG(index) = SKYWAY_MASKMAP_START ;
+-         SKYWAY_PMW_REG(index) = width -  1 ;
+-         SKYWAY_PMH_REG(index) = height - 1 ;
+-         SKYWAY_PMF_REG(index) = MI1 | PixSize1 ;
+-   	SKYWAY_DSTX_REG(index) = xoff ;
+-   	SKYWAY_DSTY_REG(index) = yoff ;
+- 	SKYWAYSetPlaneMask(index,pmask & 0xffff);
+- 
+-   	SKYWAY_PO_REG(index) |= POMaskEn ;   /* Dangerous */
+- 
+- }
+- 
+- void
+- SkywayBitBlt(alu,pScreen,pmask,sx,sy,dx,dy,w,h)
+-      int alu,pmask ;
+-      ScreenPtr pScreen ;
+-      int sx,sy,dx,dy,w,h;	
+- {
+-  short over_y, over_x;
+-  unsigned int octant;
+-  int index ;
+- 
+- TRACE(("SkywayBitBltXXXXXXX(0x%x,0x%x,%d,%d,%d,%d,%d,%d)\n",
+- 	alu,pmask,sx,sy,dx,dy,w,h));
+- 
+- index = pScreen->myNum ;
+- 
+-   /* BLT overlap codes */
+- 
+- #define D_NOT_OVER 0            /* no overlap */
+- #define D_TOP_EDGE_OVER 1       /* source overlaps top of destination */
+- #define D_BOTTOM_EDGE_OVER 2    /* source overlaps bottom of destination */
+- #define D_LEFT_EDGE_OVER 1      /* source overlaps left of destination */
+- #define D_RIGHT_EDGE_OVER 2     /* source overlaps right of destination */
+- 
+- 
+-    /* Set up the source & destination offsets. */
+- 
+-     /* First determine whether the source and destination overlap. */
+-     over_x = over_y = D_NOT_OVER;    /* initialize to no-overlap code */
+- 
+-     /* Check the y values. */
+-     if (dy >= sy) {	   /* maybe top of d is in s */
+- 	if (dy < (sy + h))    /* top of d is in s */
+- 	    over_y = D_TOP_EDGE_OVER;
+-     } else {	    /* maybe bottom of d is in s */
+- 	if (sy < (dy + h))    /* bottom of d is in s */
+- 	    over_y = D_BOTTOM_EDGE_OVER;
+-     }
+- 
+-     /* Check the x values. */
+-     if (dx >= sx) {	   /* maybe left of d is in s */
+- 	if (dx < (sx + w))    /* left of d is in s */
+- 	    over_x = D_LEFT_EDGE_OVER;
+-     } else {	    /* maybe right of d is in s */
+- 	if (sx < (dx + w))    /* right of d is in s */
+- 	    over_x = D_RIGHT_EDGE_OVER;
+-     }
+- 
+-     octant = POOct0;	/* in case no corners overlap */
+-     if (over_y == D_TOP_EDGE_OVER) {
+- 	if (over_x == D_LEFT_EDGE_OVER) {
+- 	    octant = POOct6;	/* upper left of d is in s */
+- 
+- 	    /* Point to the lower-right corner */
+- 	    sx += (w - 1);
+- 	    sy += (h - 1);
+- 	    dx += (w - 1);
+- 	    dy += (h - 1);
+- 	} else if (over_x == D_RIGHT_EDGE_OVER) {
+- 	    octant = POOct2;	/* upper right of d is in s */
+- 
+- 	    /* Point to the bottom left corner */
+- 	    sy += (h - 1);
+- 	    dy += (h - 1);
+- 	}
+-     } else if (over_y == D_BOTTOM_EDGE_OVER) {
+- 	if (over_x == D_LEFT_EDGE_OVER) {
+- 	    octant = POOct4;	/* lower left of d is in s */
+- 
+- 	    /* Point to the upper right corner */
+- 	    sx += (w - 1);
+- 	    dx += (w - 1);
+- 	} else if (over_x == D_RIGHT_EDGE_OVER) {
+- 	    octant = POOct0;	/* lower right of d is in s */
+- 
+- 	    /* Already pointing to the upper left corner... */
+- 	}
+-     }
+- 
+- skywayWaitFifo2(index);
+- SKYWAYSetupScreenPixmap(index,PixSize8) ;
+- 
+- SKYWAYSetPixmapSrcOffset(index,sx,sy);
+- SKYWAYSetPixmapDstOffset(index,dx,dy);
+- SKYWAYSetWidth(index,w - 1);
+- SKYWAYSetHeight(index,h - 1);
+- 
+- /* Set up the plane mask and alu. */
+- 
+- SKYWAYSetPlaneMask(index,pmask & 0xffff);
+- SKYWAYSetALU(index,alu);
+- SKYWAYSetCCC(index,Color_Cmp_Fal); /* Disable */
+- 
+- /* Set up the pixel operations register and do the actual BLT... */
+- 
+- SKYWAY_PO_REG(index) = POForeSrc | POBackSrc | POStepBlt | POSrcC | PODestC |
+- 		POPatFore | POMaskDis | POModeAll | octant;
+- 
+- skywayWaitFifo2(index);
+- 
+- }
+- 
+- static void
+- SkywaySetCoprocessorInfo(index)
+- int index;
+- {
+- 	volatile struct SkyCopRegs *cop;
+- 
+- 	cop = (struct SkyCopRegs *) COPREG[index];
+- 	cop->pix_index	= PixMapC;
+- 	cop->pixmap_base= SKYWAY_VRAM_START[index];
+- }
+--- 42,167 ----
+  #include "skyHdwr.h"
+  #include "skyReg.h"
+  
+  
+! int 
+! skyHdwrInit(index)
+!     int             index;
+  {
++     TRACE(("skyHdwrInit\n"));
+  
+!     SKY_MODE_REG(index)    = 0x0c;	/* native motorola mode */
+!     SKY_MEM_REG(index)     = 0x0b;	/* Motorola order, 8 bits/pixel */
+!     SKY_WINCTRL_REG(index) = 0;		/* No pc window */
+  
+!     /* Setup coprocessor to known state */
+  
+!     SKYBusyWait(index);
+!     SKYSyncCoprocessorShadow(index);
+!     SKYSetupScreenPix(index, PixSize8);
+!     SKYTurnOffColorComp(index);
+  
+  
+!     /* Clear Screen */
+  
+!     SKYSetALU(index, GXcopy);
+!     SKYSetPlaneMask(index, 0xff);
+!     SKYSetFgColor(index, 0);
+!     SKYSetOpDim21(index, 1280, 1024);
+  
+!     SKYSetDstXY_PixelOp(index,
+! 	0, 0,						/* Dst X,Y    */
+! 	POForeReg | POStepBlt | PODestC | POPatFore |	/* Pixel Op   */
+! 	POMaskDis | POModeAll | POOct0);
+  
+!     SKYBusyWait(index);
+  
+  
+!     /* Set the io register pointers					 */
+  
+!     SKY_SINDEX_REG(index) = 0x5600;	/* disable the cursor in the DAC   */
+!     SKY_SINDEX_REG(index) = 0x6c04;
+!     SKY_SINDEX_REG(index) = 0x5061;	/* set CRTC to prepare for reset  */
+!     SKY_SINDEX_REG(index) = 0x5060;	/* set CRTC to reset              */
+  
+!     SKY_INT_REG(index) = 0x00;
+!     SKY_INS_REG(index) = 0xff;	/* clear all interrupt status bits */
+!     SKY_VMC_REG(index) = 0x00;	/* disable virtual memory interrupts */
+!     SKY_VMS_REG(index) = 0xff;	/* clear virtual memory interrupts */
+  
+  
+  
+!     /*
+!      * set the memory configuration register to 64 bit serializer width, 256K
+!      * x 4 module type, and 64 bit physical width for 64 bit wide serializer
+!      */
+  
++     SKY_SINDEX_REG(index) = 0x009e;
+  
+!     /* initialize the DAC                                                */
+  
+!     SKY_SINDEX_REG(index) = 0x6006;	/* Put '01000011'b into Brooktree     */
+!     SKY_SINDEX_REG(index) = 0x6443;	/* command register to initialize it. */
+!     SKY_SINDEX_REG(index) = 0x6004;	/* Turn on all bits in the read mask. */
+!     SKY_SINDEX_REG(index) = 0x64FF;
+!     SKY_SINDEX_REG(index) = 0x6005;	/* 60  INDX REG = 05 */
+!     SKY_SINDEX_REG(index) = 0x6400;	/* 64  BLNK MSK = 00 */
+!     SKY_SINDEX_REG(index) = 0x6007;	/* 60  INDX REG = 07 */
+!     SKY_SINDEX_REG(index) = 0x6400;	/* 64  TEST REG = 00 */
+  
+!     /*
+!      * The following values are taken from the Addendum to the SKYWAY 1 Video
+!      * Subsystem Hardware Workbook dated October 3, 1988.    However 
+!      */
+!     /* some values are taken from swstew.c, and don't match the addendum */
+  
+!     SKY_SINDEX_REG(index) = 0x5402;	/* Clock Frequency must be set to
+! 					 * 0x02 */
+!     SKY_SINDEX_REG(index) = 0x3600;	/* turn off the sprite control
+! 					 * register */
+!     SKY_SINDEX_REG(index) = 0x6400;	/* use Brooktree Palette DAC control  */
+! 				        /* register to turn off palette mask  */
+!     SKY_SINDEX_REG(index) = 0x5103;	/* 8 bits/pixel, x1 scaling factors   */
+!     /* pass two start */
+!     SKY_SINDEX_REG(index) = 0x0102;	/* Set 0.25 clock increment on        */
+!     SKY_SINDEX_REG(index) = 0x16db;
+!     SKY_SINDEX_REG(index) = 0x18ac;
+!     SKY_SINDEX_REG(index) = 0x1a93;
+!     SKY_SINDEX_REG(index) = 0x1cc5;
+!     SKY_SINDEX_REG(index) = 0x1e06;
+!     SKY_SINDEX_REG(index) = 0x2a04;
+!     /* pass two end */
+  
+!     SKY_SINDEX_REG(index) = 0x10db;	/* 1760 pixels per scan line          */
+!     SKY_SINDEX_REG(index) = 0x129f;	/* 1280 pixels in active picture area */
+!     SKY_SINDEX_REG(index) = 0x149f;	/* 1280 is end of picture border area */
+!     SKY_SINDEX_REG(index) = 0x201f;	/* vertical total regs set to 0x41f,  */
+!     SKY_SINDEX_REG(index) = 0x2104;	/* which is 1056 lines                */
+!     SKY_SINDEX_REG(index) = 0x22ff;	/* vertical display end registers are */
+!     SKY_SINDEX_REG(index) = 0x2303;	/* set to 0x3ff, which is 1024 lines  */
+!     SKY_SINDEX_REG(index) = 0x241f;	/* vertical blanking start registers  */
+!     SKY_SINDEX_REG(index) = 0x2504;	/* are set to 0x041f                  */
+!     SKY_SINDEX_REG(index) = 0x26ff;	/* vertical blanking end registers
+! 					 * are */
+!     SKY_SINDEX_REG(index) = 0x2703;	/* set to 0x03ff                      */
+!     SKY_SINDEX_REG(index) = 0x2801;	/* vertical sync pulse start
+! 					 * registers */
+!     SKY_SINDEX_REG(index) = 0x2904;	/* are set to 0x0401                  */
+!     SKY_SINDEX_REG(index) = 0x4000;	/* set the Start Address registers to */
+!     SKY_SINDEX_REG(index) = 0x4100;	/* define the start address of the    */
+!     SKY_SINDEX_REG(index) = 0x4200;	/* active picture to address 0        */
+!     SKY_SINDEX_REG(index) = 0x43a0;	/* buffer pitch registers set to 1280 */
+!     SKY_SINDEX_REG(index) = 0x4400;	/* pixels per scan line               */
+!     SKY_SINDEX_REG(index) = 0x64ff;	/* turn on palette mask               */
+!     SKY_SINDEX_REG(index) = 0x2cff;	/* vertical line compare lo           */
+!     SKY_SINDEX_REG(index) = 0x2d07;	/* vertical line compare hi           */
+!     SKY_SINDEX_REG(index) = 0x5063;	/* set Display Mode 1 register to:    */
+! 					/* Normal operation                */
+! 					/* No clock error                  */
+! 					/* Non interlaced                  */
+! 					/* Video Feature Interface disabled */
+! 					/* Composite syncs enabled         */
+! 					/* + Vertical, - Horizontal        */
+! 					/* sync polarity                */
+!     return (0);
+  }
+  
+*** /tmp/,RCSt1KQACSM	Wed Dec 11 21:42:14 1991
+--- server/ddx/ibm/skyway/skyHdwr.h	Wed Dec 11 21:31:43 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: skyHdwr.h,v 1.3 91/07/16 13:17:42 jap Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: skyHdwr.h,v 1.4 91/12/11 21:25:05 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 25,56 ****
+  */
+  
+  /*
+!  * skyHdwr.h - hardware constants
+   */
+  
+  #ifndef SKYHDWR_H
+  #define SKYHDWR_H
+  
+! /*
+!  * System addresses of bounds of adapter data and program areas
+!  */
+  
+! extern unsigned long    SKYWAY_OFFSET[]         ;       /* micro channel */
+! extern unsigned long    SKYWAY_VRAM_START[]     ;       /* micro channel */
+! extern unsigned long    IOREG[]         ;               /* micro channel */
+! extern unsigned long    COPREG[]        ;               /* micro channel */
+! extern unsigned long    SKYWAY_DMA0[]   ;
+! extern unsigned long    SKYWAY_DMA1[]   ;
+! extern unsigned long    SKYWAY_DMA2[]   ;
+! extern unsigned long    SKYWAY_DMA3[]   ;
+! extern unsigned long    SKYWAY_TILEOFFSET[]   ;
+  
+! #define SKYWAY_VRAM_END         0x140000                /* VRAM SIZE */
+! #define SKYWAY_MASKMAP_START    0x800000
+! #define SKYWAY_COP_START        0x400000
+! #define SKYWAY_WIDTH            1280
+! #define SKYWAY_HEIGHT           1024
+  
+  /* Interrupt Enable Register */
+  
+  #define FRAMEFLYBACK           (1 << 0)
+--- 25,211 ----
+  */
+  
+  /*
+!  * skyHdwr.h - Skyway IO registers, constants, and macros
+   */
+  
+  #ifndef SKYHDWR_H
+  #define SKYHDWR_H
+  
+! #include <sys/types.h>
+  
+! /*****************************************************************************
+! *                                                                            *
+! *                            Skyway IO Registers                             *
+! *                                                                            *
+! *****************************************************************************/
+  
+! typedef volatile struct	_skyIOReg
+! {
+!     uchar op_mode;	      /* Adapter operating mode	      */
+!     uchar pc_vram_window;     /* 64K or	1MB VRAM Window	      */
+!     uchar resv1;	      /* Reserved register	      */
+!     uchar resv2;	      /* Reserved register	      */
+  
++     uchar int_enable;	      /* Interrupts enable flags      */
++     uchar int_status;	      /* Interrupt status	      */
++     uchar vmem_int_enable;    /* Virtual-mem interrupt enab.  */
++     uchar vmem_int_stat;      /* Virtual memory	int status    */
++ 
++     uchar vram_index;	      /*			      */
++     uchar mem_acc_mode;	      /* Pixel-size for	framebuffer:  */
++ 			      /* 0xA for 4-bit,	0xB for	8-bit */
++     uchar index;	      /* Index another register set   */
++     uchar data_b;	      /* Data register for 8 bit ops  */
++ 
++     uchar data_c;	      /* Data register for 16/32 bit  */
++     uchar data_d;	      /* Data register for 16/32 bit  */
++     uchar data_e;	      /* Data register for 32 bit     */
++     uchar data_f;	      /* Data register for 32 bit     */
++ } skyIORegRec, *skyIORegPtr;
++ 
++ 
++ /*****************************************************************************
++ *                                                                            *
++ *                        Skyway hardware addresses                           *
++ *                                                                            *
++ *****************************************************************************/
++ 
++ extern ulong		SKY_SEGMENT[];		/* Skyway segment address    */
++ extern ulong		SKY_VRAM_START[];	/* Start of VRAM area        */
++ extern ulong		SKY_DMA0[];		/* DMA address 0             */
++ extern ulong		SKY_DMA1[];		/* DMA address 1             */
++ extern ulong		SKY_DMA2[];		/* DMA address 2             */
++ extern ulong		SKY_DMA3[];		/* DMA address 3             */
++ 
++ extern skyIORegPtr	IOREG[];		/* IO Register address       */
++ 
++ extern ulong		*SKY_TILESTIP[];	/* Table of installed tiles  */
++ extern ulong		SKY_TILESTIPID_CTR[];	/* TileStip ID counter       */
++ 
++ 
++ 
++ /*****************************************************************************
++ *                                                                            *
++ *                      Macros to Access IO Registers                         *
++ *                                                                            *
++ *****************************************************************************/
++ 
++ #define SKY_MODE_REG(i)			IOREG[i]->op_mode
++ #define SKY_WINCTRL_REG(i) 		IOREG[i]->pc_vram_window
++ #define SKY_INT_REG(i)			IOREG[i]->int_enable
++ #define SKY_INS_REG(i)			IOREG[i]->int_status
++ #define SKY_VMC_REG(i)			IOREG[i]->vmem_int_enable
++ #define SKY_VMS_REG(i)			IOREG[i]->vmem_int_stat
++ #define SKY_VMI_REG(i)			IOREG[i]->vram_index
++ #define SKY_MEM_REG(i)			IOREG[i]->mem_acc_mode
++ 
++ #define SKY_BINDEX_REG(i)		IOREG[i]->index
++ #define SKY_DATAB_REG(i)		IOREG[i]->data_b
++ #define SKY_DATAC_REG(i)		IOREG[i]->data_c
++ #define SKY_DATAD_REG(i)		IOREG[i]->data_d
++ #define SKY_DATAE_REG(i)		IOREG[i]->data_e
++ 
++ #define SKY_SINDEX_REG(i) \
++ 	(*((volatile unsigned short *)(&IOREG[i]->index)))
++ 
++ 
++ #define SKYSetRGBColor(index,r,g,b)					\
++ {									\
++     SKY_SINDEX_REG(index)  =  (PALETTESEQ  << 8);			\
++     SKY_SINDEX_REG(index)  =  (PALETTEDATA << 8) | ((r) >> 8);		\
++     SKY_SINDEX_REG(index)  =  (PALETTEDATA << 8) | ((g) >> 8);		\
++     SKY_SINDEX_REG(index)  =  (PALETTEDATA << 8) | ((b) >> 8);		\
++ }
++ 
++ #define SKYSetColorIndex(index,n)            				\
++ {									\
++     SKY_SINDEX_REG(index) = (PALETTEMASK << 8) | 0xff;			\
++     SKY_SINDEX_REG(index) = (SPINDEXLO << 8)   | (0xff & (n));		\
++     SKY_SINDEX_REG(index) = (SPINDEXHI << 8)   | 0x00;			\
++ }
++ 
++ #define SKYSetColor(index,color_index,red,green,blue)			\
++ {									\
++     /* Prevents blinking. */						\
++     SKY_SINDEX_REG(index) = (SPINDEXLO << 8) | 0x07;			\
++     SKY_SINDEX_REG(index) = (PALETTEMASK << 8) | 0x00;			\
++ 									\
++     SKYSetColorIndex(index, color_index);				\
++     SKYSetRGBColor(index, red, green, blue);				\
++ }
++ 
++ 
++ /*****************************************************************************
++ *                                                                            *
++ *                         Skyway hardware constants                          *
++ *                                                                            *
++ *****************************************************************************/
++ 
++ #define SKY_WIDTH            1280
++ #define SKY_HEIGHT           1024
++ 
++ #define SKY_INVISO_SIZE		(SC_VRAM_END - SC_INVIS_VRAM_BASE + 1)
++ #define SKY_TILESTIP_AREAS	0x8
++ #define SKY_MAX_TILESTIP_SIZE	(SKY_INVISO_SIZE/SKY_TILESTIP_AREAS)
++ 
++ /* skycolor */
++ 
++ #define SC_VRAM_BASE       0x400000	/* Start of screen VRAM     */
++ #define SC_INVIS_VRAM_BASE 0x540000	/* Start of off-screen VRAM */
++ #define SC_VRAM_END        0x5fffff	/* Last byte of VRAM        */
++ 
++ 
++ /* skymono */
++ 
++ #define SM_VRAM_BASE       0x400000	/* Start of screen VRAM     */
++ #define SM_INVIS_VRAM_BASE 0x4A0000	/* Start of off-screen VRAM */
++ #define SM_VRAM_END        0x4fffff	/* Last byte of VRAM        */
++ 
++ 
++ /*   CRTC REGISTERS     */
++ 
++ #define Display_Mode1   0x5000      /* Display Mode 1 Register        */
++ #define Display_Mode2   0x5100      /* Display Mode 2 Register        */
++ 
++ /*   hardware cursor                                                  */
++ 
++ #define CursLo_Plane0   0x5600      /* Cursor address low plane 0     */
++ #define CursLo_Plane1   0x5700      /* Cursor address low plane 1     */
++ #define CursHi_Plane0   0x5800      /* Cursor address high plane 0    */
++ #define CursHi_Plane1   0x5900      /* Cursor address high plane 0    */
++ #define CursImg_Plane0  0x5A00      /* Cursor image plane 0           */
++ #define CursImg_Plane1  0x5B00      /* Cursor image plane 1           */
++ #define CursIndex       0x6000      /* Cursor index                   */
++ #define CursData        0x6A00      /* Cursor data                    */
++ #define CursCntl_Plane0 0x6C00      /* Cursor control plane 0         */
++ #define CursCntl_Plane1 0x6D00      /* Cursor control plane 1         */
++ 
++ /*   colormap                                                         */
++ 
++ #define PaletIndex      0x6000      /* Palette Index                  */
++ #define PaletCntl       0x6400      /* Palette DAC control            */
++ #define PaletData       0x6500      /* Palette Data                   */
++ 
++ /*   misc stuff                                                       */
++ 
++ #define x_correct       0x01A8      /* x correction factor for pass 1 */
++ #define y_correct       0x001A      /* y correction factor for pass 1 */
++ 
++ #define xc_correct2     0x01AD      /* x cursor offset, color, pass 2 */
++ #define yc_correct2     0x001B      /* y cursor offset, color, pass 2 */
++ #define xm_correct2     0x0194      /* x cursor offset, mono, pass 2  */
++ #define ym_correct2     0x001F      /* y cursor offset, mono, pass 2  */
++ 
++ #define DAC_disable     0x0004
++ #define DAC_enable      0x0044
++ #define Video_disable   0x0061
++ #define Video_enable    0x0063
++ #define ColorCmd        0x38
++ #define CursPlaneSize   512
++ #define MaxCursorSize   64
++ #define BestCursorSize  32
++ 
++ 
+  /* Interrupt Enable Register */
+  
+  #define FRAMEFLYBACK           (1 << 0)
+***************
+*** 57,62 ****
+--- 212,218 ----
+  #define COPREJECTED            (1 << 2)
+  #define COPCOMPLETED           (1 << 3)
+  
++ 
+  /*  Mode    */
+  
+  #define VGAINHIBITED            0x0
+***************
+*** 68,75 ****
+  #define MOTOROLAINHIBITED       0x6
+  #define MOTOROLAENABLED         0x7
+  
+- /*      work with Index Register        */
+  
+  #define MEMORYCONF              0x00    /* Memory Configuration Register */
+  #define COPSAVERESTOREDATA1     0x0c    /* Save/Restore Data 1 */
+  #define COPSAVERESTOREDATA2     0x0d    /* Save/Restore Data 2 */
+--- 224,236 ----
+  #define MOTOROLAINHIBITED       0x6
+  #define MOTOROLAENABLED         0x7
+  
+  
++ /*****************************************************************************
++ *                                                                            *
++ *          Index Registers (access through ``index'' IO register)            *
++ *                                                                            *
++ *****************************************************************************/
++ 
+  #define MEMORYCONF              0x00    /* Memory Configuration Register */
+  #define COPSAVERESTOREDATA1     0x0c    /* Save/Restore Data 1 */
+  #define COPSAVERESTOREDATA2     0x0d    /* Save/Restore Data 2 */
+***************
+*** 138,487 ****
+  #define PALETTEBLUE             0x69    /* Palette Blue Prefetch Register */
+  #define SPRITEDATA              0x6a    /* Sprite Data Register */
+  #define SPRITEPF                0x6b    /* Sprite Prefetch Register */
+- 
+- #define MD_OFF          0x0     /* Operating Mode Register */
+- #define WC_OFF          0x1     /* Window Control Register */
+- #define INT_OFF         0x4     /* Interrupt Enable Register */
+- #define INS_OFF         0x5     /* Interrupt Status Register */
+- #define VMC_OFF         0x6     /* Virtual Memory Control Register */
+- #define VMS_OFF         0x7     /* Virtual Memory Status Register */
+- #define VMI_OFF         0x8     /* VRAM Index Register */
+- #define MEM_OFF         0x9     /* Memory Access Mode Register */
+- #define INDEX_OFF       0xa     /* IO Index Register */
+- #define DATA_B_OFF      0xb     /* IO Data B Register */
+- #define DATA_C_OFF      0xc     /* IO Data C Register */
+- #define DATA_D_OFF      0xd     /* IO Data D Register */
+- #define DATA_E_OFF      0xe     /* IO Data E Register */
+- 
+- #define SKYWAY_MODE_REG(index)                          \
+- 	(*((volatile unsigned char *)(IOREG[index] + MD_OFF)))
+- #define SKYWAY_WINCTRL_REG(index)                       \
+- 	(*((volatile unsigned char *)(IOREG[index] + WC_OFF)))
+- #define SKYWAY_INT_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + INT_OFF)))
+- #define SKYWAY_INS_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + INS_OFF)))
+- #define SKYWAY_VMC_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + VMC_OFF)))
+- #define SKYWAY_VMS_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + VMS_OFF)))
+- #define SKYWAY_VMI_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + VMI_OFF)))
+- #define SKYWAY_MEM_REG(index)                           \
+- 	(*((volatile unsigned char *)(IOREG[index] + MEM_OFF)))
+- #define SKYWAY_BINDEX_REG(index)                        \
+- 	(*((volatile unsigned char *)(IOREG[index] + INDEX_OFF)))
+- #define SKYWAY_SINDEX_REG(index)                        \
+- 	(*((volatile unsigned short *)(IOREG[index] + INDEX_OFF)))
+- #define SKYWAY_DATAB_REG(index)                         \
+- 	(*((volatile unsigned char *)(IOREG[index] + DATA_B_OFF)))
+- #define SKYWAY_DATAC_REG(index)                         \
+- 	(*((volatile unsigned char *)(IOREG[index] + DATA_C_OFF)))
+- #define SKYWAY_DATAD_REG(index)                         \
+- 	(*((volatile unsigned char *)(IOREG[index] + DATA_D_OFF)))
+- #define SKYWAY_DATAE_REG(index)                         \
+- 	(*((volatile unsigned char *)(IOREG[index] + DATA_E_OFF)))
+- 
+- #define PD_OFF          0x0     /* Page Directory Register */
+- #define VA_OFF          0x4     /* Virtual Address Register */
+- #define POLL_OFF        0x9     /* new busy poll Register */
+- #define LA_OFF          0xe     /* State Length A Register */
+- #define LB_OFF          0xf     /* State Length B Register */
+- #define PMI_OFF         0x10    /* Pixmap Index Register */
+- #define PMC_OFF         0x12    /* Pixmap Control Register */
+- #define PMB_OFF         0x14    /* Pixmap Base Register */
+- #define PMH_OFF         0x18    /* Pixmap Height Register */
+- #define PMW_OFF         0x1a    /* Pixmap Width Register 16 bits */
+- #define PMF_OFF         0x1e    /* Pixmap Format Register 16 bits */
+- #define BME_OFF         0x20    /* Bresenham Error Register */
+- #define BMK1_OFF        0x24    /* Bresenham K1 Register */
+- #define BMK2_OFF        0x28    /* Bresenham K2 Register */
+- #define DRT_OFF         0x2c    /* Direction Step Register */
+- #define CCC_OFF         0x48    /* Color Compare Condition Register */
+- #define BM_OFF          0x4a    /* Foreground MIX Register */
+- #define FM_OFF          0x4b    /* Background MIX Register */
+- #define CCV_OFF         0x4c    /* Color Compare Condition Register */
+- #define PM_OFF          0x50    /* Plane Mask  Register */
+- #define CC_OFF          0x54    /* Carry Chain Register */
+- #define FC_OFF          0x58    /* Foreground Color Register */
+- #define BC_OFF          0x5c    /* Background Color Register */
+- #define DM2_OFF         0x60    /* Dimention 2 Register */
+- #define DM1_OFF         0x62    /* Dimention 1 Register */
+- #define MASKY_OFF       0x6c    /* MaskMap  Y offset Register */
+- #define MASKX_OFF       0x6e    /* MaskMap  X offset Register */
+- #define SRCY_OFF        0x70    /* SrcMap   Y offset Register */
+- #define SRCX_OFF        0x72    /* SrcMap   X offset Register */
+- #define PATY_OFF        0x74    /* PatMap   Y offset Register */
+- #define PATX_OFF        0x76    /* PatMap   X offset Register */
+- #define DSTY_OFF        0x78    /* DstMap   Y offset Register */
+- #define DSTX_OFF        0x7a    /* DstMap   X offset Register */
+- #define PO_OFF          0x7c    /* Pixel Operation Register   */
+- 
+- #define SKYWAY_PAGE_DIR_REG(index)                      \
+- 	        (*((volatile unsigned int *)(COPREG[index] + PD_OFF)))
+- #define SKYWAY_VA_REG(index)                            \
+- 	        (*((volatile unsigned int *)(COPREG[index] + VA_OFF)))
+- #define SKYWAY_POLL_REG(index)                          \
+- 	        (*((volatile unsigned char *)(COPREG[index] + POLL_OFF)))
+- #define SKYWAY_LA_REG(index)                            \
+- 	        (*((volatile unsigned char *)(COPREG[index] + LA_OFF)))
+- #define SKYWAY_LB_REG(index)                            \
+- 	        (*((volatile unsigned char *)(COPREG[index] + LB_OFF)))
+- 
+- #define SKYWAY_PMI_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + PMI_OFF)))
+- #define SKYWAY_PMC_REG(index)                           \
+- 	        (*((volatile unsigned char *)(COPREG[index] + PMC_OFF)))
+- #define SKYWAY_PMB_REG(index)                           \
+- 	        (*((volatile unsigned char *)(COPREG[index] + PMB_OFF)))
+- #define SKYWAY_PMH_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + PMH_OFF)))
+- #define SKYWAY_PMW_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + PMW_OFF)))
+- #define SKYWAY_PMF_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + PMF_OFF)))
+- #define SKYWAY_BME_REG(index)                           \
+- 	        (*((volatile unsigned int *)(COPREG[index] + BME_OFF)))
+- #define SKYWAY_BMK1_REG(index)                          \
+- 	        (*((volatile unsigned int *)(COPREG[index] + BMK1_OFF)))
+- #define SKYWAY_BMK2_REG(index)                          \
+- 	        (*((volatile unsigned int *)(COPREG[index] + BMK2_OFF)))
+- #define SKYWAY_DRT_REG(index)                           \
+- 	        (*((volatile unsigned int *)(COPREG[index] + DRT_OFF)))
+- #define SKYWAY_CCC_REG(index)                           \
+- 	        (*((volatile unsigned short *)(COPREG[index] + CCC_OFF)))
+- #define SKYWAY_BM_REG(index)                            \
+- 	        (*((volatile unsigned char *)(COPREG[index] + BM_OFF)))
+- #define SKYWAY_FM_REG(index)                            \
+- 	        (*((volatile unsigned char *)(COPREG[index] + FM_OFF)))
+- #define SKYWAY_CCV_REG(index)                           \
+- 	        (*((volatile int *)(COPREG[index] + CCV_OFF)))
+- #define SKYWAY_PM_REG(index)                            \
+- 	        (*((volatile int *)(COPREG[index] + PM_OFF)))
+- #define SKYWAY_CC_REG(index)                            \
+- 	        (*((volatile int *)(COPREG[index] + CC_OFF)))
+- #define SKYWAY_FC_REG(index)                            \
+- 	        (*((volatile int *)(COPREG[index] + FC_OFF)))
+- #define SKYWAY_BC_REG(index)                            \
+- 	        (*((volatile int *)(COPREG[index] + BC_OFF)))
+- #define SKYWAY_DM1_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + DM1_OFF)))
+- #define SKYWAY_DM2_REG(index)                           \
+- 	        (*((volatile short *)(COPREG[index] + DM2_OFF)))
+- #define SKYWAY_MASKY_REG(index)                         \
+- 	        (*((volatile short *)(COPREG[index] + MASKY_OFF)))
+- #define SKYWAY_MASKX_REG(index)                         \
+- 	        (*((volatile short *)(COPREG[index] + MASKX_OFF)))
+- #define SKYWAY_SRCY_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + SRCY_OFF)))
+- #define SKYWAY_SRCX_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + SRCX_OFF)))
+- #define SKYWAY_PATY_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + PATY_OFF)))
+- #define SKYWAY_PATX_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + PATX_OFF)))
+- #define SKYWAY_DSTY_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + DSTY_OFF)))
+- #define SKYWAY_DSTX_REG(index)                          \
+- 	        (*((volatile short *)(COPREG[index] + DSTX_OFF)))
+- #define SKYWAY_PO_REG(index)                            \
+- 	        (*((volatile unsigned int *)(COPREG[index] + PO_OFF)))
+- 
+- #define skywayWaitFifo1(index)  while(SKYWAY_PMC_REG(index) & 0x80 )
+- #define skywayWaitFifo2(index)  while(SKYWAY_POLL_REG(index) & 0x80 )
+- 
+- /* Pixel Map Index Register */
+- 
+- #define PixMapA   1
+- #define PixMapB   2
+- #define PixMapC   3
+- #define PixMapD   0  /* Mask Map */
+- 
+- /* Pixel Map n Format */
+- /* M/I Format */
+- 
+- #define MI0  0
+- #define MI1  0x8
+- 
+- /* Pixel Size */
+- 
+- #define PixSize1  0
+- #define PixSize2  1
+- #define PixSize4  2
+- #define PixSize8  3
+- #define PixSize16 4
+- 
+- /*  Octant fields      */
+- 
+- #define  DX              0x4        /* 3rd pos. from the right        */
+- #define  DY              0x2        /* 2nd pos. from the right        */
+- #define  DZ              0x1        /* 1st pos. from the right        */
+- 
+- /*  Logical Operations for both Foreground & Background Mix           */
+- 
+- #define  Mix_All_0       0x00       /* All 0's                        */
+- #define  Mix_SrcAndDst   0x01       /* Source And Destination         */
+- #define  Mix_SrcAndCDst  0x02       /* Source And ^Destination        */
+- #define  Mix_Src         0x03       /* Source                         */
+- #define  Mix_CSrcAndDst  0x04       /* ^Source And Destination        */
+- #define  Mix_Dst         0x05       /* Destination                    */
+- #define  Mix_SrcXorDst   0x06       /* Source XOR  Destination        */
+- #define  Mix_SrcOrDst    0x07       /* Source OR   Destination        */
+- #define  Mix_CSrcAndCDst 0x08       /* ^Source And ^Destination       */
+- #define  Mix_SrcXorCDst  0x09       /*  Source XOR ^Destination       */
+- #define  Mix_CDst        0x0A       /* ^Destination                   */
+- #define  Mix_SrcOrCDst   0x0B       /* Source  OR ^Destination        */
+- #define  Mix_CSrc        0x0C       /* ^Source                        */
+- #define  Mix_CSrcOrDst   0x0D       /* ^Source  OR  Destination       */
+- #define  Mix_CSrcORCDst  0x0E       /* ^Source  OR ^Destination       */
+- #define  Mix_All_1       0x0F       /* All 1's                        */
+- 
+- /*  Color Compare Condition         */
+- 
+- #define  Color_Cmp_True  0x0        /* Always True (disable updates)  */
+- #define  Color_Grt_Col   0x1        /* Dest > Col value               */
+- #define  Color_Equ_Col   0x2        /* Dest = Col value               */
+- #define  Color_Les_Col   0x3        /* Dest < Col value               */
+- #define  Color_Cmp_Fal   0x4        /* Always False (enable updates)  */
+- #define  Color_GtEq_Col  0x5        /* Dest >= Col value              */
+- #define  Color_NtEq_Col  0x6        /* Dest <> Col value              */
+- #define  Color_LsEq_Col  0x7        /* Dest <= Col value              */
+- 
+- #define  Plane_Mask_All  0xFFFF
+- #define  Carry_Mask      0x3FFF
+- 
+- #define POBackReg 0                /* Background color  (register)   */
+- #define POBackSrc 0x80             /* Source Pixel Map               */
+- #define POForeReg 0                /* Foreground  color (register)   */
+- #define POForeSrc 0x20             /* Source Pixel Map               */
+- 
+- /* Step */
+- 
+- #define POStepDSR 0x2              /* Draw & Step Read               */
+- #define POStepLDR 0x3              /* Line Draw   Read               */
+- #define POStepDSW 0x4              /* Draw & Step Write              */
+- #define POStepLDW 0x5              /* Line Draw   Write              */
+- #define POStepBlt 0x8              /* Pxblt                          */
+- #define POStepIBlt 0x9             /* Inverting Pxblt                */
+- #define POStepAFBlt 0xa            /* Area Fill Pxblt                */
+- 
+- /* Source */
+- 
+- #define POSrcA 0x1000              /* Pixel Map A                    */
+- #define POSrcB 0x2000              /* Pixel Map B                    */
+- #define POSrcC 0x3000              /* Pixel Map C                    */
+- #define POSrcD 0x0000              /* Mask Map  D                    */
+- 
+- /* Destination */
+- 
+- #define PODestA 0x100              /* Pixel Map A                    */
+- #define PODestB 0x200              /* Pixel Map B                    */
+- #define PODestC 0x300              /* Pixel Map C                    */
+- #define PODestD 0x000              /* Mask Map  D                    */
+- 
+- /* Pattern */
+- 
+- #define POPatA 0x100000            /* Pixel Map A                    */
+- #define POPatB 0x200000            /* Pixel Map B                    */
+- #define POPatC 0x300000            /* Pixel Map C                    */
+- #define POPatD 0x000000            /* Mask Map  D                    */
+- 
+- #define POPatFore 0x800000         /* Foreground (Fixed)             */
+- #define POPatSrc 0x900000          /* Generated from Source          */
+- 
+- /* Mask */
+- 
+- #define POMaskDis 0                /* Mask Map Disabled             */
+- #define POMaskBEn 0x40000000       /* Mask Map Boundary Enabled     */
+- #define POMaskEn  0x80000000       /* Mask Map Enabled              */
+- 
+- /* Drawing Mode */
+- 
+- #define POModeAll 0                /* Draw All Pixels                */
+- #define POModeLast 0x10000000      /* Draw 1s Pixel Null             */
+- #define POModeFirst 0x20000000     /* Draw Last Pixel Null           */
+- #define POModeArea 0x30000000      /* Draw Area Boundary             */
+- 
+- /* Direction Octant */
+- 
+- #define POOct0 0
+- #define POOct1 0x1000000
+- #define POOct2 0x2000000
+- #define POOct3 0x3000000
+- #define POOct4 0x4000000
+- #define POOct5 0x5000000
+- #define POOct6 0x6000000
+- #define POOct7 0x7000000
+- 
+- /* skycolor */
+- 
+- #define SC_INVBASEOFFSET   0x140000
+- #define SC_TILEOFFSET      0x0
+- #define SC_STIPPLEOFFSET   0x4000
+- #define SC_FONTOFFSET      0x6000
+- #define SC_MASKOFFSET      0xF00C
+- #define SC_DASHOFFSET      0x3700C
+- #define SC_WKSPACEOFFSET   0x3708C
+- #define SC_TRICKYOFFSET    0x5F08C
+- #define SC_USEROFFSET      0x5F08C
+- 
+- /* skymono */
+- 
+- #define SM_INVBASEOFFSET   0x0A0000
+- #define SM_TILEOFFSET      0x0
+- #define SM_STIPPLEOFFSET   0x2000
+- #define SM_FONTOFFSET      0x6000
+- #define SM_MASKOFFSET      0xEE0C
+- #define SM_DASHOFFSET      0x36E0C
+- #define SM_WKSPACEOFFSET   0x36E4C
+- #define SM_TRICKYOFFSET    0x5EE4C
+- #define SM_USEROFFSET      0x5EE4C
+- 
+- /*   CRTC REGISTERS     */
+- 
+- #define Display_Mode1   0x5000      /* Display Mode 1 Register        */
+- #define Display_Mode2   0x5100      /* Display Mode 2 Register        */
+- 
+- /*   hardware cursor                                                  */
+- 
+- #define CursLo_Plane0   0x5600      /* Cursor address low plane 0     */
+- #define CursLo_Plane1   0x5700      /* Cursor address low plane 1     */
+- #define CursHi_Plane0   0x5800      /* Cursor address high plane 0    */
+- #define CursHi_Plane1   0x5900      /* Cursor address high plane 0    */
+- #define CursImg_Plane0  0x5A00      /* Cursor image plane 0           */
+- #define CursImg_Plane1  0x5B00      /* Cursor image plane 1           */
+- #define CursIndex       0x6000      /* Cursor index                   */
+- #define CursData        0x6A00      /* Cursor data                    */
+- #define CursCntl_Plane0 0x6C00      /* Cursor control plane 0         */
+- #define CursCntl_Plane1 0x6D00      /* Cursor control plane 1         */
+- 
+- /*   colormap                                                         */
+- 
+- #define PaletIndex      0x6000      /* Palette Index                  */
+- #define PaletCntl       0x6400      /* Palette DAC control            */
+- #define PaletData       0x6500      /* Palette Data                   */
+- 
+- /*   misc stuff                                                       */
+- 
+- #define x_correct       0x01A8      /* x correction factor for pass 1 */
+- #define y_correct       0x001A      /* y correction factor for pass 1 */
+- 
+- #define xc_correct2     0x01AD      /* x cursor offset, color, pass 2 */
+- #define yc_correct2     0x001B      /* y cursor offset, color, pass 2 */
+- #define xm_correct2     0x0194      /* x cursor offset, mono, pass 2  */
+- #define ym_correct2     0x001F      /* y cursor offset, mono, pass 2  */
+- 
+- #define DAC_disable     0x0004
+- #define DAC_enable      0x0044
+- #define Video_disable   0x0061
+- #define Video_enable    0x0063
+- #define ColorCmd        0x38
+- #define CursPlaneSize   512
+- #define MaxCursorSize   64
+- #define BestCursorSize  32
+- #define MaxTileSize     1024
+- #define BestTileSize    32
+- #define MaxStippleSize  1024
+- #define BestStippleSize 32
+  
+  #endif /* SKYHDWR_H */
+--- 299,303 ----

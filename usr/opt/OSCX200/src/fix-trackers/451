@@ -1,0 +1,136 @@
+Path: news!nntpd.lkg.dec.com!nntpd2.cxo.dec.com!pa.dec.com!nobody
+Message-Id: <9209292144.AA04629@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2679) Close XBUG #5519: X server dies when some clients receive lines > 256 char
+Date: Tue, 29 Sep 92 17:44:07 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: X server dies when some clients receive lines > 256 char
+        ### bug number:   5519
+        ### area:         fontlib
+        ### severity:     very high
+        ### comments:     QueryTextExtents derefs NULL defaultChar
+
+*** /tmp/da04580	Tue Sep 29 17:41:27 1992
+--- fonts/lib/font/fc/fsconvert.c	Tue Sep 29 17:41:08 1992
+***************
+*** 1,17 ****
+! /* $XConsortium: fsconvert.c,v 1.9 92/05/12 18:07:31 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and its
+!  * documentation for any purpose is hereby granted without fee, provided that
+!  * the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of Network Computing Devices not be
+!  * used in advertising or publicity pertaining to distribution of the
+!  * software without specific, written prior permission.  Network Computing
+!  * Devices makes no representations about the suitability of this software
+!  * for any purpose.  It is provided "as is" without express or implied
+!  * warranty.
+   *
+   * NETWORK COMPUTING DEVICES DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+   * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+--- 1,16 ----
+! /* $XConsortium: fsconvert.c,v 1.11 92/09/29 17:40:59 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and
+!  * its documentation for any purpose is hereby granted without fee, provided
+!  * that the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of Network Computing Devices not be used
+!  * in advertising or publicity pertaining to distribution of the software
+!  * without specific, written prior permission.  Network Computing Devices
+!  * makes no representations about the suitability of this software for any
+!  * purpose.  It is provided "as is" without express or implied warranty.
+   *
+   * NETWORK COMPUTING DEVICES DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+   * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+***************
+*** 59,66 ****
+      fsFontHeader *hdr;
+      FontInfoPtr pfi;
+  {
+-     Bool    terminal;
+- 
+      pfi->allExist = (hdr->flags & FontInfoAllCharsExist) != 0;
+      pfi->drawDirection = (hdr->draw_direction == LeftToRightDrawDirection) ?
+  	LeftToRight : RightToLeft;
+--- 58,63 ----
+***************
+*** 369,382 ****
+  			 glyphCount, (CharInfoPtr *) glyphs);
+      fsfont->encoding = encoding;
+  
+-     if (ret == Successful) {
+- 	if (fsfont->pDefault == &junkDefault) {
+- 	    for (i = 0; i < *glyphCount; i++) {
+- 		if (glyphs[i] == (xCharInfo *) & junkDefault)
+- 		    glyphs[i] = 0;
+- 	    }
+- 	}
+-     }
+      if (fsfont->pDefault == &junkDefault)
+  	fsfont->pDefault = 0;
+      return ret;
+--- 366,371 ----
+*** /tmp/da04599	Tue Sep 29 17:41:29 1992
+--- server/dix/dixfonts.c	Tue Sep 29 17:37:33 1992
+***************
+*** 22,28 ****
+  
+  ************************************************************************/
+  
+! /* $XConsortium: dixfonts.c,v 1.34 92/03/31 17:48:46 keith Exp $ */
+  
+  #define NEED_REPLIES
+  #include "X.h"
+--- 22,28 ----
+  
+  ************************************************************************/
+  
+! /* $XConsortium: dixfonts.c,v 1.35 92/09/29 17:37:23 gildea Exp $ */
+  
+  #define NEED_REPLIES
+  #include "X.h"
+***************
+*** 432,440 ****
+    * nProtoCCIStructs char infos. \
+    */
+  
+- /* 5/23/89 (ef) -- XXX! Does this already exist somewhere? */
+- static xCharInfo xciNoSuchChar = {0, 0, 0, 0, 0, 0};
+- 
+  void
+  QueryFont(pFont, pReply, nProtoCCIStructs)
+      FontPtr     pFont;
+--- 432,437 ----
+***************
+*** 493,503 ****
+  			       &count, charInfos);
+  	i = 0;
+  	for (i = 0; i < count && ninfos < nProtoCCIStructs; i++) {
+! 	    if (charInfos[i])
+! 		*prCI = *charInfos[i];
+! 	    else
+! 		*prCI = xciNoSuchChar;
+! 	    prCI++;
+  	    ninfos++;
+  	}
+      }
+--- 490,496 ----
+  			       &count, charInfos);
+  	i = 0;
+  	for (i = 0; i < count && ninfos < nProtoCCIStructs; i++) {
+! 	    *prCI = *charInfos[i];
+  	    ninfos++;
+  	}
+      }

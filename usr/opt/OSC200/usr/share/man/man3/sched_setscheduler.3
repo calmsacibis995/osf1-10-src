@@ -1,0 +1,165 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sched_setscheduler.3,v $ $Revision: 1.2.4.3 $ (DEC) $Date: 1993/06/16 21:11:56 $
+.\"
+.\" SCCSID: @(#)sched_setscheduler.3 6.5 1/7/92
+.TH sched_setscheduler 3
+.SH NAME
+\*Lsched_setscheduler\*O \- Set the scheduling policy and scheduling parameters  of the specified process (P1003.4/D11)
+.SH SYNOPSIS
+.PP
+#include \*L<sched.h>\*O
+.PP
+int \*Lsched_setscheduler\*O (
+.br
+pid_t \*Vpid\*O,
+.br
+int \*Vpolicy\*O,
+.br
+struct \*Lsched_param\*O \*V*param\*O);
+.SH PARAMETERS
+.PP
+.TP 8
+.I pid
+The process identification of the process whose scheduling policy and priority
+is set. If \*Vpid\*O is zero, the scheduling policy and priority
+is set for the calling process.
+.TP
+.I policy
+The scheduling policy to be set (SCHED_FIFO, SCHED_RR, or SCHED_OTHER).
+.TP
+.I *param
+A pointer to a \*Lsched_param\*O structure, which contains the scheduling
+parameters of the specified process.
+Currently, the \*Lsched_param\*O structure contains only a priority field.
+The value of \*Vpriority\*O  in the \*Vparam\*O structure indicates
+the priority level. This value must be within the inclusive range
+of the minimum and maximum values for the scheduling policy used.
+.SH DESCRIPTION
+.PP
+.iX "sched_setscheduler function"
+.iX "process" "setting scheduling policy"
+The \*Lsched_setscheduler\*O function
+changes the scheduling policy and priority of a process.
+Changing the scheduling policy and priority ensures that an
+application can determine more effectively when a process will run.
+.PP
+At runtime, a process starts out with an initial
+priority of SCHED_PRIO_USER_MAX. A call to either the
+\*Lsched_setparam\*O or \*Lsched_setscheduler\*O
+function can raise or lower the priority of a process.
+If you raise the priority higher than the initial priority, the new
+priority becomes the maximum for the process. This higher maximum priority
+exists for the life of the process or until the priority is set to
+a new, higher priority through another call to the \*Lsched_setparam\*O
+function. The maximum priority cannot be adjusted downward, but
+subsequent calls to the \*Lsched_setparam\*O or
+\*Lsched_setscheduler\*O functions
+can specify that a process run at a lower priority.
+.PP
+Three scheduling policies are supported: two fixed priority scheduling policies
+(SCHED_FIFO and SCHED_RR) and one timesharing policy (SCHED_OTHER). Under
+a fixed-priority scheduling policy, only the user sets and adjusts
+process priorities. Under a timesharing scheduling policy, the scheduler
+automatically adjusts priorities according to system resource usage and
+other factors.
+.PP
+The scheduling policies supported by the realtime interface are as follows:
+.RS 3
+.IP \(bu 3
+SCHED_FIFO \- specifies a fixed-priority, first in-first out (FIFO)
+scheduling policy. Processes waiting at a specific priority level
+are selected from a process list that is ordered by the amount of time
+the processes have been on the process list without being executed. Generally,
+the process at the head of the list has waited the longest time; the process
+at the tail of the list has waited the shortest time.
+.IP \(bu
+SCHED_RR \- specifies a fixed-priority,  round-robin scheduling policy.
+Processes waiting at a specific priority level are scheduled
+in much the same way as for SCHED_FIFO,  scheduling with the additional
+condition that the length of time that a process executes is subject to a
+quantum.
+.IP \(bu
+SCHED_OTHER \- specifies the standard timesharing scheduling policy.
+Processes are scheduled in much the same way as for the SCHED_FIFO
+scheduling policy with the additional condition that the scheduler adjusts
+process priorities. Recalculation of process priorities results in
+preemption.
+.RE
+.PP
+Setting priorities, in conjunction with a FIFO scheduling policy, allows
+a critical process to run as soon as it is ready, for as long as it needs
+to run because it will preempt other lower priority
+processes. This behavior is important in situations where scheduling a process
+must be as fast and as precise as possible.
+.PP
+Use the \*Lsched_get_priority_max\*O and \*Lsched_get_priority_min\*O
+functions to determine the maximum and minimum values
+allowed for each scheduling policy.
+The value of the \*Vpriority\*O field in the \*Lsched_param\*O structure pointed
+to by
+.I param
+can be any integer within the inclusive range
+for the current scheduling policy, as defined in \*L<sched.h>\*O.
+Higher numerical values for \*Vparam\*O
+represent higher priorities.
+.PP
+The scheduling policy of a process is inherited
+across \*Lfork\*O and \*Lexec\*O calls.
+.PP
+An application designed for portability must initialize all fields of
+the \*Lsched_param\*O structure before making the function call.
+.PP
+You must have \*Lsuperuser\*O privileges to call the \*Lsched_setscheduler\*O
+function.
+.SH RETURN VALUES
+.PP
+On a successful call to \*Lsched_setscheduler\*O the former
+scheduling policy of the process is returned. On an unsuccessful call,
+a value of \-1 is returned and \*Lerrno\*O is set
+to indicate that an error occurred and the scheduling policy
+and parameters of the specified process
+are unchanged.
+.SH ERRORS
+.PP
+The \*Lsched_setscheduler\*O function fails under the following conditions:
+.TP 15
+[EINVAL]
+Invalid value specified for the
+.I policy
+argument, the \*Vparam\*O pointer is NULL,
+or one or more of the parameters contained in it is outside the valid
+range  for the specified scheduling policy.
+.TP 15
+[ENOSYS]
+The function \*Lsched_setscheduler\*O is not supported by this implementation.
+.TP 15
+[EPERM]
+The requesting process does not have permission to
+set either or both the priority or the scheduling policy of
+the specified process.
+.TP 15
+[ESRCH]
+No process can be found corresponding to that specified by
+.I pid.
+.SH RELATED INFORMATION
+.PP
+\*Lgetpid\*O(2), \*Lsched_getparam\*O(3), \*Lsched_getscheduler\*O(3),
+\*Lsched_setparam\*O(3)
+.EQ
+delim off
+.EN

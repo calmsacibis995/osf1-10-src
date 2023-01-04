@@ -1,0 +1,535 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ltf.4,v $ $Revision: 3.2.4.4 $ (DEC) $Date: 1993/12/16 18:40:54 $
+.\"
+.TH ltf 4
+.SH NAME
+\*Lltf\*O \- labeled tape facility
+.SH DESCRIPTION
+.PP
+.iX "ltf file" "format"
+.iX "magnetic tape" "labeling"
+.iX "ltf command" "ltf file"
+.iX "labeled tape facility" "ltf file"
+The term \*Lltf\*O (Labeled Tape Facility) refers
+to the group of programs required to fulfill
+the features and functionality outlined here.
+.PP
+References for the substance of this document are based on:
+.ML
+.LI
+American National Standard Institute
+magnetic tape labels and file structure
+for information interchange
+ANSI X3.27-1978
+.iX "ANSI X3.27-1978 standard"
+.LI
+The document/working paper: Draft Proposed Revision to ANSI X3.27-1978,
+Public Review Comment on ANSI X3L5/83-28T 15-Oct-84
+(describes the version 4 ANSI standard)
+.LE
+.PP
+This proposed implementation of the \*Lltf\*O does not claim to be
+100% ANSI standard in all cases.
+That is, the DEC OSF/1 \*Lltf\*O does not support the entirety of the
+functionality or format capabilities outlined in the
+documents/publications cited as references.
+.PP
+It should be understood that the functionality and formats for
+DEC OSF/1 labeled tapes are simply based on the standards and
+formats referred to, and described in, the publications/documents
+listed previously.
+.PP
+The \*Lltf\*O attempts to follow these documents as working
+precepts as accurately as it can, while meeting the needs of
+DEC OSF/1 systems.
+.PP
+It should be further understood that where the cited documents
+specify procedures or operational constricts that would conflict
+with those features/functionality normally found in a DEC OSF/1
+system, the procedures or operational constricts,
+by necessity, have been omitted from the \*Lltf\*O implementation.
+.PP
+The goals of \*Lltf\*O are to create an accurate exchange of
+information between DEC OSF/1 systems and between
+DEC OSF/1 systems and systems other than DEC OSF/1 as an
+import/export facility by providing a means to read/write tapes
+in a format generally
+.br
+.ne 9P
+acceptable to most systems providing support of
+ANSI-labeled tapes.
+.PP
+It is not a goal of \*Lltf\*O to provide the multivolume file sets
+or to provide 100% of the ANSI specifications
+for the following labels on non-Digital UNIX generated volumes:
+.oS
+VOL1
+    Accessibility Field
+VOL2 - VOL9
+UVL1 - UVL9 (User Volume Labels)
+HDR1, EOV1, EOF1
+    File-set Identifier
+    Expiration Date
+    Accessibility Field
+    Block Count
+HDR2
+    Buffer Offset Content
+HDR3 - HDR9
+UHL1 - UHL9 (User Header Labels)
+EOV3 - EOV9 (End of Volume Labels)
+EOF3 - EOF9 (End of File Labels)
+ULT1 - UTL9 (User Trailer Labels)
+.oE
+.PP
+The FORMATS section provides the general ANSI volume and label formats.
+Each label consists of 80 bytes of ASCII data as specified.
+Items enclosed in parentheses () indicate optional fields that
+may be present according to the ANSI standard.
+The following terms are used as indicated:
+.VL 6m
+.LI "a"
+Refers to the sets of characters including uppercase (A-Z),
+numerals (0-9), and special characters
+(space ! " % & ' ( ) * + , - _ . / : ; < = > ?).
+.LI "BLOCK"
+.iX "block" "defined"
+A group of consecutive bytes of data treated as a unit by the storage
+medium.  Blocks are separated by an interblock gap.
+A block may contain part of a record, all of the record, or many
+records.
+.LI "BLOCK LENGTH"
+.iX "block length" "defined"
+The minimum block size is 18 bytes and the maximum is 20480.
+.LI "RECORD"
+.iX "record" "defined"
+A set of related data treated as a unit of information.
+.LI "TAPE MARK"
+.iX "tape mark" "defined"
+A control block used as a delimiter.
+.LE
+.PP
+FORMATS for ANSI VERSION 3/4  -  MULTI-FILE / SINGLE VOLUME
+.iX "ltf file" "label formats"
+.oS
+bot      Beginning of tape marker
+VOL1     Volume Label (only 1 permitted for ANSI version 3,
+         ANSI version 4 OPTIONALLY permits Volume Labels
+         2 through 9)
+(UVLn)   OPTIONAL User Volume labels ('n' varies from 1 - 9)
+HDR1     First File Header Label
+HDR2     Second File Header Label
+(HDRn)   OPTIONAL File Header Labels ('n' varies from 3 - 9)
+(UHLa)   OPTIONAL User File Header Labels (quantity
+         unspecified)
+tm       Tape Mark
+DATA     data blocks of first file
+tm       Tape Mark
+EOF1     First End of File Label
+EOF2     Second End of File Label
+(EOFn)   OPTIONAL End of File Labels ('n' varies from 3 - 9)
+(UTLn)   OPTIONAL User Trailer Labels
+tm       Tape Mark
+HDR1     First File Header Label
+HDR2     Second File Header Label
+(HDRn)   OPTIONAL File Header Labels ('n' varies from 3 - 9)
+(UHLa)   OPTIONAL User File Header Labels (number undefined)
+tm       Tape Mark
+DATA     data blocks of second file
+tm       Tape Mark
+EOF1     First End of File Label
+EOF2     Second End of File Label
+(EOFn)   OPTIONAL End of File Labels ('n' varies from 3 - 9)
+(UTLn)   OPTIONAL User Trailer Labels
+tm       Tape Mark
+HDR1     First File Header Label
+ .
+ .
+ .
+tm       Tape Mark
+tm       Tape Mark
+.oE
+.sp
+VOL1 - Label Format - ANSI VERSION 3
+.PP
+The following table identifies the volume and supplies
+volume security information:
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "VOL"
+1      4        "1"
+6      5 - 10   Volume Identifier - user specifiable "a"
+                characters, default = "ULTRIX"
+1      11       Accessibility Field - not implemented by ltf
+26     12 - 37  Reserved by ANSI (spaces)
+14     38 - 51  Owner ID - user defined "a" characters,
+                default = spaces
+28     52 - 79  Reserved by ANSI (spaces)
+1      80       Label Standard Version, 3 for ANSI Version 3
+.oE
+.sp
+VOL1 - Label Format - ANSI VERSION 4
+.PP
+The following table identifies the volume and supplies volume
+security information:
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "VOL"
+1      4        "1"
+6      5 - 10   Volume Identifier - user specifiable "a"
+                characters, default = "ULTRIX"
+1      11       Accessibility Field - not implemented by ltf
+13     12 - 24  Reserved by ANSI (spaces)
+13     25 - 37  Implementation ID - "a" characters, ULTRIX
+                default = "DECULTRIXnnnn", where nnnn are
+                digits from 0000 to 9999, identifying the
+                version number of ltf which created volume
+14     38 - 51  Owner ID - user defined "a" characters,
+                default = spaces
+28     52 - 79  Reserved by ANSI (spaces)
+1      80       Label Standard Version, 4 for ANSI Version 4
+.oE
+.sp
+HDR1 - Label Format - ANSI VERSION 3/4
+.PP
+The following file header label identifies and describes the file.
+Information in this label is limited to "a" characters only:
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "HDR"
+1      4        "1"
+17     5 - 21   File ID - Interchange file name, "a"
+                characters
+6      22 - 27  File Set ID - "000001" since only one
+                file set on single volume
+4      28 - 31  File Section Number - "0001"
+4      32 - 35  File Sequence Number - starts at "0001"
+                and increments once for each file on volume
+4      36 - 39  Generation Number - "0001"
+2      40 - 41  Generation Version Number - "00"
+6      42 - 47  Creation Date - Julian date, first character
+                denotes century, " " = 1900, "0" = 2000
+6      48 - 53  Expiration Date - Julian date, not implemented
+                by ltf, set to " 99366"
+1      54       File Security - " "
+6      55 - 60  Block Count - "000000"
+13     61 - 73  Implementation ID - same as in VOL1
+7      74 - 80  Reserved by ANSI (spaces)
+.oE
+.br
+.ne 9P
+.PP
+HDR2 - Label Format - ANSI VERSION 3/4
+.PP
+File header label describes the record format,
+maximum record size, and maximum block length of the file.
+Information in this label is limited to "a" characters, except for
+the content of bytes 16 through 50 if the volume is ANSI version 4.
+The contents of the field in bytes 16 - 50 are for a Digital UNIX
+system implementation only; thus, if the volume is not "ULTRIX", these
+fields are ignored.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "HDR"
+1      4        "2"
+1      5        Record Format - "F" = fixed length records
+                                "D" = variable length records
+                                "S" = segmented records
+5      6 - 10   Block Length - default = "02048"
+5      11 - 15  Record Length - "F" format, length of each data
+                                record
+                                "D" format, maximum length of a
+                                data record including record
+                                control word
+                                "S" format, maximum length of a
+                                data record not including the
+                                segment control word, if scw =
+                                "00000", maximum record length
+                                may exceed 99999 bytes
+6      16 - 21  DEC OSF/1 File Status - st_mode returned from a
+                stat(2) call
+4      22 - 25  DEC OSF/1 File Owner ID - uid
+4      26 - 29  DEC OSF/1 Owner Group Number - gid
+4      30 - 33  DEC OSF/1 Link ID Sequence Number - if file is
+                hard linked, contains the file sequence number
+                of the file this file is linked to
+3      34 - 36  DEC OSF/1 True File Type - three character
+                representation of the DEC OSF/1 disk file type
+                (see below)
+1      37       Carriage Control - "A" = first byte of record
+                contains FORTRAN carriage control character
+                                   "M" = record contains all
+                                   required forms control
+                                   " " = (space) insert carriage
+                                   return, and line feed between
+                                   records
+10     38 - 47  DEC OSF/1 File Size - in bytes if known, else
+                spaces
+1      48       DEC OSF/1 ltf Header Number - number of last HDR
+                containing the full DEC OSF/1 pathname of the
+                file, digit between 3 and 9
+1      49       DEC OSF/1 ltf End of File Header Number -
+                number of last EOF containing the full DEC OSF/1
+                pathname of the file, digit between 3 and 9,
+                if "0", no path name in EOFs
+1      50       DEC OSF/1 Hard Link Flag - necessary when the file
+                linked to has not been put on the volume, thus
+                this flag is used for forward references, "0" =
+                no links or symbolic link, "1" = hard links
+2      51 - 52  Buffer Offset - number of bytes of Buffer
+                Offset Field, which is the first record in
+                the data block, if the Buffer Offset is greater
+                than zero, not implemented by ltf and set to "00"
+28     53 - 80  ANSI reserved (spaces)
+.oE
+.PP
+The DEC OSF/1 disk file type is described in field 34-36 of HDR2.
+The following list contains the 3-character representations
+you can use to specify the disk file type:
+.oS
+"adf"     - ASCII data file
+"asc"     - ASCII text
+"arc"     - Archive
+"arl"     - Archive Random Library
+"asm"     - Assembly language text
+"bg5"     - Big-5 text file
+"bin"     - Binary data
+"bsp"     - Block special file
+"cc "     - 'C' program text
+"cmp"     - Compressed text file
+"com"     - Command text file
+"cpi"     - CPIO file
+"csp"     - Character special file
+"dir"     - Directory
+"eJP"     - Japanese EUC text file
+"eKR"     - Korean EUC text file
+"eng"     - English text
+"eTW"     - Taiwanese EUC text file
+"exe"     - Executable binary
+"for"     - Fortran program source
+"fuf"     - Fortran Unformatted File
+"hyu"     - DEC Hanyu text file
+"hzi"     - DEC Hanzi text file
+"knj"     - DEC Kanji text file
+"kor"     - DEC Korean text file
+"mbT"     - Multibyte text file
+"nul"     - Null/empty file
+"oar"     - Old Archive
+"pip"     - Named pipe
+"rof"     - roff, nroff, troff, or eqn input text
+"sbT"     - Single-byte text file
+"skj"     - Super DEC Kanji text file
+"soc"     - Socket
+"sym"     - Symbolic Link
+"ISO"     - ISO 8859-1 text file
+"SJS"     - Shift JIS text file
+"TTS"     - TACTIS (Thai) text file
+"???"     - Content of file not determined
+.oE
+.PP
+HDR3 - Label Format - ANSI VERSION 3/4
+.PP
+OPTIONAL file header label presence and content ignored if the volume
+was not created by a DEC OSF/1 system.  Content limited to "a"
+characters if VOL1 field 80 = "3".
+Embedded spaces in the path names are not permitted.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "HDR"
+1      4        "3"
+10     5 - 14   DEC OSF/1 standard time of last change to file
+10     15 - 24  DEC OSF/1 File Owner Name
+20     25 - 44  DEC OSF/1 Hostname
+36     45 - 80  DEC OSF/1 File Path Name - first 36 characters
+.oE
+.sp
+HDR4 through HDR9 - Label Format - ANSI VERSION 3/4
+.PP
+OPTIONAL file header label used by the \*Lltf\*O to express some
+fractional component of the file's complete path name, but
+presence and content ignored if the volume was not created by
+a DEC OSF/1 system.  Content limited to "a" characters if
+VOL1 field 80 = "3".
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "HDR"
+1      4        "4" - "9"
+76     5 - 80   DEC OSF/1 File Path Name - continuation from
+                previous HDR, left justified and padded with
+                blanks if needed
+.oE
+.sp
+BUHLa - Label Format - ANSI VERSION 3/4
+.PP
+OPTIONAL User File Header Labels not supported by the \*Lltf\*O.
+They are not output and, if present on an input volume,
+their presence and content is ignored.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte # or Content
+-----  ------- -----------
+3      1 - 3    "UHL"
+1      4        any valid "a" character identifying this label
+76     5 - 80   Application Dependent
+.oE
+.sp
+EOV1 - Label Format - ANSI VERSION 3/4
+.PP
+First End-Of-Volume label that, if read before the first End Of File
+label (EOF1), indicates that the file is continued on the
+next volume.  For valid hardware and software technical limitations,
+the DEC OSF/1 implementation of \*Lltf\*O
+does not support multivolume file sets
+and therefore does not output these labels.
+If present on an input volume, they are interpreted
+as indicating an error condition, due to the fact that
+some portion of the file will not be processed.
+The fields of this label are identical to the contents of
+the corresponding fields in the First File Header Label (HDR1),
+with the exceptions noted below.
+The following diagrams of EOV labels are intended for
+reference purposes only.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  ------- -----------
+3      1 - 3    "EOV"
+1      4        "1"
+50     5 - 54   same as corresponding fields in HDR1
+6      55 - 60  Block Count - number of blocks in which the
+                file was recorded
+20     61 - 80  same as corresponding fields in HDR1
+.oE
+.sp
+EOV2 - Label Format - ANSI VERSION 3/4
+.PP
+The fields of the Second End-Of-Volume label are identical to the
+contents of the corresponding fields in the Second File Header Label
+(HDR2), with the exceptions noted.  The \*Lltf\*O does not support the
+use of EOV labels. See the previous description for EOV1.
+OPTIONAL End-Of-Volume labels 3 through 9  (EOV3 - EOV9) are not
+used by the \*Lltf\*O.  If present on an input volume, their presence
+and content are ignored by the \*Lltf\*O.  See NOTES for EOV1.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "EOV"
+1      4        "2"
+76     5 - 80   same as corresponding fields in HDR2
+.oE
+.sp
+EOF1 - Label Format - ANSI VERSION 3/4
+.PP
+The fields of the First End-Of-File label are identical to the
+contents of the corresponding fields in the First File Header Label
+(HDR1), with the exceptions noted.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  ------- -----------
+3      1 - 3    "EOF"
+1      4        "1"
+50     5 - 54   same as corresponding fields in HDR1
+6      55 - 60  Block Count - number of blocks in which the
+                file was recorded
+20     61 - 80  same as corresponding fields in HDR1
+.oE
+.sp
+EOF2 - Label Format - ANSI VERSION 3/4
+.PP
+The fields of the Second End-Of-File label are identical to the
+contents of the corresponding fields in the Second File Header Label
+(HDR2).
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "EOF"
+1      4        "2"
+76     5 - 80   same as corresponding fields in HDR2
+.oE
+.sp
+EOF3 through EOF9 - Label Format - ANSI VERSION 3/4
+.PP
+OPTIONAL ANSI end-of-file labels used by the \*Lltf\*O to express
+some fractional component of the file's complete path name.
+The presence and content of these labels are ignored
+if the volume was not created by a DEC OSF/1 system.  Content limited
+to "a" characters if VOL1 field 80 = "3".
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "EOF"
+1      4        "3" - "9"
+76     5 - 80   DEC OSF/1 File Path Name - continuation from
+                HDR9 and previous EOF, left justified and
+                padded with blanks if needed
+.oE
+.br
+.ne 9P
+.PP
+UTLa through UTLa - Label Format - ANSI VERSION 3/4
+.PP
+OPTIONAL User File Trailer Labels Set is optional.  If present on an
+input volume, it is ignored by the \*Lltf\*O.  User File Trailer
+Labels are not output by the \*Lltf\*O.
+If present, they take the form described.
+Their use is application dependent but not supported by the \*Lltf\*O.
+.oS
+Size   First &  Description
+of     Last
+Field  Byte #   or Content
+-----  -------  -----------
+3      1 - 3    "UTL"
+1      4        any valid "a" character identifying this label
+76     5 - 80   Application Dependent
+.oE
+.iX "ltf file" "label formats"
+.SH RELATED INFORMATION
+.PP
+\*Lltf\*O(1)
+.iX "magnetic tape" "labeling"
+.iX "ltf file" "format"
+.EQ
+delim off
+.EN

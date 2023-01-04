@@ -1,0 +1,166 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9206021821.AA19615@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2580) close XBUG #5306: fontserver: off-by-1 interpretation of auth index
+Date: Tue, 02 Jun 92 14:21:31 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: Font Server: Off-by-1 interpretation of auth index
+        ### bug number:   5306
+        ### area:         fontserver
+        ### severity:     high
+
+*** /tmp/da19575	Tue Jun  2 14:19:01 1992
+--- fonts/server/difs/dispatch.c	Tue Jun  2 14:17:01 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: dispatch.c,v 1.13 92/05/28 16:41:53 gildea Exp $ */
+  /*
+   * protocol dispatcher
+   */
+--- 1,4 ----
+! /* $XConsortium: dispatch.c,v 1.15 92/06/02 14:15:53 gildea Exp $ */
+  /*
+   * protocol dispatcher
+   */
+***************
+*** 530,539 ****
+      }
+      authp->authname = 0;
+      authp->authdata = 0;
+!     if (index >= 0)
+      {
+! 	authp->authname = (char *) fsalloc(acp[index].namelen + 1);
+! 	authp->authdata = (char *) fsalloc(acp[index].datalen + 1);
+  	if (!authp->authname || !authp->authdata) {
+  	    fsfree((char *) authp->authname);
+  	    fsfree((char *) authp->authdata);
+--- 530,539 ----
+      }
+      authp->authname = 0;
+      authp->authdata = 0;
+!     if (index > 0)
+      {
+! 	authp->authname = (char *) fsalloc(acp[index - 1].namelen + 1);
+! 	authp->authdata = (char *) fsalloc(acp[index - 1].datalen + 1);
+  	if (!authp->authname || !authp->authdata) {
+  	    fsfree((char *) authp->authname);
+  	    fsfree((char *) authp->authdata);
+***************
+*** 540,548 ****
+  	    fsfree((char *) authp);
+  	    goto alloc_failure;
+  	}
+! 	bcopy(acp[index].name, authp->authname, acp[index].namelen);
+! 	bcopy(acp[index].data, authp->authdata, acp[index].datalen);
+      }
+      authp->acid = stuff->acid;
+      if (!AddResource(client->index, stuff->acid, RT_AUTHCONT,(pointer) authp)) 
+      {
+--- 540,550 ----
+  	    fsfree((char *) authp);
+  	    goto alloc_failure;
+  	}
+! 	bcopy(acp[index - 1].name, authp->authname, acp[index - 1].namelen);
+! 	bcopy(acp[index - 1].data, authp->authdata, acp[index - 1].datalen);
+      }
++     else
++ 	size = 0;
+      authp->acid = stuff->acid;
+      if (!AddResource(client->index, stuff->acid, RT_AUTHCONT,(pointer) authp)) 
+      {
+***************
+*** 555,565 ****
+      DEALLOCATE_LOCAL(acp);
+      rep.type = FS_Reply;
+      rep.status = accept;
+-     if (index < 0)
+-     {
+- 	size = 0;
+- 	index = 0;
+-     }
+      rep.auth_index = index;
+      rep.sequenceNumber = client->sequence;
+      rep.length = (sizeof(fsCreateACReply) + size) >> 2;
+--- 557,562 ----
+***************
+*** 873,911 ****
+  CloseDownClient(client)
+      ClientPtr   client;
+  {
+!     if (client->clientGone == CLIENT_ALIVE) {
+  	client->clientGone = CLIENT_GONE;
+  	CloseDownConnection(client);
+! 	FreeClientResources(client);
+! 	if (ClientIsAsleep(client))
+! 	    ClientSignal(client);
+! 	if (client->index < nextFreeClientID)
+! 	    nextFreeClientID = client->index;
+! 	clients[client->index] = NullClient;
+! 	fsfree(client);
+! 	--nClients;
+  
+  #ifdef NOTYET
+  	/* reset server when last client goes away */
+  	if (client->requestVector != InitialVector && nClients == 0)
+  	    dispatchException |= DE_RESET;
+  #endif
+!     } else {
+! 	FreeClientResources(client);
+! 	if (ClientIsAsleep(client))
+! 	    ClientSignal(client);
+! 	if (client->index < nextFreeClientID)
+! 	    nextFreeClientID = client->index;
+! 	clients[client->index] = NullClient;
+! 	fsfree(client);
+!     }
+  
+  #ifdef DEBUG
+      fprintf(stderr, "Shut down client\n");
+  #endif
+- 
+-     if (currentClient == client)
+- 	currentClient = serverClient;
+  
+      while (!clients[currentMaxClients - 1])
+  	currentMaxClients--;
+--- 870,903 ----
+  CloseDownClient(client)
+      ClientPtr   client;
+  {
+!     int client_alive = client->clientGone == CLIENT_ALIVE;
+! 
+!     if (client_alive) {
+  	client->clientGone = CLIENT_GONE;
+  	CloseDownConnection(client);
+!     }
+!     FreeClientResources(client);
+!     if (ClientIsAsleep(client))
+! 	ClientSignal(client);
+!     if (client->index < nextFreeClientID)
+! 	nextFreeClientID = client->index;
+!     clients[client->index] = NullClient;
+  
++     if (client_alive) {
++ 	--nClients;
+  #ifdef NOTYET
+  	/* reset server when last client goes away */
+  	if (client->requestVector != InitialVector && nClients == 0)
+  	    dispatchException |= DE_RESET;
+  #endif
+!     } 
+!     if (currentClient == client)
+! 	currentClient = serverClient;
+!     fsfree(client);
+  
+  #ifdef DEBUG
+      fprintf(stderr, "Shut down client\n");
+  #endif
+  
+      while (!clients[currentMaxClients - 1])
+  	currentMaxClients--;

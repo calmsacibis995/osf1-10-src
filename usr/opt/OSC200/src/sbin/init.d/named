@@ -1,0 +1,162 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: named,v $ $Revision: 4.2.5.3 $ (DEC) $Date: 1993/09/07 21:22:39 $ 
+# 
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+
+# Control the Internet name service
+
+PATH=/sbin:/usr/sbin:/usr/bin:/usr/lbin
+export PATH
+
+BIND_CONF=`rcmgr get BIND_CONF`
+BIND_SERVERTYPE=`rcmgr get BIND_SERVERTYPE`
+BIND_SERVERARGS=`rcmgr get BIND_SERVERARGS`
+
+if [ "$BIND_CONF" = "YES" ]
+then
+	case $BIND_SERVERTYPE in 
+	PRIMARY|SECONDARY|CACHING|SLAVE)
+		case "$1" in
+		'start')
+			pid=`/bin/ps -e | grep named | egrep -v -e "grep| start" | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+		        if [ "X$pid" = "X" ]; then
+		                if [ -x /sbin/named ]; then
+		                        if /sbin/named $BIND_SERVERARGS; then
+	 	                       	sleep 5 # wait for named to init
+					  if [ "$2" != "silent" ]
+					  then
+		                	        echo "Internet name service started"
+					  fi
+		                        else
+					  if [ "$2" = "" ]
+                                	  then
+		                                echo "Cannot start Internet name service"
+					  fi
+		                        fi
+		                fi
+		        fi                        
+		        ;;
+		'stop')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -9 `cat /var/run/named.pid`
+				sleep 2
+				if [ "$2" != "silent" ]
+				then
+					echo "Internet name service stopped"
+				fi
+		        else
+				if [ "$2" = "" ]
+				then
+			                echo "ERROR: cannot find /var/run/named.pid to kill named."
+				fi
+		        fi
+		        ;;
+		'restart')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -1 `cat /var/run/named.pid`
+				sleep 5
+				if [ "$2" != "silent" ]
+                                then
+					echo "Internet name service restarted"
+				fi
+		        else
+				if [ "$2" = "" ]
+                                then
+		                echo "ERROR: cannot find /var/run/named.pid to restart named."	
+				fi
+		        fi
+		        ;;
+		'dump')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -INT `cat /var/run/named.pid`
+				sleep 2
+				if [ "$2" != "silent" ]
+                                then
+					echo "Contents of in-core database dumped to /var/tmp/named_dump.db"
+				fi
+		        else
+				if [ "$2" = "" ]
+                                then
+		                echo "ERROR: cannot find /var/run/named.pid to signal named."
+				fi
+		        fi
+			;;
+		'debug_up')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -USR1 `cat /var/run/named.pid`
+				if [ "$2" != "silent" ]
+                                then
+					echo "debug level incremented by one"
+				fi
+		        else
+				if [ "$2" = "" ]
+                                then
+		                echo "ERROR: cannot find /var/run/named.pid to signal named."
+				fi
+		        fi
+			;;
+		'debug_down')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -USR2 `cat /var/run/named.pid`
+				if [ "$2" != "silent" ]
+                                then
+					echo "debugging is now disabled"
+				fi
+		        else
+				if [ "$2" = "" ]
+                                then
+	        	        echo "ERROR: cannot find /var/run/named.pid to signal named."
+				fi
+		        fi
+			;;
+		'dump_stats')
+		        if [ -r /var/run/named.pid ]; then
+		                kill -IOT `cat /var/run/named.pid`
+				if [ "$2" != "silent" ]
+                                then
+					echo "statistics dumped to /var/tmp/named.stats"
+				fi
+		        else
+				if [ "$2" = "" ]
+                                then
+	        	        echo "ERROR: cannot find /var/run/named.pid to signal named."
+				fi
+		        fi
+			;;
+		*)
+		        echo "usage: $0 {start|stop|restart|dump|debug_up|debug_down|dump_stats}"
+		        ;;
+		esac
+	esac
+fi
+
+

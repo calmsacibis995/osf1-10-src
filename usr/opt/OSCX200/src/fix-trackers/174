@@ -1,0 +1,118 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203042057.AA12953@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2401) close XBUG #4929: Xlib: GC flushing doesn't give extension dirty bits
+Date: Wed, 04 Mar 92 15:57:21 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4929
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d12935	Wed Mar  4 15:55:57 1992
+--- lib/X/XCrGC.c	Wed Mar  4 09:23:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XCrGC.c,v 11.36 91/04/14 13:53:01 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XCrGC.c,v 11.38 92/03/04 09:22:18 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 47,52 ****
+--- 47,54 ----
+      4		/* dashes (list [4,4]) */
+  };
+  
++ static void _XGenerateGCList();
++ 
+  GC XCreateGC (dpy, d, valuemask, values)
+       register Display *dpy;
+       Drawable d;		/* Window or Pixmap for which depth matches */
+***************
+*** 80,88 ****
+          _XGenerateGCList (dpy, gc, (xReq *) req);
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->create_GC != NULL) (*ext->create_GC)(dpy, gc, &ext->codes);
+  	ext = ext->next;
+  	}    
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return (gc);
+--- 82,91 ----
+          _XGenerateGCList (dpy, gc, (xReq *) req);
+      ext = dpy->ext_procs;
+      while (ext) {		/* call out to any extensions interested */
+! 	if (ext->create_GC) (*ext->create_GC)(dpy, gc, &ext->codes);
+  	ext = ext->next;
+  	}    
++     gc->dirty = 0L; /* allow extensions to see dirty bits */
+      UnlockDisplay(dpy);
+      SyncHandle();
+      return (gc);
+***************
+*** 90,99 ****
+  
+  /*
+   * GenerateGCList looks at the GC dirty bits, and appends all the required
+!  * long words to the request being generated.  Clears the dirty bits in
+!  * the GC.
+   */
+  
+  _XGenerateGCList (dpy, gc, req)
+      register Display *dpy;
+      xReq *req;
+--- 93,102 ----
+  
+  /*
+   * GenerateGCList looks at the GC dirty bits, and appends all the required
+!  * long words to the request being generated.
+   */
+  
++ static void
+  _XGenerateGCList (dpy, gc, req)
+      register Display *dpy;
+      xReq *req;
+***************
+*** 145,151 ****
+  
+      nvalues <<= 2;
+      Data32 (dpy, (long *) values, nvalues);
+-     gc->dirty = 0L;
+  
+      }
+  
+--- 148,153 ----
+***************
+*** 315,323 ****
+          _XGenerateGCList (dpy, gc, (xReq *) req);
+  	ext = dpy->ext_procs;
+  	while (ext) {		/* call out to any extensions interested */
+! 		if (ext->flush_GC != NULL) (*ext->flush_GC)(dpy, gc, &ext->codes);
+  		ext = ext->next;
+  	}    
+      }
+  }
+  
+--- 317,326 ----
+          _XGenerateGCList (dpy, gc, (xReq *) req);
+  	ext = dpy->ext_procs;
+  	while (ext) {		/* call out to any extensions interested */
+! 		if (ext->flush_GC) (*ext->flush_GC)(dpy, gc, &ext->codes);
+  		ext = ext->next;
+  	}    
++ 	gc->dirty = 0L; /* allow extensions to see dirty bits */
+      }
+  }
+  

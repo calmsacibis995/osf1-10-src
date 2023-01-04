@@ -1,0 +1,141 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202212101.AA19586@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2374) close XBUG #4953: Xt: an event handler setting cont_to_dispatch = False aborts actions?
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 21 Feb 92 16:01:10 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: an event handler setting cont_to_dispatch = False aborts actions?
+        ### bug number:   4953
+        ### area:         Xt
+        ### severity:     low
+        ### comments:     Whether cont_to_dispatch = False prevents actions from
+        ### comments:     executing appears to be implementation dependent.
+        ### comments:     Therefore, in a strict sense, a program relying on this
+        ### comments:     is nonportable.  However, cont_to_dispatch should be fixed
+        ### comments:     to prevent actions in this implementation for the sake of 
+        ### comments:     compatibility with R4, especially since in this
+        ### comments:     implementation, actions fire after event handlers fire.
+        ### comments:     Sample fix should not overload call_tm.  -- Donna.
+        ### status:     continue to dispatch flag will affect TM as long as the
+        ### status:     TM event handler happens "after" the flag becomes False.
+        ### status:     No other changes made.  Event.c 1.136
+
+
+*** /tmp/,RCSt1a19526	Fri Feb 21 15:57:05 1992
+--- lib/Xt/Event.c	Fri Feb 21 15:56:45 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Event.c,v 1.135 91/10/25 13:19:23 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Event.c,v 1.136 92/02/21 15:54:06 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 510,516 ****
+  
+  #define EHMAXSIZE 25 /* do not make whopping big */
+  
+! static void CallEventHandlers(widget, event, mask)
+      Widget     widget;
+      XEvent    *event;
+      EventMask  mask;
+--- 510,516 ----
+  
+  #define EHMAXSIZE 25 /* do not make whopping big */
+  
+! static Boolean CallEventHandlers(widget, event, mask)
+      Widget     widget;
+      XEvent    *event;
+      EventMask  mask;
+***************
+*** 551,556 ****
+--- 551,557 ----
+  	(*(proc[i]))(widget, closure[i], event, &cont_to_disp);
+      if (numprocs > EHMAXSIZE)
+  	XtFree((char *)proc);
++     return cont_to_disp;
+  }
+  
+  static Region nullRegion;
+***************
+*** 574,579 ****
+--- 575,581 ----
+      XEvent nextEvent;
+      Boolean was_dispatched = XtDidNothing;
+      Boolean call_tm = XtDidNothing;
++     Boolean cont_to_disp;
+  
+      if (XFilterEvent(event, XtWindow(widget)))
+  	return XtDidFilter;
+***************
+*** 652,657 ****
+--- 654,661 ----
+      if (widget->core.tm.translations &&
+  	(mask & widget->core.tm.translations->eventMask))
+  	call_tm = XtDidDispatch;
++ 
++     cont_to_disp = True;
+      p=widget->core.event_table;
+      if (p) {
+  	if (p->next) {
+***************
+*** 673,682 ****
+  	    }
+  	    if (numprocs) {
+  		if (p) {
+! 		    CallEventHandlers(widget, event, mask);
+  		} else {
+  		    int i;
+- 		    Boolean cont_to_disp = True;
+  		    for (i = 0; i < numprocs && cont_to_disp; i++)
+  			(*(proc[i]))(widget, closure[i], event, &cont_to_disp);
+  		}
+--- 677,685 ----
+  	    }
+  	    if (numprocs) {
+  		if (p) {
+! 		    cont_to_disp = CallEventHandlers(widget, event, mask);
+  		} else {
+  		    int i;
+  		    for (i = 0; i < numprocs && cont_to_disp; i++)
+  			(*(proc[i]))(widget, closure[i], event, &cont_to_disp);
+  		}
+***************
+*** 683,694 ****
+  		was_dispatched = XtDidDispatch;
+  	    }
+  	} else if (mask & p->mask) {
+  	    was_dispatched = XtDidDispatch;
+- 	    (*p->proc)(widget, p->closure, event, &was_dispatched);
+- 	    was_dispatched = XtDidDispatch;
+  	}
+      }
+!     if (call_tm)
+  	_XtTranslateEvent(widget, event);
+      return (was_dispatched|call_tm);
+  }
+--- 686,696 ----
+  		was_dispatched = XtDidDispatch;
+  	    }
+  	} else if (mask & p->mask) {
++ 	    (*p->proc)(widget, p->closure, event, &cont_to_disp);
+  	    was_dispatched = XtDidDispatch;
+  	}
+      }
+!     if (call_tm && cont_to_disp)
+  	_XtTranslateEvent(widget, event);
+      return (was_dispatched|call_tm);
+  }
+

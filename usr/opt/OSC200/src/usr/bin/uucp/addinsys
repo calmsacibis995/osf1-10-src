@@ -1,0 +1,945 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: addinsys,v $ $Revision: 4.1.9.3 $ (DEC) $Date: 1993/11/09 21:56:19 $ 
+# 
+#	addinsys
+#
+#
+STDSIGS="1 2 3 15"
+trap '' $STDSIGS  # till we setup fault handler
+BC='\c'
+
+#DEBUG=y ; export DEBUG
+case "$DEBUG" in
+y)
+	MYROOT="/usr/staff/xxx"; UULIB=$MYROOT
+	UUHOME=$MYROOT/spool/uucppublic ; UUSPOOL=$MYROOT/spool/uucp
+	NULL=$MYROOT/dev/null
+	;;
+*)
+	UULIB=/usr/lib/uucp ; UUHOME=/usr/spool/uucppublic
+	UUSPOOL=/usr/spool/uucp ; NULL=/dev/null
+	;;
+esac
+MYNAME=$UULIB/addinsys
+OSYSTEMS=$UULIB/Systems
+OPERMI=$UULIB/Permissions
+OPWD="/etc/passwd"
+COLON=${COLON:=:}
+
+PATH="$UULIB:/bin:/etc:/usr/bin:";export PATH
+HOSTNAME=`hostname`
+UNAME=`uuname -l`
+readonly UULIB UUHOME UUSPOOL PATH
+
+## Fault routines ##
+REPEATORDIE='
+	echo  " 
+Interrupt !!!  "$BC
+	while :
+	do
+echo  "Enter \"q\" to quit. [q]: "$BC
+	read buff
+	case "$buff" in
+	q|"")
+		exit 5
+		;;
+	esac
+	done
+'
+IGNORE=':'
+# Setup fault handler
+ONINTR=$REPEATORDIE
+trap 'eval "$ONINTR"' $STDSIGS
+
+while :
+do
+
+# Initialize
+LOG_ENTRY= REQ_ENTRY= SEND_ENTRY= MAC_ENTRY= FINAL_LOG= PWD_ENTRY= LOG_ENTRY=
+RENTRY= WENTRY= READ_ENTRY= WRITE_ENTRY= FINAL_READ_ENTRY= FINAL_WRITE_ENTRY=
+NOREAD_ENTRY= NOWRITE_ENTRY= FINAL_NOREAD_ENTRY= FINAL_NOWRITE_ENTRY=
+CMD_ENTRY= FINAL_CMD_ENTRY= CALL_ENTRY= VD_ENTRY= FINAL_VD_ENTRY= 
+NO_VALIDATE="no" a="a" FINAL_BREAK="no" GOOUT="no"
+
+	if [ -f $OPERMI ]
+	then
+		grep "^MACHINE=" $OPERMI > $NULL
+	else
+		echo
+		echo  "------------------------------"
+		echo  "INCOMING SYSTEMS CONFIGURATION"
+		echo  "------------------------------"
+		echo
+		echo  "No Permissions file in /usr/lib/uucp"
+		echo
+		echo  "---------------------------------------"
+		echo  "INCOMING SYSTEMS CONFIGURATION ABORTED"
+		echo  "---------------------------------------"
+		exit 2
+	fi
+	if [ $? = 0 ]
+	then
+	while :
+	do
+	echo
+	echo  "------------------------------"
+	echo  "INCOMING SYSTEMS CONFIGURATION"
+	echo  "------------------------------"
+	echo
+	echo  "You have two choices"
+	echo 
+	echo  "1. Specify a remote system name."
+	echo
+	echo  "2. Specify OTHER; meaning you are specifying options for"
+	echo  "all the other machines not specified in the \"Permissions\""
+	echo  "file but listed in the \"Systems\" file."
+	echo "
+press RETURN if none of the two choices: "$BC
+	echo
+	echo
+	echo  "Please enter your selection (1,2,RETURN): " $BC
+	read START
+	case "$START" in
+	1)
+	while :
+	do
+	echo
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "I. Enter the name of $a system allowed to establish 
+incoming uucp connections,
+
+press RETURN if none: "$BC
+	case $ne in ne) ne=" more" ; a=another ;; esac
+	read RSYSTEM
+	case "$RSYSTEM" in
+	"")	echo
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		echo "End of Incoming Systems Configuration"
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		exit 1
+		break
+		;;
+	esac
+		numchars=`echo "$RSYSTEM"|wc -c`
+		set - $numchars; numchars=$1
+		echo
+		case "$numchars" in
+		[2-8])	break #ok
+			;;
+		9)	break
+			;;
+		10)	break
+			;;
+		11)	break
+			;;
+		12)	break
+			;;
+		13)	break
+			;;
+		14)	break
+			;;
+		15)	break
+			;;
+		*)
+			echo "
+The remote system name must not be greater than fourteen characters.
+"
+			;;
+		esac
+	done
+	break
+	;;
+	2) RSYSTEM="OTHER"
+		break
+		;;
+	"")	echo
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		echo "End of Incoming Systems Configuration"
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		exit 1
+		break
+		;;
+	*) continue
+		;;
+	esac
+	done
+	else
+	echo
+	echo  "------------------------------"
+	echo  "INCOMING SYSTEMS CONFIGURATION"
+	echo  "------------------------------"
+	while :
+	do
+	echo
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "I. Enter the name of $a system allowed to establish 
+incoming uucp connections,
+
+press RETURN if none: "$BC
+	case $ne in ne) ne=" more" ; a=another ;; esac
+	read RSYSTEM
+	case "$RSYSTEM" in
+	"")	echo
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		echo "End of Incoming Systems Configuration"
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		exit 1
+		break
+		;;
+	esac
+		numchars=`echo "$RSYSTEM"|wc -c`
+		set - $numchars; numchars=$1
+		case "$numchars" in
+		[2-8])	break #ok
+			;;
+		9)	break
+			;;
+		10)	break
+			;;
+		11)	break
+			;;
+		12)	break
+			;;
+		13)	break
+			;;
+		14)	break
+			;;
+		15)	break
+			;;
+		*)
+			echo "
+The remote system name must not be greater than fourteen characters.
+"
+			;;
+		esac
+	done
+	fi
+
+# *****************************************************************
+LSYSTEM=$UNAME
+	while :
+	do
+		echo
+		echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+
+		echo  "II. Enter the name of the local system [$LSYSTEM]: "$BC
+		read LSYSTEM_VAR
+		case "$LSYSTEM_VAR" in
+		"")	;;
+		*)	LSYSTEM=$LSYSTEM_VAR
+			;;
+		esac
+		numchars=`echo "$LSYSTEM"|wc -c`
+		set - $numchars; numchars=$1
+		case "$numchars" in
+		[2-8])	break #ok
+			;;
+		9)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS" in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		10)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		11)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		12)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		13)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		14)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		15)echo  "
+WARNING:  system names of over 7 characters may be incompatible with some"
+echo  "older systems."
+			echo  "Do you want to change the system name [yes]: " $BC
+			read ANS
+			case "$ANS"
+			in
+			""|yes) LSYSTEM=$UNAME
+				;;
+			no) break
+				;;
+			esac	
+			;;
+		*)	LSYSTEM=$UNAME
+			echo "
+The remote system name must not be greater than fourteen characters.
+"
+			;;
+		esac
+	done
+
+# *****************************************************************
+# Now set up the MACHINE cmd set up.
+	MAC_ENTRY="MACHINE=$LSYSTEM:$RSYSTEM"
+
+# *****************************************************************
+
+	##  See if an entry already exists in Permissions file
+		grep "^$MAC_ENTRY" $OPERMI > $NULL 
+		if [ $? = 0 ]
+		then
+			echo
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			echo "This system ($RSYSTEM) has an entry in the "
+			echo
+			echo "$OPERMI file"
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			echo
+			GOOUT="yes"
+		else
+			GOOUT="no"
+		fi
+
+# **************************************************************************
+if [ "$GOOUT" = "no" ]
+then
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "III. Specify the login ID. The incoming system can have"
+	echo  "more than one login ID." 
+	echo 
+	if [ ! -f $OPWD.ofc ]
+	then
+		cp $OPWD $OPWD.ofc
+	fi
+	echo
+	echo "Do you want to use the default login ID {U$RSYSTEM} (yes/no): [yes]" $BC
+	read LOGIN_ANS
+	while :
+	do
+		while :
+		do
+		case "$LOGIN_ANS" in
+			yes|y|"")	LOGIN="U$RSYSTEM"
+					break
+					;;
+                        no|n) echo  "Enter the login name" $BC
+                              read LOGIN
+                              numchars=`echo "$LOGIN"|wc -c`
+                                set - $numchars; numchars=$1
+                                case "$numchars" in
+                                [2-9])  break #ok
+                                        ;;
+                                *)      echo "
+The login name may not be greater than eight characters, try again."
+                                        continue
+                                        ;;
+                                esac
+                                ;;
+			*)	echo 
+				echo  "Enter either (yes/no) if you want to enter the default login ID {U$RSYSTEM} [yes]: "$BC
+				read LOGIN_ANS
+				;;
+		esac
+		done
+
+# Now to check if this login is in the /etc/passwd file. If not insert it.
+	[ -f $OPWD ] && set - `grep "^$LOGIN:" $OPWD` 
+	{
+		if [ $? != 0 ]
+		then
+			echo
+			echo  "Enter a comment for $LOGIN ID in the passwd file: "$BC
+			read COMMENT
+			PWD_ENTRY="$LOGIN::4:2:$COMMENT:/usr/spool/uucppublic:/usr/lib/uucp/uucico"
+			echo "$PWD_ENTRY" >> $OPWD
+			echo
+			echo "Please save and quit from the following  edit session,"
+			echo "by entering \":wq\"  after RETURN below,"
+			echo "for the entry to be written into the /etc/passwd file."
+			echo 
+			echo "Invoking 'vipw'."
+			echo "Hit RETURN to continue..."
+			read VAR1
+			/usr/sbin/vipw
+			if [ $? != 0 ]
+			then
+				echo "Could not invoke 'vipw' successfully."
+				echo "Exiting..."
+				exit 2
+			fi
+			echo
+			echo "YOU MUST enter a passwd"
+			/usr/bin/passwd $LOGIN
+			if [ $? != 0 ]
+			then
+				while :
+				do
+					echo "YOU MUST ENTER A PASSWORD"
+					/usr/bin/passwd $LOGIN
+					if [ $? = 0 ]
+					then
+						break
+					fi
+				done
+			fi
+		LOG_ENTRY="$LOG_ENTRY$LOGIN"
+		echo
+		echo "$LOGIN has been entered into the password file."
+		else
+			echo
+			echo "The login ID $LOGIN already exists in the /etc/password file"
+			LOG_ENTRY="$LOG_ENTRY$LOGIN"
+		fi
+	}
+		echo
+		echo  "Do you want to enter another login ID (yes/no): [no] "$BC
+		read ANS
+		while :
+		do
+		case "$ANS" in
+		yes|y)	echo
+			echo  "WARNING: Don't expect to get the VALIDATE option with this multiple login ID"
+			LOG_ENTRY="$LOG_ENTRY$COLON"
+			NO_VALIDATE="yes"
+			LOGIN_ANS="no"
+			FINAL_BREAK="no"
+			break
+			;;
+		no|n|"")	FINAL_BREAK="yes"
+				LOGIN_ANS=
+				break 
+				;;
+		*)	echo 
+			FINAL_BREAK="no"
+			echo  "Enter either (yes/no) if you want to enter another login ID [no]: "$BC
+			read ANS
+		
+			;;
+		esac
+		done
+		if [ "$FINAL_BREAK" = "yes" ]
+		then
+			break
+		fi
+	done
+	FINAL_LOG="LOGNAME=$LOG_ENTRY"
+
+# **************************************************************************
+
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "REQUEST OPTION: This option permits a remote system"
+	echo  "to ask to receive any queued files containing work"
+	echo  "that users on the local system have requested to be"
+	echo  "executed on that remote system."   
+	echo
+	echo  "The default is not to allow such requests."
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Allow the REQUEST option for \"$RSYSTEM\" system(s) (yes/no) [no]:  "$BC
+
+		read OPT
+		case "$OPT" in
+		yes|y)	REQ_ENTRY="REQUEST=yes"
+			;;
+		no|n|"")	;;    
+		*)	continue
+			;;
+		esac
+	break
+	done
+# **************************************************************************
+
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "SENDFILES OPTION: This option permits the local system"
+	echo  "to send queued work to the calling remote system after"
+	echo  "that remote system has completed its current uucico or"
+	echo  "uuxqt operations."
+	echo
+	echo  "The default is to send the local files queued to run on"
+	echo  "the remote system only when the local system contacts the"
+	echo  "remote system."
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Allow the SENDFILES option for the \"$RSYSTEM\" system(s) (yes/call) [call]: "$BC
+		read OPT
+		case "$OPT" in
+		yes|y)	SEND_ENTRY="SENDFILES=yes"
+			;;
+		call|"") ;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+
+# **************************************************************************
+
+	echo 
+	echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "READ and WRITE OPTIONS: These options specify the "
+	echo  "pathnames of locations accessible to the uucico daemon"
+	echo  "when transferring files to or from the local system."
+	echo
+	echo  "The default location for both the READ and WRITE options"
+	echo  "is the $UUHOME directory on the local system."
+	echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Add locations to the READ option for \"$RSYSTEM\" system(s) (yes/no) [no]: "$BC
+		read OPT
+
+		case "$OPT" in
+		yes|y)	echo
+			echo  "Enter the directory pathname/file for READ: " $BC
+			read RENTRY
+			READ_ENTRY=$READ_ENTRY$RENTRY
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another pathname/file for READ (yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter the directory pathname/file: " $BC
+				read RENTRY
+				READ_ENTRY=$READ_ENTRY$COLON$RENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		no|n|"")	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+
+	if [ "$READ_ENTRY" != "" ]
+	then
+		FINAL_READ_ENTRY="READ=$READ_ENTRY"
+	fi
+#**************************************************************************
+	while :
+	do
+		echo
+		echo  "
+Add locations to the WRITE option for \"$RSYSTEM\" system(s) (yes/no) [no]: "$BC
+		read OPT
+
+		case "$OPT" in
+		yes|y)	echo
+			echo  "Enter the directory pathname/file for WRITE: " $BC
+			read WENTRY
+			WRITE_ENTRY=$WRITE_ENTRY$WENTRY
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another pathname/file for WRITE (yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter the directory pathname/file: " $BC
+				read WENTRY
+				WRITE_ENTRY=$WRITE_ENTRY$COLON$WENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		no|n|"")	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+	if [ "$WRITE_ENTRY" != "" ]
+	then
+		FINAL_WRITE_ENTRY="WRITE=$WRITE_ENTRY"
+	fi
+
+# **************************************************************************
+
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "NOREAD and NOWRITE OPTIONS: These options specify the "
+	echo  "exceptions to the READ and WRITE options"
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Add locations to the NOREAD option for \"$RSYSTEM\" system(s) (yes/no) [no]: "$BC
+		read OPT
+
+		case "$OPT" in
+		yes|y)	echo
+			echo  "Enter the directory pathname/file for NOREAD: " $BC
+			read RENTRY
+			NOREAD_ENTRY=$NOREAD_ENTRY$RENTRY
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another pathname/file for NOREAD (yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter the directory pathname/file: " $BC
+				read RENTRY
+				NOREAD_ENTRY=$NOREAD_ENTRY$COLON$RENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		no|n|"")	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+
+	if [ "$NOREAD_ENTRY" != "" ]
+	then
+		FINAL_NOREAD_ENTRY="NOREAD=$NOREAD_ENTRY"
+	fi
+#**************************************************************************
+	while :
+	do
+		echo
+		echo  "
+Add locations to the NOWRITE option for \"$RSYSTEM\" system(s) (yes/no) [no]: "$BC
+		read OPT
+
+		case "$OPT" in
+		yes|y)	echo
+			echo  "Enter the directory pathname/file for NOWRITE: " $BC
+			read WENTRY
+			NOWRITE_ENTRY=$NOWRITE_ENTRY$WENTRY
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another pathname/file for NOWRITE (yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter the directory pathname/file: " $BC
+				read WENTRY
+				NOWRITE_ENTRY=$NOWRITE_ENTRY$COLON$WENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		no|n|"")	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+	if [ "$NOWRITE_ENTRY" != "" ]
+	then
+		FINAL_NOWRITE_ENTRY="NOWRITE=$NOWRITE_ENTRY"
+	fi
+
+# **************************************************************************
+
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "COMMANDS OPTION: This option specifies the commands"
+	echo  "that remote systems listed in the MACHINE entry can"
+	echo  "can execute on the local system"
+	echo  "USE IT WITH EXTREME CARE"
+	echo
+	echo  "The option ALL allows the remote system to execute all"
+	echo  "the available OSF/1 commands on the local system."
+	echo
+	echo  "Answer \"yes\" to specify commands that this remote"
+        echo  "system can execute on the local machine."
+	echo
+	echo  "The default is rmail for the COMMANDS OPTION."
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Please enter your selection for COMMANDS OPTION for \"$RSYSTEM\" system(s)"
+		echo  "(yes/ALL/default) [default]:" $BC
+		read OPT
+
+		case "$OPT" in
+		yes|y)	echo
+			echo  "Commands are entered separately"
+			echo  "You will be prompted for additional commands"
+			echo
+			echo  "Enter a single command/pathname: " $BC
+			read CMDENTRY
+			CMD_ENTRY=$CMDENTRY
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another command/pathname for \"$RSYSTEM\" system(s)"
+			echo "(yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter a single command/pathname: " $BC
+				read CMDENTRY
+				CMD_ENTRY=$CMD_ENTRY$COLON$CMDENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		default|"")	;;
+		ALL)	CMD_ENTRY="ALL"
+			;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+	if [ "$CMD_ENTRY" != "" ]
+	then
+		FINAL_CMD_ENTRY="COMMANDS=$CMD_ENTRY"
+	fi
+
+# **************************************************************************
+
+if [ "$NO_VALIDATE" = "no" ]
+then
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "VALIDATE OPTION: This option verifies the identity of"
+	echo  "the calling remote computer. Using this option means"
+	echo  "that the calling remote system must have a unique login ID"
+	echo  "and password for file transfers and command execution."
+	echo
+	echo  "The default is to use the VALIDATE OPTION."
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Please enter your selection for VALIDATE OPTION for \"$RSYSTEM\" system(s)"
+		echo  "(yes/no) [yes]:" $BC
+		read OPT
+
+		case "$OPT" in
+		yes|y|"")	echo
+			VENTRY=$RSYSTEM
+			VD_ENTRY=$VD_ENTRY$VENTRY
+			echo
+			echo  "You have selected to enable the VALIDATE option.  Any remote system"
+			echo  "using the login id \"$LOG_ENTRY\" should be listed in the"
+			echo  "VALIDATE option.  System \"$RSYSTEM\" has already been added"
+			while :
+			do
+			echo 
+			echo  "Do you want to enter another machine name to use login id \"$LOG_ENTRY\""
+			echo "(yes/no) [no]: "$BC
+			read ANS
+			case "$ANS" in
+			yes|y)	echo  
+				echo  "Enter the machine name: " $BC
+				read VENTRY
+				VD_ENTRY=$VD_ENTRY$COLON$VENTRY
+				;;
+			no|n|"")	break
+				;;
+			*)	continue
+				;;
+			esac
+			done
+			;;
+		no|n)	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+	if [ "$VD_ENTRY" != "" ]
+	then
+		FINAL_VD_ENTRY="VALIDATE=$VD_ENTRY"
+	fi
+fi
+# **************************************************************************
+
+	echo 
+	echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "CALLBACK OPTION: If the option is specified then the"
+	echo  "local system has to contact the remote system before that"
+	echo  "remote system transfers any files to the local system."
+	echo
+	echo  "The default is [no], which specifies that the remote system"
+	echo  "may contact the local system and begin transferring files"
+	echo  "without the local system initiating the connection."
+	echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		echo  "
+Allow the CALLBACK option for \"$RSYSTEM\" system(s) (yes/no) [no]: "$BC
+
+		read OPT
+		case "$OPT" in
+		yes|y)	CALL_ENTRY="CALLBACK=yes"
+			;;
+		no|n|"")	;;
+		*)	continue
+			;;
+		esac
+	break
+	done
+
+# **************************************************************************
+
+# Creating entries:
+
+	FINAL_ENTRY_MACH="$MAC_ENTRY $REQ_ENTRY $FINAL_READ_ENTRY $FINAL_WRITE_ENTRY $FINAL_NOREAD_ENTRY $FINAL_NOWRITE_ENTRY $FINAL_CMD_ENTRY" 
+
+	FINAL_ENTRY_LOG="$FINAL_LOG $REQ_ENTRY $SEND_ENTRY $FINAL_READ_ENTRY $FINAL_WRITE_ENTRY $FINAL_NOREAD_ENTRY $FINAL_NOWRITE_ENTRY $CALL_ENTRY $FINAL_VD_ENTRY"
+
+        echo "$FINAL_ENTRY_MACH" >> $OPERMI
+        echo "$FINAL_ENTRY_LOG" >> $OPERMI
+	echo
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "Finished Adding \"$RSYSTEM\" as an incoming system"
+	echo  "Updated PERMISSIONS FILE"
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "The options using default values are not written"
+	echo  "into the Permissions File."
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+fi # GOOUT=no
+
+if [ "$GOOUT" = "yes" ]
+then
+	while :
+	do
+	echo  "Would like to configure another system as an incoming"
+	echo  "uucp connection (yes/no) [yes]:" $BC
+	read ANOTHER
+	case "$ANOTHER" in
+	yes|y|"") break
+		;;
+	no|n)   echo
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		echo "End of Incoming Systems Configuration"
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		exit 2
+		;;
+	*) continue
+		;;
+	esac
+	done
+fi # GOOUT=yes
+
+done	# while :
+

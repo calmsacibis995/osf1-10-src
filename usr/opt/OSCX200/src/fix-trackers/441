@@ -1,0 +1,109 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9209102138.AA24316@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2669) close XBUG #5485: Xlib: (Xsi) XCreateFontSet calls free() with NULL
+Date: Thu, 10 Sep 92 17:38:05 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5485
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d24288	Thu Sep 10 17:36:40 1992
+--- lib/X/Xsi/XCrFntSet.c	Thu Sep 10 17:07:21 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCrFntSet.c,v 1.47 92/06/27 21:54:20 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCrFntSet.c,v 1.48 92/09/10 17:06:53 rws Exp $
+   */
+  
+  /*
+***************
+*** 416,422 ****
+      char       **list;
+      int		 count;
+      int		 cset_count;
+!     char	*fn;
+      int		 ret = 0;
+      _CSID	 i;
+  
+--- 416,422 ----
+      char       **list;
+      int		 count;
+      int		 cset_count;
+!     char	*fn = NULL;
+      int		 ret = 0;
+      _CSID	 i;
+  
+***************
+*** 450,458 ****
+  #else /* PRELOAD */
+  		if (!info)
+  		    list = XListFontsWithInfo(dpy, fname, 1, &count, &info);
+  		if(! (s_tmp[i] = (XFontStruct *) Xmalloc(sizeof(XFontStruct)))){
+! 		    Xfree((char *)fn);
+! 		    return ret;
+  		}
+  # ifndef MUSTCOPY
+  		s_tmp[i] = info[0];
+--- 450,461 ----
+  #else /* PRELOAD */
+  		if (!info)
+  		    list = XListFontsWithInfo(dpy, fname, 1, &count, &info);
++ 		    if (count != 1) {
++ 			/* never go to here. */
++ 			goto _err_return;
++ 		    }
+  		if(! (s_tmp[i] = (XFontStruct *) Xmalloc(sizeof(XFontStruct)))){
+! 		    goto _err_return;
+  		}
+  # ifndef MUSTCOPY
+  		s_tmp[i] = info[0];
+***************
+*** 464,471 ****
+  #endif /* PRELOAD */
+  		id_tmp[i] = cset->cs_id;
+  		if(! (f_tmp[i] = (char *) Xmalloc(strlen(fn) + 1))) {
+! 		    Xfree((char *)fn);
+! 		    return --ret;
+  		}
+  		strcpy(f_tmp[i], fn);
+  	    } else {
+--- 467,474 ----
+  #endif /* PRELOAD */
+  		id_tmp[i] = cset->cs_id;
+  		if(! (f_tmp[i] = (char *) Xmalloc(strlen(fn) + 1))) {
+! 		    --ret;
+! 		    goto _err_return;
+  		}
+  		strcpy(f_tmp[i], fn);
+  	    } else {
+***************
+*** 477,483 ****
+      if (info) {
+  	XFreeFontInfo(list, info, count);
+      }
+!     Xfree((char *)fn);
+      return ret;
+  
+  }
+--- 480,486 ----
+      if (info) {
+  	XFreeFontInfo(list, info, count);
+      }
+!     if (fn) Xfree((char *)fn);
+      return ret;
+  
+  }

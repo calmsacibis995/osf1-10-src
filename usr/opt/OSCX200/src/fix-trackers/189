@@ -1,0 +1,296 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203162256.AA08158@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2412) close XBUG #4408: lndir should not link "CVS.adm"
+Date: Mon, 16 Mar 92 17:56:29 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: util: lndir should not link "CVS.adm"
+        ### bug number:   4408
+        ### area:         util
+        ### severity:     enhancement
+
+Also enhanced lndir.sh to correctly handle files with Spaces or Tabs
+in their names.
+
+*** /tmp/da08057	Mon Mar 16 17:53:17 1992
+--- util/scripts/lndir.sh	Mon Mar 16 17:52:52 1992
+***************
+*** 2,13 ****
+  
+  # lndir - create shadow link tree
+  #
+! # $XConsortium: lndir.sh,v 1.8 91/04/15 17:55:03 rws Exp $
+  #
+  # Used to create a copy of the a directory tree that has links for all
+! # non- directories (except those named RCS or SCCS).  If you are
+  # building the distribution on more than one machine, you should use
+! # this script.
+  #
+  # If your master sources are located in /usr/local/src/X and you would like
+  # your link tree to be in /usr/local/src/new-X, do the following:
+--- 2,13 ----
+  
+  # lndir - create shadow link tree
+  #
+! # $XConsortium: lndir.sh,v 1.10 92/03/16 17:52:17 gildea Exp $
+  #
+  # Used to create a copy of the a directory tree that has links for all
+! # non-directories (except those named RCS, SCCS or CVS.adm).  If you are
+  # building the distribution on more than one machine, you should use
+! # this technique.
+  #
+  # If your master sources are located in /usr/local/src/X and you would like
+  # your link tree to be in /usr/local/src/new-X, do the following:
+***************
+*** 24,39 ****
+  	exit 1
+  fi
+  
+! DIRFROM=$1
+  
+  if [ $# -eq 2 ];
+  then
+! 	DIRTO=$2
+  else
+  	DIRTO=.
+  fi
+  
+! if [ ! -d $DIRTO ]
+  then
+  	echo "$0: $DIRTO is not a directory"
+  	echo "$USAGE"
+--- 24,39 ----
+  	exit 1
+  fi
+  
+! DIRFROM="$1"
+  
+  if [ $# -eq 2 ];
+  then
+! 	DIRTO="$2"
+  else
+  	DIRTO=.
+  fi
+  
+! if [ ! -d "$DIRTO" ]
+  then
+  	echo "$0: $DIRTO is not a directory"
+  	echo "$USAGE"
+***************
+*** 40,48 ****
+  	exit 2
+  fi
+  
+! cd $DIRTO
+  
+! if [ ! -d $DIRFROM ]
+  then
+  	echo "$0: $DIRFROM is not a directory"
+  	echo "$USAGE"
+--- 40,48 ----
+  	exit 2
+  fi
+  
+! cd "$DIRTO"
+  
+! if [ ! -d "$DIRFROM" ]
+  then
+  	echo "$0: $DIRFROM is not a directory"
+  	echo "$USAGE"
+***************
+*** 51,85 ****
+  
+  pwd=`pwd`
+  
+! if [ `(cd $DIRFROM; pwd)` = $pwd ]
+  then
+  	echo "$pwd: FROM and TO are identical!"
+  	exit 1
+  fi
+  
+  for file in `ls -af $DIRFROM`
+  do
+!     if [ ! -d $DIRFROM/$file ]
+      then
+! 	    ln -s $DIRFROM/$file .
+      else
+! 	    if [ $file != RCS -a $file != SCCS -a $file != . -a $file != .. ]
+! 	    then
+! 		    echo $file:
+! 		    mkdir $file
+! 		    (cd $file
+! 		     pwd=`pwd`
+! 		     case "$DIRFROM" in
+! 			     /*) ;;
+! 			     *)  DIRFROM=../$DIRFROM ;;
+! 		     esac
+! 		     if [ `(cd $DIRFROM/$file; pwd)` = $pwd ]
+! 		     then
+! 			    echo "$pwd: FROM and TO are identical!"
+! 			    exit 1
+! 		     fi
+! 		     $0 $DIRFROM/$file
+! 		    )
+! 	    fi
+      fi
+  done
+--- 51,92 ----
+  
+  pwd=`pwd`
+  
+! frompwd=`(cd "$DIRFROM"; pwd)`
+! if [ "$frompwd" = "$pwd" ]
+  then
+  	echo "$pwd: FROM and TO are identical!"
+  	exit 1
+  fi
+  
++ # parse output of "ls" below more carefully
++ IFS='
++ '
+  for file in `ls -af $DIRFROM`
+  do
+!     if [ ! -d "$DIRFROM/$file" ]
+      then
+! 	    ln -s "$DIRFROM/$file" .
+      else
+! 	    case "$file" in
+! 	        .|..|RCS|SCCS|CVS.adm)
+! 		    continue
+! 		    ;;
+! 	    esac
+! 	    echo "$file:"
+! 	    mkdir "$file"
+! 	    (cd "$file"
+! 	     pwd=`pwd`
+! 	     case "$DIRFROM" in
+! 		     /*) ;;
+! 		     *)  DIRFROM="../$DIRFROM" ;;
+! 	     esac
+! 	     frompwd=`(cd "$DIRFROM/$file"; pwd)`
+! 	     if [ "$frompwd" = "$pwd" ]
+! 	     then
+! 		    echo "$pwd: FROM and TO are identical!"
+! 		    exit 1
+! 	     fi
+! 	     $0 "$DIRFROM/$file"
+! 	    )
+      fi
+  done
+*** /tmp/da08074	Mon Mar 16 17:53:19 1992
+--- util/scripts/lndir.man	Mon Mar 16 17:51:22 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: lndir.man,v 1.4 92/03/16 17:50:11 gildea Exp $
+  .TH LNDIR 1 "Release 5" "X Version 11"
+  .SH NAME
+  lndir \- create a shadow directory of symbolic links to another directory tree
+***************
+*** 36,45 ****
+  (not the current directory).
+  .PP 
+  .ft B
+! Note that RCS and SCCS directories are not shadowed.
+  .ft
+  .PP
+! Note that if you add files, you must run
+  .I lndir
+  again.  Deleting files is a more painful problem; the symlinks will
+  just point into never never land.
+--- 37,47 ----
+  (not the current directory).
+  .PP 
+  .ft B
+! .\" CVS.adm is used by the Concurrent Versions System.
+! Note that RCS, SCCS, and CVS.adm directories are not shadowed.
+  .ft
+  .PP
+! If you add files, simply run
+  .I lndir
+  again.  Deleting files is a more painful problem; the symlinks will
+  just point into never never land.
+***************
+*** 51,61 ****
+  .PP
+  You need to use something like
+  .nf
+! 	find todir -type l -print | xargs rm
+  .fi
+  to clear out all files before you can relink (if fromdir moved, for instance).
+  Something like
+  .nf
+! 	 find . \\! -type d -print
+  .fi
+  will find all files that are not directories.
+--- 53,63 ----
+  .PP
+  You need to use something like
+  .nf
+! 	find todir \-type l \-print | xargs rm
+  .fi
+  to clear out all files before you can relink (if fromdir moved, for instance).
+  Something like
+  .nf
+! 	 find . \\! \-type d \-print
+  .fi
+  will find all files that are not directories.
+*** /tmp/da08105	Mon Mar 16 17:53:49 1992
+--- util/progs/lndir.c	Mon Mar 16 17:53:38 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: lndir.c,v 1.5 91/07/21 15:52:11 rws Exp $ */
+  /* Create shadow link tree (after X11R4 script of the same name)
+     Mark Reinhold (mbr@lcs.mit.edu)/3 January 1990 */
+  
+--- 1,4 ----
+! /* $XConsortium: lndir.c,v 1.6 92/03/16 17:53:30 gildea Exp $ */
+  /* Create shadow link tree (after X11R4 script of the same name)
+     Mark Reinhold (mbr@lcs.mit.edu)/3 January 1990 */
+  
+***************
+*** 17,29 ****
+  
+  /* From the original /bin/sh script:
+  
+!    Used to create a copy of the a directory tree that has links for all
+!    non-directories (except those named RCS or SCCS).  If you are
+!    building the distribution on more than one machine, you should use
+!    this script.
+  
+!    If your master sources are located in /usr/local/src/X and you would like
+!    your link tree to be in /usr/local/src/new-X, do the following:
+  
+     	%  mkdir /usr/local/src/new-X
+  	%  cd /usr/local/src/new-X
+--- 17,29 ----
+  
+  /* From the original /bin/sh script:
+  
+!   Used to create a copy of the a directory tree that has links for all
+!   non-directories (except those named RCS, SCCS or CVS.adm).  If you are
+!   building the distribution on more than one machine, you should use
+!   this technique.
+  
+!   If your master sources are located in /usr/local/src/X and you would like
+!   your link tree to be in /usr/local/src/new-X, do the following:
+  
+     	%  mkdir /usr/local/src/new-X
+  	%  cd /usr/local/src/new-X
+***************
+*** 136,141 ****
+--- 136,143 ----
+  		if (!strcmp (dp->d_name, "RCS"))
+  		    continue;
+  		if (!strcmp (dp->d_name, "SCCS"))
++ 		    continue;
++ 		if (!strcmp (dp->d_name, "CVS.adm"))
+  		    continue;
+  		if (!silent)
+  		    printf ("%s:\n", buf);

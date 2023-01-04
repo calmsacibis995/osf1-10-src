@@ -1,0 +1,118 @@
+#!/sbin/sh
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+#
+# @(#)$RCSfile: .mrg..so_locations,v $ $Revision: 1.1.2.3 $ (DEC) $Date: 1993/08/12 21:23:13 $
+#
+
+
+MERGE_ROUTINE=DRI_Merge
+
+
+#	-DRI_Merge
+#		merge routine provided by the DRIs.
+#
+#	given: 	global variable  $_FILE $_NEWFILE $_TMPFILE
+#	return: 0 if success
+#		non-zero if failure
+#
+#	Note:	1) use MRG_Echo() to output additional messages.
+#		2) see also /usr/share/lib/shell/libmrg for other available 
+#		   global variables.
+
+DRI_Merge()
+{
+	case "$_FILE" in
+	.proto..*)
+		# no ToProto merge
+		return 0
+		;;
+	esac
+
+
+        # Copy the new so_locations file to a working file
+
+	cp $_NEWFILE $_TMPFILE
+
+	# Add all libraries listed in the current so_locations file
+	# which are not in the new so_locations file.
+	#
+	# The so_locations format can be described as:
+	#
+	#     '#' in first column indicates a comment
+	#
+	#     '$' in first column indicates a parameter assignment
+	#
+	#     Any other non-blank lines are composed as shown below
+	#        libname   :segment1: :segment2:
+	#
+	#     '\' at the end of line indicates the entry is continued
+	#         on the next line
+	#
+	# A typical entry as written by ld is shown below.  The trailing
+	# blank line is included as part of the entry.  This is required
+	# by the last continuation character.
+	#
+	# libmach.so \
+	#       :st = .text 0x000003ff80850000, 0x0000000000010000:\
+	#       :st = .data 0x000003ffc03d0000, 0x0000000000010000:\
+	#
+	# This implementation does not yet work for all hand-modified versions
+	# of so_locations.  This version will ignore entries in which
+	# the library name is on the same physical line as the ':segment1:'
+	# This will be fixed in a future version of this file.
+	#
+
+	FILELIST=`grep -v '^#' "$_FILE" | expand | grep -v ':' | \
+		grep -v '^\$' | grep -v '^ ' | fgrep '\' | tr '\' ' ' | \
+		cut -d' ' -f1`
+
+	for FILENM in $FILELIST	
+	{
+		grep -q "$FILENM" $_NEWFILE ||
+		{
+			grep -v '^#' "$_FILE" |
+				grep -v '^\$' |
+				sed 's/^[^:]*$/#&/' | tr '#' '\012' |
+				grep -p `echo "$FILENM" | sed 's/\./\\./'`
+		}
+	} >> "$_TMPFILE"
+
+	#
+	# Replace the so_locations file with the working file
+	#
+	rm $_FILE
+	mv $_TMPFILE $_FILE
+	#
+
+	return 0
+}
+
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 
+

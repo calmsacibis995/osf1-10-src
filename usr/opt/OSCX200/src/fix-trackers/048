@@ -1,0 +1,104 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112120100.AA01140@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2271) close XBUG #4753 and #4755: fontlib: Server can crash if fails to read fonts.dir correctly; font code leaks ~44k bytes per server reset
+Date: Wed, 11 Dec 91 20:00:15 EST
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: fontlib: Server can crash if fails to read fonts.dir correctly
+        ### bug number:   4753
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     fixed
+
+        Subject: fontlib: font code leaks ~44k bytes per server reset
+        ### bug number:   4755
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     fixed
+
+*** /tmp/,RCSt1K_wBIj	Wed Dec 11 19:51:50 1991
+--- fonts/lib/font/fontfile/dirfile.c	Wed Dec 11 19:49:40 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: dirfile.c,v 1.4 91/07/25 18:05:10 rws Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: dirfile.c,v 1.5 91/12/11 19:49:06 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 69,77 ****
+--- 69,82 ----
+  	    return BadFontPath;
+  	}
+  	dir = FontFileMakeDir(directory, i);
++ 	if (dir == NULL) {
++ 	    fclose(file);
++ 	    return BadFontPath;
++ 	}
+  	dir->dir_mtime = statb.st_mtime;
+  	while ((count = fscanf(file, "%s %[^\n]\n", file_name, font_name)) != EOF) {
+  	    if (count != 2) {
++ 		FontFileFreeDir (dir);
+  		fclose(file);
+  		return BadFontPath;
+  	    }
+***************
+*** 78,83 ****
+--- 83,89 ----
+  	    if (!FontFileAddFontFile (dir, font_name, file_name))
+  	    {
+  		FontFileFreeDir (dir);
++ 		fclose(file);
+  		return BadFontPath;
+  	    }
+  	}
+*** /tmp/,RCSt1K%YCKs	Wed Dec 11 19:51:52 1991
+--- fonts/lib/font/fontfile/fontdir.c	Wed Dec 11 19:49:30 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: fontdir.c,v 1.5 91/07/16 20:13:27 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: fontdir.c,v 1.6 91/12/11 19:46:47 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 50,55 ****
+--- 50,58 ----
+  {
+      FontScalableExtraPtr   extra;
+  
++     if (entry->name.name)
++ 	xfree(entry->name.name);
++ 
+      switch (entry->type)
+      {
+      case FONT_ENTRY_SCALABLE:
+***************
+*** 122,127 ****
+--- 125,131 ----
+  {
+      FontFileFreeTable (&dir->scalable);
+      FontFileFreeTable (&dir->nonScalable);
++     xfree(dir);
+  }
+  
+  FontEntryPtr

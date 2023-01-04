@@ -1,0 +1,1707 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9208241312.AA09684@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2659) close XBUG #3726,#3792,#4609,#5121,#5427: makedepend fixes
+Date: Mon, 24 Aug 92 09:11:57 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: makedepend speed enhancement
+### bug number:   3726
+### area:         config
+### severity:     enhancement
+### comments:   
+
+Subject: makedepend should have -Y or something like it
+### bug number:   3792
+### area:         config
+### severity:     enhancement
+### comments:     very low priority
+
+Subject: config: makedepend core dumps w/ 19 -I arguments
+### bug number:   4609
+### area:         config
+### severity:     low
+### comments:     
+
+Subject: config: makedepend: add #if processing (finally)
+### bug number:   5121
+### area:         config
+### severity:     low
+### comments:     
+
+Subject: config: makedepend uses a wrong directory list for include searches with gcc-2
+### bug number:   5427
+### area:         config
+### severity:     low
+### comments:     
+
+*** /tmp/d08960	Sat Aug 22 16:52:18 1992
+--- config/cray.cf	Sat Aug 22 11:39:16 1992
+***************
+*** 1,4 ****
+! XCOMM platform:  $XConsortium: cray.cf,v 1.31 91/07/16 16:24:17 rws Exp $
+  
+  #define OSName			UNICOS 5.1
+  XCOMM operating system:  OSName
+--- 1,4 ----
+! XCOMM platform:  $XConsortium: cray.cf,v 1.32 92/08/22 11:39:06 rws Exp $
+  
+  #define OSName			UNICOS 5.1
+  XCOMM operating system:  OSName
+***************
+*** 15,20 ****
+--- 15,21 ----
+  #define BuildServer		NO
+  #define BuildPex		NO
+  #define CcCmd			scc
++ #define PostIncDir		/usr/include/stdc
+  #define ConnectionFlags		-DTCPCONN 
+  #define HasShm			NO
+  
+*** /tmp/d08979	Sat Aug 22 16:52:27 1992
+--- config/Mips.cf	Sat Aug 22 11:42:02 1992
+***************
+*** 9,15 ****
+  #define OSMajorVersion    4
+  #define OSMinorVersion    50
+  
+! /**/# platform:  $XConsortium: Mips.cf,v 1.10 91/07/30 20:47:59 rws Exp $
+  /**/# operating system:  OSName
+  
+  /*****************************************************************************
+--- 9,15 ----
+  #define OSMajorVersion    4
+  #define OSMinorVersion    50
+  
+! /**/# platform:  $XConsortium: Mips.cf,v 1.11 92/08/22 11:41:51 rws Exp $
+  /**/# operating system:  OSName
+  
+  /*****************************************************************************
+***************
+*** 26,31 ****
+--- 26,32 ----
+  
+  #define DefaultCCOptions -signed -systype bsd43 -Olimit 2000 -Wf,-XNd8400,-XNp12000
+  #define StandardDefines -DMips -DBSD43
++ #define PostIncDir /usr/include/bsd43
+  #define ExtraLibraries -lmld
+  #define ArCmd ar clr
+  #define BootstrapCFlags -DMips
+*** /tmp/d08998	Sat Aug 22 16:52:36 1992
+--- config/luna.cf	Sat Aug 22 14:51:06 1992
+***************
+*** 1,4 ****
+! XCOMM platform:  $XConsortium: luna.cf,v 1.16 91/08/26 11:23:34 rws Exp $
+  /*
+   *	Please set the values for OSMajorVerion and OSMinorVersion
+   *	before making makefiles.	 
+--- 1,4 ----
+! XCOMM platform:  $XConsortium: luna.cf,v 1.18 92/08/22 14:50:54 rws Exp $
+  /*
+   *	Please set the values for OSMajorVerion and OSMinorVersion
+   *	before making makefiles.	 
+***************
+*** 62,71 ****
+  #define ServerOSDefines -DUNUSE_DRV_TIME -DUNUSE_SIGIO_SIGNAL 
+  #endif
+  #define HasNdbm			YES
+! #ifdef HasGcc
+  #define CcCmd                   gcc -fstrength-reduce
+  #define OptimizedCDebugFlags    -O2 /* -traditional */
+  #endif
+  #endif
+  
+  #ifdef Mc68000Architecture
+--- 62,75 ----
+  #define ServerOSDefines -DUNUSE_DRV_TIME -DUNUSE_SIGIO_SIGNAL 
+  #endif
+  #define HasNdbm			YES
+! #if HasGcc
+  #define CcCmd                   gcc -fstrength-reduce
++ #define PreIncDir		/usr/local/lib/gcc/gcc-include
+  #define OptimizedCDebugFlags    -O2 /* -traditional */
++ #else
++ #define PreIncDir		/usr/lib/ccom/include
+  #endif
++ #define PostIncDir		/usr/mach/include
+  #endif
+  
+  #ifdef Mc68000Architecture
+*** /tmp/d09017	Sat Aug 22 16:52:46 1992
+--- config/imakemdep.h	Sat Aug 22 16:42:59 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: imakemdep.h,v 1.42 92/05/29 18:40:52 rws Exp $
+   * 
+   * This file contains machine-dependent constants for the imake utility.
+   * When porting imake, read each of the steps below and add in any necessary
+--- 1,5 ----
+  /*
+!  * $XConsortium: imakemdep.h,v 1.43 92/08/22 16:42:41 rws Exp $
+   * 
+   * This file contains machine-dependent constants for the imake utility.
+   * When porting imake, read each of the steps below and add in any necessary
+***************
+*** 373,378 ****
+--- 373,384 ----
+  #endif
+  #ifdef hcx
+  	{"hcx", "1"},
++ #endif
++ #ifdef sony
++ 	{"sony", "1"},
++ #ifdef SYSTYPE_SYSV
++ 	{"SYSTYPE_SYSV", "1"},
++ #endif
+  #endif
+  #ifdef __OSF1__
+  	{"__OSF1__", "1"},
+*** /tmp/d09040	Sat Aug 22 16:53:04 1992
+--- util/makedepend/mkdepend.man	Sat Aug 22 14:58:21 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: mkdepend.man,v 1.9 92/08/22 14:57:52 rws Exp $
+  .TH MAKEDEPEND 1 "Release 5" "X Version 11"
+  .UC 4
+  .SH NAME
+***************
+*** 11,16 ****
+--- 12,19 ----
+  ] [
+  .B \-Iincludedir
+  ] [
++ .B \-Yincludedir
++ ] [
+  .B \-a
+  ] [
+  .B \-fmakefile
+***************
+*** 146,153 ****
+  directive.
+  By default,
+  .B makedepend
+! only searches /usr/include.
+  .TP 5
+  .B \-a
+  Append the dependencies to the end of the file instead of replacing them. 
+  .TP 5
+--- 149,163 ----
+  directive.
+  By default,
+  .B makedepend
+! only searches the standard include directories (usually /usr/include
+! and possibly a compiler-dependent directory).
+  .TP 5
++ .B \-Yincludedir
++ Replace all of the standard include directories with the single specified
++ include directory; you can omit the
++ .I includedir
++ to simply prevent searching the standard include directories.
++ .TP 5
+  .B \-a
+  Append the dependencies to the end of the file instead of replacing them. 
+  .TP 5
+***************
+*** 280,298 ****
+  .SH "SEE ALSO"
+  cc(1), make(1)
+  .SH BUGS
+- If you do not have the source for cpp, the Berkeley C preprocessor,
+- then
+  .B makedepend
+! will be compiled in such a way that all
+! .I #if
+! directives will evaluate to "false" regardless of their actual value.
+  This may cause the wrong
+  .I #include
+  directives to be evaluated.
+- .B Makedepend
+- should simply have its own parser written for
+- .I #if
+- expressions.
+  .PP
+  Imagine you are parsing two files,
+  say
+--- 290,302 ----
+  .SH "SEE ALSO"
+  cc(1), make(1)
+  .SH BUGS
+  .B makedepend
+! parses, but does not currently evaluate, the SVR4
+! #predicate(token-list) preprocessor expression;
+! such expressions are simply assumed to be true.
+  This may cause the wrong
+  .I #include
+  directives to be evaluated.
+  .PP
+  Imagine you are parsing two files,
+  say
+*** /tmp/d09059	Sat Aug 22 16:53:14 1992
+--- util/makedepend/main.c	Sat Aug 22 14:37:02 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: main.c,v 1.58 92/06/01 19:59:25 rws Exp $
+   */
+  #include "def.h"
+  #ifdef hpux
+--- 1,5 ----
+  /*
+!  * $XConsortium: main.c,v 1.64 92/08/22 14:36:58 rws Exp $
+   */
+  #include "def.h"
+  #ifdef hpux
+***************
+*** 42,53 ****
+  #include "imakemdep.h"	/* from config sources */
+  #undef MAKEDEPEND
+  
+- struct symtab	deflist[ MAXDEFINES ];
+  struct	inclist inclist[ MAXFILES ],
+! 		*inclistp = inclist;
+  
+  char	*filelist[ MAXFILES ];
+! char	*includedirs[ MAXDIRS ];
+  char	*notdotdot[ MAXDIRS ];
+  char	*objprefix = "";
+  char	*objsuffix = ".o";
+--- 42,53 ----
+  #include "imakemdep.h"	/* from config sources */
+  #undef MAKEDEPEND
+  
+  struct	inclist inclist[ MAXFILES ],
+! 		*inclistp = inclist,
+! 		maininclist;
+  
+  char	*filelist[ MAXFILES ];
+! char	*includedirs[ MAXDIRS + 1 ];
+  char	*notdotdot[ MAXDIRS ];
+  char	*objprefix = "";
+  char	*objsuffix = ".o";
+***************
+*** 89,95 ****
+  	int	argc;
+  	char	**argv;
+  {
+- 	register struct symtab	*symp = deflist;
+  	register char	**fp = filelist;
+  	register char	**incp = includedirs;
+  	register char	*p;
+--- 89,94 ----
+***************
+*** 98,108 ****
+  	struct filepointer	*filecontent;
+  	struct symtab *psymp = predefs;
+  	char *endmarker = NULL;
+  
+  	ProgramName = argv[0];
+  
+  	while (psymp->s_name)
+! 	    *symp++ = *psymp++;
+  	for(argc--, argv++; argc; argc--, argv++) {
+  	    	/* if looking for endmarker then check before parsing */
+  		if (endmarker && strcmp (endmarker, *argv) == 0) {
+--- 97,111 ----
+  	struct filepointer	*filecontent;
+  	struct symtab *psymp = predefs;
+  	char *endmarker = NULL;
++ 	char *defincdir = NULL;
+  
+  	ProgramName = argv[0];
+  
+  	while (psymp->s_name)
+! 	{
+! 	    define2(psymp->s_name, psymp->s_value, &maininclist);
+! 	    psymp++;
+! 	}
+  	for(argc--, argv++; argc; argc--, argv++) {
+  	    	/* if looking for endmarker then check before parsing */
+  		if (endmarker && strcmp (endmarker, *argv) == 0) {
+***************
+*** 122,139 ****
+  			if (endmarker[0] == '\0') endmarker = "--";
+  			break;
+  		case 'D':
+! 			symp->s_name = argv[0]+2;
+! 			if (*symp->s_name == '\0') {
+! 				symp->s_name = *(++argv);
+  				argc--;
+  			}
+! 			for (p=symp->s_name; *p ; p++)
+  				if (*p == '=') {
+! 					*p++ = '\0';
+  					break;
+  				}
+! 			symp->s_value = p;
+! 			symp++;
+  			break;
+  		case 'I':
+  			if (incp >= includedirs + MAXDIRS)
+--- 125,140 ----
+  			if (endmarker[0] == '\0') endmarker = "--";
+  			break;
+  		case 'D':
+! 			if (argv[0][2] == '\0') {
+! 				argv++;
+  				argc--;
+  			}
+! 			for (p=argv[0] + 2; *p ; p++)
+  				if (*p == '=') {
+! 					*p = ' ';
+  					break;
+  				}
+! 			define(argv[0] + 2, &maininclist);
+  			break;
+  		case 'I':
+  			if (incp >= includedirs + MAXDIRS)
+***************
+*** 144,149 ****
+--- 145,153 ----
+  				argc--;
+  			}
+  			break;
++ 		case 'Y':
++ 			defincdir = argv[0]+2;
++ 			break;
+  		/* do not use if endmarker processing */
+  		case 'a':
+  			if (endmarker) break;
+***************
+*** 216,251 ****
+  			warning("ignoring option %s\n", argv[0]);
+  		}
+  	}
+! #ifdef __GNUC__
+! 	if (incp >= includedirs + MAXDIRS)
+! 	    fatal("Too many -I flags.\n");
+! #ifdef luna88k
+! 	*incp++ = "/usr/local/lib/gcc/gcc-include";
+! #else
+! 	*incp++ = "/usr/local/lib/gcc-include";
+  #endif
+! #else
+! #ifdef luna88k
+! 	if (incp >= includedirs + MAXDIRS)
+! 	    fatal("Too many -I flags.\n");
+! 	*incp++ = "/usr/lib/ccom/include";
+  #endif
+! #endif
+! 	if (incp >= includedirs + MAXDIRS)
+! 	    fatal("Too many -I flags.\n");
+! 	*incp++ = INCLUDEDIR;
+! #ifdef CRAY
+! 	if (incp >= includedirs + MAXDIRS)
+! 	    fatal("Too many -I flags.\n");
+! 	*incp++ = "/usr/include/stdc";
+! #endif
+! #ifdef Mips
+! # ifdef BSD43
+! 	if (incp >= includedirs + MAXDIRS)
+! 	    fatal("Too many -I flags.\n");
+! 	*incp++ = "/usr/include/bsd43";
+! # endif
+! #endif
+  
+  	redirect(startat, makefile);
+  
+--- 220,244 ----
+  			warning("ignoring option %s\n", argv[0]);
+  		}
+  	}
+! 	if (!defincdir) {
+! #ifdef PREINCDIR
+! 	    if (incp >= includedirs + MAXDIRS)
+! 		fatal("Too many -I flags.\n");
+! 	    *incp++ = PREINCDIR;
+  #endif
+! 	    if (incp >= includedirs + MAXDIRS)
+! 		fatal("Too many -I flags.\n");
+! 	    *incp++ = INCLUDEDIR;
+! #ifdef POSTINCDIR
+! 	    if (incp >= includedirs + MAXDIRS)
+! 		fatal("Too many -I flags.\n");
+! 	    *incp++ = POSTINCDIR;
+  #endif
+! 	} else if (*defincdir) {
+! 	    if (incp >= includedirs + MAXDIRS)
+! 		fatal("Too many -I flags.\n");
+! 	    *incp++ = defincdir;
+! 	}
+  
+  	redirect(startat, makefile);
+  
+***************
+*** 410,415 ****
+--- 403,415 ----
+  				*p++ = ' ';
+  			}
+  			continue;
++ 		}
++ 		else if (*p == '\\') {
++ 			if (*(p+1) == '\n') {
++ 				*p = ' ';
++ 				*(p+1) = ' ';
++ 				lineno++;
++ 			}
+  		}
+  		else if (*p == '\n') {
+  			lineno++;
+*** /tmp/d09078	Sat Aug 22 16:53:25 1992
+--- util/makedepend/cppsetup.c	Sat Aug 22 14:37:05 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cppsetup.c,v 1.7 89/12/12 12:44:17 jim Exp $
+   */
+  #include "def.h"
+  
+--- 1,5 ----
+  /*
+!  * $XConsortium: cppsetup.c,v 1.9 92/08/22 14:37:02 rws Exp $
+   */
+  #include "def.h"
+  
+***************
+*** 76,82 ****
+  	static struct symtab    undefined;
+  	struct symtab   *sp;
+  
+! 	sp = isdefined(symbol, currentinc);
+  	if (sp == NULL) {
+  		sp = &undefined;
+  		sp->s_value = NULL;
+--- 76,82 ----
+  	static struct symtab    undefined;
+  	struct symtab   *sp;
+  
+! 	sp = isdefined(symbol, currentinc, NULL);
+  	if (sp == NULL) {
+  		sp = &undefined;
+  		sp->s_value = NULL;
+***************
+*** 97,100 ****
+--- 97,209 ----
+  {
+  	fatal("Fatal error: %s\n", s);
+  }
++ #else /* not CPP */
++ 
++ #include "ifparser.h"
++ struct _parse_data {
++     struct filepointer *filep;
++     struct inclist *inc;
++     const char *line;
++ };
++ 
++ static const char *
++ _my_if_errors (ip, cp, expecting)
++     IfParser *ip;
++     const char *cp;
++     const char *expecting;
++ {
++     struct _parse_data *pd = (struct _parse_data *) ip->data;
++     int lineno = pd->filep->f_line;
++     char *filename = pd->inc->i_file;
++     char prefix[300];
++     int prefixlen;
++     int i;
++ 
++     sprintf (prefix, "\"%s\":%d", filename, lineno);
++     prefixlen = strlen(prefix);
++     fprintf (stderr, "%s:  %s", prefix, pd->line);
++     i = cp - pd->line;
++     if (i > 0 && pd->line[i-1] != '\n') {
++ 	putc ('\n', stderr);
++     }
++     for (i += prefixlen + 3; i > 0; i--) {
++ 	putc (' ', stderr);
++     }
++     fprintf (stderr, "^--- expecting %s\n", expecting);
++     return NULL;
++ }
++ 
++ 
++ #define MAXNAMELEN 256
++ 
++ static struct symtab *
++ _lookup_variable (ip, var, len)
++     IfParser *ip;
++     const char *var;
++     int len;
++ {
++     char tmpbuf[MAXNAMELEN + 1];
++     struct _parse_data *pd = (struct _parse_data *) ip->data;
++ 
++     if (len > MAXNAMELEN)
++ 	return 0;
++ 
++     strncpy (tmpbuf, var, len);
++     tmpbuf[len] = '\0';
++     return isdefined (tmpbuf, pd->inc, NULL);
++ }
++ 
++ 
++ static int
++ _my_eval_defined (ip, var, len)
++     IfParser *ip;
++     const char *var;
++     int len;
++ {
++     if (_lookup_variable (ip, var, len))
++ 	return 1;
++     else
++ 	return 0;
++ }
++ 
++ 
++ static int
++ _my_eval_variable (ip, var, len)
++     IfParser *ip;
++     const char *var;
++     int len;
++ {
++     struct symtab *s = _lookup_variable (ip, var, len);
++ 
++     if (!s)
++ 	return 0;
++ 
++     return atoi(s->s_value);
++ }
++ 
++ 
++ cppsetup(line, filep, inc)
++ 	register char	*line;
++ 	register struct filepointer	*filep;
++ 	register struct inclist		*inc;
++ {
++     IfParser ip;
++     struct _parse_data pd;
++     int val = 0;
++ 
++     pd.filep = filep;
++     pd.inc = inc;
++     pd.line = line;
++     ip.funcs.handle_error = _my_if_errors;
++     ip.funcs.eval_defined = _my_eval_defined;
++     ip.funcs.eval_variable = _my_eval_variable;
++     ip.data = (char *) &pd;
++ 
++     (void) ParseIfExpression (&ip, line, &val);
++     if (val)
++ 	return IF;
++     else
++ 	return IFFALSE;
++ }
+  #endif /* CPP */
++ 
+*** /tmp/d09133	Sat Aug 22 16:53:54 1992
+--- util/makedepend/parse.c	Sat Aug 22 14:37:08 1992
+***************
+*** 1,10 ****
+  /*
+!  * $XConsortium: parse.c,v 1.21 91/05/13 10:23:47 rws Exp $
+   */
+  #include "def.h"
+  
+  extern char	*directives[];
+! extern struct symtab	deflist[];
+  
+  find_includes(filep, file, file_red, recursion, failOK)
+  	struct filepointer	*filep;
+--- 1,10 ----
+  /*
+!  * $XConsortium: parse.c,v 1.23 92/08/22 14:37:04 rws Exp $
+   */
+  #include "def.h"
+  
+  extern char	*directives[];
+! extern struct inclist	maininclist;
+  
+  find_includes(filep, file, file_red, recursion, failOK)
+  	struct filepointer	*filep;
+***************
+*** 48,55 ****
+  			break;
+  		case IFDEF:
+  		case IFNDEF:
+! 			if ((type == IFDEF && isdefined(line, file_red))
+! 			 || (type == IFNDEF && !isdefined(line, file_red))) {
+  				debug(1,(type == IFNDEF ?
+  				    "line %d: %s !def'd in %s via %s%s\n" : "",
+  				    filep->f_line, line,
+--- 48,55 ----
+  			break;
+  		case IFDEF:
+  		case IFNDEF:
+! 			if ((type == IFDEF && isdefined(line, file_red, NULL))
+! 			 || (type == IFNDEF && !isdefined(line, file_red, NULL))) {
+  				debug(1,(type == IFNDEF ?
+  				    "line %d: %s !def'd in %s via %s%s\n" : "",
+  				    filep->f_line, line,
+***************
+*** 83,104 ****
+  			define(line, file);
+  			break;
+  		case UNDEF:
+- 			/*
+- 			 * undefine all occurances of line by killing s_name
+- 			 */
+  			if (!*line) {
+  			    warning("%s, line %d: incomplete undef == \"%s\"\n",
+  				file_red->i_file, filep->f_line, line);
+  			    break;
+  			}
+! 		    {
+! 			struct symtab *val;
+! 			for(val = isdefined(line, file_red);
+! 			    (val && val->s_name);
+! 			    val = isdefined(line, file_red))
+! 
+! 			    val->s_name = "";
+! 		    }
+  			break;
+  		case INCLUDE:
+  			add_include(file, file_red, line, FALSE, failOK);
+--- 83,94 ----
+  			define(line, file);
+  			break;
+  		case UNDEF:
+  			if (!*line) {
+  			    warning("%s, line %d: incomplete undef == \"%s\"\n",
+  				file_red->i_file, filep->f_line, line);
+  			    break;
+  			}
+! 			undefine(line, file_red);
+  			break;
+  		case INCLUDE:
+  			add_include(file, file_red, line, FALSE, failOK);
+***************
+*** 275,281 ****
+  
+  		/* Support ANSI macro substitution */
+  		{
+! 		    struct symtab *sym = isdefined(p, file_red);
+  		    while (sym) {
+  			p = sym->s_value;
+  			debug(3,("%s : #includes SYMBOL %s = %s\n",
+--- 265,271 ----
+  
+  		/* Support ANSI macro substitution */
+  		{
+! 		    struct symtab *sym = isdefined(p, file_red, NULL);
+  		    while (sym) {
+  			p = sym->s_value;
+  			debug(3,("%s : #includes SYMBOL %s = %s\n",
+***************
+*** 284,290 ****
+  			       sym -> s_value));
+  			/* mark file as having included a 'soft include' */
+  			file->i_included_sym = TRUE; 
+! 			sym = isdefined(p, file_red);
+  		    }
+  		}
+  
+--- 274,280 ----
+  			       sym -> s_value));
+  			/* mark file as having included a 'soft include' */
+  			file->i_included_sym = TRUE; 
+! 			sym = isdefined(p, file_red, NULL);
+  		    }
+  		}
+  
+***************
+*** 328,352 ****
+  	return(ret);
+  }
+  
+! struct symtab *isdefined(symbol, file)
+  	register char	*symbol;
+  	struct inclist	*file;
+  {
+  	register struct symtab	*val;
+  
+! 	if (val = slookup(symbol, deflist)) {
+  		debug(1,("%s defined on command line\n", symbol));
+  		return(val);
+  	}
+! 	if (val = fdefined(symbol, file))
+  		return(val);
+  	debug(1,("%s not defined in %s\n", symbol, file->i_file));
+  	return(NULL);
+  }
+  
+! struct symtab *fdefined(symbol, file)
+  	register char	*symbol;
+  	struct inclist	*file;
+  {
+  	register struct inclist	**ip;
+  	register struct symtab	*val;
+--- 318,345 ----
+  	return(ret);
+  }
+  
+! struct symtab *isdefined(symbol, file, srcfile)
+  	register char	*symbol;
+  	struct inclist	*file;
++ 	struct inclist	**srcfile;
+  {
+  	register struct symtab	*val;
+  
+! 	if (val = slookup(symbol, &maininclist)) {
+  		debug(1,("%s defined on command line\n", symbol));
++ 		if (srcfile != NULL) *srcfile = &maininclist;
+  		return(val);
+  	}
+! 	if (val = fdefined(symbol, file, srcfile))
+  		return(val);
+  	debug(1,("%s not defined in %s\n", symbol, file->i_file));
+  	return(NULL);
+  }
+  
+! struct symtab *fdefined(symbol, file, srcfile)
+  	register char	*symbol;
+  	struct inclist	*file;
++ 	struct inclist	**srcfile;
+  {
+  	register struct inclist	**ip;
+  	register struct symtab	*val;
+***************
+*** 356,370 ****
+  	if (file->i_defchecked)
+  		return(NULL);
+  	file->i_defchecked = TRUE;
+! 	if (val = slookup(symbol, file->i_defs))
+  		debug(1,("%s defined in %s\n", symbol, file->i_file));
+  	if (val == NULL && file->i_list)
+  		for (ip = file->i_list, i=0; i < file->i_listlen; i++, ip++)
+! 			if (val = fdefined(symbol, *ip)) {
+  				debug(1,("%s defined in %s\n",
+  					symbol, (*ip)->i_file));
+  				break;
+  			}
+  	recurse_lvl--;
+  	file->i_defchecked = FALSE;
+  
+--- 349,366 ----
+  	if (file->i_defchecked)
+  		return(NULL);
+  	file->i_defchecked = TRUE;
+! 	if (val = slookup(symbol, file))
+  		debug(1,("%s defined in %s\n", symbol, file->i_file));
+  	if (val == NULL && file->i_list)
++ 		{
+  		for (ip = file->i_list, i=0; i < file->i_listlen; i++, ip++)
+! 			if (val = fdefined(symbol, *ip, srcfile)) {
+  				debug(1,("%s defined in %s\n",
+  					symbol, (*ip)->i_file));
+  				break;
+  			}
++ 		}
++ 	else if (val != NULL && srcfile != NULL) *srcfile = file;
+  	recurse_lvl--;
+  	file->i_defchecked = FALSE;
+  
+***************
+*** 371,387 ****
+  	return(val);
+  }
+  
+- struct symtab *slookup(symbol, stab)
+- 	register char	*symbol;
+- 	register struct symtab	*stab;
+- {
+- 	if (stab)
+- 		for (; stab->s_name; stab++)
+- 			if (strcmp(symbol, stab->s_name) == 0)
+- 				return(stab);
+- 	return(NULL);
+- }
+- 
+  /*
+   * Return type based on if the #if expression evaluates to 0
+   */
+--- 367,372 ----
+***************
+*** 390,450 ****
+  	register struct filepointer *filep;
+  	register struct inclist *file_red;
+  {
+- #ifdef	CPP
+  	if (cppsetup(exp, filep, file_red))
+  	    return(IFFALSE);
+  	else
+  	    return(IF);
+- #else
+- 	return(IFGUESSFALSE);
+- #endif /* CPP */
+  }
+  
+  define(def, file)
+! 	register char	*def;
+! 	register struct inclist	*file;
+  {
+! 	register char	*p;
+! 	struct symtab	*sp = file->i_lastdef++;
+! 	register int	i;
+  
+! 	/*
+! 	 * If we are out of space, allocate some more.
+! 	 */
+! 	if (file->i_defs == NULL
+! 	|| file->i_lastdef == file->i_defs + file->i_deflen) {
+! 		if (file->i_defs)
+! 			file->i_defs = (struct symtab *) realloc(file->i_defs,
+! 			    sizeof(struct symtab)*(file->i_deflen+SYMTABINC));
+! 		else
+! 			file->i_defs = (struct symtab *)
+! 				malloc(sizeof (struct symtab) * SYMTABINC);
+! 		i=file->i_deflen;
+! 		file->i_deflen += SYMTABINC;
+! 		while (i < file->i_deflen)
+! 			file->i_defs[ i++ ].s_name = NULL;
+! 		file->i_lastdef = file->i_defs + file->i_deflen - SYMTABINC;
+! 		if (sp) /* be sure we use last cell in previous group */
+! 			file->i_lastdef--;
+! 		sp = file->i_lastdef++;
+  	}
+- 	else if (file->i_lastdef > file->i_defs + file->i_deflen)
+- 		fatal("define() botch\n");
+  
+! 	/*
+! 	 * copy the symbol being defined.
+! 	 */
+! 	p = def;
+! 	while (isalnum(*p) || *p == '_')
+! 		p++;
+! 	if (*p)
+! 		*p++ = '\0';
+! 	sp->s_name = copy(def);
+  
+! 	/*
+! 	 * And copy its value.
+! 	 */
+! 	while (*p == ' ' && *p == '\t')
+! 		p++;
+! 	sp->s_value = copy(p);
+  }
+--- 375,534 ----
+  	register struct filepointer *filep;
+  	register struct inclist *file_red;
+  {
+  	if (cppsetup(exp, filep, file_red))
+  	    return(IFFALSE);
+  	else
+  	    return(IF);
+  }
+  
+  define(def, file)
+! 	char	*def;
+! 	struct inclist	*file;
+  {
+!     char *val;
+  
+!     /* Separate symbol name and its value */
+!     val = def;
+!     while (isalnum(*val) || *val == '_')
+! 	val++;
+!     if (*val)
+! 	*val++ = '\0';
+!     while (*val == ' ' && *val == '\t')
+! 	val++;
+! 
+!     if (!*val)
+! 	val = "1";
+!     define2(def, val, file);
+! }
+! 
+! define2(name, val, file)
+! 	char	*name, *val;
+! 	struct inclist	*file;
+! {
+!     int first, last, below;
+!     register struct symtab *sp = NULL, *dest;
+! 
+!     /* Make space if it's needed */
+!     if (file->i_defs == NULL)
+!     {
+! 	file->i_defs = (struct symtab *)
+! 			malloc(sizeof (struct symtab) * SYMTABINC);
+! 	file->i_deflen = SYMTABINC;
+! 	file->i_ndefs = 0;
+!     }
+!     else if (file->i_ndefs == file->i_deflen)
+! 	file->i_defs = (struct symtab *)
+! 			realloc(file->i_defs,
+! 			    sizeof(struct symtab)*(file->i_deflen+=SYMTABINC));
+! 
+!     if (file->i_defs == NULL)
+! 	fatal("malloc()/realloc() failure in insert_defn()\n");
+! 
+!     below = first = 0;
+!     last = file->i_ndefs - 1;
+!     while (last >= first)
+!     {
+! 	/* Fast inline binary search */
+! 	register char *s1;
+! 	register char *s2;
+! 	register int middle = (first + last) / 2;
+! 
+! 	/* Fast inline strchr() */
+! 	s1 = name;
+! 	s2 = file->i_defs[middle].s_name;
+! 	while (*s1++ == *s2++)
+! 	    if (s2[-1] == '\0') break;
+! 
+! 	/* If exact match, set sp and break */
+! 	if (*--s1 == *--s2) 
+! 	{
+! 	    sp = file->i_defs + middle;
+! 	    break;
+  	}
+  
+! 	/* If name > i_defs[middle] ... */
+! 	if (*s1 > *s2) 
+! 	{
+! 	    below = first;
+! 	    first = middle + 1;
+! 	}
+! 	/* else ... */
+! 	else
+! 	{
+! 	    below = last = middle - 1;
+! 	}
+!     }
+  
+!     /* Search is done.  If we found an exact match to the symbol name,
+!        just replace its s_value */
+!     if (sp != NULL)
+!     {
+! 	free(sp->s_value);
+! 	sp->s_value = copy(val);
+! 	return;
+!     }
+! 
+!     sp = file->i_defs + file->i_ndefs++;
+!     dest = file->i_defs + below + 1;
+!     while (sp > dest)
+!     {
+! 	*sp = sp[-1];
+! 	sp--;
+!     }
+!     sp->s_name = copy(name);
+!     sp->s_value = copy(val);
+! }
+! 
+! struct symtab *slookup(symbol, file)
+! 	register char	*symbol;
+! 	register struct inclist	*file;
+! {
+! 	register int first = 0;
+! 	register int last = file->i_ndefs - 1;
+! 
+! 	if (file) while (last >= first)
+! 	{
+! 	    /* Fast inline binary search */
+! 	    register char *s1;
+! 	    register char *s2;
+! 	    register int middle = (first + last) / 2;
+! 
+! 	    /* Fast inline strchr() */
+! 	    s1 = symbol;
+! 	    s2 = file->i_defs[middle].s_name;
+! 	    while (*s1++ == *s2++)
+! 	        if (s2[-1] == '\0') break;
+! 
+! 	    /* If exact match, we're done */
+! 	    if (*--s1 == *--s2) 
+! 	    {
+! 	        return file->i_defs + middle;
+! 	    }
+! 
+! 	    /* If symbol > i_defs[middle] ... */
+! 	    if (*s1 > *s2) 
+! 	    {
+! 	        first = middle + 1;
+! 	    }
+! 	    /* else ... */
+! 	    else
+! 	    {
+! 	        last = middle - 1;
+! 	    }
+! 	}
+! 	return(NULL);
+! }
+! 
+! undefine(symbol, file)
+! 	char	*symbol;
+! 	register struct inclist	*file;
+! {
+! 	register struct symtab *ptr;
+! 	struct inclist *srcfile;
+! 	while ((ptr = isdefined(symbol, file, &srcfile)) != NULL)
+! 	{
+! 	    srcfile->i_ndefs--;
+! 	    for (; ptr < srcfile->i_defs + srcfile->i_ndefs; ptr++)
+! 		*ptr = ptr[1];
+! 	}
+  }
+*** /tmp/d09152	Sat Aug 22 16:54:04 1992
+--- util/makedepend/def.h	Sat Aug 22 14:36:59 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: def.h,v 1.18 91/10/31 09:23:06 rws Exp $
+   */
+  #include <X11/Xosdefs.h>
+  #include <stdio.h>
+--- 1,5 ----
+  /*
+!  * $XConsortium: def.h,v 1.21 92/08/22 14:36:45 rws Exp $
+   */
+  #include <X11/Xosdefs.h>
+  #include <stdio.h>
+***************
+*** 15,21 ****
+  
+  #define MAXDEFINES	512
+  #define MAXFILES	512
+! #define MAXDIRS		20
+  #define SYMTABINC	10	/* must be > 1 for define() to work right */
+  #define	TRUE		1
+  #define	FALSE		0
+--- 15,21 ----
+  
+  #define MAXDEFINES	512
+  #define MAXFILES	512
+! #define MAXDIRS		64
+  #define SYMTABINC	10	/* must be > 1 for define() to work right */
+  #define	TRUE		1
+  #define	FALSE		0
+***************
+*** 71,78 ****
+  	struct inclist	**i_list;	/* list of files it itself includes */
+  	int		i_listlen;	/* length of i_list */
+  	struct symtab	*i_defs;	/* symbol table for this file */
+! 	struct symtab	*i_lastdef;	/* last symbol defined */
+! 	int		i_deflen;	/* number of defines */
+  	boolean		i_defchecked;	/* whether defines have been checked */
+  	boolean		i_notified;	/* whether we have revealed includes */
+  	boolean		i_marked;	/* whether it's in the makefile */
+--- 71,78 ----
+  	struct inclist	**i_list;	/* list of files it itself includes */
+  	int		i_listlen;	/* length of i_list */
+  	struct symtab	*i_defs;	/* symbol table for this file */
+! 	int		i_ndefs;	/* current # defines */
+! 	int		i_deflen;	/* amount of space in table */
+  	boolean		i_defchecked;	/* whether defines have been checked */
+  	boolean		i_notified;	/* whether we have revealed includes */
+  	boolean		i_marked;	/* whether it's in the makefile */
+*** /tmp/d09189	Sat Aug 22 16:54:23 1992
+--- util/makedepend/Imakefile	Sat Aug 22 13:05:33 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.15 91/12/02 08:48:08 rws Exp $
+  /*
+   * NOTE: CppSourcesPresent IS NO LONGER TESTED OR SUPPORTED,
+   * and is nearly guaranteed to not work.
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.17 92/08/22 13:05:25 rws Exp $
+  /*
+   * NOTE: CppSourcesPresent IS NO LONGER TESTED OR SUPPORTED,
+   * and is nearly guaranteed to not work.
+***************
+*** 20,31 ****
+  /*
+   * But if you do not have cpp source...
+   */
+!     SRCS = include.c main.c parse.c pr.c cppsetup.c
+!     OBJS = include.o main.o parse.o pr.o cppsetup.o
+  #endif
+  
+  INCLUDES = -I$(CONFIGSRC)
+!  DEFINES = $(CPPDEFS) '-DINCLUDEDIR="/usr/include"' $(SIGNAL_DEFINES)
+   DEPLIBS =
+  
+  #ifdef MacIIArchitecture
+--- 20,49 ----
+  /*
+   * But if you do not have cpp source...
+   */
+!     SRCS = include.c main.c parse.c pr.c cppsetup.c ifparser.c 
+!     OBJS = include.o main.o parse.o pr.o cppsetup.o ifparser.o 
+  #endif
+  
++ #if HasGcc && !defined(PreIncDir)
++ #define PreIncDir /usr/local/lib/gcc-include
++ #endif
++ #ifdef PreIncDir
++ PREINCDIR = PreIncDir
++ PREINC_DEFINES = -DPREINCDIR=\"$(PREINCDIR)\"
++ #endif
++ #ifndef StdIncDir
++ #define StdIncDir /usr/include
++ #endif
++ STDINCDIR = StdIncDir
++ STDINC_DEFINES = -DINCLUDEDIR=\"$(STDINCDIR)\"
++ #ifdef PostIncDir
++ POSTINCDIR = PostIncDir
++ POSTINC_DEFINES = -DPOSTINCDIR=\"$(POSTINCDIR)\"
++ #endif
++ INC_DEFINES = $(PREINC_DEFINES) $(STDINC_DEFINES) $(POSTINC_DEFINES)
++ MAIN_DEFINES = $(INC_DEFINES) $(SIGNAL_DEFINES)
+  INCLUDES = -I$(CONFIGSRC)
+!  DEFINES = $(CPPDEFS)
+   DEPLIBS =
+  
+  #ifdef MacIIArchitecture
+***************
+*** 37,42 ****
+--- 55,62 ----
+  #undef InstallManPage
+  #define InstallManPage(file,dest) /* as nothing */
+  ComplexProgramTarget(makedepend)
++ 
++ SpecialCObjectRule(main,$(ICONFIGFILES),$(MAIN_DEFINES))
+  
+  InstallManPageLong(mkdepend,$(MANDIR),makedepend)
+  
+*** /dev/null	Sat Aug 22 16:54:24 1992
+--- util/makedepend/ifparser.c	Sat Aug 22 14:06:44 1992
+***************
+*** 0 ****
+--- 1,447 ----
++ /*
++  * $XConsortium: ifparser.c,v 1.5 92/08/22 14:06:20 rws Exp $
++  *
++  * Copyright 1992 Network Computing Devices, Inc.
++  * 
++  * Permission to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of Network Computing Devices may not be
++  * used in advertising or publicity pertaining to distribution of the software
++  * without specific, written prior permission.  Network Computing Devices makes
++  * no representations about the suitability of this software for any purpose.
++  * It is provided ``as is'' without express or implied warranty.
++  * 
++  * NETWORK COMPUTING DEVICES DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
++  * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
++  * IN NO EVENT SHALL NETWORK COMPUTING DEVICES BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE.
++  * 
++  * Author:  Jim Fulton
++  *          Network Computing Devices, Inc.
++  * 
++  * Simple if statement processor
++  *
++  * This module can be used to evaluate string representations of C language
++  * if constructs.  It accepts the following grammar:
++  * 
++  *     EXPRESSION	:=	VALUE
++  * 			 |	VALUE  BINOP	EXPRESSION
++  * 
++  *     VALUE		:=	'('  EXPRESSION  ')'
++  * 			 |	'!'  VALUE
++  * 			 |	'-'  VALUE
++  * 			 |	'defined'  '('  variable  ')'
++  * 			 |	'defined'  variable
++  *			 |	# variable '(' variable-list ')'
++  * 			 |	variable
++  * 			 |	number
++  * 
++  *     BINOP		:=	'*'	|  '/'	|  '%'
++  * 			 |	'+'	|  '-'
++  * 			 |	'<<'	|  '>>'
++  * 			 |	'<'	|  '>'	|  '<='  |  '>='
++  * 			 |	'=='	|  '!='
++  * 			 |	'&'	|  '|'
++  * 			 |	'&&'	|  '||'
++  * 
++  * The normal C order of precidence is supported.
++  * 
++  * 
++  * External Entry Points:
++  * 
++  *     ParseIfExpression		parse a string for #if
++  */
++ 
++ #include "ifparser.h"
++ #include <ctype.h>
++ 
++ /****************************************************************************
++ 		   Internal Macros and Utilities for Parser
++  ****************************************************************************/
++ 
++ #define DO(val) if (!(val)) return NULL
++ #define CALLFUNC(ggg,fff) (*((ggg)->funcs.fff))
++ #define SKIPSPACE(ccc) while (isspace(*ccc)) ccc++
++ #define isvarfirstletter(ccc) (isalpha(ccc) || (ccc) == '_')
++ 
++ 
++ static const char *
++ parse_variable (g, cp, varp)
++     IfParser *g;
++     const char *cp;
++     const char **varp;
++ {
++     SKIPSPACE (cp);
++ 
++     if (!isvarfirstletter (*cp))
++ 	return CALLFUNC(g, handle_error) (g, cp, "variable name");
++ 
++     *varp = cp;
++     /* EMPTY */
++     for (cp++; isalnum(*cp) || *cp == '_'; cp++) ;
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_number (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     SKIPSPACE (cp);
++ 
++     if (!isdigit(*cp))
++ 	return CALLFUNC(g, handle_error) (g, cp, "number");
++ 
++     *valp = atoi (cp);
++     /* EMPTY */
++     for (cp++; isdigit(*cp); cp++) ;
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_value (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     const char *var;
++ 
++     *valp = 0;
++ 
++     SKIPSPACE (cp);
++     if (!*cp)
++ 	return cp;
++ 
++     switch (*cp) {
++       case '(':
++ 	DO (cp = ParseIfExpression (g, cp + 1, valp));
++ 	SKIPSPACE (cp);
++ 	if (*cp != ')') 
++ 	    return CALLFUNC(g, handle_error) (g, cp, ")");
++ 
++ 	return cp + 1;			/* skip the right paren */
++ 
++       case '!':
++ 	DO (cp = parse_value (g, cp + 1, valp));
++ 	*valp = !(*valp);
++ 	return cp;
++ 
++       case '-':
++ 	DO (cp = parse_value (g, cp + 1, valp));
++ 	*valp = -(*valp);
++ 	return cp;
++ 
++       case '#':
++ 	DO (cp = parse_variable (g, cp + 1, valp));
++ 	SKIPSPACE (cp);
++ 	if (*cp != '(')
++ 	    return CALLFUNC(g, handle_error) (g, cp, "(");
++ 	do {
++ 	    DO (cp = parse_variable (g, cp + 1, valp));
++ 	    SKIPSPACE (cp);
++ 	} while (*cp && *cp != ')');
++ 	if (*cp != ')')
++ 	    return CALLFUNC(g, handle_error) (g, cp, ")");
++ 	*valp = 1; /* XXX */
++ 	return cp + 1;
++ 
++       case 'd':
++ 	if (strncmp (cp, "defined", 7) == 0 && !isalnum(cp[7])) {
++ 	    int paren = 0;
++ 	    cp += 7;
++ 	    SKIPSPACE (cp);
++ 	    if (*cp == '(') {
++ 		paren = 1;
++ 		cp++;
++ 	    }
++ 	    DO (cp = parse_variable (g, cp, &var));
++ 	    SKIPSPACE (cp);
++ 	    if (paren && *cp != ')')
++ 		return CALLFUNC(g, handle_error) (g, cp, ")");
++ 	    *valp = (*(g->funcs.eval_defined)) (g, var, cp - var);
++ 	    return cp + paren;		/* skip the right paren */
++ 	}
++ 	/* fall out */
++     }
++ 
++     if (isdigit(*cp)) {
++ 	DO (cp = parse_number (g, cp, valp));
++     } else if (!isvarfirstletter(*cp))
++ 	return CALLFUNC(g, handle_error) (g, cp, "variable or number");
++     else {
++ 	DO (cp = parse_variable (g, cp, &var));
++ 	*valp = (*(g->funcs.eval_variable)) (g, var, cp - var);
++     }
++     
++     return cp;
++ }
++ 
++ 
++ 
++ static const char *
++ parse_product (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_value (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '*':
++ 	DO (cp = parse_product (g, cp + 1, &rightval));
++ 	*valp = (*valp * rightval);
++ 	break;
++ 
++       case '/':
++ 	DO (cp = parse_product (g, cp + 1, &rightval));
++ 	*valp = (*valp / rightval);
++ 	break;
++ 
++       case '%':
++ 	DO (cp = parse_product (g, cp + 1, &rightval));
++ 	*valp = (*valp % rightval);
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_sum (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_product (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '+':
++ 	DO (cp = parse_sum (g, cp + 1, &rightval));
++ 	*valp = (*valp + rightval);
++ 	break;
++ 
++       case '-':
++ 	DO (cp = parse_sum (g, cp + 1, &rightval));
++ 	*valp = (*valp - rightval);
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_shift (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_sum (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '<':
++ 	if (cp[1] == '<') {
++ 	    DO (cp = parse_shift (g, cp + 2, &rightval));
++ 	    *valp = (*valp << rightval);
++ 	}
++ 	break;
++ 
++       case '>':
++ 	if (cp[1] == '>') {
++ 	    DO (cp = parse_shift (g, cp + 2, &rightval));
++ 	    *valp = (*valp >> rightval);
++ 	}
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_inequality (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_shift (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '<':
++ 	if (cp[1] == '=') {
++ 	    DO (cp = parse_inequality (g, cp + 2, &rightval));
++ 	    *valp = (*valp <= rightval);
++ 	} else {
++ 	    DO (cp = parse_inequality (g, cp + 1, &rightval));
++ 	    *valp = (*valp < rightval);
++ 	}
++ 	break;
++ 
++       case '>':
++ 	if (cp[1] == '=') {
++ 	    DO (cp = parse_inequality (g, cp + 2, &rightval));
++ 	    *valp = (*valp >= rightval);
++ 	} else {
++ 	    DO (cp = parse_inequality (g, cp + 1, &rightval));
++ 	    *valp = (*valp > rightval);
++ 	}
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_equality (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_inequality (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '=':
++ 	if (cp[1] == '=')
++ 	    cp++;
++ 	DO (cp = parse_equality (g, cp + 1, &rightval));
++ 	*valp = (*valp == rightval);
++ 	break;
++ 
++       case '!':
++ 	if (cp[1] != '=')
++ 	    break;
++ 	DO (cp = parse_equality (g, cp + 2, &rightval));
++ 	*valp = (*valp != rightval);
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_band (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_equality (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '&':
++ 	if (cp[1] != '&') {
++ 	    DO (cp = parse_band (g, cp + 1, &rightval));
++ 	    *valp = (*valp & rightval);
++ 	}
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_bor (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_band (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '|':
++ 	if (cp[1] != '|') {
++ 	    DO (cp = parse_bor (g, cp + 1, &rightval));
++ 	    *valp = (*valp | rightval);
++ 	}
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_land (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_bor (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '&':
++ 	if (cp[1] != '&')
++ 	    return CALLFUNC(g, handle_error) (g, cp, "&&");
++ 	DO (cp = parse_land (g, cp + 2, &rightval));
++ 	*valp = (*valp && rightval);
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ static const char *
++ parse_lor (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     int rightval;
++ 
++     DO (cp = parse_land (g, cp, valp));
++     SKIPSPACE (cp);
++ 
++     switch (*cp) {
++       case '|':
++ 	if (cp[1] != '|')
++ 	    return CALLFUNC(g, handle_error) (g, cp, "||");
++ 	DO (cp = parse_lor (g, cp + 2, &rightval));
++ 	*valp = (*valp || rightval);
++ 	break;
++     }
++     return cp;
++ }
++ 
++ 
++ /****************************************************************************
++ 			     External Entry Points
++  ****************************************************************************/
++ 
++ const char *
++ ParseIfExpression (g, cp, valp)
++     IfParser *g;
++     const char *cp;
++     int *valp;
++ {
++     return parse_lor (g, cp, valp);
++ }
++ 
++ 
+*** /dev/null	Sat Aug 22 16:54:34 1992
+--- util/makedepend/ifparser.h	Sat Aug 22 13:05:41 1992
+***************
+*** 0 ****
+--- 1,76 ----
++ /*
++  * $XConsortium: ifparser.h,v 1.1 92/08/22 13:05:39 rws Exp $
++  *
++  * Copyright 1992 Network Computing Devices, Inc.
++  * 
++  * Permission to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of Network Computing Devices may not be
++  * used in advertising or publicity pertaining to distribution of the software
++  * without specific, written prior permission.  Network Computing Devices makes
++  * no representations about the suitability of this software for any purpose.
++  * It is provided ``as is'' without express or implied warranty.
++  * 
++  * NETWORK COMPUTING DEVICES DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
++  * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
++  * IN NO EVENT SHALL NETWORK COMPUTING DEVICES BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE.
++  * 
++  * Author:  Jim Fulton
++  *          Network Computing Devices, Inc.
++  * 
++  * Simple if statement processor
++  *
++  * This module can be used to evaluate string representations of C language
++  * if constructs.  It accepts the following grammar:
++  * 
++  *     EXPRESSION	:=	VALUE
++  * 			 |	VALUE  BINOP	EXPRESSION
++  * 
++  *     VALUE		:=	'('  EXPRESSION  ')'
++  * 			 |	'!'  VALUE
++  * 			 |	'-'  VALUE
++  * 			 |	'defined'  '('  variable  ')'
++  * 			 |	variable
++  * 			 |	number
++  * 
++  *     BINOP		:=	'*'	|  '/'	|  '%'
++  * 			 |	'+'	|  '-'
++  * 			 |	'<<'	|  '>>'
++  * 			 |	'<'	|  '>'	|  '<='  |  '>='
++  * 			 |	'=='	|  '!='
++  * 			 |	'&'	|  '|'
++  * 			 |	'&&'	|  '||'
++  * 
++  * The normal C order of precidence is supported.
++  * 
++  * 
++  * External Entry Points:
++  * 
++  *     ParseIfExpression		parse a string for #if
++  */
++ 
++ #include <stdio.h>
++ 
++ #define const /**/
++ typedef int Bool;
++ #define False 0
++ #define True 1
++ 
++ typedef struct _if_parser {
++     struct {				/* functions */
++ 	char *(*handle_error) (/* struct _if_parser *, const char *,
++ 				 const char * */);
++ 	int (*eval_variable) (/* struct _if_parser *, const char *, int */);
++ 	int (*eval_defined) (/* struct _if_parser *, const char *, int */);
++     } funcs;
++     char *data;
++ } IfParser;
++ 
++ char *ParseIfExpression (/* IfParser *, const char *, int * */);
++ 

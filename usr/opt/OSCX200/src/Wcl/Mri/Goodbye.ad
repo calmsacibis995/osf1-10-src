@@ -1,0 +1,109 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! SCCS_data: @(#) Goodbye.ad 1.2 92/03/18 10:44:35
+!
+!  This resource file represents a very basic application: a single button
+!  which changes its own behavior, appearance, and creates new widgets.
+!  The first time it is pressed, it changes its label, creates a
+!  confirmation dialog, and changes its activate callback so that
+!  subsequent presses cause a confirmation dialog to pop-up.
+!
+!  WcOnceOnly() is used to specify behavior which occurs only the first
+!  time a callback is invoked.  Its use here is typical:  parts of the
+!  user interface are be created when they are first needed rather than
+!  all together at initialization time.
+!
+!  This example also uses WcSetValue().  The argument looks exactly like a
+!  resource specification.  The WcSetValue() callback actually does an
+!  XtSetValue to set the value in the target (named) widget.
+!
+!  This example also uses WcManage().  The argument is the name of a
+!  widget.  Wildcards work in names exactly as in resource specifications,
+!  but the name resolution search can also include relative path names.
+!
+!  Note that resource specifications can be split across lines by using
+!  `\' to escape the newline in resource file, just as you can do in C.
+!  Additional whitepspace (tabs and blanks) can also be added for stylistic
+!  reasons.
+!
+#ifdef MOTIF_100
+!  If you are using Motif 1.0, then this applies:
+!
+!    Note also that the dialog is created using one of the Motif
+!    constructors, and the constructor introduces a dialogShell.  Since we
+!    want the button to manage the child of the shell, not simply the shell,
+!    we must use the seemingly redundant specification:
+!
+!	WcManage( *exitDialog.exitDialog )
+!
+!    If we had used the more intuitive but wrong:
+!
+!	WcManage( *exitDialog )
+!
+!    then a small, empty dialog shell would appear at the upper left corner
+!    of the display.  This is a VERY common mistake made by Mri beginners.
+!
+#else
+!  If you are using Motif 1.1, then this applies:
+!
+!    The dialog is created using one of the Motif 1.1 constructors.  These
+!    constructors now all introduce a dialog shell with `_popup' appended
+!    to the name specified as the widget name.  Therefore, in this example,
+!    the widget `exitDialog' is a child of the dialogShell widget named
+!    `exitDialog_popup'.  This allows the more intuitive naming of
+!    the child:
+!
+!	WcManage( *push*exitDialog )
+!	  -- or more simply --
+!	WcManage( *exitDialog )
+!
+!    Note that the name `*push.exitDialog' does not apply to any widget!!
+!    This is a common point of confusion.
+!
+#endif
+!
+!*wcTrace: True
+Mri.wcChildren:		push
+Mri.wcCallback:		WcSetValue( this.title:Goodbye)
+
+*push.wcCreate:		xmPushButtonWidgetClass
+*push.labelString:	Hello World, I'm Mri.\nPlease Push Me!
+
+#ifdef MOTIF_100
+*push.activateCallback: WcOnceOnly( activateCallback \
+	WcCreatePopups( this exitDialog ) \
+	WcSetValue( this.labelString: Goodbye! ) \
+	WcAddCallbacks(this activateCallback WcManage(*exitDialog.exitDialog)))
+#else
+*push.activateCallback: WcOnceOnly( activateCallback \
+	WcCreatePopups( this exitDialog ) \
+	WcSetValue( this.labelString: Goodbye! ) \
+	WcAddCallbacks( this activateCallback WcManage(*exitDialog)) )
+#endif
+
+*exitDialog.wcConstructor:	XmCreateQuestionDialog
+*exitDialog.wcManaged:		False
+*exitDialog.messageString:	Do you really\nwant to exit?
+*exitDialog.okCallback:		WcExit(1)

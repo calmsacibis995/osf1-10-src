@@ -1,0 +1,986 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#	addmodems
+#
+
+STDSIGS="1 2 3 15"
+trap '' $STDSIGS  # till we setup fault handler
+BC='\c'
+
+#DEBUG=y ; export DEBUG
+case "$DEBUG" in
+y)
+	MYROOT="/usr/staff/xxx"; UULIB=$MYROOT
+	UUHOME=$MYROOT/spool/uucppublic ; UUSPOOL=$MYROOT/spool/uucp
+	NULL=$MYROOT/dev/null 
+	FILECMD=$MYROOT/file ;  DEV=$MYROOT/dev ;
+	;;
+*)
+	UULIB=/usr/lib/uucp ; UUHOME=/usr/spool/uucppublic
+	UUSPOOL=/usr/spool/uucp ; NULL=/dev/null
+	FILECMD=/usr/bin/file ; TMP=/tmp ; DEV=/dev ;
+	;;
+esac
+
+MYNAME=$UULIB/addmodems
+ODEVICES=$UULIB/Devices
+ODIALERS=$UULIB/Dialers
+OINITTAB="/etc/inittab"
+TTYDB=$UULIB/ttydb
+TTYDB1=$UULIB/ttydb1
+MDM=$UULIB/mdm
+OLOG="/var/log"
+OCONF="/etc/inetd.conf"
+
+PATH="$UULIB:/bin:/etc:/usr/bin:";export PATH
+HOSTNAME=`hostname`
+readonly UULIB UUHOME UUSPOOL PATH
+
+MSG_SKIPPED="
+Device skipped...
+"
+## Fault routines ##
+REPEATORDIE='
+	echo " 
+Interrupt !!!  "$BC
+	while :
+	do
+echo "Enter \"q\" to quit. [q]: "$BC
+	read buff
+	case "$buff" in
+	q|"")
+		if [ "$RENAMED" = "yes" ]
+		then	
+			echo "Moving /dev/ttyd$LINE to /dev/tty0$LINE"
+			mv /dev/ttyd$LINE /dev/tty0$LINE
+			chown root /dev/tty0$LINE
+			echo "WARNING: /dev/tty0$LINE has been returned to the avaliable pool of tty lines. " $BC
+		fi
+		exit 5
+		;;
+	esac
+	done
+'
+IGNORE=':'
+# Setup fault handler
+ONINTR=$REPEATORDIE
+trap 'eval "$ONINTR"' $STDSIGS
+
+: ${ADDEDSYSTEM=""}
+: ${ne=ne}  ${a=a}  # plays tricks with the next sentence
+export ne a ADDEDSYSTEM
+MODEMLINES=${MODEMLINES:=0}
+NMODEMS=${NMODEMS:=0}
+MODEM_FULL=${MODEM_FULL:=no}
+FIRST_PART=${FIRST_PART:=no}
+
+#*************************************************************************
+# Create aculog in /usr/log directory if not created already
+#
+# Check to see if /var/log exists, if exist then create aculog if not 
+# created already.
+if [ -d $OLOG ]
+then
+if [ ! -f $OLOG/aculog ]
+then
+	> $OLOG/aculog
+	chmod 664 $OLOG/aculog
+	chgrp uucp $OLOG/aculog
+	chown uucp $OLOG/aculog
+fi
+fi
+#***************************************************************************
+while :
+do
+INSERT_TTY=${INSERT_TTY:=no}
+MODEM_ENTRY=${MODEM_ENTRY:=no}
+DIRECT_ENTRY=${DIRECT_ENTRY:=no}
+SYSTEM_ENTRY=${SYSTEM_ENTRY:=no}
+TTY_LINES=${TTY_LINES:=no}
+CORRECT_DIALER=${CORRECT_DIALER:=no}
+TAB_ENTRY=${TAB_ENTRY:=no}
+RENAMED="no"
+GOOUT="no"
+
+	echo  "------------------------------"
+	echo  "MODEM CONFIGURATION"
+	echo  "------------------------------"
+# **************************************************************************
+
+	echo  "Hardwired connections MENU:                          "
+	echo  "
+		1. Configure Modems
+		2. Using a DIRECT hardwired line
+		3. Using uucp over TCP/IP
+		4. Using a direct link to a remote system 
+		5. End of Modem(s) Configuration
+	"
+	echo  "
+Please enter the number of your selection (1/2/3/4/5):  "$BC
+	read VAR
+	while :
+	do
+		case "$VAR" in
+		1)	MODEM_ENTRY="yes"
+			CALLER="ACU"
+			LINE2="-"
+			awk '$1 == "ACU"' $ODEVICES 2>$NULL > $MDM
+			set ""`wc -l $MDM`
+			NMODEMS="$1"  # Number of Modems configured
+			DIRECT_ENTRY="no"
+			SYSTEM_ENTRY="no"
+			;;
+		2)	DIRECT_ENTRY="yes"
+			CALLER="Direct"
+			LINE2="-"
+			DIALER="direct"
+			MODEM_ENTRY="no"		
+			SYSTEM_ENTRY="no"
+			;;
+		3)	CALLER="TCP"
+			LINE="-"
+			LINE2="-"
+			CLASS="-"
+			DIALER="TCP"
+			DIRECT_ENTRY="no"
+			MODEM_ENTRY="no"
+			SYSTEM_ENTRY="no"
+			INSERT_TTY="no"
+			TTY_LINES="no"
+			;;
+		4)	DIRECT_ENTRY="no"
+			MODEM_ENTRY="no"
+			SYSTEM_ENTRY="yes"
+			LINE2="-"
+			DIALER="direct"
+			while :
+			do
+				echo  
+				echo  "Enter the name of the remote system: " $BC
+				read RSYSTEM
+				numchars=`echo "$RSYSTEM"|wc -c`
+				set - $numchars; numchars=$1
+				case "$numchars"
+				in
+				"1")	# NULL
+					continue
+					;;
+				[2-9])	CALLER="$RSYSTEM"
+					break #ok
+					;;
+				10)	CALLER="$RSYSTEM"
+					break
+					;;
+				11)	CALLER="$RSYSTEM"
+					break
+					;;
+				12)	CALLER="$RSYSTEM"
+					break
+					;;
+				13)	CALLER="$RSYSTEM"
+					break
+					;;
+				14)	CALLER="$RSYSTEM"
+					break
+					;;
+				15)	CALLER="$RSYSTEM"
+					break
+					;;
+				*)
+					echo
+					echo "
+The remote system name must not be greater than fourteen characters.
+"
+					;;
+				esac
+			done
+			;;
+		5)	echo
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			echo "End of Hardwired Connections"
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			exit 1
+			;;
+		*)	echo "Please enter the number of your selection (1/2/3/4/5): "$BC
+			read VAR
+			continue
+			;;
+		esac
+		break
+	done	# while :
+
+# **************************************************************************
+# Obtain the name of the modem.
+
+	if [ $MODEM_ENTRY = "yes" ]
+	then
+		if [ "$NMODEMS" -lt 19 ]
+		then
+			MODEMLINES=`expr 19 - "$NMODEMS"`
+		else
+			MODEMLINES="$NMODEMS"
+		fi
+	if [ "$MODEMLINES" -le 19 -a "$NMODEMS" -lt 19 ]
+	then
+		while :
+		do
+			echo 
+			if [ "$NMODEMS" -gt 0 ]
+			then
+				MDMNAME=`awk '$1 == "ACU" {print $5}' $ODEVICES 2>$NULL`
+				echo  "**************************************************************"
+				echo  "These are the modem(s) already configured in the Devices file:
+$MDMNAME"
+			echo  "**************************************************************"
+			fi
+			echo 
+			echo  "These are the available MODEMS"
+			ALL_LINES=`grep -v "^#" ${ODIALERS} | grep -v "TCP" |grep -vy "direct" | awk '{print $1}' - `
+			echo $ALL_LINES
+			echo  "Enter a modem name: " $BC
+			read DIALER
+			if [ "$DIALER" != "" ]
+			then
+				while :
+				do
+					echo
+					echo  "You have typed \"$DIALER\""
+					echo  "Is this correct (yes/no) [yes]" $BC
+					read ANS
+					case "$ANS"
+					in
+					yes|y|"") grep "^$DIALER" ${ODIALERS} > $NULL
+						if [ $? = 0 ]
+						then
+							CORRECT_DIALER="yes"
+							break
+						else
+							echo 
+							echo  "This modem name \"$DIALER\" is not specified in the \"Dialers\" file."
+							echo  "Please enter the correct modem name."
+							break
+						fi
+						;;
+					no|n) 	echo 
+						echo  "Please enter the correct modem name."
+						break
+						;;
+					*)	continue
+						;;
+					esac
+				done # end of DIALER != ""
+			fi # if DIALER  != ""
+			if [ "$CORRECT_DIALER" = "yes" ]
+			then
+				break
+			fi
+		done
+	else
+		echo
+		echo "You already have 19 modems configured."
+		echo "The maximum modems which can be configured are 19."
+		MODEM_FULL="yes"
+		INSERT_TTY=${INSERT_TTY:=no}
+		TTY_LINES="no" 
+		GOOUT="yes"
+	fi
+	fi
+# **********************************************************************
+# Obtain the device name and speed for the MODEM 
+#
+
+	if [ $MODEM_ENTRY = "yes"  -a  $MODEM_FULL = "no" ]
+	then		
+
+# Select the speed
+
+	echo 
+	echo  "What is the BAUD RATE(SPEED) (1200/2400/9600/Any): " $BC
+	read CLASS_VAR
+	while :
+	do
+		case "$CLASS_VAR" in
+		1200)	CLASS="1200"
+			;;
+		2400)	CLASS="2400"
+			;;
+		9600)	CLASS="9600"
+			;;
+		Any)	CLASS="Any"
+			;;
+		*)	echo  "What is the BAUD RATE(SPEED) (1200/2400/9600/Any): " $BC
+			read CLASS_VAR
+			continue
+			;;
+		esac
+		break
+	done
+$FILECMD $DEV/tty* | sed 's/terminal/junk &/' |
+  awk '
+  NF >= 9 {
+	if ($8 != "terminal") continue
+	if ($5 == "LAT") continue # skip LAT devices
+	if ($5 ~ /^VCB/) continue # skip QDSS devices
+	term_name = substr($1,6,5)
+	if (term_name == "tty:") continue  # skip /dev/tty
+	if (term_name ~ /^ttyd.$/) continue # skip existing dialers
+	cntrl_type = $5
+	split($6,junk,","); split(junk[1],junk2,"#");cntrl_num = junk2[2]
+	split($9,junk,"#"); cntrl_line = junk[2]
+	printf "%-6s\n", term_name
+}' > $TTYDB1
+
+set ""`wc -l $TTYDB1`
+NTTYLINES="$1"  # Number of ttylines available
+
+if [ -f "/dev/null1" ]
+then
+	rm /dev/null1 
+fi
+if [ -f $TTYDB ]
+then
+	rm $TTYDB 
+fi
+for i 
+in `cat "$TTYDB1"`
+do
+	NULL1="/dev/null1"
+
+	nohup ls -l /dev/$i 2>&1 > $NULL1
+	grep "root" $NULL1 2>&1 > /dev/null
+	if [ "$?" = 0 ]
+	then
+		echo "$i" >> $TTYDB
+	fi
+
+	if [ -f $NULL1 ]
+	then
+		rm $NULL1
+	fi
+done
+
+if [ -s $TTYDB ]
+then
+	while :
+	do
+	echo "********************************************"
+	echo "These are the available device names"
+	cat $TTYDB
+	echo "********************************************"
+	echo
+	echo "Select a device name."
+	echo
+	echo "Enter the last numeral/alphanumeric character"
+	echo
+	echo "for the appropriate tty device name."
+	echo
+	echo  "For example type '1' if selecting tty01: " $BC
+	read LINE 
+	while :
+	do
+	case "$LINE" in
+	[0-9])	;;
+	[a-z])	;;
+	[A-Z])	;;
+	*)	echo
+		echo "-------------------------------------------------"
+		echo "Select a device name."
+		echo
+		echo "Enter the last numeral/alphanumeric character"
+		echo
+		echo "for the appropriate tty device name."
+		echo
+		echo "For example type '1' if selecting tty01:" $BC
+		read LINE
+		continue
+		;;
+	esac
+	break
+	done # inner while
+	if [ -c /dev/tty0$LINE ]
+	then
+		echo
+		echo "Renaming /dev/tty0$LINE to /dev/ttyd$LINE"
+		mv /dev/tty0$LINE /dev/ttyd$LINE
+		RENAMED="yes"
+		chown uucp /dev/ttyd$LINE
+		chmod 666 /dev/ttyd$LINE
+		INSERT_TTY="yes"
+		TTY_LINES="yes"
+		echo  "WARNING: /dev/tty0$LINE has been used" $BC
+		break
+	else
+		echo
+		echo "*****************************************"
+		echo "ERROR: No such device: /dev/tty0$LINE"
+		echo "*****************************************"
+		echo
+	fi
+	done # outer while
+else
+	echo
+	echo "THERE ARE NO tty DEVICES AVAILABLE"
+	echo "NO MODEM CAN BE CONFIGURED"
+	LINE="-"
+	INSERT_TTY="no"
+	TTY_LINES="no"
+	GOOUT="yes"
+fi #  TTYDB
+if [ -f ALL_LINES ]
+then
+	rm ALL_LINES
+fi
+fi # MODEM
+#*************************************************************************
+
+# Obtain the speed for the DIRECT 
+#
+# Obtain the speed for the remote system conection
+#
+#
+
+	if [ $DIRECT_ENTRY = "yes" ] || [ $SYSTEM_ENTRY = "yes" ]
+	then		
+
+# Select the speed
+
+	echo 
+	echo  "What is the BAUD RATE(SPEED) (1200/2400/9600/Any): " $BC
+	read CLASS_VAR
+	while :
+	do
+		case "$CLASS_VAR" in
+		1200)	CLASS="1200"
+			;;
+		2400)	CLASS="2400"
+			;;
+		9600)	CLASS="9600"
+			;;
+		Any)	CLASS="Any"
+			;;
+		*)	echo  "What is the BAUD RATE(SPEED) (1200/2400/9600/Any): " $BC
+			read CLASS_VAR
+			continue
+			;;
+		esac
+		break
+	done
+	fi # DIRECT_ENTRY=yes || SYSTEM_ENTRY=yes
+
+#*************************************************************************
+
+# Obtain the tty line for both Direct and System entries
+#
+	if [ $DIRECT_ENTRY = "yes" ] || [ $SYSTEM_ENTRY = "yes" ]
+	then		
+$FILECMD $DEV/tty* | sed 's/terminal/junk &/' |
+  awk '
+  NF >= 9 {
+	if ($8 != "terminal") continue
+	if ($5 == "LAT") continue # skip LAT devices
+	if ($5 ~ /^VCB/) continue # skip QDSS devices
+	term_name = substr($1,6,5)
+	if (term_name == "tty:") continue  # skip /dev/tty
+	if (term_name ~ /^ttyd.$/) continue # skip existing dialers
+	cntrl_type = $5
+	split($6,junk,","); split(junk[1],junk2,"#");cntrl_num = junk2[2]
+	split($9,junk,"#"); cntrl_line = junk[2]
+	printf "%-6s\n", term_name
+}' > $TTYDB1
+
+set ""`wc -l $TTYDB1`
+NTTYLINES="$1"  # Number of ttylines available
+
+if [ -f "/dev/null1" ]
+then
+	rm /dev/null1 
+fi
+if [ -f $TTYDB ]
+then
+	rm $TTYDB 
+fi
+for i 
+in `cat "$TTYDB1"`
+do
+	NULL1="/dev/null1"
+
+	nohup ls -l /dev/$i 2>&1 > $NULL1
+	grep "root" $NULL1 2>&1 > /dev/null
+	if [ "$?" = 0 ]
+	then
+		echo "$i" >> $TTYDB
+	fi
+
+	if [ -f $NULL1 ]
+	then
+		rm $NULL1
+	fi
+done
+if [ -s $TTYDB ]
+then
+	while :
+	do
+	echo "********************************************"
+	echo "These are the available device names"
+	cat $TTYDB
+	echo "********************************************"
+	echo
+	echo "Select a device name." $BC
+	echo
+	echo "Enter the last numeral/alphanumeric character"
+	echo
+	echo "for the appropriate tty device name."
+	echo
+	echo  "For example type '1' if selecting tty01: " $BC
+	read LINE 
+	while :
+	do
+	case "$LINE" in
+	[0-9])	;;
+	[a-z])	;;
+	[A-Z])	;;
+	*)	echo
+		echo "-------------------------------------------------"
+		echo "Enter the last numeral/alphanumeric character"
+		echo
+		echo "for the appropriate tty0 device name."
+		echo
+		echo "For example type '1' if selecting tty01" $BC
+		read LINE
+		continue
+		;;
+	esac
+	break
+	done # inner while
+	if [ -c /dev/tty0$LINE ]
+	then
+		echo
+		echo "Renaming /dev/tty0$LINE to /dev/ttyd$LINE"
+		mv /dev/tty0$LINE /dev/ttyd$LINE
+		chown uucp /dev/ttyd$LINE
+		chmod 666 /dev/ttyd$LINE
+		INSERT_TTY="yes"
+		TTY_LINES="yes"
+		echo  "WARNING: /dev/tty0$LINE has been used" $BC
+		RENAMED="yes"
+		break
+	else
+		echo
+		echo "*****************************************"
+		echo "ERROR: No such device: /dev/tty0$LINE"
+		echo "*****************************************"
+		echo
+	fi
+	done # outer while
+else
+	echo
+	echo "THERE ARE NO tty DEVICES AVAILABLE"
+	echo "NO SYSTEM using Direct Line/DIRECT LINE CAN BE CONFIGURED"
+	LINE="-"
+	INSERT_TTY="no"
+	TTY_LINES="no"
+	GOOUT="yes"
+fi #  TTYDB
+if [ -f ALL_LINES ]
+then
+	rm ALL_LINES
+fi
+fi # DIRECT_ENTRY and SYSTEM_ENTRY = yes
+
+# **************************************************************************
+
+if [ $INSERT_TTY = "yes" ]
+then
+	LINE3="ttyd$LINE" 
+else
+	LINE3=$LINE
+fi
+	MSG_VERIFY="
+Type of Device: $CALLER
+Device Name : $LINE3
+Device Name of an 801 ACU: $LINE2
+Transmission Speed(BAUD RATE): $CLASS
+Type of modem passed to Dialer: $DIALER
+"
+ENTRY="$CALLER $LINE3 $LINE2 $CLASS $DIALER"
+
+#-----------------------------------------------------------------------
+if [ $TTY_LINES = "yes" ]
+then
+	echo "+++++++++++++++++++++++++++++++++++++++++++++"
+        echo "The following is a summary of your responses."
+	echo "$MSG_VERIFY"
+	echo "+++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	while :
+	do
+		DOIT=
+		echo \
+"Please verify the above information and choose one of the following:
+
+	1    Add the device
+	2    Skip the device
+	3    Redisplay the summary and repeat this prompt
+"
+echo   "Please enter your selection (1/2/3) [1]: "$BC
+		read BUFF
+		case "$BUFF" in
+		1|"") DOIT="y"
+			break
+			;;
+		"2")	echo "$MSG_SKIPPED"
+			if [ $INSERT_TTY = "yes" ]
+			then
+				if [ -c /dev/ttyd$LINE ]
+				then
+					mv /dev/ttyd$LINE /dev/tty0$LINE
+					chown root /dev/tty0$LINE
+					echo  "WARNING: /dev/tty0$LINE has been returned to the avaliable pool of tty lines. " $BC
+				fi
+				INSERT_TTY="no"
+			fi
+			break
+			;;
+		"3")	echo "+++++++++++++++++++++++++++++++++++++++++++++"
+        		echo "
+The following is a summary of your responses."
+			echo "$MSG_VERIFY"
+			echo "+++++++++++++++++++++++++++++++++++++++++++++"
+			echo
+			continue
+			;;
+		*)	echo " "
+			continue
+			;;
+		esac
+	done
+
+# redefine some strings
+MSG_ADDED="
+Device added.
+"
+
+
+EDSTRING=\
+"
+H
+$ENTRY
+.
+w
+q
+"
+
+	# Append (modify) entry to the $OSYSTEMS file.
+	case "$DOIT" in
+	y) 	
+		trap '' $STDSIGS  # We're committed
+		grep "^$ENTRY" $ODEVICES > /dev/null
+		if [ $? != 0 ] 
+		then
+			if [ ! -f $ODEVICES.ofc ]
+			then
+				cp $ODEVICES $ODEVICES.ofc
+			fi
+			echo "$ENTRY" >> $ODEVICES
+			GOOUT="no"
+			if [ $MODEM_ENTRY = "yes" ]
+			then 
+				echo
+				echo
+				echo "-------------------------------------------"
+				echo "Modem added to DEVICES file. "
+				echo "-------------------------------------------"
+				echo
+			fi
+			if [ $DIRECT_ENTRY = "yes" ]
+			then 
+				echo
+				echo
+				echo "-------------------------------------------"
+				echo "Direct added to DEVICES FILE. "
+				echo "-------------------------------------------"
+				echo
+			fi
+		else
+			echo
+			echo
+			echo "---------------------------------------------------"
+			echo "Entry already exists in $ODEVICES file"
+			echo "---------------------------------------------------"
+			echo
+			INSERT_TTY="no"
+			GOOUT="yes"
+		fi # else of grep of ENTRY in devices file
+# case DOIT y) still continuing
+		trap '' $STDSIGS  # We're committed
+		if [ $INSERT_TTY = "yes" ]
+		then
+			while :
+			do
+				echo
+echo  "Do you want to enter an entry for uugetty in the inittab file (yes/no) [no]:" $BC
+			read tabentry
+			case "$tabentry" in
+			yes|y) TAB_ENTRY="yes"
+				 break
+				;;
+			no|n|"") TAB_ENTRY="no"
+				 break
+				;;
+			*) echo "Enter either yes/no/return"
+				continue
+				;;
+			esac   
+			done
+			if [ $TAB_ENTRY = "yes" ]
+			then
+				if [ ! -f $OINITTAB.ofc ]
+				then
+					cp $OINITTAB $OINITTAB.ofc
+				fi
+				while :
+				do
+				while :
+				do
+				echo
+				echo  "Select an ID for the process in /etc/inittab file" 
+				echo  "For example type 'u1':" $BC
+				read ID
+				numchars=`echo "$ID"|wc -c`
+				set - $numchars; numchars=$1
+				case "$numchars"
+				in
+				"1")	# NULL
+					continue
+					;;
+				[2-9])	break
+					#ok
+					;;
+				10)	break
+					;;
+				11)	break
+					;;
+				12)	break
+					;;
+				13)	break
+					;;
+				14)	break
+					;;
+				15)	break
+					;;
+				*)
+					echo
+					echo "
+The ID must not be greater than fourteen characters.
+"
+				;;
+				esac
+				done # of the ID length while loop
+				grep "^$ID:" "$OINITTAB" > $NULL
+				if [ $? = 0 ]
+				then
+					echo "ID $ID already defined"
+					echo 
+				else
+					while :
+					do
+						echo
+						echo  "Will the system be using this modem/direct line in"
+						echo  "shared mode(i.e. for incoming and outgoing calls) (yes/no) [yes]: " $BC
+						read SHARED
+						case "$SHARED" in
+						yes|y|"")	ENTRY_TAB="$ID:23:respawn:/usr/lib/uucp/uugetty -r -t 30 ttyd$LINE $CLASS #UUCP"
+						echo "$ENTRY_TAB" >> $OINITTAB
+						echo "----------------------------------------------------"
+						echo "ID $ID added to \"/etc/inittab\" file."
+						echo "----------------------------------------------------"
+						break
+						;;
+						no|n)		ENTRY_TAB="$ID:23:respawn:/usr/lib/uucp/uugetty -t 30 ttyd$LINE $CLASS #UUCP"
+						echo "$ENTRY_TAB" >> $OINITTAB
+						echo "----------------------------------------------------"
+						echo "ID $ID added to \"/etc/inittab\" file."
+						echo "----------------------------------------------------"
+						break
+						;;
+						*) continue
+							;;
+						esac
+					done
+					break
+					fi # of grep of ID
+			done #select id while
+		fi # if tab_entry = yes
+		fi # if insert_tty is yes
+	esac
+fi # for TTY_LINES = yes if statement
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Regarding TCP/IP Device
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# First configure TCP for outgoing device if not already configured.
+if [ $CALLER = "TCP" ]
+then
+	grep "^$ENTRY" $ODEVICES > /dev/null
+	if [ $? != 0 ] 
+	then
+		while :
+		do
+		echo
+		echo 
+		echo "Configure uucp to be able to place OUTGOING calls"
+		echo "over TCP/IP? (yes/no) [yes] "$BC
+		read reply
+		case "$reply"
+		in
+		yes|y|"") echo "$ENTRY" >> $ODEVICES
+			echo
+			echo "-------------------------------------------------------"
+			echo "An entry for TCP/IP has been added to the Devices file."
+			echo "-------------------------------------------------------"
+			echo
+			break
+				;;
+		no|n) break 
+			;;
+		*) continue
+			;;
+		esac
+		break
+		done
+	else
+		echo
+		echo
+		echo "-----------------------------------------------------------------"
+		echo "uucp is already configured to allow outgoing calls over TCP/IP."
+		echo "-----------------------------------------------------------------"
+		echo
+		INSERT_TTY="no"
+	fi
+#---------------------------------------------------
+# Now see if /etc/inetd.conf file has to be modified .
+#---------------------------------------------------
+
+		echo
+                grep "^#uucp" ${OCONF} > $NULL
+                if [ $? = 0 ]
+                then
+		while :
+		do
+		echo
+		echo 
+		echo "Configure uucp to be able to accept INCOMING calls"
+		echo "over TCP/IP? (yes/no) [yes] "$BC
+				read ANS
+				case "$ANS"
+				in
+				yes|y|"") 
+EDSTRING="/#uucp/
+d
+.
+i
+uucp    stream  tcp     nowait  root    /usr/sbin/uucpd         uucpd
+.
+w
+q
+"
+                                echo "$EDSTRING" |ed - $OCONF 1>>/dev/null 2>&1
+				echo
+				echo
+				echo
+				echo "----------------------------------------------------------"
+				echo "The /etc/inetd.conf file has been modified so that inetd"
+				echo "will accept incoming uucp calls over TCP/IP. "
+				echo "----------------------------------------------------------"
+				echo
+				echo
+				echo
+				echo "-------------------------------------------------------------"
+                                echo "Warning: Restart inetd daemon."
+				echo "uucp calls over TCP/IP won't be accepted unless this is done"
+				echo "Kill the inetd daemon and restart with the following command"
+				echo "/usr/sbin/inetd &"
+				echo
+				echo "-------------------------------------------------------------"
+				echo
+				echo
+				break
+				;;
+				no|n)	break
+					;;
+				*) continue
+					;;
+				esac
+				break
+		done
+		else
+				echo
+				echo
+				echo "------------------------------------------------------------"
+				echo "The /etc/inetd.conf file has already been modified so that"
+				echo "inetd will accept incoming uucp calls over TCP/IP. "
+				echo "------------------------------------------------------------"
+				echo
+                fi
+GOOUT="yes"
+fi
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CORRECT_DIALER="no"
+if [ "$GOOUT" = "no" ]
+then
+	if [ -f $ODEVICES.ofc ]
+	then
+		rm $ODEVICES.ofc
+	fi
+	if [ -f $OINITTAB.ofc ]
+	then
+		rm $OINITTAB.ofc
+	fi
+fi # GOOUT=no
+
+if [ "$GOOUT" = "yes" ]
+then
+	while :
+	do
+	echo
+	echo  "Would you like to configure another hardwired connection (yes/no) [yes]: " $BC
+	read ANOTHER
+	case "$ANOTHER" in
+	yes|y|"") break
+		;;
+	no|n)   echo
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		echo "End of Hardwired Connections "
+		echo "++++++++++++++++++++++++++++++++++++++++"
+		exit 2
+		;;
+	*) continue
+		;;
+	esac
+	done
+fi # GOOUT=yes
+done
+exit 0

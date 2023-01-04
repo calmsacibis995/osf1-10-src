@@ -1,0 +1,270 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9204242034.AA06031@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2517) close XBUG #5197: Xlib: (Xsi) doesn't use keycode 0 as defined by Xlib I18N
+Date: Fri, 24 Apr 92 16:34:21 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5197
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d05938	Fri Apr 24 16:31:25 1992
+--- lib/X/Xsi/ProtoFlt.c	Fri Apr 24 16:16:03 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.26 92/03/03 10:01:17 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.27 92/04/24 16:13:58 rws Exp $
+   */
+  
+  /*
+***************
+*** 360,369 ****
+  
+      if (!im || (im->fd < 0)) return(False);
+      /*
+!      * If key_code is larger than max_keycode, this key event be regarded
+       * as the event pushed back by this filter.
+       */
+!     if (ev->xkey.keycode == (display->max_keycode + 1)) {
+  	if (_XipTypeOfNextICQueue(ic) == XIM_KEYSYM &&
+  	    (keysym = _XipKeySymOfNextICQueue(ic)) > XK_BackSpace){
+  	    if ((keycode = XKeysymToKeycode(display, keysym)) != 0) {
+--- 360,369 ----
+  
+      if (!im || (im->fd < 0)) return(False);
+      /*
+!      * If key_code is 0, this key event be regarded
+       * as the event pushed back by this filter.
+       */
+!     if (ev->xkey.keycode == 0) {
+  	if (_XipTypeOfNextICQueue(ic) == XIM_KEYSYM &&
+  	    (keysym = _XipKeySymOfNextICQueue(ic)) > XK_BackSpace){
+  	    if ((keycode = XKeysymToKeycode(display, keysym)) != 0) {
+***************
+*** 431,437 ****
+  	    bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+  	    dummy_ev.type = KeyPress;
+  	    dummy_ev.xkey.state = 0;
+! 	    dummy_ev.xkey.keycode = display->max_keycode + 1;
+  	    if (first == 0) count--;
+  	    for (i = 0; i < count; i++) {
+  		XPutBackEvent(display, &dummy_ev);
+--- 431,437 ----
+  	    bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+  	    dummy_ev.type = KeyPress;
+  	    dummy_ev.xkey.state = 0;
+! 	    dummy_ev.xkey.keycode = 0;
+  	    if (first == 0) count--;
+  	    for (i = 0; i < count; i++) {
+  		XPutBackEvent(display, &dummy_ev);
+***************
+*** 440,446 ****
+  	    if (first > 0) continue;
+  	    first++;
+  	    ev->xkey.state = 0;
+! 	    ev->xkey.keycode = display->max_keycode + 1;
+  	    if (_XipTypeOfNextICQueue(ic) == XIM_KEYSYM &&
+  		(keysym = _XipKeySymOfNextICQueue(ic)) > XK_BackSpace){
+  		if ((keycode = XKeysymToKeycode(display, keysym)) != 0) {
+--- 440,446 ----
+  	    if (first > 0) continue;
+  	    first++;
+  	    ev->xkey.state = 0;
+! 	    ev->xkey.keycode = 0;
+  	    if (_XipTypeOfNextICQueue(ic) == XIM_KEYSYM &&
+  		(keysym = _XipKeySymOfNextICQueue(ic)) > XK_BackSpace){
+  		if ((keycode = XKeysymToKeycode(display, keysym)) != 0) {
+*** /tmp/d05957	Fri Apr 24 16:31:34 1992
+--- lib/X/Xsi/XICSetVal.c	Fri Apr 24 16:16:14 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XICSetVal.c,v 1.27 91/09/11 11:40:57 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XICSetVal.c,v 1.28 92/04/24 16:14:45 rws Exp $
+   */
+  
+  /*
+***************
+*** 266,272 ****
+      req.input_style = ic->core.input_style;
+      req.focus_window = ic->core.focus_window;
+      req.filter_events = ic->core.filter_events;
+!     req.max_keycode = im->core.display->max_keycode;
+  #ifdef	XML
+      if (mask & (1 << ICUsingLanguage)) {
+  	if (ic->xlc_num == 0) {
+--- 266,272 ----
+      req.input_style = ic->core.input_style;
+      req.focus_window = ic->core.focus_window;
+      req.filter_events = ic->core.filter_events;
+!     req.max_keycode = 0;	/* noused */
+  #ifdef	XML
+      if (mask & (1 << ICUsingLanguage)) {
+  	if (ic->xlc_num == 0) {
+*** /tmp/d05976	Fri Apr 24 16:31:43 1992
+--- lib/X/Xsi/XIMKeyBind.c	Fri Apr 24 16:16:20 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMKeyBind.c,v 1.22 92/03/03 10:01:53 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMKeyBind.c,v 1.23 92/04/24 16:14:56 rws Exp $
+   */
+  
+  /*
+***************
+*** 55,61 ****
+      char		*mbuf;
+  #endif
+  
+!     if (ev->keycode > ev->display->max_keycode) {
+  	(void)_XipGetNextICQueue(ic, &type, &length, keysym, (char **)&ptr);
+  	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+  #ifdef X_WCHAR
+--- 55,61 ----
+      char		*mbuf;
+  #endif
+  
+!     if (ev->keycode == 0) {
+  	(void)_XipGetNextICQueue(ic, &type, &length, keysym, (char **)&ptr);
+  	if (type == XIM_STRING || (type == XIM_KEYSYM && length > 0)) {
+  #ifdef X_WCHAR
+***************
+*** 148,154 ****
+      int			ret_len, scanned_bytes;
+      int			ret;
+  
+!     if (ev->keycode > ev->display->max_keycode) {
+  	_XipGetNextICQueue(ic, &type, &length, keysym, (char **)&ptr);
+  	if (type == XIM_STRING) {
+  	    ret_len = nbytes;
+--- 148,154 ----
+      int			ret_len, scanned_bytes;
+      int			ret;
+  
+!     if (ev->keycode == 0) {
+  	_XipGetNextICQueue(ic, &type, &length, keysym, (char **)&ptr);
+  	if (type == XIM_STRING) {
+  	    ret_len = nbytes;
+***************
+*** 213,219 ****
+      char		*ptr;
+      int			ret_len;
+  
+!     if (ev->keycode > ev->display->max_keycode) {
+  	_XipGetNextICQueue(ic, &type, &length, keysym, &ptr);
+  	if (type == XIM_STRING) {
+  	    if (length > nbytes) {
+--- 213,219 ----
+      char		*ptr;
+      int			ret_len;
+  
+!     if (ev->keycode == 0) {
+  	_XipGetNextICQueue(ic, &type, &length, keysym, &ptr);
+  	if (type == XIM_STRING) {
+  	    if (length > nbytes) {
+*** /tmp/d05995	Fri Apr 24 16:31:54 1992
+--- lib/X/Xsi/XLocalIM.c	Fri Apr 24 16:16:26 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.8 91/12/27 15:12:20 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.9 92/04/24 16:15:02 rws Exp $
+   */
+  
+  /*
+***************
+*** 890,896 ****
+      if (xcvt->cnt == 0)
+  	return(False);
+  
+!     if (ev->xkey.keycode == (display->max_keycode + 1)) {
+  	if (_XipTypeOfNextICQueue((XipIC)ic) == XIM_KEYSYM){
+  	    if ((keycode = XKeysymToKeycode(display,
+  			    _XipKeySymOfNextICQueue((XipIC)ic))) != 0
+--- 890,896 ----
+      if (xcvt->cnt == 0)
+  	return(False);
+  
+!     if (ev->xkey.keycode == 0) {
+  	if (_XipTypeOfNextICQueue((XipIC)ic) == XIM_KEYSYM){
+  	    if ((keycode = XKeysymToKeycode(display,
+  			    _XipKeySymOfNextICQueue((XipIC)ic))) != 0
+***************
+*** 932,938 ****
+      bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+      dummy_ev.type = KeyPress;
+      dummy_ev.xkey.state = 0;
+!     dummy_ev.xkey.keycode = display->max_keycode + 1;
+  
+      if (xcvt->off == True) {
+  	if ((c = off_key_check(xcvt)) == 0) {
+--- 932,938 ----
+      bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+      dummy_ev.type = KeyPress;
+      dummy_ev.xkey.state = 0;
+!     dummy_ev.xkey.keycode = 0;
+  
+      if (xcvt->off == True) {
+  	if ((c = off_key_check(xcvt)) == 0) {
+***************
+*** 954,960 ****
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+! 	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+  				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+  	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {
+--- 954,960 ----
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+! 	ev->xkey.keycode = 0;
+  	if ((keycode = XKeysymToKeycode(display,
+  				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+  	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {
+***************
+*** 984,990 ****
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+! 	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+  				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+  	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {
+--- 984,990 ----
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+! 	ev->xkey.keycode = 0;
+  	if ((keycode = XKeysymToKeycode(display,
+  				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+  	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {

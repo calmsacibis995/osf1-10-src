@@ -1,0 +1,172 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: rcmgr,v $ $Revision: 4.2.3.5 $ (DEC) $Date: 1992/10/14 14:27:05 $ 
+#
+#	rcmgr.sh
+#		Runtime Configuration ManaGemenT
+#		interface to rc.config file
+#		
+#	rcmgr set variable value
+#	rcmgr get variable [ default-value ]
+#
+#
+#		Digital Equipment Corporation, Maynard, MA
+#			All rights reserved.
+#
+#	This software is furnished under a license and may be used and
+#	copied  only  in accordance with the terms of such license and
+#	with the  inclusion  of  the  above  copyright  notice.   This
+#	software  or  any  other copies thereof may not be provided or
+#	otherwise made available to any other person.  No title to and
+#	ownership of the software is hereby transferred.		
+#
+#	The information in this software is subject to change  without
+#	notice  and should not be construed as a commitment by Digital
+#	Equipment Corporation.					
+#
+#	Digital assumes no responsibility for the use  or  reliability
+#	of its software on equipment which is not supplied by Digital.
+#
+#	The data model is as follows:
+#
+#		Every system MUST have a node-specific configuration file
+#		This will usually be /etc/rc.config
+#		We'll call it RC_CONFIG
+#
+#		Every system MAY have a base configuration file - this may
+#		node-specific or not
+#			  This will usually be /etc/rc.config.base
+#				 We'll call it RC_CONFIG_SITE
+#
+#		A get operation will look in RC_CONFIG first.  If it isn't
+#		found it will look in RC_CONFIG_SITE.
+#
+#		A set operation will ALWAYS go into RC_CONFIG
+#
+#	RATIONALLE:
+#		The base configuration file may be created and provided by
+#		a mgt system.  This would reduce the required
+#		configuration for a particular node.  If any changes are
+#		made they are strictly local
+#
+#	000	?		jps
+#	001	30-may-1991	ccb
+#		Modified to fit TIN ISL
+#	002	21-jun-1991	ccb
+#		added /isl to the search path so that it would use
+#		static-linked versions of commands
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/Avl	# get the Avl routines
+. $SHELL_LIB/Error	# get the Error routines
+
+RC_CONFIG_SITE=${RC_CONFIG_SITE:=/etc/rc.config.site}
+RC_CONFIG=${RC_CONFIG:=/etc/rc.config}
+
+
+:	-RcMgrGet
+#		Get an attribute value from rc
+
+RcMgrGet()
+{
+	if [ $# -ge 1 ]; then
+	{
+		VAL=`Avl $RC_CONFIG get $1`
+		[ -z "$VAL" ] &&
+		{
+			[ -f "$RC_CONFIG_SITE" ] &&
+			{
+				VAL=`Avl $RC_CONFIG_SITE get "$@"`
+			}
+		}
+		[ -z "$VAL" ] &&
+		{
+			shift
+			VAL="$@"
+		}
+		echo $VAL
+	}
+	else
+	{
+		Error "usage: $PROG get {variable} [default_value]"
+		exit 1
+	}; fi
+}
+
+
+
+:	-RcMgrSet
+#
+
+RcMgrSet()
+{
+	if [ $# -ge 2 ]; then
+	{
+		Avl $RC_CONFIG set "$@"
+	}
+	else
+	{
+		Error "usage: $PROG set {variable} {value}"
+		exit 1
+	}; fi
+}
+
+
+
+:	-RcMgr
+#		this is Main()
+#
+
+RcMgr()
+{
+	PATH=/isl:/sbin:/usr/bin:/usr/sbin:/usr/lbin:.
+	export PATH
+
+	ARG=$1;
+
+	case "$ARG" in
+	set)	
+		shift;
+		RcMgrSet "$@"
+		;;
+	get)	
+		shift;
+		RcMgrGet "$@"
+		;;
+	*)	Error "usage: $PROG [get | set] {variable} {value}"
+		exit 1
+	esac
+}
+
+
+
+[ -z "$CHECK_SYNTAX" ] && 
+{
+	PROG=$0
+	RcMgr "$@"
+}
+
+

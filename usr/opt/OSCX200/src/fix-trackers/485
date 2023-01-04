@@ -1,0 +1,2613 @@
+Path: news!nntpd.lkg.dec.com!e2big.mko.dec.com!pa.dec.com!nobody
+Message-Id: <9211112218.AA02463@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2721) close XBUG #5141, #5433, #5522: x11perf bugs and enhancements (1 of 2)
+Date: Wed, 11 Nov 92 17:18:05 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Subject: demos: x11perf: request for enhancement
+### bug number:   5141
+### area:         demos
+### severity:     enhancement
+### comments:     
+
+Subject: demos: x11perf minor bug fix and enhancements
+### bug number:   5433
+### area:         demos
+### severity:     enhancement
+### comments:     
+
+Subject: demos: x11perf: false result on clever server on copywinpix
+### bug number:   5522
+### area:         demos
+### severity:     low
+### comments:     
+
+*** /tmp/d01878	Wed Nov 11 17:02:56 1992
+--- demos/x11perf/do_lines.c	Wed Nov 11 16:58:50 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_lines.c,v 2.11 92/11/11 16:58:34 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 26,35 ****
+  static XPoint   *points;
+  static GC       pgc;
+  
+! int InitLines(xp, p, reps)
+      XParms  xp;
+      Parms   p;
+!     int     reps;
+  {
+      int size;
+      int half;		/* Half of width if wide line		        */
+--- 27,36 ----
+  static XPoint   *points;
+  static GC       pgc;
+  
+! static void GenerateLines(xp, p, ddashed)
+      XParms  xp;
+      Parms   p;
+!     Bool    ddashed;
+  {
+      int size;
+      int half;		/* Half of width if wide line		        */
+***************
+*** 44,50 ****
+      float phaseinc;     /* how much to increment phasef at each segment */
+      int size4;		/* 4 * size					*/
+  
+!     pgc = xp->fggc;
+  
+      size = p->special;
+      size4 = 4 * (size+1);
+--- 45,54 ----
+      float phaseinc;     /* how much to increment phasef at each segment */
+      int size4;		/* 4 * size					*/
+  
+!     if(ddashed)
+! 	pgc = xp->ddfggc;
+!     else
+! 	pgc = xp->fggc;
+  
+      size = p->special;
+      size4 = 4 * (size+1);
+***************
+*** 158,183 ****
+  	if (phasef >= size4) phasef -= size4;
+  
+      }
+-     return reps;
+  }
+   
+! int InitWideLines(xp, p, reps)
+      XParms  xp;
+      Parms   p;
+      int     reps;
+  {
+      int size;
+  
+!     (void)InitLines(xp, p, reps);
+  
+      size = p->special;
+!     XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+!     XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+  
+      return reps;
+  }
+   
+  int InitDashedLines(xp, p, reps)
+      XParms  xp;
+--- 162,212 ----
+  	if (phasef >= size4) phasef -= size4;
+  
+      }
+  }
+   
+! int InitLines(xp, p, reps)
+      XParms  xp;
+      Parms   p;
+      int     reps;
+  {
++     GenerateLines(xp, p, False);
++ 	return reps;
++ }
++ 
++ static int GenerateWideLines(xp, p, reps, ddashed)
++     XParms  xp;
++     Parms   p;
++     int     reps;
++     Bool    ddashed;
++ {
+      int size;
+  
+!     GenerateLines(xp, p, ddashed);
+  
+      size = p->special;
+!     if(ddashed) {
+! 	XSetLineAttributes(xp->d, xp->ddbggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->ddfggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+!     else {
+! 	XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+  
+      return reps;
+  }
++ 
++ int InitWideLines(xp, p, reps)
++     XParms  xp;
++     Parms   p;
++     int     reps;
++ {
++     return GenerateWideLines(xp, p, reps, False);
++ }
+   
+  int InitDashedLines(xp, p, reps)
+      XParms  xp;
+***************
+*** 186,192 ****
+  {
+      char dashes[2];
+  
+!     (void)InitLines(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+--- 215,221 ----
+  {
+      char dashes[2];
+  
+!     GenerateLines(xp, p, False);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+***************
+*** 206,212 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideLines(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 235,241 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)GenerateWideLines(xp, p, reps, False);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 227,240 ****
+  {
+      char dashes[2];
+  
+!     (void)InitLines(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->bggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->fggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 256,269 ----
+  {
+      char dashes[2];
+  
+!     GenerateLines(xp, p, True);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->ddbggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->ddfggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 247,253 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideLines(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 276,282 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)GenerateWideLines(xp, p, reps, True);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 254,263 ****
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->fggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->bggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 283,292 ----
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->ddfggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->ddbggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 271,277 ****
+      for (i = 0; i != reps; i++)
+      {
+          XDrawLines(xp->d, xp->w, pgc, points, p->objects+1, CoordModeOrigin);
+!         if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+--- 300,310 ----
+      for (i = 0; i != reps; i++)
+      {
+          XDrawLines(xp->d, xp->w, pgc, points, p->objects+1, CoordModeOrigin);
+!         if (pgc == xp->ddbggc)
+!             pgc = xp->ddfggc;
+!         else if(pgc == xp->ddfggc)
+!             pgc = xp->ddbggc;
+!         else if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+*** /tmp/d01951	Wed Nov 11 17:03:32 1992
+--- demos/x11perf/do_text.c	Wed Nov 11 16:59:34 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_text.c,v 2.7 92/11/11 16:59:23 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 372,377 ****
+--- 373,379 ----
+  {
+      int i;
+  
++     if(font==NULL)return;
+      for (i = 0; i != totalLines; i++)
+  	free(charBuf[i]);
+      free(charBuf);
+***************
+*** 388,393 ****
+--- 390,396 ----
+  {
+      int i;
+  
++     if(font==NULL)return;
+      if (p->special) {
+  	for (i = 0; i < totalLines; i++) {
+  	    free(items[i*SEGS+0].chars);
+*** /tmp/d02006	Wed Nov 11 17:04:04 1992
+--- demos/x11perf/x11perf.c	Wed Nov 11 16:44:20 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: x11perf.c,v 2.34 92/07/31 17:22:40 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+--- 1,4 ----
+! /* $XConsortium: x11perf.c,v 2.38 92/11/11 16:44:05 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 79,84 ****
+--- 79,86 ----
+  
+  static char *foreground = NULL;
+  static char *background = NULL;
++ static char *ddbackground = NULL;
++ static int clips = 0;
+  
+  static int numSubWindows = 7;
+  static int subWindows[] = {4, 16, 25, 50, 75, 100, 200, 0};
+***************
+*** 90,96 ****
+  static XRectangle ws[] = {  /* Clip rectangles */
+      {195, 195, 120, 120},
+      { 45, 145, 120, 120},
+!     {345, 245, 120, 120}
+  
+  };
+  #define MAXCLIP     (sizeof(ws) / sizeof(ws[0]))
+--- 92,101 ----
+  static XRectangle ws[] = {  /* Clip rectangles */
+      {195, 195, 120, 120},
+      { 45, 145, 120, 120},
+!     {345, 245, 120, 120},
+!     { 45, 275, 120, 120},
+!     {345, 115, 120, 120},
+!     {195, 325, 120, 120}
+  
+  };
+  #define MAXCLIP     (sizeof(ws) / sizeof(ws[0]))
+***************
+*** 235,244 ****
+          objspersec =  RoundTo3Digits(objspersec);
+  
+          if (average) {
+! 	    printf("%6d trep @ %7.4f msec (%6.1f/sec): %s\n", 
+  		    n, msecsperobj, objspersec, str);
+  	} else {
+! 	    printf("%6d reps @ %7.4f msec (%6.1f/sec): %s\n", 
+  	        n, msecsperobj, objspersec, str);
+  	}
+      } else {
+--- 240,249 ----
+          objspersec =  RoundTo3Digits(objspersec);
+  
+          if (average) {
+! 	    printf("%7d trep @ %8.4f msec (%8.1f/sec): %s\n", 
+  		    n, msecsperobj, objspersec, str);
+  	} else {
+! 	    printf("%7d reps @ %8.4f msec (%8.1f/sec): %s\n", 
+  	        n, msecsperobj, objspersec, str);
+  	}
+      } else {
+***************
+*** 353,358 ****
+--- 358,365 ----
+  "    -labels                   generate test labels for use by fillblnk",
+  "    -fg                       the foreground color to use",
+  "    -bg                       the background color to use",
++ "    -clips <default>          default number of clip windows per test",
++ "    -ddbg                     the background color to use for DoubleDash",
+  "    -rop <rop0 rop1 ...>      use the given rops to draw (default = GXcopy)",
+  "    -pm <pm0 pm1 ...>         use the given planemasks to draw (default = ~0)",
+  "    -depth <depth>            use a visual with <depth> planes per pixel",
+***************
+*** 359,364 ****
+--- 366,372 ----
+  "    -reps <n>                 fix the rep count (default = auto scale)",
+  "    -subs <s0 s1 ...>         a list of the number of sub-windows to use",
+  "    -v1.2                     perform only v1.2 tests using old semantics",
++ "    -v1.3                     perform only v1.3 tests using old semantics",
+  NULL};
+  
+      fflush(stdout);
+***************
+*** 368,374 ****
+      }
+      while (test[i].option != NULL) {
+          fprintf(stderr, "    %-24s   %s\n",
+! 		test[i].option, test[i].label);
+          i++;
+      }
+      fprintf(stderr, "\n");
+--- 376,382 ----
+      }
+      while (test[i].option != NULL) {
+          fprintf(stderr, "    %-24s   %s\n",
+! 		test[i].option, test[i].label14 ? test[i].label14 : test[i].label);
+          i++;
+      }
+      fprintf(stderr, "\n");
+***************
+*** 402,414 ****
+      /*
+       * Some graphics hardware allows the server to claim it is done,
+       * while in reality the hardware is busily working away.  So fetch
+!      * a pixel from the window that was drawn to, which should be
+       * enough to make the server wait for the graphics hardware.
+       */
+      XImage *image;
+  
+!     image = XGetImage(xp->d, xp->w, WIDTH-1, HEIGHT-1, 1, 1, ~0, ZPixmap);
+!     XDestroyImage(image);
+  }
+  
+  void DoHardwareSync(xp, p, reps)
+--- 410,423 ----
+      /*
+       * Some graphics hardware allows the server to claim it is done,
+       * while in reality the hardware is busily working away.  So fetch
+!      * a pixel from the drawable that was drawn to, which should be
+       * enough to make the server wait for the graphics hardware.
+       */
+      XImage *image;
+  
+!     image = XGetImage(xp->d, xp->p ? xp->p : xp->w, WIDTH-1, HEIGHT-1, 
+! 		      1, 1, ~0, ZPixmap);
+!     if (image) XDestroyImage(image);
+  }
+  
+  void DoHardwareSync(xp, p, reps)
+***************
+*** 424,432 ****
+  }
+  
+  static Test syncTest = {
+!     "syncTime", "Internal test for finding how long HardwareSync takes",
+      NullInitProc, DoHardwareSync, NullProc, NullProc, 
+!     VALL, NONROP, 0,
+      {1}
+  };
+  
+--- 433,441 ----
+  }
+  
+  static Test syncTest = {
+!     "syncTime", "Internal test for finding how long HardwareSync takes", NULL,
+      NullInitProc, DoHardwareSync, NullProc, NullProc, 
+!     V1_2FEATURE, NONROP, 0,
+      {1}
+  };
+  
+***************
+*** 550,555 ****
+--- 559,566 ----
+  	if (didreps == 0) {
+  	    return 0;
+  	}
++ 	if ( test->clips < clips )
++ 	  test->clips = clips ;
+  	/* Create clip windows if requested */
+  	CreateClipWindows(xp, test->clips);
+  	HardwareSync(xp);
+***************
+*** 571,580 ****
+  	if (usecs >= enough) break;
+  
+  	/* Don't let too short a clock make new reps wildly high */
+! 	if (usecs < tick) usecs = tick;
+! 
+! 	/* Try to get up to goal seconds. */
+! 	reps = (int) (goal * (double)reps / usecs) + 1;
+      }
+  
+      *usecperobj = usecs / (double) (reps * test->parms.objects);
+--- 582,592 ----
+  	if (usecs >= enough) break;
+  
+  	/* Don't let too short a clock make new reps wildly high */
+! 	if (usecs <= tick)reps = reps*10;
+! 	else{
+! 	    /* Try to get up to goal seconds. */
+! 	    reps = (int) (goal * (double)reps / usecs) + 1;
+! 	}
+      }
+  
+      *usecperobj = usecs / (double) (reps * test->parms.objects);
+***************
+*** 597,623 ****
+      int     func;
+      unsigned long   pm;
+  {
+!     XGCValues gcvfg, gcvbg;
+!     unsigned long	fg, bg;
+  
+      fg = xp->foreground;
+      bg = xp->background;
+      gcvfg.graphics_exposures = False;
+      gcvbg.graphics_exposures = False;
+      gcvfg.plane_mask = pm;
+      gcvbg.plane_mask = pm;
+      gcvfg.function = func;
+      gcvbg.function = func;
+      
+      if (func == GXxor) {
+  	/* Make test look good visually if possible */
+  	gcvbg.foreground = gcvfg.foreground = bg ^ fg;
+  	gcvbg.background = gcvfg.background = bg;
+      } else {
+  	gcvfg.foreground = fg;
+  	gcvfg.background = bg;
+  	gcvbg.foreground = bg;
+  	gcvbg.background = fg;
+      }
+      xp->fggc = XCreateGC(xp->d, xp->w,
+  	GCForeground | GCBackground | GCGraphicsExposures
+--- 609,649 ----
+      int     func;
+      unsigned long   pm;
+  {
+!     XGCValues gcvfg, gcvbg, gcvddbg,gcvddfg;
+!     unsigned long	fg, bg, ddbg;
+  
+      fg = xp->foreground;
+      bg = xp->background;
++     ddbg = xp->ddbackground;
+      gcvfg.graphics_exposures = False;
+      gcvbg.graphics_exposures = False;
++     gcvddfg.graphics_exposures = False;
++     gcvddbg.graphics_exposures = False;
+      gcvfg.plane_mask = pm;
+      gcvbg.plane_mask = pm;
++     gcvddfg.plane_mask = pm;
++     gcvddbg.plane_mask = pm;
+      gcvfg.function = func;
+      gcvbg.function = func;
++     gcvddfg.function = func;
++     gcvddbg.function = func;
+      
+      if (func == GXxor) {
+  	/* Make test look good visually if possible */
+  	gcvbg.foreground = gcvfg.foreground = bg ^ fg;
+  	gcvbg.background = gcvfg.background = bg;
++ 	/* Double Dash GCs (This doesn't make a huge amount of sense) */
++ 	gcvddbg.foreground = gcvddfg.foreground = bg ^ fg;
++ 	gcvddbg.background = gcvddfg.foreground = bg ^ ddbg;
+      } else {
+  	gcvfg.foreground = fg;
+  	gcvfg.background = bg;
+  	gcvbg.foreground = bg;
+  	gcvbg.background = fg;
++ 	gcvddfg.foreground = fg;
++ 	gcvddfg.background = ddbg;
++ 	gcvddbg.foreground = ddbg;
++ 	gcvddbg.background = fg;
+      }
+      xp->fggc = XCreateGC(xp->d, xp->w,
+  	GCForeground | GCBackground | GCGraphicsExposures
+***************
+*** 625,630 ****
+--- 651,662 ----
+      xp->bggc = XCreateGC(xp->d, xp->w, 
+  	GCForeground | GCBackground | GCGraphicsExposures
+        | GCFunction | GCPlaneMask, &gcvbg);
++     xp->ddfggc = XCreateGC(xp->d, xp->w,
++ 	GCForeground | GCBackground | GCGraphicsExposures
++       | GCFunction | GCPlaneMask, &gcvddfg);
++     xp->ddbggc = XCreateGC(xp->d, xp->w, 
++ 	GCForeground | GCBackground | GCGraphicsExposures
++       | GCFunction | GCPlaneMask, &gcvddbg);
+  }
+  
+  
+***************
+*** 652,658 ****
+  		    "Can't allocate colormap entry for color %s\n", name);
+  	    }
+  	} else {
+! 	    (void) fprintf(stderr, "Can't parse color name %s\n", name);
+  	}
+      }
+      return pixel;
+--- 684,693 ----
+  		    "Can't allocate colormap entry for color %s\n", name);
+  	    }
+  	} else {
+! 	    if(*name >= '0' && *name <= '9')
+! 		pixel = atoi(name);
+! 	    else
+! 		(void) fprintf(stderr, "Can't parse color name %s\n", name);
+  	}
+      }
+      return pixel;
+***************
+*** 659,665 ****
+  } /* AllocateColor */
+  
+  
+! void DisplayStatus(d, message, test)
+      Display *d;
+      char    *message;
+      char    *test;
+--- 694,700 ----
+  } /* AllocateColor */
+  
+  
+! void DisplayStatus(d, message, test, try)
+      Display *d;
+      char    *message;
+      char    *test;
+***************
+*** 667,673 ****
+      char    s[500];
+  
+      XClearWindow(d, status);
+!     sprintf(s, "%s %s", message, test);
+      /* We should really look at the height, descent of the font, etc. but
+         who cares.  This works. */
+      XDrawString(d, status, tgc, 10, 13, s, strlen(s));
+--- 702,708 ----
+      char    s[500];
+  
+      XClearWindow(d, status);
+!     sprintf(s, "%d %s %s", try, message, test);
+      /* We should really look at the height, descent of the font, etc. but
+         who cares.  This works. */
+      XDrawString(d, status, tgc, 10, 13, s, strlen(s));
+***************
+*** 686,703 ****
+      int     j;
+  
+      CreatePerfGCs(xp, func, pm);
+!     DisplayStatus(xp->d, "Calibrating", label);
+      reps = CalibrateTest(xp, test, seconds, &time);
+      if (reps != 0) {
+! 	DisplayStatus(xp->d, "Testing", label);
+  	XDestroySubwindows(xp->d, xp->w);
+  	XClearWindow(xp->d, xp->w);
+  	reps = (*test->init) (xp, &test->parms, reps);
+  	/* Create clip windows if requested */
+  	CreateClipWindows(xp, test->clips);
+  
+  	totalTime = 0.0;
+  	for (j = 0; j != repeat; j++) {
+  	    time = DoTest(xp, test, reps);
+  	    totalTime += time;
+  	    ReportTimes (time, reps * test->parms.objects,
+--- 721,747 ----
+      int     j;
+  
+      CreatePerfGCs(xp, func, pm);
+!     DisplayStatus(xp->d, "Calibrating", label, 0);
+      reps = CalibrateTest(xp, test, seconds, &time);
+      if (reps != 0) {
+! 	srand(1);	/* allow reproducible results */
+  	XDestroySubwindows(xp->d, xp->w);
+  	XClearWindow(xp->d, xp->w);
+  	reps = (*test->init) (xp, &test->parms, reps);
++ 	/*
++ 	 * if using fixedReps then will not have done CalibrateTest so must
++ 	 * check result of init for 0 here
++ 	 */
++ 	if(reps == 0){
++ 	    DestroyPerfGCs(xp);
++ 	    return;
++ 	}
+  	/* Create clip windows if requested */
+  	CreateClipWindows(xp, test->clips);
+  
+  	totalTime = 0.0;
+  	for (j = 0; j != repeat; j++) {
++ 	    DisplayStatus(xp->d, "Testing", label, j+1);
+  	    time = DoTest(xp, test, reps);
+  	    totalTime += time;
+  	    ReportTimes (time, reps * test->parms.objects,
+***************
+*** 718,724 ****
+--- 762,788 ----
+      DestroyPerfGCs(xp);
+  } /* ProcessTest */
+  
++ #ifndef X_NOT_STDC_ENV
++ #define Strstr strstr
++ #else
++ char *Strstr(s1, s2)
++     char *s1, *s2;
++ {
++     int n1, n2;
+  
++     n1 = strlen(s1);
++     n2 = strlen(s2);
++     for ( ; n1 >= n2; s1++, n1--) {
++ 	if (!strncmp(s1, s2, n2))
++ 	    return s1;
++     }	
++     return NULL;
++ }
++ #endif
++ 
++ #define LABELP(i) (test[i].label14 && (xparms.version >= VERSION1_4) \
++ 		        ? test[i].label14 : test[i].label)
++ 
+  main(argc, argv)
+      int argc;
+      char **argv;
+***************
+*** 744,750 ****
+      }
+  
+      xparms.pack = False;
+!     xparms.version = VERSION1_3;
+  
+      /* Count number of tests */
+      ForEachTest(numTests);
+--- 808,814 ----
+      }
+  
+      xparms.pack = False;
+!     xparms.version = VERSION1_4;
+  
+      /* Count number of tests */
+      ForEachTest(numTests);
+***************
+*** 824,829 ****
+--- 888,905 ----
+  	    if (argc <= i)
+  		usage ();
+  	    background = argv[i];
++ 	    if(ddbackground == NULL)
++ 		ddbackground = argv[i];
++ 	} else if (strcmp(argv[i], "-clips") == 0 ) {
++ 	    i++;
++ 	    if (argc <= i)
++ 		usage ();
++ 	    clips = atoi( argv[i] );
++ 	} else if (strcmp(argv[i], "-ddbg") == 0) {
++ 	    if (argc <= i)
++ 		usage ();
++ 	    i++;
++ 	    ddbackground = argv[i];
+  	} else if (strcmp(argv[i], "-rop") == 0) {
+  	    skip = GetRops (i+1, argc, argv, rops, &numRops);
+  	    i += skip;
+***************
+*** 856,862 ****
+--- 932,941 ----
+  	    i += skip;
+  	} else if (strcmp(argv[i], "-v1.2") == 0) {
+  	    xparms.version = VERSION1_2;
++ 	} else if (strcmp(argv[i], "-v1.3") == 0) {
++ 	    xparms.version = VERSION1_3;
+  	} else {
++ 	    int len,found;
+  	    ForEachTest (j) {
+  		if (strcmp (argv[i], test[j].option) == 0 &&
+  		    (test[j].versions & xparms.version)) {
+***************
+*** 864,870 ****
+  		    goto LegalOption;
+  		}
+  	    }
+! 	    usage ();
+  	LegalOption: 
+  		foundOne = True;
+  	}
+--- 943,966 ----
+  		    goto LegalOption;
+  		}
+  	    }
+! 	    found = False;
+! 	    len = strlen(argv[i]);
+! 	    if(len>=3)
+! 	    ForEachTest (j) {
+! 		if (Strstr (test[j].option, argv[i]+1) != 0) {
+! 		    fprintf(stderr,"	-> %s	%s\n", test[j].option, LABELP(j));
+! 		    doit[j] = found = True;
+! 		}
+! 	    }
+! 	    if(!found)
+! 	    ForEachTest (j) {
+! 		if (Strstr (LABELP(j), argv[i]+1) != 0) {
+! 		    fprintf(stderr,"	-> %s	%s\n", test[j].option, LABELP(j));
+! 		    doit[j] = found = True;
+! 		}
+! 	    }
+! 	    if(!found)
+! 		usage ();
+  	LegalOption: 
+  		foundOne = True;
+  	}
+***************
+*** 878,884 ****
+  	    if (doit[i] && (test[i].versions & xparms.version)) {
+  		switch (test[i].testType) {
+  		    case NONROP:
+! 			printf ("%s\n", test[i].label);
+  			break;
+      
+  		    case ROP:
+--- 974,980 ----
+  	    if (doit[i] && (test[i].versions & xparms.version)) {
+  		switch (test[i].testType) {
+  		    case NONROP:
+! 			printf ("%s\n", LABELP(i));
+  			break;
+      
+  		    case ROP:
+***************
+*** 887,903 ****
+  			    for (pm = 0; pm < numPlanemasks; pm++) {
+  				if (planemasks[pm] == ~0) {
+  				    if (rops[rop] == GXcopy) {
+! 					printf ("%s\n", test[i].label);
+  				    } else {
+  					printf ("(%s) %s\n",
+  					    ropNames[rops[rop]].name,
+! 					    test[i].label);
+  				    }
+  				} else {
+  				    printf ("(%s 0x%x) %s\n",
+  					    ropNames[rops[rop]].name,
+  					    planemasks[pm],
+! 					    test[i].label);
+  				}
+  			    } /* for pm */
+  			} /* for rop */
+--- 983,999 ----
+  			    for (pm = 0; pm < numPlanemasks; pm++) {
+  				if (planemasks[pm] == ~0) {
+  				    if (rops[rop] == GXcopy) {
+! 					printf ("%s\n", LABELP(i));
+  				    } else {
+  					printf ("(%s) %s\n",
+  					    ropNames[rops[rop]].name,
+! 					    LABELP(i));
+  				    }
+  				} else {
+  				    printf ("(%s 0x%x) %s\n",
+  					    ropNames[rops[rop]].name,
+  					    planemasks[pm],
+! 					    LABELP(i));
+  				}
+  			    } /* for pm */
+  			} /* for rop */
+***************
+*** 906,912 ****
+  		    case WINDOW:
+  			for (child = 0; child != numSubWindows; child++) {
+  			    printf ("%s (%d kids)\n",
+! 				test[i].label, subWindows[child]);
+  			}
+  			break;
+  		} /* switch */
+--- 1002,1008 ----
+  		    case WINDOW:
+  			for (child = 0; child != numSubWindows; child++) {
+  			    printf ("%s (%d kids)\n",
+! 				LABELP(i), subWindows[child]);
+  			}
+  			break;
+  		} /* switch */
+***************
+*** 993,998 ****
+--- 1089,1096 ----
+  	AllocateColor(xparms.d, foreground, BlackPixel(xparms.d, screen));
+      xparms.background =
+  	AllocateColor(xparms.d, background, WhitePixel(xparms.d, screen));
++     xparms.ddbackground =
++ 	AllocateColor(xparms.d, ddbackground, WhitePixel(xparms.d, screen));
+      xparms.w = CreatePerfWindow(&xparms, 2, 2, WIDTH, HEIGHT);
+      status = CreatePerfWindow(&xparms, 2, HEIGHT+5, WIDTH, 20);
+      tgcv.foreground = BlackPixel(xparms.d, screen);
+***************
+*** 999,1004 ****
+--- 1097,1103 ----
+      tgcv.background = WhitePixel(xparms.d, screen);
+      tgc = XCreateGC(xparms.d, status, GCForeground | GCBackground, &tgcv);
+     
++     xparms.p = (Pixmap)0;
+  
+      if (synchronous)
+  	XSynchronize (xparms.d, True);
+***************
+*** 1007,1013 ****
+         software cursor machines it will slow graphics performance.  On
+         all current MIT-derived servers it will slow window 
+         creation/configuration performance. */
+!     XWarpPointer(xparms.d, None, status, 0, 0, 0, 0, WIDTH, 20);
+  
+      /* Figure out how long to call HardwareSync, so we can adjust for that
+         in our total elapsed time */
+--- 1106,1112 ----
+         software cursor machines it will slow graphics performance.  On
+         all current MIT-derived servers it will slow window 
+         creation/configuration performance. */
+!     XWarpPointer(xparms.d, None, status, 0, 0, 0, 0, WIDTH+10, 20+10);
+  
+      /* Figure out how long to call HardwareSync, so we can adjust for that
+         in our total elapsed time */
+***************
+*** 1022,1028 ****
+  	    switch (test[i].testType) {
+  	        case NONROP:
+  		    /* Simplest...just run it once */
+! 		    strcpy (label, test[i].label);
+  		    ProcessTest(&xparms, &test[i], GXcopy, ~0, label);
+  		    break;
+  
+--- 1121,1127 ----
+  	    switch (test[i].testType) {
+  	        case NONROP:
+  		    /* Simplest...just run it once */
+! 		    strcpy (label, LABELP(i));
+  		    ProcessTest(&xparms, &test[i], GXcopy, ~0, label);
+  		    break;
+  
+***************
+*** 1032,1048 ****
+  			for (pm = 0; pm < numPlanemasks; pm++) {
+  			    if (planemasks[pm] == ~0) {
+  				if (rops[rop] == GXcopy) {
+! 				    sprintf (label, "%s", test[i].label);
+  				} else {
+  				    sprintf (label, "(%s) %s",
+  					ropNames[rops[rop]].name,
+! 					test[i].label);
+  				}
+  			    } else {
+  				sprintf (label, "(%s 0x%x) %s",
+  					ropNames[rops[rop]].name,
+  					planemasks[pm],
+! 					test[i].label);
+  			    }
+  			    ProcessTest(&xparms, &test[i], rops[rop],
+  				        planemasks[pm], label);
+--- 1131,1147 ----
+  			for (pm = 0; pm < numPlanemasks; pm++) {
+  			    if (planemasks[pm] == ~0) {
+  				if (rops[rop] == GXcopy) {
+! 				    sprintf (label, "%s", LABELP(i));
+  				} else {
+  				    sprintf (label, "(%s) %s",
+  					ropNames[rops[rop]].name,
+! 					LABELP(i));
+  				}
+  			    } else {
+  				sprintf (label, "(%s 0x%x) %s",
+  					ropNames[rops[rop]].name,
+  					planemasks[pm],
+! 					LABELP(i));
+  			    }
+  			    ProcessTest(&xparms, &test[i], rops[rop],
+  				        planemasks[pm], label);
+***************
+*** 1055,1061 ****
+  		    for (child = 0; child != numSubWindows; child++) {
+  			test[i].parms.objects = subWindows[child];
+  			sprintf(label, "%s (%d kids)",
+! 			    test[i].label, test[i].parms.objects);
+  			ProcessTest(&xparms, &test[i], GXcopy, ~0, label);
+  		    }
+  		    break;
+--- 1154,1160 ----
+  		    for (child = 0; child != numSubWindows; child++) {
+  			test[i].parms.objects = subWindows[child];
+  			sprintf(label, "%s (%d kids)",
+! 			    LABELP(i), test[i].parms.objects);
+  			ProcessTest(&xparms, &test[i], GXcopy, ~0, label);
+  		    }
+  		    break;
+*** /tmp/d02025	Wed Nov 11 17:04:18 1992
+--- demos/x11perf/x11perf.h	Wed Nov 11 17:00:09 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: x11perf.h,v 2.10 92/11/11 16:59:59 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 28,34 ****
+--- 29,37 ----
+  #include <decw$include/Xlib.h>
+  #include <decw$include/Xutil.h>
+  #endif
++ #if defined(XlibSpecificationRelease) && XlibSpecificationRelease >= 5
+  #include <X11/Xfuncs.h>
++ #endif
+  #ifndef NULL
+  #define NULL 0
+  #endif
+***************
+*** 43,48 ****
+--- 46,54 ----
+  #define CHILDSIZE       8       /* Size of children on windowing tests  */
+  #define CHILDSPACE      4       /* Space between children		*/
+  
++ #define BigTile	((char *)2)		/* Big tile/stipple */
++ #define OddTile	((char *)1)		/* Odd sized tile/stipple */
++ 
+  typedef Bool (*InitProc)    (/* XParms xp; Parms p */);
+  typedef void (*Proc)	    (/* XParms xp; Parms p */);
+  
+***************
+*** 49,60 ****
+  extern void NullProc	    (/* XParms xp; Parms p */);
+  extern Bool NullInitProc    (/* XParms xp; Parms p */);
+  
+- #define VERSION1_2  (1 << 0)
+- #define VERSION1_3  (1 << 1)
+- #define VALL	    (VERSION1_2 | VERSION1_3)
+- 
+  typedef unsigned char Version;
+!     
+  typedef struct _Parms {
+      /* Required fields */
+      int  objects;       /* Number of objects to process in one X call	    */
+--- 55,70 ----
+  extern void NullProc	    (/* XParms xp; Parms p */);
+  extern Bool NullInitProc    (/* XParms xp; Parms p */);
+  
+  typedef unsigned char Version;
+! 
+! #define VERSION1_2  ((Version)(1 << 0))
+! #define VERSION1_3  ((Version)(1 << 1))
+! #define VERSION1_4  ((Version)(1 << 2))
+! #define V1_2ONLY VERSION1_2
+! #define V1_2FEATURE	(VERSION1_2 | VERSION1_3 | VERSION1_4)
+! #define V1_3FEATURE	(VERSION1_3 | VERSION1_4)
+! #define V1_4FEATURE	(VERSION1_4)
+! 
+  typedef struct _Parms {
+      /* Required fields */
+      int  objects;       /* Number of objects to process in one X call	    */
+***************
+*** 68,77 ****
+--- 78,91 ----
+  typedef struct _XParms {
+      Display	    *d;
+      Window	    w;
++     Pixmap          p;
+      GC		    fggc;
+      GC		    bggc;
++     GC		    ddfggc;
++     GC		    ddbggc;
+      unsigned long   foreground;
+      unsigned long   background;
++     unsigned long   ddbackground;
+      XVisualInfo     vinfo;
+      Bool	    pack;
+      Version	    version;
+***************
+*** 86,91 ****
+--- 100,106 ----
+  typedef struct _Test {
+      char	*option;    /* Name to use in prompt line		    */
+      char	*label;     /* Fuller description of test		    */
++     char	*label14;   /* Labels that are different in Version 1.4     */
+      InitProc    init;       /* Initialization procedure			    */
+      Proc	proc;       /* Timed benchmark procedure		    */
+      Proc	passCleanup;/* Cleanup between repetitions of same test     */
+*** /tmp/d02049	Wed Nov 11 17:04:33 1992
+--- demos/x11perf/do_copyarea.c	Wed Nov 11 17:00:48 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_copyarea.c,v 2.13 92/11/11 17:00:37 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 22,27 ****
+--- 23,29 ----
+  ******************************************************************************/
+  
+  #include "x11perf.h"
++ #include <stdio.h>
+  
+  #define NUMPOINTS 100
+  
+***************
+*** 198,208 ****
+      Parms   p;
+      int     reps;
+  {
+      (void) InitCopyWin(xp, p, reps);
+  
+      /* Create pixmap to write stuff into, and initialize it */
+      pix = XCreatePixmap(xp->d, xp->w, WIDTH, HEIGHT, xp->vinfo.depth);
+!     XCopyArea(xp->d, xp->w, pix, xp->fggc, 0, 0, WIDTH, HEIGHT, 0, 0);
+      return reps;
+  }
+  
+--- 200,214 ----
+      Parms   p;
+      int     reps;
+  {
++     GC		pixgc;
+      (void) InitCopyWin(xp, p, reps);
+  
+      /* Create pixmap to write stuff into, and initialize it */
+      pix = XCreatePixmap(xp->d, xp->w, WIDTH, HEIGHT, xp->vinfo.depth);
+!     pixgc = XCreateGC(xp->d, pix, 0, 0);
+!     /* need a gc with GXcopy cos pixmaps contain junk on creation. mmm */
+!     XCopyArea(xp->d, xp->w, pix, pixgc, 0, 0, WIDTH, HEIGHT, 0, 0);
+!     XFreeGC(xp->d, pixgc);
+      return reps;
+  }
+  
+***************
+*** 214,220 ****
+      (void) InitCopyWin(xp, p, reps);
+  
+      /* Create image to stuff bits into */
+!     image = XGetImage(xp->d, xp->w, 0, 0, WIDTH, HEIGHT, ~0, ZPixmap);
+      return reps;
+  }
+  
+--- 220,231 ----
+      (void) InitCopyWin(xp, p, reps);
+  
+      /* Create image to stuff bits into */
+!     image = XGetImage(xp->d, xp->w, 0, 0, WIDTH, HEIGHT, ~0,
+! 		      p->font==0?ZPixmap:XYPixmap);
+!     if(image==0){
+! 	printf("XGetImage failed\n");
+! 	return False;
+!     }	
+      return reps;
+  }
+  
+***************
+*** 223,229 ****
+      Parms   p;
+      int     reps;
+  {
+!     (void) InitGetImage(xp, p, reps);
+      XClearWindow(xp->d, xp->w);
+      return reps;
+  }
+--- 234,240 ----
+      Parms   p;
+      int     reps;
+  {
+!     if(!InitGetImage(xp, p, reps))return False;
+      XClearWindow(xp->d, xp->w);
+      return reps;
+  }
+***************
+*** 272,277 ****
+--- 283,289 ----
+      int     reps;
+  {
+      CopyArea(xp, p, reps, xp->w, pix);
++     xp->p = pix;	/* HardwareSync will now sync on pixmap */
+  }
+  
+  void DoCopyPixPix(xp, p, reps)
+***************
+*** 280,285 ****
+--- 292,298 ----
+      int     reps;
+  {
+      CopyArea(xp, p, reps, pix, pix);
++     xp->p = pix;	/* HardwareSync will now sync on pixmap */
+  }
+  
+  void DoGetImage(xp, p, reps)
+***************
+*** 289,309 ****
+  {
+      int i, size;
+      XSegment *sa, *sb;
+  
+      size = p->special;
+      for (sa = segsa, sb = segsb, i = 0; i != reps; i++, sa++, sb++) {
+  	XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sa->x1, sa->y1, size, size,
+! 	    ~0, ZPixmap);
+! 	XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sa->x2, sa->y2, size, size,
+! 	    ~0, ZPixmap);
+! 	XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sb->x2, sb->y2, size, size,
+! 	    ~0, ZPixmap);
+! 	XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sb->x1, sb->y1, size, size,
+! 	    ~0, ZPixmap);
+  /*
+  
+  One might expect XGetSubImage to be slightly faster than XGetImage.  Go look
+--- 302,324 ----
+  {
+      int i, size;
+      XSegment *sa, *sb;
++     int format;
+  
+      size = p->special;
++     format = (p->font == 0) ? ZPixmap : XYPixmap;
+      for (sa = segsa, sb = segsb, i = 0; i != reps; i++, sa++, sb++) {
+  	XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sa->x1, sa->y1, size, size,
+! 	    ~0, format);
+! 	if (image) XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sa->x2, sa->y2, size, size,
+! 	    ~0, format);
+! 	if (image) XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sb->x2, sb->y2, size, size,
+! 	    ~0, format);
+! 	if (image) XDestroyImage(image);
+  	image = XGetImage(xp->d, xp->w, sb->x1, sb->y1, size, size,
+! 	    ~0, format);
+  /*
+  
+  One might expect XGetSubImage to be slightly faster than XGetImage.  Go look
+***************
+*** 353,358 ****
+--- 368,383 ----
+  static XImage		shm_image;
+  static XShmSegmentInfo	shminfo;
+  
++ static int haderror;
++ static int (*origerrorhandler)();
++ shmerrorhandler(d,e)
++ Display *d;
++ XErrorEvent *e;
++ {
++     haderror++;
++     if(e->error_code==BadAccess)fprintf(stderr,"failed to attach shared memory\n");
++     else (*origerrorhandler)(d,e);
++ }
+  int InitShmPutImage (xp, p, reps)
+      XParms  xp;
+      Parms   p;
+***************
+*** 360,371 ****
+  {
+      int	image_size;
+  
+      if (!XShmQueryExtension(xp->d))
+  	return False;
+-     (void) InitGetImage(xp, p, reps);
+      XClearWindow(xp->d, xp->w);
+      shm_image = *image;
+      image_size = image->bytes_per_line * image->height;
+      shminfo.shmid = shmget(IPC_PRIVATE, image_size, IPC_CREAT|0777);
+      if (shminfo.shmid < 0)
+      {
+--- 385,398 ----
+  {
+      int	image_size;
+  
++     if(!InitGetImage(xp, p, reps))return False;
+      if (!XShmQueryExtension(xp->d))
+  	return False;
+      XClearWindow(xp->d, xp->w);
+      shm_image = *image;
+      image_size = image->bytes_per_line * image->height;
++     /* allow XYPixmap choice: */
++     if(p->font)image_size *= xp->vinfo.depth;
+      shminfo.shmid = shmget(IPC_PRIVATE, image_size, IPC_CREAT|0777);
+      if (shminfo.shmid < 0)
+      {
+***************
+*** 376,385 ****
+--- 403,425 ----
+      if (shminfo.shmaddr == ((char *) -1))
+      {
+  	perror ("shmat");
++ 	shmctl (shminfo.shmid, IPC_RMID, 0);
+  	return False;
+      }
+      shminfo.readOnly = True;
++     XSync(xp->d,True);
++     haderror = False;
++     origerrorhandler = XSetErrorHandler(shmerrorhandler);
+      XShmAttach (xp->d, &shminfo);
++     XSync(xp->d,True);	/* wait for error or ok */
++     XSetErrorHandler(origerrorhandler);
++     if(haderror){
++ 	if(shmdt (shminfo.shmaddr)==-1)
++ 	    perror("shmdt:");
++ 	if(shmctl (shminfo.shmid, IPC_RMID, 0)==-1)
++ 	    perror("shmctl rmid:");
++ 	return False;
++     }
+      shm_image.data = shminfo.shmaddr;
+      bcopy (image->data, shm_image.data, image_size);
+      shm_image.obdata = (char *) &shminfo;
+***************
+*** 415,422 ****
+  
+      EndGetImage (xp, p);
+      XShmDetach (xp->d, &shminfo);
+!     shmdt (shminfo.shmaddr);
+!     shmctl (shminfo.shmid, IPC_RMID, 0);
+  }
+  
+  #endif
+--- 455,465 ----
+  
+      EndGetImage (xp, p);
+      XShmDetach (xp->d, &shminfo);
+!     XSync(xp->d, False);	/* need server to detach so can remove id */
+!     if(shmdt (shminfo.shmaddr)==-1)
+! 	perror("shmdt:");
+!     if(shmctl (shminfo.shmid, IPC_RMID, 0)==-1)
+! 	perror("shmctl rmid:");
+  }
+  
+  #endif
+***************
+*** 444,449 ****
+--- 487,496 ----
+  {
+      EndCopyWin(xp, p);
+      XFreePixmap(xp->d, pix);
++     /*
++      * Ensure that the next test doesn't try and sync on the pixmap
++      */
++     xp->p = (Pixmap)0;
+  }
+  
+  void EndGetImage(xp, p)
+***************
+*** 451,457 ****
+      Parms   p;
+  {
+      EndCopyWin(xp, p);
+!     XDestroyImage(image);
+  }
+  
+  Bool InitCopyPlane(xp, p, reps)
+--- 498,504 ----
+      Parms   p;
+  {
+      EndCopyWin(xp, p);
+!     if (image) XDestroyImage(image);
+  }
+  
+  Bool InitCopyPlane(xp, p, reps)
+*** /tmp/d02125	Wed Nov 11 17:05:13 1992
+--- demos/x11perf/do_arcs.c	Wed Nov 11 17:01:22 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_arcs.c,v 2.12 92/11/11 17:01:12 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 28,37 ****
+  
+  #define DegreesToX(degrees) (degrees * 64)
+  
+! static void GenerateCircles(xp, p, partialArcs)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
+  {
+      int     i;
+      int     rows;       /* Number of rows filled in current column	    */
+--- 29,39 ----
+  
+  #define DegreesToX(degrees) (degrees * 64)
+  
+! static void GenerateCircles(xp, p, partialArcs, ddashed)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
++     Bool    ddashed;
+  {
+      int     i;
+      int     rows;       /* Number of rows filled in current column	    */
+***************
+*** 41,47 ****
+      int     half;
+      int     startAngle, arcAngle;
+  
+!     pgc = xp->fggc;
+  
+      size = p->special;
+      half = (size + 19) / 20;
+--- 43,52 ----
+      int     half;
+      int     startAngle, arcAngle;
+  
+!     if(ddashed)
+! 	pgc = xp->ddfggc;
+!     else
+! 	pgc = xp->fggc;
+  
+      size = p->special;
+      half = (size + 19) / 20;
+***************
+*** 93,99 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, False);
+      return reps;
+  }
+  
+--- 98,104 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, False, False);
+      return reps;
+  }
+  
+***************
+*** 102,108 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True);
+      return reps;
+  }
+  
+--- 107,113 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True, False);
+      return reps;
+  }
+  
+***************
+*** 112,118 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True);
+      XSetArcMode(xp->d, xp->bggc, ArcChord);
+      XSetArcMode(xp->d, xp->fggc, ArcChord);
+      return reps;
+--- 117,123 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True, False);
+      XSetArcMode(xp->d, xp->bggc, ArcChord);
+      XSetArcMode(xp->d, xp->fggc, ArcChord);
+      return reps;
+***************
+*** 124,130 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True);
+      XSetArcMode(xp->d, xp->bggc, ArcPieSlice);
+      XSetArcMode(xp->d, xp->fggc, ArcPieSlice);
+      return reps;
+--- 129,135 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateCircles(xp, p, True, False);
+      XSetArcMode(xp->d, xp->bggc, ArcPieSlice);
+      XSetArcMode(xp->d, xp->fggc, ArcPieSlice);
+      return reps;
+***************
+*** 131,150 ****
+  }
+  
+  static void
+! GenerateWideCircles (xp, p, partialArcs)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
+  {
+      int	    size;
+  
+!     GenerateCircles(xp, p, partialArcs);
+  
+      size = p->special;
+!     XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+!     XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+  }
+  
+  int InitWideCircles(xp, p, reps)
+--- 136,164 ----
+  }
+  
+  static void
+! GenerateWideCircles (xp, p, partialArcs, ddashed)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
++     Bool    ddashed;
+  {
+      int	    size;
+  
+!     GenerateCircles(xp, p, partialArcs, ddashed);
+  
+      size = p->special;
+!     if(ddashed) {
+! 	XSetLineAttributes(xp->d, xp->ddbggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->ddfggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+!     else {
+! 	XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+  }
+  
+  int InitWideCircles(xp, p, reps)
+***************
+*** 152,158 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideCircles (xp, p, False);
+      return reps;
+  }
+   
+--- 166,172 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideCircles (xp, p, False, False);
+      return reps;
+  }
+   
+***************
+*** 161,167 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideCircles (xp, p, True);
+      return reps;
+  }
+   
+--- 175,181 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideCircles (xp, p, True, False);
+      return reps;
+  }
+   
+***************
+*** 172,178 ****
+  {
+      char dashes[2];
+  
+!     (void)InitCircles(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+--- 186,192 ----
+  {
+      char dashes[2];
+  
+!     GenerateCircles(xp, p, False, False);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+***************
+*** 192,198 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideCircles(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 206,212 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     GenerateWideCircles(xp, p, False, False);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 213,226 ****
+  {
+      char dashes[2];
+  
+!     (void)InitCircles(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->bggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->fggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 227,240 ----
+  {
+      char dashes[2];
+  
+!     GenerateCircles(xp, p, False, True);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->ddbggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->ddfggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 233,239 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideCircles(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 247,253 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     GenerateWideCircles(xp, p, False, True);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 240,256 ****
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->fggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->bggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+! static void GenerateEllipses(xp, p, partialArcs)
+      XParms  xp;
+      Parms   p;
+      int    partialArcs;
+  {
+      int     size;
+      int     half;
+--- 254,271 ----
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->ddfggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->ddbggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+! static void GenerateEllipses(xp, p, partialArcs, ddashed)
+      XParms  xp;
+      Parms   p;
+      int    partialArcs;
++     Bool    ddashed;
+  {
+      int     size;
+      int     half;
+***************
+*** 261,267 ****
+      int     dir;
+      int     startAngle, arcAngle;
+  
+!     pgc = xp->fggc;
+  
+      size = p->special;
+      half = (size + 19) / 20;
+--- 276,285 ----
+      int     dir;
+      int     startAngle, arcAngle;
+  
+!     if(ddashed)
+! 	pgc = xp->ddfggc;
+!     else
+! 	pgc = xp->fggc;
+  
+      size = p->special;
+      half = (size + 19) / 20;
+***************
+*** 323,329 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, False);
+      return reps;
+  }
+  
+--- 341,347 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, False, False);
+      return reps;
+  }
+  
+***************
+*** 333,339 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True);
+      return reps;
+  }
+  
+--- 351,357 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True, False);
+      return reps;
+  }
+  
+***************
+*** 343,349 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True);
+      XSetArcMode(xp->d, xp->bggc, ArcChord);
+      XSetArcMode(xp->d, xp->fggc, ArcChord);
+      return reps;
+--- 361,367 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True, False);
+      XSetArcMode(xp->d, xp->bggc, ArcChord);
+      XSetArcMode(xp->d, xp->fggc, ArcChord);
+      return reps;
+***************
+*** 355,361 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True);
+      XSetArcMode(xp->d, xp->bggc, ArcPieSlice);
+      XSetArcMode(xp->d, xp->fggc, ArcPieSlice);
+      return reps;
+--- 373,379 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateEllipses(xp, p, True, False);
+      XSetArcMode(xp->d, xp->bggc, ArcPieSlice);
+      XSetArcMode(xp->d, xp->fggc, ArcPieSlice);
+      return reps;
+***************
+*** 363,381 ****
+  
+  
+  static void
+! GenerateWideEllipses (xp, p, partialArcs)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
+  {
+      int size;
+  
+!     GenerateEllipses (xp, p, partialArcs);
+      size = p->special;
+!     XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+!     XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	LineSolid, CapRound, JoinRound);
+  
+  }
+  
+--- 381,408 ----
+  
+  
+  static void
+! GenerateWideEllipses (xp, p, partialArcs, ddashed)
+      XParms  xp;
+      Parms   p;
+      Bool    partialArcs;
++     Bool    ddashed;
+  {
+      int size;
+  
+!     GenerateEllipses (xp, p, partialArcs, ddashed);
+      size = p->special;
+!     if(ddashed) {
+! 	XSetLineAttributes(xp->d, xp->ddbggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->ddfggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+!     else {
+! 	XSetLineAttributes(xp->d, xp->bggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+! 	XSetLineAttributes(xp->d, xp->fggc, (int) ((size + 9) / 10),
+! 	    LineSolid, CapRound, JoinRound);
+!     }
+  
+  }
+  
+***************
+*** 384,390 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideEllipses(xp, p, False);
+      return reps;
+  }
+   
+--- 411,417 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideEllipses(xp, p, False, False);
+      return reps;
+  }
+   
+***************
+*** 393,399 ****
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideEllipses(xp, p, True);
+      return reps;
+  }
+   
+--- 420,426 ----
+      Parms   p;
+      int     reps;
+  {
+!     GenerateWideEllipses(xp, p, True, False);
+      return reps;
+  }
+   
+***************
+*** 404,410 ****
+  {
+      char dashes[2];
+  
+!     (void)InitEllipses(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+--- 431,437 ----
+  {
+      char dashes[2];
+  
+!     GenerateEllipses(xp, p, False, False);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes(xp->d, xp->bggc, 0, LineOnOffDash, CapButt, JoinMiter);
+***************
+*** 424,430 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideEllipses(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 451,457 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     GenerateWideEllipses(xp, p, False, False);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 445,458 ****
+  {
+      char dashes[2];
+  
+!     (void)InitEllipses(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->bggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->fggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 472,485 ----
+  {
+      char dashes[2];
+  
+!     GenerateEllipses(xp, p, False, True);
+  
+      /* Modify GCs to draw dashed */
+!     XSetLineAttributes(xp->d, xp->ddbggc, 0, LineDoubleDash, CapButt, JoinMiter);
+!     XSetLineAttributes(xp->d, xp->ddfggc, 0, LineDoubleDash, CapButt, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 465,471 ****
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     (void)InitWideEllipses(xp, p, reps);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+--- 492,498 ----
+      XGCValues   gcv;
+      char	dashes[2];
+  
+!     GenerateWideEllipses(xp, p, False, True);
+      size = p->special;
+      size = (size + 9) / 10;
+  
+***************
+*** 472,481 ****
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->fggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->bggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 499,508 ----
+      /* Modify GCs to draw dashed */
+      dashes[0] = 2*size;   dashes[1] = 2*size;
+      gcv.line_style = LineDoubleDash;
+!     XChangeGC(xp->d, xp->ddfggc, GCLineStyle, &gcv);
+!     XChangeGC(xp->d, xp->ddbggc, GCLineStyle, &gcv);
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 488,494 ****
+  
+      for (i = 0; i != reps; i++) {
+          XDrawArcs(xp->d, xp->w, pgc, arcs, p->objects);
+!         if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+--- 515,525 ----
+  
+      for (i = 0; i != reps; i++) {
+          XDrawArcs(xp->d, xp->w, pgc, arcs, p->objects);
+!         if (pgc == xp->ddbggc)
+!             pgc = xp->ddfggc;
+!         else if(pgc == xp->ddfggc)
+!             pgc = xp->ddbggc;
+!         else if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+***************
+*** 504,510 ****
+  
+      for (i = 0; i != reps; i++) {
+          XFillArcs(xp->d, xp->w, pgc, arcs, p->objects);
+!         if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+--- 535,545 ----
+  
+      for (i = 0; i != reps; i++) {
+          XFillArcs(xp->d, xp->w, pgc, arcs, p->objects);
+!         if (pgc == xp->ddbggc)
+!             pgc = xp->ddfggc;
+!         else if(pgc == xp->ddfggc)
+!             pgc = xp->ddbggc;
+!         else if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+*** /tmp/d02145	Wed Nov 11 17:05:25 1992
+--- demos/x11perf/do_segs.c	Wed Nov 11 17:01:54 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: do_segs.c,v 2.15 92/11/11 17:01:50 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 26,35 ****
+  static XSegment *segments;
+  static GC       pgc;
+  
+! int InitSegments(xp, p, reps)
+      XParms  xp;
+      Parms   p;
+!     int     reps;
+  {
+      int     size;
+      int     half;
+--- 27,36 ----
+  static XSegment *segments;
+  static GC       pgc;
+  
+! static void GenerateSegments(xp, p, ddashed)
+      XParms  xp;
+      Parms   p;
+!     Bool     ddashed;
+  {
+      int     size;
+      int     half;
+***************
+*** 42,49 ****
+      int     size8;	    /* 8 * size					    */
+      XGCValues   gcv;
+  
+!     pgc = xp->fggc;
+  
+      size = p->special;
+      size8 = 8 * size;
+      half = (size + 19) / 20;
+--- 43,54 ----
+      int     size8;	    /* 8 * size					    */
+      XGCValues   gcv;
+  
+!     if(ddashed)
+! 	pgc = xp->ddfggc;
+!     else
+! 	pgc = xp->fggc;
+  
++ 
+      size = p->special;
+      size8 = 8 * size;
+      half = (size + 19) / 20;
+***************
+*** 153,164 ****
+      }
+  
+      gcv.cap_style = CapNotLast;
+!     XChangeGC(xp->d, xp->fggc, GCCapStyle, &gcv);
+!     XChangeGC(xp->d, xp->bggc, GCCapStyle, &gcv);
+!     
+!     return reps;
+  }
+     
+  
+  int InitDashedSegments(xp, p, reps)
+      XParms  xp;
+--- 158,181 ----
+      }
+  
+      gcv.cap_style = CapNotLast;
+! 
+!     if(ddashed) {
+! 	XChangeGC(xp->d, xp->ddfggc, GCCapStyle, &gcv);
+! 	XChangeGC(xp->d, xp->ddbggc, GCCapStyle, &gcv);
+!     } else {
+! 	XChangeGC(xp->d, xp->fggc, GCCapStyle, &gcv);
+! 	XChangeGC(xp->d, xp->bggc, GCCapStyle, &gcv);
+!     }
+  }
+     
++ int InitSegments(xp, p, reps)
++     XParms  xp;
++     Parms   p;
++     int     reps;
++ {
++     GenerateSegments(xp, p, False);
++     return reps;
++ }
+  
+  int InitDashedSegments(xp, p, reps)
+      XParms  xp;
+***************
+*** 167,173 ****
+  {
+      char dashes[2];
+  
+!     (void)InitSegments(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes
+--- 184,190 ----
+  {
+      char dashes[2];
+  
+!     GenerateSegments(xp, p, False);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes
+***************
+*** 187,202 ****
+  {
+      char dashes[2];
+  
+!     (void)InitSegments(xp, p, reps);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes
+! 	(xp->d, xp->bggc, 0, LineDoubleDash, CapNotLast, JoinMiter);
+      XSetLineAttributes
+! 	(xp->d, xp->fggc, 0, LineDoubleDash, CapNotLast, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->fggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->bggc, 0, dashes, 2);
+      return reps;
+  }
+  
+--- 204,219 ----
+  {
+      char dashes[2];
+  
+!     GenerateSegments(xp, p, True);
+  
+      /* Modify GCs to draw dashed */
+      XSetLineAttributes
+! 	(xp->d, xp->ddbggc, 0, LineDoubleDash, CapNotLast, JoinMiter);
+      XSetLineAttributes
+! 	(xp->d, xp->ddfggc, 0, LineDoubleDash, CapNotLast, JoinMiter);
+      dashes[0] = 3;   dashes[1] = 2;
+!     XSetDashes(xp->d, xp->ddfggc, 0, dashes, 2);
+!     XSetDashes(xp->d, xp->ddbggc, 0, dashes, 2);
+      return reps;
+  }
+  
+***************
+*** 365,371 ****
+  
+      for (i = 0; i != reps; i++) {
+          XDrawSegments(xp->d, xp->w, pgc, segments, p->objects);
+!         if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+--- 382,392 ----
+  
+      for (i = 0; i != reps; i++) {
+          XDrawSegments(xp->d, xp->w, pgc, segments, p->objects);
+!         if (pgc == xp->ddbggc)
+!             pgc = xp->ddfggc;
+!         else if(pgc == xp->ddfggc)
+!             pgc = xp->ddbggc;
+!         else if (pgc == xp->bggc)
+              pgc = xp->fggc;
+          else
+              pgc = xp->bggc;
+*** /tmp/d02184	Wed Nov 11 17:05:51 1992
+--- demos/x11perf/x11perf.man	Wed Nov 11 16:31:16 1992
+***************
+*** 1,4 ****
+! .\" $XConsortium: x11perf.man,v 1.11 92/07/31 16:58:21 rws Exp $
+  .TH X11PERF 1 "Release 5" "X Version 11"
+  .SH NAME
+  x11perf \- X11 server performance test program
+--- 1,4 ----
+! .\" $XConsortium: x11perf.man,v 1.16 92/11/11 16:30:59 rws Exp $
+  .TH X11PERF 1 "Release 5" "X Version 11"
+  .SH NAME
+  x11perf \- X11 server performance test program
+***************
+*** 163,174 ****
+  .I x11perfcomp
+  for more details.
+  .TP 14
+! .B \-fg \fIcolor\fP
+! Specifies the foreground color to use.
+  .TP 14
+! .B \-bg \fIcolor\fP
+! Specifies the background color to use.
+  .TP 14
+  .B \-rop <rop0 rop1 ...>
+  Use specified raster ops (default is GXcopy).
+  This option only affects graphics
+--- 163,182 ----
+  .I x11perfcomp
+  for more details.
+  .TP 14
+! .B \-fg \fIcolor-or-pixel\fP
+! Specifies the foreground color or pixel value to use.
+  .TP 14
+! .B \-bg \fIcolor-or-pixel\fP
+! Specifies the background color or pixel value to use.
+  .TP 14
++ .B \-clips \fIdefault\fP
++ Default number of clip windows.
++ .TP 14
++ .B \-ddbg \fIcolor-or-pixel\fP
++ Specifies the color or pixel value to use for drawing
++ the odd segments of a DoubleDashed line or arc.
++ This will default to the bg color.
++ .TP 14
+  .B \-rop <rop0 rop1 ...>
+  Use specified raster ops (default is GXcopy).
+  This option only affects graphics
+***************
+*** 183,188 ****
+--- 191,209 ----
+  Use a visual with <depth> planes per pixel (default is the default
+  visual).
+  .TP 14
++ .B \-reps <n>
++ Specify the repetion count (Default is number that takes aprox. 5 seconds)
++ .TP 14
++ .B \-subs <s0 s1 ...>
++ Specify the number of sub windows to use in the Window tests.
++ Default is  4, 16, 25, 50, 75, 100 and 200.
++ .TP 14
++ .B \-v1.2
++ Perform only x11perf Version 1.2 tests using Version 1.2 semantics.
++ .TP 14
++ .B \-v1.3
++ Perform only x11perf Version 1.3 tests using Version 1.3 semantics.
++ .TP 14
+  .B \-dot
+  Dot.
+  .TP 14
+***************
+*** 234,239 ****
+--- 255,296 ----
+  .B \-tilerect500
+  500x500 tiled rectangle, 4x4 tile pattern.
+  .TP 14
++ .B \-oddsrect1
++ 1x1 transparent stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddsrect10
++ 10x10 transparent stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddsrect100
++ 100x100 transparent stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddsrect500
++ 500x500 transparent stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddosrect1
++ 1x1 opaque stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddosrect10
++ 10x10 opaque stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddosrect100
++ 100x100 opaque stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddosrect500
++ 500x500 opaque stippled rectangle, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddtilerect1
++ 1x1 tiled rectangle, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtilerect10
++ 10x10 tiled rectangle, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtilerect100
++ 100x100 tiled rectangle, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtilerect500
++ 500x500 tiled rectangle, 17x15 tile pattern.
++ .TP 14
+  .B \-bigsrect1
+  1x1 stippled rectangle, 161x145 stipple pattern.
+  .TP 14
+***************
+*** 547,552 ****
+--- 604,612 ----
+  .B \-triangle100
+  Fill 100-pixel/side triangle.
+  .TP 14
++ .B \-trap1
++ Fill 1x1 trapezoid.
++ .TP 14
+  .B \-trap10
+  Fill 10x10 trapezoid.
+  .TP 14
+***************
+*** 553,558 ****
+--- 613,624 ----
+  .B \-trap100
+  Fill 100x100 trapezoid.
+  .TP 14
++ .B \-trap300
++ Fill 300x300 trapezoid.
++ .TP 14
++ .B \-strap1
++ Fill 1x1 transparent stippled trapezoid, 8x8 stipple pattern.
++ .TP 14
+  .B \-strap10
+  Fill 10x10 transparent stippled trapezoid, 8x8 stipple pattern.
+  .TP 14
+***************
+*** 559,564 ****
+--- 625,636 ----
+  .B \-strap100
+  Fill 100x100 transparent stippled trapezoid, 8x8 stipple pattern.
+  .TP 14
++ .B \-strap300
++ Fill 300x300 transparent stippled trapezoid, 8x8 stipple pattern.
++ .TP 14
++ .B \-ostrap1
++ Fill 10x10 opaque stippled trapezoid, 8x8 stipple pattern.
++ .TP 14
+  .B \-ostrap10
+  Fill 10x10 opaque stippled trapezoid, 8x8 stipple pattern.
+  .TP 14
+***************
+*** 565,570 ****
+--- 637,648 ----
+  .B \-ostrap100
+  Fill 100x100 opaque stippled trapezoid, 8x8 stipple pattern.
+  .TP 14
++ .B \-ostrap300
++ Fill 300x300 opaque stippled trapezoid, 8x8 stipple pattern.
++ .TP 14
++ .B \-tiletrap1
++ Fill 10x10 tiled trapezoid, 4x4 tile pattern.
++ .TP 14
+  .B \-tiletrap10
+  Fill 10x10 tiled trapezoid, 4x4 tile pattern.
+  .TP 14
+***************
+*** 571,576 ****
+--- 649,696 ----
+  .B \-tiletrap100
+  Fill 100x100 tiled trapezoid, 4x4 tile pattern.
+  .TP 14
++ .B \-tiletrap300
++ Fill 300x300 tiled trapezoid, 4x4 tile pattern.
++ .TP 14
++ .B \-oddstrap1
++ Fill 1x1 transparent stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddstrap10
++ Fill 10x10 transparent stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddstrap100
++ Fill 100x100 transparent stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddstrap300
++ Fill 300x300 transparent stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddostrap1
++ Fill 10x10 opaque stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddostrap10
++ Fill 10x10 opaque stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddostrap100
++ Fill 100x100 opaque stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddostrap300
++ Fill 300x300 opaque stippled trapezoid, 17x15 stipple pattern.
++ .TP 14
++ .B \-oddtiletrap1
++ Fill 10x10 tiled trapezoid, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtiletrap10
++ Fill 10x10 tiled trapezoid, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtiletrap100
++ Fill 100x100 tiled trapezoid, 17x15 tile pattern.
++ .TP 14
++ .B \-oddtiletrap300
++ Fill 300x300 tiled trapezoid, 17x15 tile pattern.
++ .TP 14
++ .B \-bigstrap1
++ Fill 1x1 transparent stippled trapezoid, 161x145 stipple pattern.
++ .TP 14
+  .B \-bigstrap10
+  Fill 10x10 transparent stippled trapezoid, 161x145 stipple pattern.
+  .TP 14
+***************
+*** 577,582 ****
+--- 697,708 ----
+  .B \-bigstrap100
+  Fill 100x100 transparent stippled trapezoid, 161x145 stipple pattern.
+  .TP 14
++ .B \-bigstrap300
++ Fill 300x300 transparent stippled trapezoid, 161x145 stipple pattern.
++ .TP 14
++ .B \-bigostrap1
++ Fill 10x10 opaque stippled trapezoid, 161x145 stipple pattern.
++ .TP 14
+  .B \-bigostrap10
+  Fill 10x10 opaque stippled trapezoid, 161x145 stipple pattern.
+  .TP 14
+***************
+*** 583,588 ****
+--- 709,720 ----
+  .B \-bigostrap100
+  Fill 100x100 opaque stippled trapezoid, 161x145 stipple pattern.
+  .TP 14
++ .B \-bigostrap300
++ Fill 300x300 opaque stippled trapezoid, 161x145 stipple pattern.
++ .TP 14
++ .B \-bigtiletrap1
++ Fill 10x10 tiled trapezoid, 161x145 tile pattern.
++ .TP 14
+  .B \-bigtiletrap10
+  Fill 10x10 tiled trapezoid, 161x145 tile pattern.
+  .TP 14
+***************
+*** 589,594 ****
+--- 721,732 ----
+  .B \-bigtiletrap100
+  Fill 100x100 tiled trapezoid, 161x145 tile pattern.
+  .TP 14
++ .B \-bigtiletrap300
++ Fill 300x300 tiled trapezoid, 161x145 tile pattern.
++ .TP 14
++ .B \-eschertiletrap1
++ Fill 1x1 tiled trapezoid, 216x208 tile pattern.
++ .TP 14
+  .B \-eschertiletrap10
+  Fill 10x10 tiled trapezoid, 216x208 tile pattern.
+  .TP 14
+***************
+*** 595,600 ****
+--- 733,741 ----
+  .B \-eschertiletrap100
+  Fill 100x100 tiled trapezoid, 216x208 tile pattern.
+  .TP 14
++ .B \-eschertiletrap300
++ Fill 300x300 tiled trapezoid, 216x208 tile pattern.
++ .TP 14
+  .B \-complex10
+  Fill 10-pixel/side complex polygon.
+  .TP 14
+***************
+*** 634,639 ****
+--- 775,783 ----
+  .B \-polytext
+  Character in 20/40/20 line (6x13, Times-Roman 10, 6x13).
+  .TP 14
++ .B \-polytext16
++ 2-byte character in 7/14/7 line (k14, k24).
++ .TP 14
+  .B \-fitext
+  Character in 80-char image line (6x13).
+  .TP 14
+***************
+*** 646,651 ****
+--- 790,798 ----
+  .B \-f14itext16
+  2-byte character in 40-char image line (k14).
+  .TP 14
++ .B \-f24itext16
++ 2-byte character in 23-char image line (k24).
++ .TP 14
+  .B \-tr10itext
+  Character in 80-char image line (Times-Roman 10).
+  .TP 14
+***************
+*** 715,720 ****
+--- 862,876 ----
+  .B \-putimage500
+  PutImage 500x500 square.
+  .TP 14
++ .B \-putimagexy10
++ PutImage XY format 10x10 square.
++ .TP 14
++ .B \-putimagexy100
++ PutImage XY format 100x100 square.
++ .TP 14
++ .B \-putimagexy500
++ PutImage XY format 500x500 square.
++ .TP 14
+  .B \-shmput10
+  PutImage 10x10 square, MIT shared memory extension.
+  .TP 14
+***************
+*** 724,729 ****
+--- 880,894 ----
+  .B \-shmput500
+  PutImage 500x500 square, MIT shared memory extension.
+  .TP 14
++ .B \-shmputxy10
++ PutImage XY format 10x10 square, MIT shared memory extension.
++ .TP 14
++ .B \-shmputxy100
++ PutImage XY format 100x100 square, MIT shared memory extension.
++ .TP 14
++ .B \-shmputxy500
++ PutImage XY format 500x500 square, MIT shared memory extension.
++ .TP 14
+  .B \-getimage10
+  GetImage 10x10 square.
+  .TP 14
+***************
+*** 733,738 ****
+--- 898,912 ----
+  .B \-getimage500
+  GetImage 500x500 square.
+  .TP 14
++ .B \-getimagexy10
++ GetImage XY format 10x10 square.
++ .TP 14
++ .B \-getimagexy100
++ GetImage XY format 100x100 square.
++ .TP 14
++ .B \-getimagexy500
++ GetImage XY format 500x500 square.
++ .TP 14
+  .B \-noop
+  X protocol NoOperation.
+  .TP 14
+***************
+*** 799,801 ****
+--- 973,979 ----
+  Susan Angebranndt
+  .br
+  Chris Kent
++ .br
++ Keith Packard
++ .br
++ Graeme Gill
+*** /tmp/d02203	Wed Nov 11 17:06:03 1992
+--- demos/x11perf/bitmaps.c	Wed Nov 11 17:02:16 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: bitmaps.c,v 1.6 92/11/11 17:02:11 rws Exp $ */
+  /*****************************************************************************
+  Copyright 1988, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
+  
+***************
+*** 37,43 ****
+--- 38,52 ----
+     0x03, 0x06, 0x0c, 0x09
+  };
+  
++ #define oddbit_width 17
++ #define oddbit_height 15
++ static unsigned char oddbit_bits[] = {
++    0x01, 0x00, 0x01, 0xc2, 0x87, 0x00, 0x34, 0x58, 0x00, 0x08, 0x20, 0x00,
++    0x38, 0x38, 0x00, 0x44, 0x44, 0x00, 0x84, 0x42, 0x00, 0x04, 0x41, 0x00,
++    0x84, 0x42, 0x00, 0x44, 0x44, 0x00, 0x28, 0x28, 0x00, 0x18, 0x30, 0x00,
++    0x34, 0x58, 0x00, 0xc2, 0x87, 0x00, 0x01, 0x00, 0x01};
+  
++ /* A big bitmap */
+  #define mensetmanus_width 161
+  #define mensetmanus_height 145
+  
+***************
+*** 791,796 ****
+--- 800,809 ----
+  	    stipple = XCreateBitmapFromData(xp->d, xp->w,
+  			(char *)escherknot_bits, escherknot_width, escherknot_height);
+  	    xorg = -3;
++ 	} else if (!strcmp (p->font, "OddTile")) {
++ 	    /* Odd sized tile */
++ 	    stipple = XCreateBitmapFromData(xp->d, xp->w,
++ 			(char *)oddbit_bits, oddbit_width, oddbit_height);
+  	} else {
+  	    /* Enormous stipple.  Well, pretty big. */
+  	    stipple = XCreateBitmapFromData(xp->d, xp->w,
+***************
+*** 821,826 ****
+--- 834,845 ----
+  		    xp->foreground, xp->background, xp->vinfo.depth);
+  	    /* align tile with screen */
+  	    xorg = -3;
++ 	} else if (!strcmp (p->font, "OddTile")) {
++ 	    /* Odd sized tile */
++ 	    tile = XCreatePixmapFromBitmapData(xp->d, xp->w,
++ 		    (char *)oddbit_bits, oddbit_width, oddbit_height,
++ 		    xp->foreground, xp->background, xp->vinfo.depth);
++ 	    /* align tile with screen */
+  	} else {
+  	    /* Enormous tile.  Well, pretty big. */
+  	    tile = XCreatePixmapFromBitmapData(xp->d, xp->w,
+***************
+*** 840,845 ****
+--- 859,869 ----
+  	    /* Enormous stipple which is x4 bits wide */
+  	    tile = XCreatePixmapFromBitmapData(xp->d, xp->w,
+  		    (char *)escherknot_bits, escherknot_width, escherknot_height,
++ 		    xp->background, xp->foreground, xp->vinfo.depth);
++ 	} else if (!strcmp (p->font, "OddTile")) {
++ 	    /* Odd sized tile */
++ 	    tile = XCreatePixmapFromBitmapData(xp->d, xp->w,
++ 		    (char *)oddbit_bits, oddbit_width, oddbit_height,
+  		    xp->background, xp->foreground, xp->vinfo.depth);
+  	} else {
+  	    /* Enormous tile.  Well, pretty big. */

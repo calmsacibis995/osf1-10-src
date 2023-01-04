@@ -1,0 +1,275 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: lpd.8,v $ $Revision: 3.2.7.3 $ (DEC) $Date: 1994/01/06 14:29:10 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+...\" hah_20.07.90
+...\" ma_24.07.90
+...\" Copyright (c) 1983 Regents of the University of California.
+...\" All rights reserved.  The Berkeley software License Agreement
+...\" specifies the terms and conditions for redistribution.
+...\"
+...\"	@(#)lpd.8	6.3 (Berkeley) 12/8/85
+...\"
+.TH lpd 8
+.SH NAME
+.PP
+lpd \- line printer daemon
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/lbin/lpd\*O [\*L-l\*O]
+.sE
+.SH FLAGS
+.PP
+.VL
+.LI "\*L-l\*O"
+Causes the \*Llpd\*O daemon to log valid requests received from the network.
+This  flag is useful for debugging.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "lpd command"
+.iX "printer daemon"
+.iX "daemon" "printer"
+.iX "printer daemon" "debugging"
+.iX "debugging" "printer daemon"
+.iX "daemon" "printer debugging"
+The \*Llpd\*O line printer daemon (spool area handler)
+normally is invoked at boot time.  The daemon makes a single pass through
+the \*Lprintcap\*O(4) file to determine the existing printers and to
+print all files that were not printed before the system shut down.
+The daemon uses
+system calls \*Llisten\*O(2) and \*Laccept\*O(2) to receive requests to
+print files in the queue, to transfer files to the spooling area, and to
+display the queue or remove jobs from the queue.  In each case, the daemon
+forks a child process
+to handle the request so that the parent process can continue to listen
+for more requests.  The Internet port number used to interact with other
+processes is identified with the \*Lgetservbyname\*O(3) system call and is
+.\" Begin Digital-specific information CORRECTION
+.\" Changed /etc/devices to /etc/services because of QAR 8018.
+specified in the \*L/etc/services\*O file by its printer service record entry.
+.\" End Digital-specific information CORRECTION
+.iX "file" "printcap"
+.iX "printcap"
+.iX "daemon" "printer"
+.iX "printer daemon"
+.iX "command" "listen"
+.iX "command" "accept"
+.iX "listen"
+.iX "accept"
+.iX "files" "printing"
+.iX "queues" "printing"
+.iX "printing" "queues"
+.iX "file" "printer service"
+.iX "printer" "service file"
+.PP
+Access control is provided by the following means:
+.PP
+All requests must originate from one of the machines listed in the
+\*L/etc/hosts.equiv\*O or \*L/etc/hosts.lpd\*O file.
+.iX "file" "hosts.equiv"
+.iX "file" "hosts.lpd"
+.iX "hosts.equiv file"
+.iX "hosts.lpd file"
+.P
+When an \*Lrs\*O capability, which restricts remote users to those
+with local accounts, is specified in the \*L/etc/printcap\*O file for
+the printer being accessed, an \*Llpr\*O or \*Llp\*O request is
+honored only for those users having accounts on the same machine as
+the printer.
+.iX "printer" "remote service"
+.iX "remote" "printer service"
+.iX "command" "lpr"
+.iX "command" "lp"
+.PP
+The \*Lminfree\*O ASCII file
+in each spool directory contains the number of disk blocks to leave free
+so that the line printer queue will not completely fill the disk.
+.iX "file" "minfree"
+.iX "minfree"
+.iX "directory" "spool"
+.iX "spool" "directory"
+.iX "printer" "spool directory"
+.iX "disk" "printer spool free blocks"
+.iX "blocks" "free printer spool"
+.PP
+The \*Llock\*O file in each \*L/usr/spool\*O subdirectory is used to
+prevent more than one active \*Llpd\*O daemon and to store information
+about the daemon process for other printer spooling commands.
+.iX "directory" "usr/spool"
+.iX "usr/spool"
+.iX "printer" "spooling commands"
+.PP
+After the \*Llpd\*O daemon has successfully set the lock in the
+\*Llock\*O file, it scans the \*L/usr/spool\*O subdirectory for files
+.\" Begin Digital-specific information CORRECTION
+.\" Fixed typo per QAR 6104.
+beginning with the characters \*Ccf\*O.  Records in each of the
+.\" End Digital-specific information CORRECTION
+\*Ccf\*O files specify files to be printed or specify one or more
+non-printing actions to be performed.  Each such record begins with a
+key character that specifies what to do with the remainder of the
+line.  In the following table, the columns list the beginning key
+character, the key-character name, and its purpose:
+.iX "printer" "lock file"
+.iX "file" "printer lock"
+.iX "process" "printer daemon control"
+.iX "control" "printer daemon"
+.VL
+.LI "\*LH\*O  \*LHostname\*O"
+Name of the machine where the \*Llpr\*O daemon or the \*Llp\*O command
+was invoked.
+.LI "\*LP\*O  \*LPerson\*O"
+Login name of the person who invoked the \*Llpr\*O or \*Llp\*O
+commands.  This record is used to verify ownership by the \*Llprm\*O
+or \*Lcancel\*O commands.
+.LI "\*LJ\*O  \*LJob Name\*O"
+String to be used for the job name on the burst page.
+.LI "\*LC\*O  \*LClassification\*O"
+String to be used for the classification line on the burst page.
+.LI "\*LL\*O  \*LLiteral\*O"
+The record line provides identification information from the
+\*Letc/passwd\*O file and initiates banner page printing.
+.LI "\*LI\*O  \*LIndentation\*O"
+The number of character spaces to indent the output (spacing is from the
+ASCII character set).
+.LI "\*LM\*O  \*LNotify\*O"
+Sends mail to the specified user when the current print job completes.
+.\"
+.\" .LI "\*LV\*O \*LOverride Volume Labels\*O"
+.\" 
+.LI "\*L1\*O  \*LTroff Font R\*O"
+Name of another font file to use in place of the default font file.
+.LI "\*L2\*O  \*LTroff Font I\*O"
+Name of another font file to use in place of the default font file.
+.LI "\*L3\*O  \*LTroff Font B\*O"
+Name of another font file to use in place of the default font file.
+.LI "\*L4\*O  \*LTroff Font S\*O"
+Name of another font file to use in place of the default font file.
+.LI "\*LW\*O  \*LWidth\*O"
+Changes the page width (in characters) used by the \*Lpr\*O command and by
+text filters.
+.LI "\*L<\*O  \*LInput tray\*O"
+Selects the input tray that supplies paper for the print job.
+.LI "\*L>\*O  \*LOutput tray\*O"
+Selects the output tray where the printed paper is deposited.
+.LI "\*LO\*O  \*LOrientation\*O"
+Specifies the orientation of the printed output on the page.
+.LI "\*LK\*O  \*LSides\*O"
+Specifies whether the job should be printed on both sides of the physical
+sheet and whether the pages should be rotated by 180 degrees.
+.\" 
+.\" .LI "\*LS\*O "
+.\" 
+.LI "\*LT\*O  \*LTitle\*O"
+String to be used as the title for the \*Lpr\*O command.
+.LI "\*Lf\*O  \*LFormatted File\*O"
+Name of an already formatted file to print.
+.LI "\*Lp\*O  \*LFile Name\*O"
+Name of a file to print using the \*Lpr\*O command as a filter.
+.LI "\*Ll\*O  \*LFormatted File\*O"
+Similar to \*Lf\*O, but passes control characters and does not make
+page breaks.
+.LI "\*Lt\*O  \*LTroff File\*O"
+The file contains \*Ltroff\*O output (\*Lcat\*O phototypesetter commands).
+.LI "\*Ln\*O  \*LDitroff File\*O"
+The file contains DVI (device-independent) troff output.
+.LI "\*Ld\*O  \*LDVI File\*O"
+The file contains \*LTex\*O(l) output (DVI format from Stanford).
+.\" .LI "\*Lg\*O  \*LGraph File\*O"
+.\" The file contains data produced by the \*Lplot\*O(3) command.
+.LI "\*Lv\*O  \*LRaster Image\*O"
+The file contains a raster image.
+.LI "\*Lc\*O  \*LCifplot File\*O"
+The file contains data produced by the \*Lcifplot\*O command.
+.LI "\*Lr\*O  \*LFortran\*O"
+The file contains text data with Fortran carriage control characters.
+.\" Begin Digital-specific information
+.LI "\*Lx\*O  \*LUnfiltered output\*O"
+Do not interpret any control characters in the file.
+.\" End Digital-specific information
+.LI "\*LU\*O  \*LUnlink\*O"
+Name of file to remove on completion of printing.
+.LI "\*LN\*O  \*LFilename\*O"
+The name of the file undergoing printing, or when blank, for the
+standard input (when the \*Llpr\*O or \*Llp\*O command is
+invoked in a pipeline or when the command is invoked from the standard
+input).
+.LE
+.PP
+Whenever a file cannot be opened for printing, a message is logged via
+the \*Lsyslog\*O(3) subroutine using the \*LLOG_LPR\*O facility.  In this
+case, the \*Llpd\*O daemon tries to reopen a file, which it expects
+to be referenced by a correct pathname, up to 20 times.  If a file cannot be
+opened after 20 tries, \*Llpd\*O goes to the next file.
+.iX "printing" "opening file"
+.iX "opening" "file for printing"
+.iX "error" "opening file"
+.PP
+The \*L lpd\*O daemon uses the \*Lflock\*O(2) system call to provide
+exclusive access to the lock file and to prevent multiple daemons from
+being simultaneously activated.  If the daemon is killed or
+dies unexpectedly, the lock file does not have to be removed.
+.iX "printer" "lock file"
+.iX "file" "printer lock"
+.iX "lock file" "printer"
+.PP
+The 2-line ASCII \*L/usr/spool/lock\*O file
+contains two lines.  The first line specifies the process ID
+of the daemon, and the second line specifies the control file name of
+the job currently undergoing printing.  The second line is updated to
+reflect the current status of the \*Llpd\*O daemon for commands
+\*Llpq\*O, \*Llprm\*O, \*Lcancel\*O, and \*Llpstat\*O.
+.SH FILES
+.PP
+.VL
+.\" Begin Digital-specific information CORRECTION
+.\" Changed sbin to lbin per QAR 8018.
+.LI "\*L/usr/lbin/lpd\*O"
+.\" End Digital-specific information CORRECTION
+Specifies the command path.
+.LI "\*L/etc/printcap\*O"
+Printer description file.
+.LI "\*L/usr/spool/*\*O"
+Spool directories.  The location of spool directories is a convention,
+but not necessary (see the \*L/etc/printcap\*O file).
+.LI "\*L/usr/spool/*/minfree\*O"
+Minimum free disk space to leave.
+.LI "\*L/dev/lp*\*O"
+Line printer devices.
+.LI "\*L/dev/printer\*O"
+Socket for local requests.
+.LI "\*L/etc/hosts.equiv\*O"
+Lists machine names allowed access to a printer.
+.LI "\*L/etc/hosts.lpd\*O"
+Lists machine names allowed access to a printer, but which are not
+under same administrative control.
+.LE
+.SH "RELATED INFORMATION"
+.PP
+Commands:  \*Lcancel\*O(1), \*Llp\*O(1), \*Llpc\*O(8), \*Lpac\*O(8),
+\*Llpr\*O(1), \*Llpq\*O(1), \*Llpstat\*O(1), \*Llprm\*O(1)
+.PP
+Calls:  \*Lsyslog\*O(3)
+.EQ
+delim off
+.EN

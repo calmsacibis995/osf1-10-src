@@ -1,0 +1,181 @@
+Path: news.crl.dec.com!nntpd.lkg.dec.com!pa.dec.com!nobody
+From: rws@expo.lcs.mit.edu (Bob Scheifler)
+Newsgroups: dec.mail.lists.x.fix-trackers
+Subject: (seq: 2282) close XBUG #4820: Xlib: XrmPutLineResource does more than one entry
+Message-ID: <9112231552.AA20980@explain.lcs.mit.edu>
+Date: 23 Dec 91 15:52:25 GMT
+Distribution: dec
+Lines: 168
+Approved: news@usenet.pa.dec.com
+To: fix-trackers@expo.lcs.mit.edu
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+
+### bug number:   4820
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1020732	Mon Dec 23 10:09:54 1991
+--- lib/X/Xrm.c	Tue Dec 10 12:15:18 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Xrm.c,v 1.70 91/11/21 19:18:45 rws Exp $
+   */
+  
+  /***********************************************************
+--- 1,5 ----
+  /*
+!  * $XConsortium: Xrm.c,v 1.71 91/12/10 12:13:57 rws Exp $
+   */
+  
+  /***********************************************************
+***************
+*** 1004,1009 ****
+--- 1004,1010 ----
+   *	Arguments: db - the database.
+   *                 str - a pointer to the string containing the database.
+   *                 filename - source filename, if any.
++  *                 doall - whether to do all lines or just one
+   */
+  
+  /*
+***************
+*** 1019,1028 ****
+  
+  static void GetIncludeFile();
+  
+! static void GetDatabase(db, str, filename)
+      XrmDatabase db;
+      register char *str;
+      char *filename;
+  {
+      register char *ptr;
+      register XrmBits bits = 0;
+--- 1020,1030 ----
+  
+  static void GetIncludeFile();
+  
+! static void GetDatabase(db, str, filename, doall)
+      XrmDatabase db;
+      register char *str;
+      char *filename;
++     Bool doall;
+  {
+      register char *ptr;
+      register XrmBits bits = 0;
+***************
+*** 1039,1044 ****
+--- 1041,1047 ----
+      XrmBinding bindings[LIST_SIZE];
+      XrmValue value;
+      Bool only_pcs;
++     Bool dolines;
+  
+      if (!db)
+  	return;
+***************
+*** 1048,1054 ****
+  
+      (*db->methods->mbinit)(db->mbstate);
+      str--;
+!     while (!is_EOF(bits)) {
+  
+  	/*
+  	 * First: Remove extra whitespace. 
+--- 1051,1059 ----
+  
+      (*db->methods->mbinit)(db->mbstate);
+      str--;
+!     dolines = True;
+!     while (!is_EOF(bits) && dolines) {
+! 	dolines = doall;
+  
+  	/*
+  	 * First: Remove extra whitespace. 
+***************
+*** 1441,1447 ****
+  #endif
+  {
+      if (!*pdb) *pdb = NewDatabase();
+!     GetDatabase(*pdb, line, (char *)NULL);
+  }
+  
+  #if NeedFunctionPrototypes
+--- 1446,1452 ----
+  #endif
+  {
+      if (!*pdb) *pdb = NewDatabase();
+!     GetDatabase(*pdb, line, (char *)NULL, False);
+  }
+  
+  #if NeedFunctionPrototypes
+***************
+*** 1455,1461 ****
+      XrmDatabase     db;
+  
+      db = NewDatabase();
+!     GetDatabase(db, data, (char *)NULL);
+      return db;
+  }
+  
+--- 1460,1466 ----
+      XrmDatabase     db;
+  
+      db = NewDatabase();
+!     GetDatabase(db, data, (char *)NULL, True);
+      return db;
+  }
+  
+***************
+*** 1520,1526 ****
+      }
+      if (!(str = ReadInFile(realfname)))
+  	return;
+!     GetDatabase(db, str, realfname);
+      Xfree(str);
+  }
+  
+--- 1525,1531 ----
+      }
+      if (!(str = ReadInFile(realfname)))
+  	return;
+!     GetDatabase(db, str, realfname, True);
+      Xfree(str);
+  }
+  
+***************
+*** 1539,1545 ****
+  	return (XrmDatabase)NULL;
+  
+      db = NewDatabase();
+!     GetDatabase(db, str, filename);
+      Xfree(str);
+      return db;
+  }
+--- 1544,1550 ----
+  	return (XrmDatabase)NULL;
+  
+      db = NewDatabase();
+!     GetDatabase(db, str, filename, True);
+      Xfree(str);
+      return db;
+  }
+***************
+*** 1567,1573 ****
+  	    *target = db = NewDatabase();
+      } else
+  	db = NewDatabase();
+!     GetDatabase(db, str, filename);
+      Xfree(str);
+      if (!override)
+  	XrmCombineDatabase(db, target, False);
+--- 1572,1578 ----
+  	    *target = db = NewDatabase();
+      } else
+  	db = NewDatabase();
+!     GetDatabase(db, str, filename, True);
+      Xfree(str);
+      if (!override)
+  	XrmCombineDatabase(db, target, False);

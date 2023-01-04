@@ -1,0 +1,80 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205281923.AA10640@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2574) close XBUG #5262: Xt: geometry requests with SetValues
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Thu, 28 May 92 15:23:03 EDT
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: geometry requests with SetValues 
+        ### bug number:   5262
+        ### area:         Xt
+        ### severity:     low
+        ### comments:     
+        ### status:       fixed, SetValues.c 1.15
+
+*** /tmp/,RCSt1a10575	Thu May 28 15:20:11 1992
+--- lib/Xt/SetValues.c	Fri May 22 09:52:25 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: SetValues.c,v 1.13 91/05/02 16:11:33 swick Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: SetValues.c,v 1.15 92/05/22 09:50:27 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 25,30 ****
+--- 25,31 ----
+  ******************************************************************/
+  
+  #include "IntrinsicI.h"
++ #include "StringDefs.h"
+  
+  /*
+   *	XtSetValues(), XtSetSubvalues()
+***************
+*** 222,227 ****
+--- 223,255 ----
+  	}
+      
+  	if (geoReq.request_mode != 0) {
++ 	    /* Pass on any requests for unchanged geometry values */
++ 	    if (geoReq.request_mode !=
++ 		(CWX | CWY | CWWidth | CWHeight | CWBorderWidth)) {
++ 		for ( ; num_args != 0; num_args--, args++) {
++ 		    if (! (geoReq.request_mode & CWX) &&
++ 			strcmp(XtNx, args->name) == 0) {
++ 			geoReq.x = w->core.x;
++ 			geoReq.request_mode |= CWX;
++ 		    } else if (! (geoReq.request_mode & CWY) &&
++ 			       strcmp(XtNy, args->name) == 0) {
++ 			geoReq.y = w->core.y;
++ 			geoReq.request_mode |= CWY;
++ 		    } else if (! (geoReq.request_mode & CWWidth) &&
++ 			       strcmp(XtNwidth, args->name) == 0) {
++ 			geoReq.width = w->core.width;
++ 			geoReq.request_mode |= CWWidth;
++ 		    } else if (! (geoReq.request_mode & CWHeight) &&
++ 			       strcmp(XtNheight, args->name) == 0) {
++ 			geoReq.height = w->core.height;
++ 			geoReq.request_mode |= CWHeight;
++ 		    } else if (! (geoReq.request_mode & CWBorderWidth) &&
++ 			       strcmp(XtNborderWidth, args->name) == 0) {
++ 			geoReq.border_width = w->core.border_width;
++ 			geoReq.request_mode |= CWBorderWidth;
++ 		    }
++ 		}
++ 	    }
+  	    do {
+  		result = _XtMakeGeometryRequest(w, &geoReq, &geoReply, 
+  						&cleared_rect_obj);

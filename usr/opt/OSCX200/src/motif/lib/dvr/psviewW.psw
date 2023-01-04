@@ -1,0 +1,410 @@
+/*
+ * Wraps used by the pswindow PostScript window widget.
+ */
+/* Mods:
+ * TS	17Sep93		Add initialisation of clippath to initgraphics code.
+ *			(Because the default clippath varies from one DPS
+ *			 engine to another.)
+ * TS   10Nov93         The setXgcdrawable op can destroy the clippath,
+ *                      currentmatrix andthe currenttransfer,  so save
+ *                      them and restore them around the call.
+ */ 
+
+defineps _PSViewInitialize
+		(DPSContext ctx; int orient; double tx, ty, scalen;
+		 int contextid)
+    /defaultmatrix {
+	gsave
+	initmatrix 	%call the default initmatrix
+	tx ty translate
+	orient rotate
+	scalen scalen scale
+	currentmatrix
+	grestore
+%(Calculated default matrix: ) print dup == (\n) print flush
+    } bind def
+
+    /initmatrix {
+	matrix defaultmatrix setmatrix
+    } bind def
+
+    /initgraphics {
+%(In initgraphics\n) print flush
+	initgraphics
+        initviewclip viewclippath clip newpath
+	initmatrix
+    } bind def
+
+    /_dxpsview_originaldrawable currentXgcdrawable pop pop exch pop def
+
+    /setXgcdrawable {
+%	4 copy				% 4args 4args
+%	currentXgcdrawable		% 4args newgc newd newx newy gc d x y
+%	5 -1 roll			% 4args newgc newd newx gc d x y newy
+%	eq				% 4args newgc newd newx gc d x eqy
+%	7 1 roll			% 4args eqy newgc newd newx gc d x
+%	4 -1 roll			% 4args eqy newgc newd gc d x newx
+%	eq				% 4args eqy newgc newd gc d eqx
+%	5 1 roll			% 4args eqy eqx newgc newd gc d
+%	3 -1 roll			% 4args eqy eqx newgc gc d newd
+%	eq				% 4args eqy eqx newgc gc eqd
+%	3 1 roll			% 4args eqy eqx eqd newgc gc
+%	eq				% 4args eqy eqx eqd eqgc
+%	and and and			% 4args allequal
+%	{pop pop pop pop}
+%	{matrix currentmatrix 5 1 roll setXgcdrawable setmatrix} ifelse
+	
+        % The setXgcdrawable op can destroy the clippath, currentmatrix and
+        % the currenttransfer, so save them and restore them around the call.
+        mark                            % We will remove everything we save.
+        [                               % Start an array to hold the saved info.
+        {false upath} stopped           % Save the current path on stack.
+        not                             % Leave TRUE on stack if
+                                        % there is a current path to restore.
+        matrix currentmatrix            % Save current matrix on stack
+        clippath                        % Save the clippath in current path.
+        currenttransfer                 % Save the current transfer fn on stack.
+        ]                               % Collect everything into an array.
+        6 2 roll                        % Get the 4 drawable args on top.
+        setXgcdrawable
+        aload pop                       % Expand the array.
+        settransfer                     % Restore the transfer fn.
+        initclip clip                   % Restore the clip path
+        setmatrix                       % Restore the current matrix
+        newpath {uappend} if            % Restore the current path.
+        cleartomark                     % Zap any rubbish left by the "stopped".
+    } bind def
+
+% Since restore can undo all our stuff with the current drawable, we need
+% to redefine it to not do so.  The stuff with "stopped" is because 
+% currentXgcdrawable can return an error if the current device is not
+% an X device (e.g., it's in the middle of a font definition).
+
+    /restore {
+	{
+	    currentXgcdrawable		% savestate gc drawable x y
+	    5 -1 roll			% gc drawable x y savestate
+	} stopped exch
+	restore				% gc drawable x y success
+	not {setXgcdrawable} if		%
+    } bind def
+
+    /showpage {
+	clientsync
+
+	currentXgcdrawable		% gc drawable x y
+	3 -1 roll			% gc x y drawable
+	pop				% gc x y
+	shareddict			% gc x y shareddict
+
+% The next line makes a literal type that contains the context id
+	(_dxpsview_#########) dup 10 contextid 10 string cvs putinterval cvlit
+					% gc x y shareddict id
+	known { 0 } { _dxpsview_originaldrawable } ifelse
+					% gc x y newdrawable
+	3 1 roll			% gc newdrawable x y
+	setXgcdrawable			% 
+	    
+	showpage
+	initgraphics
+    } bind def
+
+    initgraphics
+endps
+
+defineps _PSViewDeactivateDrawing(DPSContext ctx; int contextid)
+    shareddict
+    (_dxpsview_#########) dup 10 contextid 10 string cvs putinterval cvlit
+    true put
+endps
+
+defineps _PSViewReactivateDrawing(DPSContext ctx; int contextid)
+    shareddict
+    (_dxpsview_#########) dup 10 contextid 10 string cvs putinterval cvlit
+    undef
+endps
+
+defineps _PSViewSetDrawableToNULL(DPSContext ctx)
+    currentXgcdrawable 3 -1 roll pop 0 3 1 roll setXgcdrawable
+endps
+
+
+defineps _PSViewFakeTrays(DPSContext ctx)
+ statusdict begin
+   /11x17tray {} def
+    /a3tray {} def
+    /a4tray {} def
+    /a5tray {} def
+    /b4tray {} def
+    /b5tray {} def
+    /executivetray {} def
+    /ledgertray {} def
+    /legaltray {} def
+    /lettertray {} def
+    /setoutputtray {} def
+    /setpapertray {} def
+    /defaultoutputtray {} def
+    /defaultpapertray {} def
+    /setdefaultoutputtray {} def
+    /setdefaultpapertray {} def
+end
+endps
+
+defineps _PSViewBitmapWidths(DPSContext ctx)
+    SharedFontDirectory {
+	dup length 2 add dict begin
+	    {1 index /FID ne {def}{pop pop} ifelse}
+	    forall
+	    /BitmapWidths true def
+	    currentdict
+	end
+	definefont pop
+    } forall
+endps	    
+
+
+defineps _PSViewLoadPrelude (DPSContext ctx)
+%!
+%%Title: dpsdummyprinter.ps -- DPS prolog to emulate some printer features.
+%
+% Copyright (c) 1989 Adobe Systems Incorporated.  All rights reserved.
+% 
+% This file makes a number of definitions that are technically system specific
+% but are used by many existing PostScript language drivers that were written
+% without sufficient attention to the specification.
+% 
+% This prolog ensures that serverdict, exitserver, and assorted statusdict 
+% operators are defined as expected.  The flushfile operator is also redefined
+% to allow Macintosh files with a prepended Laser Prep file to work properly.
+% 
+% There is one special "feature" definition.  The ASCII character \004
+% (CTRL-D) is defined as a no-op operator in case the prolog contains
+% one to indicate end-of-file in some contexts.
+% 
+%%BeginProcSet: DPSDummyPrinter 1 0
+
+/serverdict where {%if
+  pop
+} {%else
+  /serverdict 1 dict def
+} ifelse
+
+serverdict /exitserver known not {
+  % NOTE: We let the usual invalidaccess error occur if serverdict is not
+  %       writeable and exitserver is not known.  This is unlikely because
+  %       either serverdict was just created (above) or it already existed
+  %       in which case exitserver should have been defined.
+  serverdict /exitserver
+    % int exitserver --
+  {
+    0 ne {
+      /exitserver errordict /invalidaccess get exec
+    } if
+    {{end} loop} stopped pop	% Clear dictstack
+    clear
+  } bind put
+} if
+
+userdict /execjob known not {
+  userdict /execjob {exec} bind put
+} if
+
+userdict /legal known not {
+  userdict /legal {} put
+} if
+
+userdict /letter known not {
+  userdict /letter {} put
+} if
+
+userdict /pagecount known not {
+  userdict /pagecount 0 put
+} if
+
+userdict /printername known not {
+  userdict /printername (DPS) put
+} if
+
+userdict /setjobtimeout known not {
+  userdict /setjobtimeout {pop} bind put
+} if
+
+userdict /setrealdevice known not {
+  userdict /setrealdevice {} put
+} if
+
+userdict /waittimeout known not {
+  userdict /waittimeout 600 put
+} if
+
+userdict /framedevice known not {
+  userdict /framedevice {pop pop pop pop} put
+} if
+
+% Change back to the original definition of copypage
+% that was in the code.  My guess is that this was changed
+% since there was an attempt to get rid of duplicate pages
+% that might be generated.  However, by switching the
+% definition of copypage to showpage an erasepage and initgraphics
+% was getting performed which caused invalid output.
+%
+% Steve Munyan, CDA Viewer Group, 31-Dec-1991
+
+userdict /copypage known not {
+  userdict /copypage {clientsync //copypage} put
+%  userdict /copypage {showpage} put
+} if
+
+
+% The Mac Laser Prep file executes the flushfile operator to get to the end
+% of the prolog.  When documents are saved with the prolog attached, the
+% flushfile consumes the document and nothing is printed.  To get around this
+% problem the definition of flushfile is changed below to consume bytes of
+% input until a PostScript language comment (%) character is found.  The
+% rest of the line is then consumed before the revised flushfile terminates.
+% This only works correctly when there is a PostScript language comment
+% where an end-of-file would be expected, which is usually true, luckily.
+
+/*flushfile /flushfile load def
+
+/flushfile
+  % file flushfile --
+{%def
+  {%loop -- search for next percent character in file
+    dup				% Copy file parameter
+    read {			% Consume character
+      8#045 eq {		% Check for ASCII percent character
+	exit			% Leave loop
+      } if
+    } if
+  } loop
+  {%loop -- search for newline character at end of comment
+    dup				% Copy file parameter
+    read {			% Consume character
+      8#012 eq {		% Check for ASCII newline character
+	exit			% Leave loop
+      } if
+    } if
+  } loop
+  pop				% Discard file parameterp
+} bind def
+
+(\004) cvn {} def		% To ignore ^D at the end of prologs.
+
+%%EndProcSet
+
+%/statusdict begin % laserwriter does this?
+
+endps
+
+defineps _PSViewLoadServer (DPSContext ctx)
+%! 
+% dpsserver.ps
+% last edit: durham - Mon Oct 31 14:11:50 1988
+% last edit: taft - Thu Mar 24 14:52:32 1988
+% mockup of a "server" for a previewer built on the Display PostScript system.
+% derived from the generic server.ps for printers
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	      Copyright (c) 1983, 1988 - Adobe Systems, Inc.		     %
+%            PostScript is a trademark of Adobe Systems, Inc.                %
+%									     %
+% NOTICE:  All information contained herein or attendant hereto is, and      %
+% remains, the property of Adobe Systems, Inc.  Many of the intellectual and %
+% technical concepts contained herein are proprietary to Adobe Systems, Inc. %
+% and may be covered by U.S. and Foreign Patents or Patents Pending or are   %
+% protected as trade secrets.  Any dissemination of this information or      %
+% reproduction of this material are strictly forbidden unless prior written  %
+% permission is obtained from Adobe Systems, Inc.                            %
+%									     %
+%			  Adobe Systems, Inc.				     %
+%		          1585 Charleston Rd.				     %
+%			Mountain View, CA  94039			     %
+%			    (415) 961-4400				     %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/$serverdict 10 dict def
+$serverdict begin
+
+/cleardictstack
+   {countdictstack 3 sub {end} repeat} bind def
+
+% server is the inner server loop
+% it enforces "pristine" state on a file-by-file basis
+
+/server
+   {
+       {$error /newerror false put
+	$error /errorname null put
+	$serverdict begin
+	/svlv save def
+	/execjob load
+	end  % $serverdict
+        stopped pop
+	clear countdictstack 3 sub {end} repeat
+	$serverdict /svlv get restore
+       } loop
+   } bind def
+
+% execute a job (file).
+% standard input and output streams are assumed to be serially reusable
+
+/execjob
+   {//$serverdict begin
+    /stdin (%stdin) (r) file def
+    /stdout (%stdout) (w) file def
+    stdin cvx
+    end  % $serverdict
+    erasepage
+
+    % this is where the job gets executed.
+    % strange dance with nested "stopped" is to foil perverse programs that
+    % terminate with the operand stack close to overflowing.
+       {stopped mark 1 2 3 cleartomark {stop} if
+       } stopped
+
+    % code after here must protect itself against arbitrary changes
+    % to the VM made by the user's program.
+
+       {% if an error occurs in here (e.g., timeout or ioerror), catch it
+	% and abort the rest of the cleanup processing
+
+           {% if error occurred in job, do error action; the "if" after
+	    % this block tests the result returned by "stopped".
+            clear //cleardictstack exec
+	    //$error begin //$serverdict begin
+	    newerror //handleerror if
+	    (%%[ Flushing: rest of job (to end-of-file) will be ignored ]%%) =
+	    flush
+	    stdin flushfile
+	    end end  % $error $serverdict
+           } if
+
+	flush
+       } stopped
+       {% the cleanup code itself encountered an error.
+	% in DPS, there is little more that can be done.
+       } if
+
+    clear
+    //$serverdict begin
+       {stdout closefile} stopped
+       {stdin closefile} stopped
+    clear cleardictstack	% this of course ends $serverdict
+   } bind def
+
+end  % $serverdict
+
+% This is how the "server" is invoked. Once invoked, it executes forever,
+% so the invocation should be the last thing preceding the start of the
+% user job stream.
+
+% $serverdict /server get exec % executed by previewer software
+
+% This is the end of dpsserver.ps
+
+endps
+
+defineps _PSViewExecServer (DPSContext ctx)
+{$serverdict /server get exec} stopped {pstack flush} if
+endps
+

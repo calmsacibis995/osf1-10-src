@@ -1,0 +1,402 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: mh-format.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/17 18:58:22 $
+.\"
+.TH mh-format 4
+.SH NAME
+\*Lmh-format\*O \- Format file for the MH message system
+.SH DESCRIPTION
+.PP
+.iX "mh-format formatter"
+.iX "MH system" "file formatter"
+Several MH commands utilize either a \*Lformat\*O string or a
+\*Lformat\*O file during their execution.
+For example, \*Lscan\*O(1) uses a format string which specifies how
+\*Lscan\*O should generate the \*Lscan\*O listing for each message;
+\*Lrepl\*O(1) uses a format file which directs it how to generate the
+reply to a message, and so on.
+.PP
+This reference page describes how to write new format commands or modify
+existing ones.  You should not attempt this unless you are an
+experienced MH user.
+.PP
+A format string is similar to a \*Lprintf\*O string, but uses multi-letter
+escapes.
+The rest of this reference page assumes a knowledge of the \*Lprintf\*O routine.
+When specifying a string,
+the usual C backslash characters are honored: \*L\eb\*O, \*L\ef\*O, \*L\en\*O,
+\*L\er\*O and \*L\et\*O.
+Continuation lines in format files end with \*L\e\*O followed by the newline
+character.
+.PP
+When an escape is interpreted and the result is immediately printed,
+you can specify an optional field width to print the field in exactly
+a given number of characters.
+A numeric escape, such as \*L"%4(size)"\*O,
+will print at most 4 digits of the value.
+Any overflow is marked by a \*L?\*O in the first position, for example
+\*L?123\*O. A string escape, such as \*L"%4(me)"\*O,
+will print the first four characters of the string.
+In both cases, short fields are padded at the right,
+usually with a blank.
+If the field width argument begins with a zero, for example \*L"%04(size)"\*O,
+the fill character is a zero.
+.PP
+The interpretation model is based on a simple machine with two registers,
+\*Lnum\*O and \*Lstr\*O.
+The former contains an integer value, the latter a string value.
+When an escape is processed,
+if it requires an argument,
+it reads the current value of either \*Lnum\*O or \*Lstr\*O; and,
+if it returns a value, it writes either \*Lnum\*O or \*Lstr\*O.
+.PP
+Escapes are of three types: \*Lcomponents\*O, \*Lfunctions\*O, and
+\*Lcontrol\*O.
+.\"
+.\"
+.SS Component Escapes
+A component escape represents a header field
+in the message being processed.
+It is written \*L{name}\*O, where the name is the name of the header field.
+For example, \*L{date}\*O refers to the \*LDate:\*O field of the message.
+.PP
+The value of a component escape is the content of the
+named field.
+This is always a string.
+For example, the header of an unsent message might look as follows:
+.oS
+To: smith@local
+cc: davis
+Subject: tomorrow's meeting
+.oE
+In this example, the value of the component escape \*L{subject}\*O is
+the string \*L"tomorrow's meeting"\*O.
+.\"
+.\"
+.SS Control Escapes
+A control escape is one of: \*L%<\*O, \*L%|\*O and \*L%>\*O.
+These correspond to if-then-else constructs.
+.PP
+There are two syntaxes allowed by these control escapes.
+The first is:
+.oS
+%<(function)Command-string%>
+%<{component}Command-String%>
+.oE
+If the function or component is non-zero (for integer-valued escapes)
+or non-empty (for string-valued escapes),
+everything up to the corresponding \*L%>\*O is interpreted.
+Otherwise, skip to the next \*L%>\*O and begin interpreting again.
+.PP
+The second form of syntax is as follows:
+.oS
+%<(function)Then-Command-String%|Else-Command-String%>
+%<{component}Then-Command-String%|Else-Command-String%>
+.oE
+If the function or component is non-zero or non-null, the
+\*LThen-Command-String\*O is interpreted.
+Otherwise, skip to \*L%|\*O and interpret the \*LElse-Command-String\*O.
+Only one string is ever interpreted; if the first string is interpreted,
+the system skips from the \*L%|\*O control escape to the \*L%>\*O character.
+.\"
+.\" if
+.\" \*Lescape\*O
+.\" is non-zero (for integer-valued escapes),
+.\" or non-empty (for string-valued escapes),
+.\" then everything up to
+.\" \*L%|\*O
+.\" or
+.\" \*L%>\*O
+.\" (whichever comes first) is interpreted;
+.\" else, then skip to
+.\" \*L%|\*O
+.\" or
+.\" \*L%>\*O
+.\" (whichever comes first)
+.\" and start interpreting again.
+.\"
+.\"
+.SS Function Escapes
+A function escape is specified as \*L%(name)\*O,
+and is statically defined.
+.PP
+Most functions expect an argument of a particular type.
+In the tables of functions that follow, these types are referred to:
+.TP 10
+\*Lliteral\*O
+A literal number or string; for example, \*L%(func 1234)\*O takes
+the number 1234 as its argument.
+.TP
+\*Lcomp\*O
+Any header component; for example, \*L%(func{from})\*O
+takes the contents of the \*LFrom:\*O
+header field as an argument.
+.TP
+\*Lexpr\*O
+An optional component, function or string, perhaps nested.
+For example, \*L%(func (func2{comp}))\*O takes
+the return value of the function \*L(func2{comp})\*O as its argument.
+If no argument is provided, the function will read either the \*Lnum\*O or
+the \*Lstr\*O register, as appropriate.
+.PP
+Functions return three types of values: \*Lstring\*O, \*Linteger\*O,
+and, for those functions which return a true or false status, \*Lboolean\*O.
+In the tables that follow, \*Lstr\*O and \*Lnum\*O represent
+the values stored in these registers. \*Larg\*O represents
+the value of the argument supplied to the function.
+.PP
+The following table lists the function escapes:
+.PP
+.TS
+tab(+);
+lfHB lfHB lfHB lfHB
+l l l l.
+_
+.sp 6p
+Escape+Argument+Returns+Interpretation
+.sp 6p
+_
+.sp 6p
+msg+ +integer+message number
+cur+ +integer+message is current
+size+ +integer+size of message
+strlen+ +integer+length of \*Lstr\*O
+width+ +integer+output buffer size in bytes
+charleft+integer+integer+space left in output buffer
+timenow+ +integer+seconds since the epoch
+me+ +string+the user's mailbox
+eq+literal+integer+\*Lnum\*O =\|= \*Larg\*O
+ne+literal+integer+\*Lnum\*O != \*Larg\*O
+gt+literal+integer+\*Lnum\*O > \*Larg\*O
+match+literal+boolean+\*Lstr\*O contains \*Larg\*O
+amatch+literal+boolean+\*Lstr\*O starts with \*Larg\*O
+plus+ +integer+\*Larg\*O plus \*Lnum\*O
+minus+ +integer+\*Larg\*O minus \*Lnum\*O
+divide+literal+integer+\*Lnum\*O divided by \*Larg\*O
+num+literal+integer+Set \*Lnum\*O to \*Larg\*O
+lit+literal+integer+Set \*Lstr\*O to \*Larg\*O
+nonzero+expr+integer+\*Lnum\*O is non-zero
+zero+expr+integer+\*Lnum\*O is zero
+null+expr+integer+\*Lstr\*O is empty
+nonnull+expr+integer+\*Lstr\*O is non-empty
+void+expr+ +Set \*Lstr\*O or \*Lnum\*O
+comp+comp+string+Set \*Lstr\*O to component text
+compval+comp+integer+\*Lnum\*O set to \*Latoi(str)\*O
+trim+expr+ +trim trailing white space from \*Lstr\*O
+putstr+expr+ +print \*Lstr\*O
+putstrf+expr+ +print \*Lstr\*O in a fixed width
+putnum+expr+ +print \*Lnum\*O
+putnum+expr+ +print \*Lnum\*O in a fixed width
+.sp 6p
+_
+.TE
+.PP
+The following functions require a date component as an argument:
+.PP
+.TS
+lfHB lfHB lfHB lfHB
+l l l l.
+_
+.sp 6p
+Escape	Argument	Returns	Interpretation
+.sp 6p
+_
+.sp 6p
+sec	date	integer	seconds of the minute
+min	date	integer	minutes of the day
+hour	date	integer	hours of the day (24 hour clock)
+wday	date	integer	day of the week (Sunday=0)
+day	date	string	day of the week
+weekday	date	string	day of the week (long)
+sday	date	integer	day of the week known
+			1 for explicit in date
+			0 for implicit
+			\-1 for unknown
+mday	date	integer	day of the month
+yday	date	integer	day of the year
+mon	date	integer	month of the year
+month	date	string	month of the year (abbreviated)
+lmonth	date	string	month of the year (long form)
+year	date	integer	year of the century
+zone	date	integer	timezone in hours
+tzone	date	string	timezone as a string
+szone	date	integer	timezone explicit?
+			1 for explicit
+			0 for implicit
+			\-1 for unknown
+date2local	date		coerce date to local timezone
+date2gmt	date		coerce date to GMT
+dst	date	integer	daylight savings in effect?
+clock	date	integer	seconds since the epoch
+rclock	date	integer	seconds prior to current time
+tws	date	string	official RFC 822 rendering of the date
+pretty	date	string	a more user-friendly rendering
+nodate	date		\*Lstr\*O could not be parsed as a date
+.sp 6p
+_
+.TE
+.PP
+The following functions require an address component as an argument.
+Some functions return a value based on
+the first address in the field only.
+These are indicated by the note \*L(first only)\*O.
+.PP
+.TS
+lfHB lfHB lfHB lfHB
+l l l l.
+_
+.sp 6p
+Escape	Argument	Returns	Interpretation
+.sp 6p
+_
+.sp 6p
+proper	addr	string	official RFC 822 rendering
+			of the address
+friendly	string	string	a more user-friendly
+			rendering
+pers	addr	string	the personal name (first only)
+note	addr	string	commentary text (first only)
+mbox	addr	string	the local part of the address
+			(first only)
+mymbox	addr		does the address refer to
+			the user's mailbox?
+			(0=no, 1=yes)
+host	addr	string	the domain part of the address
+			(first only)
+nohost	addr	integer	no host was present in the address
+			(first only)
+type	addr	integer	the type of host
+			\-1 for uucp
+			0 for local
+			1 for network
+			2 for unknown
+path	addr	string	the route part of the address
+			(first only)
+ingrp	addr	integer	the address appeared inside a group
+			(first only)
+gname	addr	string	name of the group (first only)
+formataddr	expr		append \*Larg\*O to \*Lstr\*O as
+			an address list
+putaddr	literal		print \*Lstr\*O address list with \*Larg\*O
+			as an optional label; get line width
+			from \*Lnum\*O
+.sp 6p
+_
+.TE
+.PP
+Some functions that print their arguments can be controlled
+by giving field width arguments.
+The functions \*L(putnumf)\*O and \*L(putstrf)\*O
+print their arguments as specified by the field width arguments.
+So \*L%06(putnumf(size))\*O will
+print the message size in six digits, filled with leading zeros;
+\*L%14(putsrtf{from})\*O will print the \*LFrom:\*O
+header field in 14 characters, with trailing spaces as required.
+With \*L(putstrf)\*O, supplying a negative field width will cause
+the string to be right-justified within the field.
+The functions \*L(putnum)\*O and \*L(putstr)\*O ignore
+any field width arguments,
+and print their arguments in the minimum number of characters required.
+.\"
+.\"
+.\"
+.\"
+.SH RESTRICTIONS
+.PP
+When the \*Lfriendly\*O format for addresses is used,
+addresses longer than about 180 characters are truncated to an empty
+string.
+This means that such addresses will not appear in the \*Lscan\*O display.
+.PP
+The function \*L(mymbox{comp})\*O checks each of the addresses
+in the named header component \*L{comp}\*O against the user's
+mailbox name, and against any other mailboxes
+listed in the \*LAlternate-Mailboxes\*O
+entry in the user's \*L\&.mh_profile\*O.
+It returns true if any of the address matches.
+However, it also returns true if the named \*L{comp}\*O header
+field is not present. If necessary, you can use the \*L(null)\*O
+or \*L(nonnull)\*O functions to test explicitly for the presence of the field.
+.\"
+.\"
+.\"
+.\"
+.SH EXAMPLES
+.PP
+The default format string for \*Lscan\*O follows.
+This has been divided into several pieces for readability.
+The first part is:
+.oS
+%4(msg)%<(cur)+%| %>%<{replied}-%| %>
+.oE
+This means that the message number should be printed in four digits;
+if the message is the current message then a \*L+\*O is printed.
+If the message is not the current message, then a space is printed.
+If a \*LReplied:\*O field is present, a \*L\-\*O is printed.
+If no \*LReplied:\*O field is present, then a space is printed.
+Next:
+.oS
+%02(mon{date})/%02(mday{date})
+.oE
+The month and date are printed in two digits (zero filled).
+Next:
+.oS
+%<{date} %|*>
+.oE
+If no \*LDate:\*O field is present, then a \*L*\*O is
+printed, otherwise a space.
+Next:
+.oS
+%<(mymbox{from})To:%14(friendly{to})
+.oE
+If the message is from me,
+print \*LTo:\*O followed by a user-friendly rendering of the first
+address in the \*LTo:\*O field.
+.oS
+%|%17(friendly{from})%>
+.oE
+If the message is not from me, then the \*LFrom:\*O address is printed.
+And finally:
+.oS
+%{subject}%<{body}<<%{body}%>
+.oE
+The subject and initial body are printed preceded by the string \*L<<\*O.
+.PP
+Although this seems complicated,
+this method is flexible enough to extract individual fields and
+print them in any format the user desires.
+.PP
+If the
+.B \-form
+\*Vformatfile\*O
+switch is given with the \*Lscan\*O command,
+it will treat each line in the named file
+as a format string, and act accordingly.
+This lets the user develop template \*Lscan\*O
+listing formats.
+Some examples can be found in \*L/usr/lib/mh/scan.time\*O,
+\*L/usr/lib/mh/scan.size\*O, and \*L/usr/lib/mh/scan.timely\*O.
+.\"
+.\"
+.\"
+.\"
+.SH RELATED INFORMATION
+.PP
+\*Lscan\*O(1), \*Lap\*O(8), \*Ldp\*O(8)
+.EQ
+delim off
+.EN

@@ -1,0 +1,299 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205152028.AA29332@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2547) close XBUG #4290, #4541, #4791, #4808, #4835: wide arc bugs
+Date: Fri, 15 May 92 16:28:48 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: server: Unisoft testsuit CH06/drwarcs crashes server
+### bug number:   4290
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: Server: ther server core dumps while trying to draw wide arcs with 'JoinMiter' join style.
+### bug number:   4541
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: wide arc bugs
+### bug number:   4791
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: wide arc bugs (#4791, #4541, #4290)
+### bug number:   4808
+### area:         server
+### severity:     low
+### comments:     
+
+Subject: server: misallocation problem in realFindSpans() in miarc.c
+### bug number:   4835
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/d29312	Fri May 15 16:24:06 1992
+--- server/ddx/mi/miarc.c	Fri May 15 15:34:10 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: miarc.c,v 5.38 92/04/21 15:40:59 rws Exp $ */
+  /* Author: Keith Packard */
+  
+  #include <math.h>
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: miarc.c,v 5.40 92/05/15 15:32:30 rws Exp $ */
+  /* Author: Keith Packard */
+  
+  #include <math.h>
+***************
+*** 1786,1792 ****
+  		j = i + 1;
+  		if (j == narcs)
+  			j = 0;
+! 		if (data[i].selfJoin || 
+  		     (UNEQUAL (data[i].x1, data[j].x0) ||
+  		      UNEQUAL (data[i].y1, data[j].y0)))
+   		{
+--- 1786,1792 ----
+  		j = i + 1;
+  		if (j == narcs)
+  			j = 0;
+! 		if (data[i].selfJoin || i == j ||
+  		     (UNEQUAL (data[i].x1, data[j].x0) ||
+  		      UNEQUAL (data[i].y1, data[j].y0)))
+   		{
+***************
+*** 1943,1949 ****
+  				dashRemaining = dashRemainingStart;
+  			}
+  		}
+! 		arcsJoin = narcs > 1 && 
+  	 		    ISEQUAL (data[i].x1, data[j].x0) &&
+  			    ISEQUAL (data[i].y1, data[j].y0) &&
+  			    !data[i].selfJoin && !data[j].selfJoin;
+--- 1943,1949 ----
+  				dashRemaining = dashRemainingStart;
+  			}
+  		}
+! 		arcsJoin = narcs > 1 && i != j &&
+  	 		    ISEQUAL (data[i].x1, data[j].x0) &&
+  			    ISEQUAL (data[i].y1, data[j].y0) &&
+  			    !data[i].selfJoin && !data[j].selfJoin;
+***************
+*** 3225,3235 ****
+  static double	arcXcenter, arcYcenter;
+  static int	arcXoffset, arcYoffset;
+  
+! static struct finalSpan	**finalSpans;
+! static int		finalMiny, finalMaxy;
+! static int		finalSize;
+  
+! static int		nspans;		/* total spans, not just y coords */
+  
+  struct finalSpan {
+  	struct finalSpan	*next;
+--- 3225,3235 ----
+  static double	arcXcenter, arcYcenter;
+  static int	arcXoffset, arcYoffset;
+  
+! static struct finalSpan	**finalSpans = NULL;
+! static int		finalMiny = 0, finalMaxy = -1;
+! static int		finalSize = 0;
+  
+! static int		nspans = 0;	/* total spans, not just y coords */
+  
+  struct finalSpan {
+  	struct finalSpan	*next;
+***************
+*** 3314,3320 ****
+  	{
+  	    i = 0;
+  	    f = finalSpans;
+! 	    for (spany = finalMiny; spany < finalMaxy; spany++, f++) {
+  		    for (span = *f; span; span=span->next) {
+  			    if (span->max <= span->min)
+  				    continue;
+--- 3314,3320 ----
+  	{
+  	    i = 0;
+  	    f = finalSpans;
+! 	    for (spany = finalMiny; spany <= finalMaxy; spany++, f++) {
+  		    for (span = *f; span; span=span->next) {
+  			    if (span->max <= span->min)
+  				    continue;
+***************
+*** 3331,3344 ****
+  	xfree (xSpans);
+  	xfree (xWidths);
+  	finalMiny = 0;
+! 	finalMaxy = 0;
+  	finalSize = 0;
+  	nspans = 0;
+  }
+  
+! # define SPAN_REALLOC	1024
+  
+! # define findSpan(y) ((finalMiny <= (y) && (y) < finalMaxy) ? \
+  			  &finalSpans[(y) - finalMiny] : \
+  			  realFindSpan (y))
+  
+--- 3331,3344 ----
+  	xfree (xSpans);
+  	xfree (xWidths);
+  	finalMiny = 0;
+! 	finalMaxy = -1;
+  	finalSize = 0;
+  	nspans = 0;
+  }
+  
+! # define SPAN_REALLOC	100
+  
+! # define findSpan(y) ((finalMiny <= (y) && (y) <= finalMaxy) ? \
+  			  &finalSpans[(y) - finalMiny] : \
+  			  realFindSpan (y))
+  
+***************
+*** 3350,3361 ****
+  	int			change;
+  	int			i;
+  
+! 	if (y < finalMiny || y >= finalMaxy) {
+  		if (y < finalMiny)
+  			change = finalMiny - y;
+  		else
+  			change = y - finalMaxy;
+! 		if (change >= SPAN_REALLOC)
+  			change += SPAN_REALLOC;
+  		else
+  			change = SPAN_REALLOC;
+--- 3350,3365 ----
+  	int			change;
+  	int			i;
+  
+! 	if (y < finalMiny || y > finalMaxy) {
+! 		if (!finalSize) {
+! 			finalMaxy = y - (SPAN_REALLOC - 1);
+! 			finalMiny = finalMaxy + 1;
+! 		}
+  		if (y < finalMiny)
+  			change = finalMiny - y;
+  		else
+  			change = y - finalMaxy;
+! 		if (change > SPAN_REALLOC)
+  			change += SPAN_REALLOC;
+  		else
+  			change = SPAN_REALLOC;
+***************
+*** 3379,3385 ****
+  		if ((i = finalMiny - newMiny) > 0)
+  			bzero ((char *)newSpans, i * sizeof (struct finalSpan *));
+  		if ((i = newMaxy - finalMaxy) > 0)
+! 			bzero ((char *)(newSpans + finalMaxy - newMiny),
+  			       i * sizeof (struct finalSpan *));
+  		finalSpans = newSpans;
+  		finalMaxy = newMaxy;
+--- 3383,3389 ----
+  		if ((i = finalMiny - newMiny) > 0)
+  			bzero ((char *)newSpans, i * sizeof (struct finalSpan *));
+  		if ((i = newMaxy - finalMaxy) > 0)
+! 			bzero ((char *)(newSpans + newSize - i),
+  			       i * sizeof (struct finalSpan *));
+  		finalSpans = newSpans;
+  		finalMaxy = newMaxy;
+***************
+*** 3739,3745 ****
+  		 * find left-most point
+  		 */
+  		for (i = 0; i < bandno; i++)
+! 			if (band[i].a0 < q0) {
+  				q0 = band[i].a0;
+  				q1 = band[i].a1;
+  				mask = band[i].mask;
+--- 3743,3749 ----
+  		 * find left-most point
+  		 */
+  		for (i = 0; i < bandno; i++)
+! 			if (band[i].a0 <= q0) {
+  				q0 = band[i].a0;
+  				q1 = band[i].a1;
+  				mask = band[i].mask;
+***************
+*** 3775,3781 ****
+  				 * check if this band is empty
+  				 */
+  				if (band[i].a0 == band[i].a1)
+! 					band[i].a1 = band[i].a0 = 90 * 64;
+  			}
+  	}
+  	computeAcc (&def, &acc);
+--- 3779,3785 ----
+  				 * check if this band is empty
+  				 */
+  				if (band[i].a0 == band[i].a1)
+! 					band[i].a1 = band[i].a0 = 90 * 64 + 1;
+  			}
+  	}
+  	computeAcc (&def, &acc);
+***************
+*** 3785,3807 ****
+   		if (mask & (1 << rightq)) {
+  			if (sweep[j].a0 == righta)
+  				passRight = right;
+! 			if (sweep[j].a1 == righta) {
+  				passLeft = right;
+  				flipRight = 1;
+  			}
+  		}
+  		if (mask & (1 << leftq)) {
+- 			if (sweep[j].a0 == lefta) {
+- 				if (passRight)
+- 					copyEnd = 1;
+- 				passRight = left;
+- 				flipLeft = 1;
+- 			}
+  			if (sweep[j].a1 == lefta)
+  			{
+  				if (passLeft)
+  					copyEnd = 1;
+  				passLeft = left;
+  			}
+  		}
+  		drawQuadrant (&def, &acc, sweep[j].a0, sweep[j].a1, mask, 
+--- 3789,3811 ----
+   		if (mask & (1 << rightq)) {
+  			if (sweep[j].a0 == righta)
+  				passRight = right;
+! 			else if (sweep[j].a1 == righta) {
+  				passLeft = right;
+  				flipRight = 1;
+  			}
+  		}
+  		if (mask & (1 << leftq)) {
+  			if (sweep[j].a1 == lefta)
+  			{
+  				if (passLeft)
+  					copyEnd = 1;
+  				passLeft = left;
++ 			}
++ 			else if (sweep[j].a0 == lefta) {
++ 				if (passRight)
++ 					copyEnd = 1;
++ 				passRight = left;
++ 				flipLeft = 1;
+  			}
+  		}
+  		drawQuadrant (&def, &acc, sweep[j].a0, sweep[j].a1, mask, 

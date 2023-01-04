@@ -1,0 +1,222 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: wcstoul.3,v $ $Revision: 1.1.3.4 $ (DEC) $Date: 1993/11/19 16:45:20 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.2
+.\"
+.TH wcstoul 3
+.SH NAME
+.PP
+\*Lwcstoul\*O \- Converts wide-character strings to unsigned long integer
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <wchar.h>\*O
+.PP
+\*Lunsigned long int wcstoul(
+.nL
+	const wchar_t *\*Vnptr\*L,
+.nL
+	wchar_t **\*Vendptr\*L,
+.nL
+	int \*Vbase\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL 1i
+.LI "\*Vnptr\*O"
+Contains a pointer to the wide-character string
+to be converted to an unsigned long integer.
+.LI "\*Vendptr\*O"
+Points to a pointer in which the \*Lwcstoul(\|)\*O function stores the
+position in the string specified by the \*Vnptr\*O
+parameter where a wide character is
+found that is not a valid character for the purpose of this conversion.
+.LI "\*Vbase\*O"
+Specified the radix in which the wide characters are interpreted.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "wcstoul function"
+The \*Lwcstoul(\|)\*O function converts the initial portion of the wide-character
+string pointed to by the \*Vnptr\*O parameter to an unsigned long integer
+representation. The
+input wide-character string is first broken down into three parts:
+.ML
+.LI
+White space -- an initial
+(possibly empty) sequence of wide-character spaces
+(as specified by
+the \*Liswspace(\|)\*O function)
+.LI
+Subject sequence -- a sequence of wide characters that are valid in an
+integer constant of the radix determined by the \*Vbase\*O parameter
+.LI
+Unrecognized characters -- final sequence of
+unrecognized wide-character codes,
+including the terminating null wide character
+.LE
+.PP
+If possible, the subject is then converted
+to an unsigned integer and the result is returned.
+.PP
+The \*Vbase\*O parameter can take values between 0 and 36.
+.ML
+.LI
+If the \*Vbase\*O value is 0 (zero), the subject string can be a decimal,
+octal, or hexadecimal integer constant. A
+decimal constant begins with a nonzero digit, and consists of a
+sequence of decimal digits. An octal constant consists of the prefix 0
+(zero) optionally followed by a sequence of digits in the range 0
+through 7. A hexadecimal constant consists of the prefix 0x or oX
+followed by a sequence consisting of decimal digits and the letters in
+the range a (or A) to f (or F).
+.LI
+If the base value is
+between 2 and 36, the subject string can be a sequence of digits and
+letters a (or A) to z ( or Z ) that are used to represent an
+integer in the specified base. Alphabetic characters represent digits
+with an equivalent decimal value from 10 (for the letter A) to 35
+(for the letter Z). The subject string can only have digits with a
+value less than \*Vbase\*O and alphabetic characters with
+equivalent values less than \*Vbase\*O.
+For example, when the value of the \*Vbase\*O parameter is
+20, only the following value assignments are converted:
+.IP
+.oS
+\*OCharacter\*L      0 1 2 3 4 5 6 7 8 9  A  B  C  D  E  F  G  H  I  J
+                                    a  b  c  d  e  f  g  h  i  j
+
+\*Vbase\*O Value\*L     0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+.oE
+.LE
+.PP
+The subject string can
+optionally be preceded by a + (plus sign) or - (minus sign),
+but cannot include an integer suffix (such as \*LL\*O).
+If the subject string is preceded by a - (minus sign), the converted
+integer value has a negative value cast to unsigned integer.
+If the value of base is 16, the characters \*L0x\*O or \*L0X\*O may
+optionally precede the sequence of letters or digits,
+following the sign, if present.
+.PP
+The wide-character string is parsed to skip the initial white
+space characters (as determined by the\*L iswspace(\|)\*O function).
+Any nonspace character is the start of a potential subject string
+that may form an unsigned long integer in the base specified by the
+\*Vbase\*O parameter. The subject sequence is defined to be the
+longest initial substring that is of the expected form of unsigned
+long integer.  Any
+character that does not satisfy this expected form begins the final
+sequence of unrecognized characters.
+The \*Lwcstol(\|)\*O function sets
+the \*L*\*Vendptr\*O
+parameter to point to this final sequence of unrecognized characters.
+.PP
+The \*LLC_CTYPE\*O category of the locale controls what wide
+characters are treated as spaces but does not effect the
+interpretation of characters as part of the subject string. The
+characters in the subject string are always treated as if the locale
+was the C locale.
+.SH EXAMPLES
+.PP
+The following example
+converts a wide-character string to a unsigned long integer.
+.PP
+.oS
+#include <stdio.h>
+#include <wchar.h>
+#include <locale.h>
+#include <errno.h>
+#define WLENGTH 40
+
+main()
+{
+    wchar_t WCString[WLENGTH], *endptr;
+    unsigned long int    retval;
+
+    (void)setlocale(LC_ALL, "");
+    if (fgetws(WCString, WLENGTH, stdin) != NULL) {
+        errno = 0;
+        retval = wcstoul ( WCString, &endptr, 0 );
+        if (retval == 0 && (errno != 0
+                            || WCString == endptr)) {
+            /* No conversion could be performed */
+            printf("No conversion performed\en");
+        } else if (retval == ULONG_MAX && errno != 0 ) {
+            /* Error handling */
+        } else {
+            /* retval contains unsigned long integer */
+            printf("Unsigned integer in decimal is %lx\en", retval);
+	}
+    }
+}
+.oE
+.SH RETURN VALUES
+.PP
+The \*Lwcstoul(\|)\*O function returns the converted value of
+the unsigned integer if the expected form is found. If no conversion
+could be performed, a value of 0 (zero) is returned. If the converted
+value is outside the range of representable values, \*LULONG_MAX \*Ois
+returned.
+.PP
+If the \*Vendptr\*O parameter is not a null pointer, \*Lwcstol(\|)\*O
+stores a pointer to the final sequence of unrecognized characters in
+\*L*\*Vendptr\*O except when the subject sequence is empty or invalid. In
+this case, \*Lwcstoul(\|)\*O stores the \*Vnptr\*O pointer in the
+\*L*\*Vendptr\*O parameter.
+.PP
+Since 0 (zero) and \*LULONG_MAX\*O are
+returned in the event of an
+error and are also valid returns if the \*Lwcstoul(\|)\*O function
+is successful,
+applications should set \*Lerrno\*O to 0 (zero)
+before calling the \*Lwcstoul(\|)\*O
+function, and check \*Lerrno\*O after return
+from the \*Lwcstoul(\|)\*O function.
+If \*Lerrno\*O is nonzero, an error occurred.
+Additionally, if 0 (zero) is returned, applications should check if
+the \*Vendptr\*O parameter equals the \*Vnptr\*O parameter. In this
+case, there was no valid subject string.
+.SH ERRORS
+.PP
+If any of the following conditions occur, the \*Lwcstoul(\|)\*O
+function sets \*Lerrno\*O to the corresponding value.
+.VL
+.LI "[EINVAL]"
+The \*Vbase\*O parameter has a value less than 0 or greater than 36.
+.IP
+The \*Vnptr\*O parameter is a null pointer.
+.LI "[ERANGE]"
+The converted value is outside the range of representable values.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Latoi\*O(3)/\*Lstrtoul\*O(3),
+\*Lscanf\*O(3),
+\*Lwcstod\*O(3),
+\*Lwcstol\*O(3),
+\*Lwctype\*O(3)/\*Liswspace\*O(3).
+.EQ
+delim off
+.EN

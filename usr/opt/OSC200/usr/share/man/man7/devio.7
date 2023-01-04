@@ -1,0 +1,138 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: devio.7,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/27 13:29:09 $
+.\"
+.TH devio 7
+.SH NAME
+devio \- device information interface
+.SH SYNOPSIS
+.PP
+.B "#include <sys/ioctl.h>"
+.br
+.B "#include <sys/devio.h>"
+.SH DESCRIPTION
+.PP
+.iX "devio file" "device interface"
+.iX "device interface"
+The \*Ldevio\*O
+interface obtains status, device attributes,
+and other information by polling the controlling device driver.
+There are two ioctl requests associated with this interface:
+DEVIOCGET and DEVGETGEOM.
+.PP
+The file <sys/devio.h>
+contains the needed structure and definitions to use the
+DEVIOCGET and DEVGETGEOM ioctl requests.
+.PP
+The DEVIOCGET
+ioctl request is used to obtain generic device information by polling
+the underlying device driver.
+The following example shows the basic structure used by this request:
+.PP
+.oS
+/* Structure for DEVIOCGET ioctl - device get status command */
+
+struct devget  {
+   short   category;            /* Category                   */
+   short   bus;                 /* Bus                        */
+   char    interface[DEV_SIZE]; /* Interface (string)         */
+   char    device[DEV_SIZE];    /* Device (string)            */
+   short   adpt_num;            /* Adapter number             */
+   short   nexus_num;           /* Nexus or node on adapter # */
+   short   bus_num;             /* Bus number                 */
+   short   ctlr_num;            /* Controller number          */
+   short   slave_num;           /* Plug or line number        */
+   char    dev_name[DEV_SIZE];  /* Device mnemonic     */
+   short   unit_num;            /* Device unit number  */
+   unsigned soft_count;         /* Driver soft error count    */
+   unsigned hard_count;         /* Driver hard error count    */
+   long    stat;                /* Generic status mask        */
+   long    category_stat;       /* Category specific mask     */
+};
+.oE
+.PP
+The DEVGETGEOM
+ioctl request is used to obtain disk geometry and attributes by polling
+the underlying device driver.  This ioctl request is only supported on
+.\" MSCP and
+SCSI disk drivers.  The ioctl fails on other types of drivers
+which do not support DEVGETGEOM.
+The ioctl may fail if the device driver is unable to obtain
+geometry information.  This could happen if the disk media is
+removable and there is no media loaded in the drive.
+.PP
+The following example shows the basic structure used by this request:
+.PP
+.oS
+/* Structure for DEVGETGEOM ioctl - disk geometry information */
+
+typedef union devgeom {
+  struct {
+     unsigned long  dev_size;   /* number of blocks in user area  */
+     unsigned short  ntracks;   /* number of tracks per cylinder  */
+     unsigned short  nsectors;  /* number of sectors per track    */
+     unsigned short  ncylinders; /* total number of cylinders     */
+     unsigned long   attributes; /* Device attributes             */
+   } geom_info;
+   unsigned char       pad[124];  /* Allocate space for expansion */
+} DEVGEOMST;
+.oE
+.PP
+The following is a description of the fields of the DEVGEOMST data
+structure.  Many of the fields correspond to attributes that
+are often specified in the disk description file
+/etc/disktab .
+This ioctl is used by the \*Lcreatediskbyname\*O
+subroutine to dynamically generate disktab entries.
+.TP 12
+dev_size
+This field contains the number of user accessible blocks on the disk.
+The corresponding disktab field is \*Lpc\*O,
+which describes the size of the "c" partition.
+.TP
+ntracks
+This field contains the number of tracks per cylinder and corresponds
+to the \*Lnt\*O field of a disktab entry.
+.TP
+nsectors
+This field contains the number of sectors per track and corresponds to
+the \*Lns\*O field of a disktab entry.
+.TP
+ncylinders
+This field contains the number of cylinders on the disk
+and corresponds to the \*Lnc\*O field of a disktab entry.
+.TP
+attributes
+This field represents disk attributes.
+.TP
+pad
+This field is not used to store disk information.  The pad
+element of the DEVGEOMST is used to provide room for future
+expansion of the information fields.
+.SH RESTRICTIONS
+.PP
+The DEVGETGEOM ioctl request is only supported on
+.\" MSCP and
+SCSI disk drivers.
+.SH RELATED INFORMATION
+.PP
+.\" ra(4),
+disktab(4),
+rz(7)
+.EQ
+delim off
+.EN

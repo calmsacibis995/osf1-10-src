@@ -1,0 +1,219 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: MrmOpenHierarchy.3X,v $ $Revision: 3.2.4.5 $ (DEC) $Date: 1993/12/14 17:45:23 $
+.\"
+.\" **
+.\" **
+.\" **  (c) Copyright 1989, 1990, 1992 by Open Software Foundation, Inc.
+.\" **      All Rights Reserved.
+.\" **
+.\" **  (c) Copyright 1987, 1988, 1989, by Hewlett-Packard Company
+.\" **
+.\" **  (c) Copyright 1987, 1988 by Digital Equipment Corporation,
+.\" **      Maynard, MA.  All Rights Reserved.
+.\" **
+.\" **
+.TH MrmOpenHierarchy 3X "" "" "" "OSF/Motif"
+.SH NAME
+\*LMrmOpenHierarchy\*O \- Allocates a hierarchy ID and opens all the UID files in the hierarchy
+.SH SYNOPSIS
+.sS
+.iS
+\&#include <Mrm/MrmPublic.h>
+.sp \n(PDu
+.ta 1i
+Cardinal MrmOpenHierarchy(\*Vnum_files, file_names_list, 
+                    ancillary_structures_list, hierarchy_id\*L)
+.ta .5i 2.5i
+	MrmCount	\*Vnum_files\*L;
+	String	\*Vfile_names_list\*L[];
+	MrmOsOpenParamPtr	*\*Vancillary_structures_list\*L;
+	MrmHierarchy	*\*Vhierarchy_id\*L;
+.iE
+.sE
+.SH DESCRIPTION
+.iX "MrmOpenHierarchy"
+.iX "uil functions" "MrmOpenHierarchy"
+.iX "MRM function" "MrmOpenHierarchy"
+.iX "MrmOpenHierarchy" "definition"
+This routine is obsolete and exists for compatibility with previous
+releases.  It is replaced by \*LMrmOpenHierarchyPerDisplay\*O.
+\*LMrmOpenHierarchy\*O is identical to \*LMrmOpenHierarchyPerDisplay\*O
+except that \*LMrmOpenHierarchy\*O does not take a \*Vdisplay\*O
+argument.
+.VL 1.7i 
+.LI "\*Vnum_files\*O"
+Specifies the number of files in the name list.
+.LI "\*Vfile_names_list\*O"
+Specifies an array of character strings that identify
+the UID files.
+.LI "\*Vancillary_structures_list\*O"
+A list of operating-system-dependent ancillary structures corresponding
+to such things as filenames, clobber flag, and so forth.
+This argument should be NULL for most operations.
+If you need to reference this structure,
+see the definition of
+\*LMrmOsOpenParamPtr\*O
+in
+\*LMrmPublic.h\*O
+for more information.
+.LI "\*Vhierarchy_id\*O"
+Returns the search hierarchy ID.
+The search hierarchy ID identifies the list of UID files that
+MRM searches (in order) when performing subsequent
+fetch calls.
+.LE 
+.PP 
+Each UID file string in \*Vfile_names_list\*O can specify either a full
+pathname or a filename.
+If a UID file string has a leading slash (/), it specifies a full
+pathname, and MRM opens the file as specified.
+Otherwise, the UID file string specifies a filename.
+In this case MRM looks for the file along a search path specified by the
+\*LUIDPATH\*O environment variable or by a default search path, which
+varies depending on whether or not the \*LXAPPLRESDIR\*O environment
+variable is set.
+.PP 
+The \*LUIDPATH\*O environment variable specifies a search path and
+naming conventions associated with UID files.
+It can contain the substitution field %U, where the UID file string from
+the \*Vfile_names_list\*O argument to \*LMrmOpenHierarchyPerDisplay\*O is
+substituted for %U.
+It can also contain the substitution fields accepted by
+\*LXtResolvePathname\*O.
+The substitution field %T is always mapped to \*Luid\*O.
+The entire path is first searched with %S mapped to \*L\&.uid\*O and
+then, if no file is found, is searched again with %S mapped to NULL.
+.PP
+If no display is set prior to calling this function, the result of
+this function's call to \*LXtResolvePathname\*O is undefined.
+.PP
+For example, the following \*LUIDPATH\*O value and
+\*LMrmOpenHierarchy\*O call cause MRM to open two separate UID files:
+.oS
+UIDPATH=/uidlib/%L/%U.uid:/uidlib/%U/%L
+  static char *uid_files[] = {"/usr/users/me/test.uid", "test2"};
+  MrmHierarchy  *Hierarchy_id;
+  MrmOpenHierarchy((MrmCount)2,uid_files, NULL, Hierarchy_id)
+.oE
+.PP 
+MRM opens the first file, \*L/usr/users/me/test.uid\*O, as specified in
+the \*Vfile_names_list\*O argument to \*LMrmOpenHierarchy\*O, because
+the UID file string in the \*Vfile_names_list\*O argument specifies a
+full pathname.
+MRM looks for the second file,
+.ne 6
+\*Ltest2\*O,
+first as
+\*L/uidlib/%L/test2.uid\*O
+and second as
+\*L/uidlib/test2/%L\*O,
+where the display's language string is substituted for %L.
+.PP 
+After
+\*LMrmOpenHierarchy\*O
+opens the UID hierarchy, you should not delete or modify the
+UID files until you close the UID hierarchy by calling
+\*LMrmCloseHierarchy\*O.
+.PP 
+If \*LUIDPATH\*O is not set but the environment variable
+\*LXAPPLRESDIR\*O is set, MRM searches the following pathnames:
+.iS
+.ta 1i
+	22:59:55S
+	$XAPPLRESDIR/%L/uid/%N/22:59:55S
+	$XAPPLRESDIR/%l/uid/%N/22:59:55S
+	$XAPPLRESDIR/uid/%N/22:59:55S
+	$XAPPLRESDIR/%L/uid/22:59:55S
+	$XAPPLRESDIR/%l/uid/22:59:55S
+	$XAPPLRESDIR/uid/22:59:55S
+	$HOME/uid/22:59:55S
+	$HOME/22:59:55S
+	/usr/lib/X11/%L/uid/%N/22:59:55S
+	/usr/lib/X11/%l/uid/%N/22:59:55S
+	/usr/lib/X11/uid/%N/22:59:55S
+	/usr/lib/X11/%L/uid/22:59:55S
+	/usr/lib/X11/%l/uid/22:59:55S
+	/usr/lib/X11/uid/22:59:55S
+	/usr/include/X11/uid/22:59:55S
+.wH .fi
+.iE
+.PP 
+If neither \*LUIDPATH\*O nor \*LXAPPLRESDIR\*O is set, MRM searches the
+following pathnames:
+.iS
+.ta 1i
+	22:59:55S
+	$HOME/%L/uid/%N/22:59:55S
+	$HOME/%l/uid/%N/22:59:55S
+	$HOME/uid/%N/22:59:55S
+	$HOME/%L/uid/22:59:55S
+	$HOME/%l/uid/22:59:55S
+	$HOME/uid/22:59:55S
+	$HOME/22:59:55S
+	/usr/lib/X11/%L/uid/%N/22:59:55S
+	/usr/lib/X11/%l/uid/%N/22:59:55S
+	/usr/lib/X11/uid/%N/22:59:55S
+	/usr/lib/X11/%L/uid/22:59:55S
+	/usr/lib/X11/%l/uid/22:59:55S
+	/usr/lib/X11/uid/22:59:55S
+	/usr/include/X11/uid/22:59:55S
+.wH .fi
+.iE
+.PP
+These paths are defaults that vendors may change.
+For example, a vendor may use different directories for
+\*L/usr/lib/X11\*O and \*L/usr/include/X11\*O.
+.PP 
+The following substitutions are used in these paths:
+.VL 0.5i 
+.LI "\*L%U\*O"
+The UID file string, from the \*Vfile_names_list\*O argument.
+.LI "\*L%N\*O"
+The class name of the application.
+.LI "\*L%L\*O"
+The display's language string.
+.LI "\*L%l\*O"
+The language component of the display's language string.
+.LI "\*L%S\*O"
+The suffix to the file name.
+The entire path is searched first with a suffix of \*L\&.uil\*O, and if
+no file is found, it is searched again with a NULL suffix.
+.LE 
+.nL
+.ne 10
+.SH RETURN VALUE
+This function returns one of these status return constants:
+.iX "MrmSUCCESS"
+.iX "MrmNOT_FOUND"
+.iX "MrmFAILURE"
+.VL 2.0i 
+.LI "\*LMrmSUCCESS\*O"
+The function executed successfully.
+.LI "\*LMrmNOT_FOUND\*O"
+File not found.
+.LI "\*LMrmFAILURE\*O"
+The function failed.
+.LE 
+.SH RELATED INFORMATION
+.na
+\*LMrmOpenHierarchyPerDisplay(3X)\*O and
+\*LMrmCloseHierarchy(3X)\*O.
+.ad
+.EQ
+delim off
+.EN

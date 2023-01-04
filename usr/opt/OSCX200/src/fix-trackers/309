@@ -1,0 +1,136 @@
+Path: news!news.crl.dec.com!nntpd.lkg.dec.com!nntpd2.cxo.dec.com!pa.dec.com!nobody
+Message-Id: <9205072128.AA17865@exhume.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2537) close XBUG #5213: PEX BUG: Replace mode usage from StoreElements still very hosed
+Date: Thu, 07 May 92 17:28:40 EDT
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX BUG: Replace mode usage from StoreElements still very hosed
+        ### bug number:   5213
+        ### area:         pex
+        ### severity:     high
+        ### comments:     will crash the server on some systems!!
+
+This seems to have fixed the problem by limiting replace mode to allow
+it to only reuse the current element when the sizes are equal. I am still
+a little skeptical of how well the 2 or 3 hardcoded replace routines
+(i.e the ones that don't just turn around and directly call the parse
+routines) actually work, but short of hardcoding a return status != Success
+(which would force a replace) there is no alternative but to leave them in 
+place and fix any bugs that may show up in them...
+
+PS Had I not suffered a disk crash on one of our machines, and a subsequent
+OS revision accompanying the disk replacement (which caused Xrealloc to 
+behave differently and the server to start core dumping when freed memory
+got referenced) this might not have shown up for a while....
+
+
+Without further ado...
+
+*** /tmp/da7755	Thu May  7 17:21:17 1992
+--- extensions/server/PEX/ddpex/mi/level4/miStruct.c	Thu May  7 17:10:36 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: miStruct.c,v 5.8 92/04/23 18:49:52 hersh Exp $ */
+  
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: miStruct.c,v 5.9 92/05/07 17:08:09 hersh Exp $ */
+  
+  
+  /***********************************************************
+***************
+*** 1611,1637 ****
+  
+  		/*
+  		 * replace iff
+- 		 * 
+  		 * we're not at the end
+- 		 */
+- 
+- 		if ((preplel != MISTR_LAST_EL(pstruct))
+- 
+- 		/*
+  		 * * and the types match
+  		 */
+  
+  		    && (poc->elementType == MISTR_EL_TYPE(preplel))
+  
+- 		/*
+- 		 * * and we're not at the beginning
+- 		 */
+- 
+- 		    && (preplel != MISTR_ZERO_EL(pstruct))) {
+- 
+  		      /*
+! 		       * *  Replace calls Parse functions which now 
+! 		       * *  do size checking via Xrealloc
+  		       */
+  
+  			/* Propreitary OC (and OCNil) through 0th Table Entry */
+--- 1611,1629 ----
+  
+  		/*
+  		 * replace iff
+  		 * we're not at the end
+  		 * * and the types match
++ 		 * * and we're not at the beginning
++ 		 * * * and elements are the same size 
+  		 */
+  
++ 		if ((preplel != MISTR_LAST_EL(pstruct))
+  		    && (poc->elementType == MISTR_EL_TYPE(preplel))
++ 		    && (preplel != MISTR_ZERO_EL(pstruct)) 
++ 		    && (MISTR_EL_LENGTH(preplel) == poc->length)) {
+  
+  		      /*
+! 		       * *  Replace calls Parse functions 
+  		       */
+  
+  			/* Propreitary OC (and OCNil) through 0th Table Entry */
+*** /tmp/da7788	Thu May  7 17:21:20 1992
+--- extensions/server/PEX/ddpex/mi/level2/pexOCParse.c	Thu May  7 17:09:40 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexOCParse.c,v 5.4 91/12/26 17:59:11 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexOCParse.c,v 5.5 92/05/07 17:06:46 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 96,107 ****
+  	*ppExecuteOC =							\
+  	    (miGenericElementPtr) Xalloc((unsigned long)((SIZE)		\
+  					+ sizeof(miGenericElementStr)));\
+      }			                                                \
+-     else {                                                              \
+- 	*ppExecuteOC = (miGenericElementPtr) Xrealloc(*ppExecuteOC,     \
+- 	        (unsigned long)((SIZE) + sizeof(miGenericElementStr))); \
+-     }			                                                \
+-     if (!(*ppExecuteOC)) return (BadAlloc);	                        \
+      (DD_ST) = (TYPE *)((*ppExecuteOC)+1);
+  
+  #define GET_MORE_STORAGE(DD_ST, TYPE, SIZE)			\
+--- 96,103 ----
+  	*ppExecuteOC =							\
+  	    (miGenericElementPtr) Xalloc((unsigned long)((SIZE)		\
+  					+ sizeof(miGenericElementStr)));\
++       if (!(*ppExecuteOC)) return (BadAlloc);	                        \
+      }			                                                \
+      (DD_ST) = (TYPE *)((*ppExecuteOC)+1);
+  
+  #define GET_MORE_STORAGE(DD_ST, TYPE, SIZE)			\
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

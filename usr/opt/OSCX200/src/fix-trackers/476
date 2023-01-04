@@ -1,0 +1,208 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9210272122.AA17251@excon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2713) close XBUG #5594: PEXlib : Optimization for some Output Commands
+Date: Tue, 27 Oct 92 16:22:51 EDT
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEXlib : Optimization for some Output Commands
+        ### bug number:   5594
+        ### area:         PEXlib
+        ### severity:     medium
+        ### comments:     
+
+extensions/lib/PEXlib/
+*** -	Tue Oct 27 15:50:24 1992
+--- extensions/lib/PEXlib/pl_oc_util.h	Tue Oct 27 15:47:12 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_util.h,v 1.7 92/10/26 11:05:45 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+--- 1,4 ----
+! /* $XConsortium: pl_oc_util.h,v 1.8 92/10/27 15:46:52 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+***************
+*** 24,29 ****
+--- 24,63 ----
+  ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+  SOFTWARE.
+  ******************************************************************************/
++ 
++ /*
++  * NAME:
++  *	PEXCopyBytesToOC
++  *
++  * ARGUMENTS:
++  *	_display	The display pointer.
++  *
++  *	_numBytes	The number of bytes to copy.
++  *
++  *	_data		The data to copy.
++  *
++  * DESCRIPTION:
++  *	This macro serves the same purpose as the PEXlib function
++  *	PEXCopyBytesToOC, but is used internally by PEXlib in order to
++  *	avoid a function call (in the simple case when there is enough
++  *	space in the X transport buffer to do the copy).
++  */
++ 
++ extern void _PEXSendBytesToOC();
++ 
++ #define PEXCopyBytesToOC(_display, _numBytes, _data) \
++ { \
++     if (_numBytes <= BytesLeftInXBuffer (_display)) \
++     { \
++ 	COPY_AREA (_data, _display->bufptr, _numBytes); \
++ 	_display->bufptr += _numBytes; \
++     } \
++     else \
++     { \
++ 	_PEXSendBytesToOC (_display, _numBytes, _data); \
++     } \
++ }
++ 
+  
+  /*
+   * NAME:
+extensions/lib/PEXlib/
+*** -	Tue Oct 27 15:50:25 1992
+--- extensions/lib/PEXlib/pl_oc_util.c	Tue Oct 27 15:49:32 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_util.c,v 1.10 92/10/26 11:03:19 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+--- 1,4 ----
+! /* $XConsortium: pl_oc_util.c,v 1.11 92/10/27 15:49:07 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+***************
+*** 114,120 ****
+  
+  
+  void
+! PEXCopyBytesToOC (display, numBytes, data) 
+  
+  INPUT Display		*display;
+  INPUT int		numBytes;
+--- 114,120 ----
+  
+  
+  void
+! _PEXSendBytesToOC (display, numBytes, data) 
+  
+  INPUT Display		*display;
+  INPUT int		numBytes;
+***************
+*** 125,130 ****
+--- 125,173 ----
+      int			mod4bytes;
+  
+  
++     /*
++      * _XSend will take care of splitting the buffer into chunks
++      * small enough to fit in the transport buffer.  _XSend will
++      * only copy a multiple of 4 bytes, so we must do some extra
++      * work if numBytes % 4 != 0.
++      */
++ 	
++     if (mod4bytes = numBytes % 4)
++     {
++ 	if (mod4bytes > BytesLeftInXBuffer (display))
++ 	    _XFlush (display);
++ 
++ 	COPY_SMALL_AREA (data, display->bufptr, mod4bytes);
++ 	display->bufptr += mod4bytes;
++ 
++ 	data += mod4bytes;
++ 	numBytes -= mod4bytes;
++     }
++ 
++     _XSend (display, data, numBytes);
++ 
++ 
++     /*
++      * Make sure that the next oc starts a new request.
++      */
++ 	
++     PEXGetDisplayInfo (display, pexDisplayInfo);
++     pexDisplayInfo->lastReqNum = -1;
++ }
++ 
++ 
++ #ifdef PEXCopyBytesToOC
++ #undef PEXCopyBytesToOC
++ #endif
++ 
++ void
++ PEXCopyBytesToOC (display, numBytes, data) 
++ 
++ INPUT Display		*display;
++ INPUT int		numBytes;
++ INPUT char		*data;
++ 
++ {
+      if (numBytes <= BytesLeftInXBuffer (display))
+      {
+  	/*
+***************
+*** 137,170 ****
+      else
+      {
+  	/*
+! 	 * Copying this OC will overflow the transport buffer.  Using
+! 	 * _XSend will take care of splitting the buffer into chunks
+! 	 * small enough to fit in the transport buffer.  _XSend will
+! 	 * only copy a multiple of 4 bytes, so we must do some extra
+! 	 * work if numBytes % 4 != 0.
+  	 */
+- 	
+- 	if (mod4bytes = numBytes % 4)
+- 	{
+- 	    if (mod4bytes > BytesLeftInXBuffer (display))
+- 		_XFlush (display);
+  
+! 	    COPY_SMALL_AREA (data, display->bufptr, mod4bytes);
+! 	    display->bufptr += mod4bytes;
+! 
+! 	    data += mod4bytes;
+! 	    numBytes -= mod4bytes;
+! 	}
+! 
+! 	_XSend (display, data, numBytes);
+! 
+! 
+! 	/*
+! 	 * Make sure that the next oc starts a new request.
+! 	 */
+! 	
+! 	PEXGetDisplayInfo (display, pexDisplayInfo);
+! 	pexDisplayInfo->lastReqNum = -1;
+      }
+  }
+  
+--- 180,190 ----
+      else
+      {
+  	/*
+! 	 * Copying this OC will overflow the transport buffer.  We
+! 	 * can't do a simple bcopy.
+  	 */
+  
+! 	_PEXSendBytesToOC (display, numBytes, data);
+      }
+  }
+  

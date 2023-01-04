@@ -1,0 +1,33 @@
+#!/bin/csh -f
+
+cd $1
+
+# "buildUcode SFBPLUS Makefiles includes" should have been run already, but...
+if (! -f include/N_Protosb.h ) then
+	/bin/csh -f buildUcode SFBPLUS Makefiles includes
+endif
+
+set needImake=1
+
+/bin/csh -f buildUcode PXG env
+source PXG.env
+
+foreach D (src/export src/data)
+	if ( -f $D/pxg/Makefile ) goto ReIncludes
+	if ( $needImake == 1 ) then
+		(cd util/imake; make)
+		set needImake=0
+	endif
+	(cd $D/shared; \
+	 rm -f ../pxg/Makefile.bak; \
+	 /bin/sed s,/shared,/pxg, Makefile > ../pxg/Makefile.bak; \
+	 cd ../pxg; \
+	 make -f Makefile.bak Makefile; \
+	 make Makefiles)
+    ReIncludes:
+	(cd $D/pxg; \
+	 make includes)
+end
+
+# cannot use allPXG until Imakefile fixed for AXP native
+(cd  $2; make all)

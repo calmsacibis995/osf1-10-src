@@ -1,0 +1,169 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: patterns.4,v $ $Revision: 3.2.6.2 $ (DEC) $Date: 1993/12/17 19:14:21 $
+.\"
+.TH patterns 4
+.SH NAME
+\*Lpatterns\*O \- Patterns for use with internationalization tools
+.SH SYNOPSIS
+.PP
+See the Description section.
+.SH DESCRIPTION
+.PP
+.iX "patterns" "files"
+The patterns file contains the patterns that must be matched for
+the internationalization tools \*Lextract\*O, \*Lstrextract\*O, and
+\*Lstrmerge\*O.
+.PP
+The pattern file in the following example is the default patterns file located
+in \*L/usr/lib/nls/patterns\*O.
+.PP
+.oS
+# This is the header to insert at the beginning of the first new
+# source file
+$SRCHEAD1 \f3(1)\fP
+\\#include <nl_types.h>
+nl_catd _m_catd;
+\
+# The header to insert at the beginning of the rest of the new
+# source files
+$SRCHEAD2 \f3(2)\fP
+\\#include <nl_types.h>
+extern nl_catd _m_catd;
+\
+# This is the header to insert at the beginning of the message
+# catalogues
+$CATHEAD \f3(3)\fP
+\\$ /*
+\\$  * X/OPEN message catalogue
+\\$  */
+\
+\\$quote "
+# This is how patterns that are matched will get rewritten.
+$REWRITE \f3(4)\fP
+catgets(_m_catd, %s, %n, %t)
+# Following is a list of the sort of strings we are looking for.
+.\" changed regex(3) to regexp(3) to match manpage and regexp.h   dms
+# The regular expression syntax is based on regexp(3).
+$MATCH \f3(5)\fP
+# Match on strings containing an escaped "
+"[^\\\\]*\\\\"[^"]*"
+# Match on general strings
+"[^"]*"
+# Now reject some special C constructs.
+$REJECT         \f3(6)\fP
+# the empty string
+""0
+# string with just one format descriptor
+"%."
+"%.\\."
+# string with just line control in
+"\\\\."
+# string with just line control and one format descriptor in
+"%.\\\\."
+"\\\\.%."
+# ignore cpp include lines
+\\#[  ]*include[  ]*".*"
+\\#[  ]*ident[  ]*".*"
+# reject some common C functions and expressions with quoted
+# strings
+[sS][cC][cC][sS][iI][dD]\\[\\][  ]*=[  ]*".*"
+open[  ]*([^,]*,[^)]*)
+creat[  ]*([^,]*,[^)]*)
+access[  ]*([^,]*,[^)]*)
+chdir[  ]*([^,]*,[^)]*)
+chmod[  ]*([^,]*,[^)]*)
+chown[  ]*([^,]*,[^)]*)
+# Reject any strings in single line comments
+/\\*.*\\*/
+# Print a warning for initialised strings.
+$ERROR initialised strings cannot be replaced         \f3(7)\fP
+char[^=]*=[  ]*"[^"]*"
+char[^=]*=[  ]*"[^\\\\]*\\\\"[^"]*"
+char[ ]*\\**[A-Za-z][A-Za-z0-9]*\\[[^\\]*\\][ ]*=[  {]*"[^"]*"
+char[ ]*\\**[A-Za-z][A-Za-z0-9]*\\[[^\\]*\\][ ]*=[  {]*"[^\\\\]*\\\\"[^"\]*"
+.oE
+.PP
+The default patterns file is divided into the following sections:
+.VL 3m
+.LI "\f(HB(1)\fP"
+In the $SRCHEAD1 section, the \*Lstrmerge\*O and \*Lextract\*O
+commands place text in this section at the beginning of the first new
+source program, which is prefixed by \*Lnl_\*O.
+These commands define the native language file descriptors that point to the
+message catalog.
+.LI "\f(HB(2)\fP"
+In the $SRCHEAD2 section, the \*Lstrmerge\*O and \*Lextract\*O
+commands place text in this section at the beginning of the second and
+remaining source programs. These commands also define the native language file
+descriptors that point to the message catalog. $SRCHEAD2 contains the
+external declaration of the nl file descriptor.
+.LI "\f(HB(3)\fP"
+In the $CATHEAD section, the \*Lstrmerge\*O and \*Lextract\*O
+commands place text in this section at the beginning of the message
+catalog.
+.LI "\f(HB(4)\fP"
+In the $REWRITE section, you specify how the \*Lstrmerge\*O and \*Lextract\*O
+commands should replace the extracted strings in the new source program. You
+can supply three options to the \*Lcatgets\*O command:
+.VL 3m
+.LI "\f(HB%s\fP"
+This option increments the set number for each source. This option applies
+only if you are using the \*Lstrmerge\*O command.
+For more information on set numbers, see the \*Lcatgets\*O(3) reference page.
+.LI "\f(HB%n\fP"
+This option increments the message number for each string extracted. This
+option applies if you are using either the \*Lstrmerge\*O or \*Lextract\*O
+commands.
+.LI "\f(HB%t\fP"
+This option expands the text from the string extracted. The string can be a
+error message or the default string extracted and printed by the \*Lcatgets\*O
+command. For example, if you want an error message to appear when \*Lcatgets\*O
+is unable to retrieve the message from the message catalog, you would include
+the following line:
+.oS
+catgets(_m_catd, %s, %n, "BAD STRING")
+.oE
+.IP
+When \*Lcatgets\*O fails, it returns the message BAD STRING.
+.LE
+.LI "\f(HB(5)\fP"
+In the $MATCH section, you specify the patterns in the form of a regular
+expression that you want the \*Lstrextract\*O, \*Lstrmerge\*O,
+and \*Lextract\*O
+commands to find and match.  The regular expression follows the same syntax
+rules as defined in \*Lregexp\*O(3) reference page.
+.LI "\f(HB(6)\fP"
+In the $REJECT section, you specify the matched strings that you do
+not want the \*Lstrmerge\*O and \*Lextract\*O
+commands to replace in your source program.  The regular expression follows
+the same syntax rules as defined in \*Lregexp\*O(3) reference page.
+.LI "\f(HB(7)\fP"
+In the $ERROR section, the \*Lstrextract\*O, \*Lstrmerge\*O, and \*Lextract\*O
+commands look for bad matches and notify you with a warning
+message. The regular expression follows the same syntax rules as defined in
+the \*Lregexp\*O(3) reference page.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lextract\*O(1), \*Lstrextract\*O(1), \*Lstrmerge\*O(1), \*Ltrans\*O(1),
+\*Lregexp\*O(3)
+.br
+\*EWriting Software for the International Market\*O
+.EQ
+delim off
+.EN

@@ -1,0 +1,226 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ptrace.2,v $ $Revision: 3.2.7.3 $ (DEC) $Date: 1993/11/10 19:00:35 $
+.\"
+.\"
+.\"  THIS OSF SOURCE FILE HAS BEEN MODIFIED BY DLIBRARY IN OSP
+.\"  If you need information about the changes, send mail 
+.\"  to dlibrary@ravine at Digital Equipment Corp.
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH ptrace 2
+.SH NAME
+\*Lptrace\*O \- Traces the execution of a child process
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include\*O \*L<sys/signal.h>\*L
+.nL
+\*L#include\*O \*L<sys/ptrace.h>\*L
+.sp
+\*Lint  ptrace (\*L
+.nL
+	\*Llong \*Vrequest\*L,
+.nL
+.\" Begin Digital-specific information CORRECTION
+.\" Changed 'int' to 'pid_t' and 'int *' to 'char *' per QAR 11416.
+.\" 
+.\" changes made 5/10/93 to correct synopsis section for alpha
+.\" include: 'request' defintion changed from int to long, 
+.\" changed 'process' to 'long int' and 'address' to 'ulong_t *address'
+.\" per qar 12018
+	\*Llong int\*O \*Vprocess\*L,
+.nL
+	\*Lulong_t\*O *\*Vaddress\*L,
+.\" End Digital-specific information CORRECTION
+.nL
+	\*Lulong_t\*O \*Vdata\*L );
+.sE
+.SH PARAMETERS
+.PP
+.VL 4m
+.LI "\*Vrequest\*O"
+Determines the action to be taken by the \*Lptrace\*O function.
+.LI "\*Vprocess\*O"
+Specifies the process ID.
+.LI "\*Vaddress\*O"
+Determined by the value of the \*Vrequest\*O parameter.
+.LI "\*Vdata\*O"
+Determined by the value of the \*Vrequest\*O parameter.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "ptrace function"
+.iX "process" "tracing execution of a child process"
+.iX "tracing of child process execution"
+The \*Lptrace\*O function permits a parent process to control
+execution of a child process.  It is primarily used by utility
+programs to enable breakpoint debugging.
+.PP
+The child process behaves normally until it receives a signal.
+When a signal is delivered, the child process is stopped, and
+a SIGCHLD signal is sent to its parent.  The parent process can wait
+for the child process to stop using the \*Lwait\*O function.
+.PP
+When the child process is stopped, its parent process can use the
+\*Lptrace\*O function to examine and modify the image memory of the
+child process, to either terminate the child process or permit it to
+continue.
+.PP
+As a security measure, the \*Lptrace\*O function inhibits
+the set-user ID facility when any subsequent \*Lexec\*O function is issued
+by the child process.
+When a traced process calls one of the \*Lexec\*O functions, it
+stops before executing the first instruction of the new image
+as if it had received the SIGTRAP signal.
+.PP
+The \*Vrequest\*O parameter is set to one of the values in the following list.
+Only the \*LPT_TRACE_ME\*O request can be issued by child processes;
+the remaining requests can only be used
+by the parent process.  For each request, the \*Vprocess\*O parameter
+is the process ID of the child process. The child process must be
+in a stopped state before the following requests are made.
+.VL 4m
+.LI "\*LPT_TRACE_ME\*O (0)"
+This request sets the child process trace flag.  It must be issued by the
+child process that is to be traced by its parent process.
+When the trace flag is set, the child process is left
+in a stopped state on receipt of a signal, and the action
+specified by the \*Lsigaction\*O function is ignored.  The \*Vprocess\*O,
+\*Vaddress\*O, and \*Vdata\*O parameters are ignored, and the return
+value is not defined for this request.  Do not issue this request when
+the parent process does not expect to trace the child process.
+.LI "\*LPT_READ_I\*O or \*LPT_READ_D\*O (1, 2)"
+These requests return the address space data of the child process at the
+location pointed to by the \*Vaddress\*O parameter.  The \*LPT_READ_I\*O and
+\*LPT_READ_D\*O requests produce equal results.  The \*Vdata\*O
+parameter is ignored.  These requests fail when the value of the
+\*Vaddress\*O parameter is not in the address space of the child process or,
+on some machines, when the \*Vaddress\*O
+parameter is not properly aligned.  These errors return a value of \-1,
+and the parent process \*Lerrno\*O is set to [EIO].
+.LI "\*LPT_READ_U\*O (3)"
+This request returns the variable of the system's per-process data
+area for the child, specified by the \*Vaddress\*O
+parameter.  This area contains the register values and other
+information about the process.  On some machines, the \*Vaddress\*O
+parameter is subject to alignment constraints.  The \*Vdata\*O
+parameter is ignored.  This request fails when the value of the \*Vaddress\*O
+parameter is outside of the system's per-process data area for the
+child.  On failure, a value of \-1 is returned and the parent process
+\*Lerrno\*O is set to [EIO].
+.LI "\*LPT_WRITE_I\*O, \*LPT_WRITE_D\*O (4,5)"
+These requests write the value of the \*Vdata\*O
+parameter into the address space variable of the child process at the
+location pointed to by the \*Vaddress\*O
+parameter.  On some machines, where necessary, the \*LPT_WRITE_I\*O request
+synchronizes any hardware caches, if present.  In all other respects,
+the \*LPT_WRITE_I\*O and \*LPT_WRITE_D\*O requests can be used with equal results.
+On some machines, these requests return the previous contents of the
+address space variable of the child process, while on other machines
+.\" Begin Digital-specific information 
+no useful value is returned with the exception of System V behavior.
+System V behavior for \*Llibsys5\*O returns the value written, and
+for \*Llibc\*O behavior it returns zero (0) for success.
+.\" End Digital-specific information 
+.IP
+These requests fail when the \*Vaddress\*O
+parameter points to a location in a pure procedure space and a copy
+cannot be made.  These requests also fail when the value of the \*Vaddress\*O
+parameter is out of range and on some machines, when the \*Vaddress\*O
+parameter is not properly aligned.  On failure a value of \-1 is
+returned and the parent process \*Lerrno\*O is set to [EIO].
+.LI "\*LPT_WRITE_U\*O (6)"
+This request writes the value of the \*Vdata\*O parameter into the
+variable of the system's per-process data area for the child, specified
+by the \*Vaddress\*O parameter.  This area contains the register values
+and other information about the process.  On some machines, the
+\*Vaddress\*O parameter is subject to alignment constraints.  Not all locations
+within the system's per-process data area for the child may be written.
+This request fails when the value of the \*Vaddress\*O
+.\" Begin Digital-specific information CORRECTION
+.\" Fixed `system's` per QAR 6104.
+parameter is outside of the system's per-process data area for the
+.\" End Digital-specific information CORRECTION
+child.  On failure, a value of \-1 is returned and the parent process
+\*Lerrno\*O is set to indicate the error.
+.LI "\*LPT_CONTINUE\*O (7)"
+This request permits the child process to resume execution.  When the
+\*Vdata\*O parameter is zero (0), the signal that caused the child process to
+stop is canceled before the child process resumes execution.
+.IP
+When the \*Vdata\*O parameter has a valid signal value, the child process
+resumes execution as though that signal had been received.  When the
+\*Vaddress\*O parameter is equal to 1, execution continues from where
+it stopped.  When the \*Vaddress\*O
+parameter is not 1, it is assumed to be the address at which the
+process should resume execution.
+.IP
+.\" Begin Digital-specific information CORRECTION
+System V behavior for \*Llibsys5\*O returns the value written, and
+for \*Llibc\*O behavior it returns zero (0) for success.
+.\" End Digital-specific information 
+This request fails when the \*Vdata\*O
+parameter is not zero (0) or a valid signal value.  On failure, a
+value of \-1 is returned to the parent process and the parent process
+\*Lerrno\*O is set to [EIO].
+.LI "\*LPT_KILL\*O (8)"
+This request terminates a child process as if the child process
+called the \*Lexit\*O function.
+.LI "\*LPT_STEP\*O (9)"
+This request permits execution to continue in the same manner as
+\*LPT_CONTINUE\*O.  However, as soon as possible after the execution of at
+least one instruction, execution stops again as if the child process
+had received the SIGTRAP signal.
+.LE
+.SH ERRORS
+.PP
+If the \*Lptrace\*O function fails, \*Lerrno\*O
+is set to one of the following values:
+.VL 4m
+.LI "[EIO]"
+Specifies that the \*Vrequest\*O parameter does not have one of the listed values,
+or is not valid for the machine type on which the process is executing.
+.LI "[EIO]"
+Specifies that the given signal number is invalid.
+.LI "[EIO]"
+Specifies that the addressed used is either out of bounds or improperly aligned.
+.LI "[ESRCH]"
+Specifies that the \*Vprocess\*O parameter identifies a child
+process that does not exist or that has not executed this
+function with the \*Vrequest\*O parameter \*LPT_TRACE_ME\*O.
+.LI "[EPERM]"
+Specifies that the specified process cannot be traced.
+.LI "[EINVAL]"
+Specifies that an invalid location was used for the system's per-process data area.
+.LI "[EACCES]"
+Specifies that the location within the system's per-process data area could not be modified.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lexec\*O(2),
+\*Lsigaction\*O(2),
+\*Lwait\*O(2).
+.EQ
+delim off
+.EN

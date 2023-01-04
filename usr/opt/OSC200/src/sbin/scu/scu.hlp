@@ -1,0 +1,2813 @@
+1 scu
+  The SCSI utility program interfaces with the CAM I/O sub-system and the
+  peripherals attached to the SCSI buses.  This utility implements the
+  various SCSI commands necessary for normal maintenance and diagnostics
+  of SCSI peripherals and the CAM I/O sub-system.
+
+    Format:
+
+      % scu [ -f device-name-path ] [ command [ keywords ... ] ]
+
+  If the device name name is not specified on the command line, the program
+  checks the environment variable SCU_DEVICE to define the device name.
+
+  If a command is not entered on the command line, the program will prompt
+  for commands until you terminate the program.  Commands can be abbreviated
+  to the least ambiguous number of characters.
+
+1 allow
+  This command allows media removal from the selected device.
+
+    Format:
+
+      scu> allow
+
+1 change
+  This command changes mode pages for a device.  The program prompts you
+  with those page fields which are marked changeable.  If the mode-page
+  keyword is omitted, then all pages supported by the device will be
+  requested for changing.  After fields of each page have been entered,
+  the new page parameters are set via a mode select command.
+
+    Format:
+                        { [ code hex-code ] }
+      scu> change pages { [ mode-page ]     } [ pcf page-control-field ]
+
+    Notes:
+      o  Only fields which are marked changeable in the changeable mode
+         page, are prompted for.
+      o  The default page control field is "current" values.
+      o  Selecting a "pcf" is sticky (i.e. sets new "pcf" default).
+      o  Changing page values always affects the current page values.
+      o  The default is to save page values if the page saveable bit
+         in the page header is set and the program savable flag is set.
+         Use the "set default savable" command to alter this latter flag.
+      o  Some pages, such as those that affect the physical media, do
+         not actually get saved until the media is formatted.
+
+2 code
+  For mode pages which are unknown to the program, a hex page code can be
+  specified for the page to change.  In this mode, mode page fields are
+  displayed and changed by hex byte values.  This format can also be used
+  to override the known formatted page change functions.
+
+    Format:
+
+      scu> change page code hex-code [ pcf page-control-field ]
+
+    Example:
+
+      scu> change page code 0x21
+
+      Changing Unknown Page Parameters (Page 21 - current values):
+
+      Byte 2 [R:0-0xff D:0x2]: 3
+      Byte 3 [R:0-0xff D:0x8]: 
+      Byte 4 [R:0-0xff D:0]: 
+      Byte 5 [R:0-0xff D:0]: 
+      Byte 6 [R:0-0xff D:0x3]: 
+      Byte 7 [R:0-0xff D:0xe8]: 
+      Byte 8 [R:0-0xff D:0x2]: 
+      Byte 9 [R:0-0xff D:0x96]: 
+      Byte 10 [R:0-0xff D:0x5]: 
+      scu> 
+
+2 mode-page
+  Describes the mode page to operate on.  The mode pages currently supported
+  are:
+
+    'scu' Keyword          Page Code   Description
+    -------------          ---------   -----------
+    error-recovery           0x01      Error recovery page.
+    disconnect               0x02      Disconnect/reconnect page.
+    direct-access            0x03      Direct access format page.
+    geometry                 0x04      Disk geometry page.
+    flexible                 0x05      Flexible disk page.
+    cache-control            0x08      Cache control page.
+    cdrom                    0x0D      CD-ROM device page.
+    audio-control            0x0E      Audio control page.
+    device-configuration     0x10      Device configuration page.
+    medium-partition-1       0x11      Medium parition page 1.
+    dec-specific             0x25      DEC specific page.
+    readahead-control        0x38      Read-ahead control page.
+
+    Example:
+
+      scu> change page error
+
+      Changing Error Recovery Parameters (Page 1 - current values):
+
+      Disable Correction (DCR) [R:0-1 D:0]: 
+      Disable Transfer on Error (DTE) [R:0-1 D:0]: 
+      Post Recoverable Error (PER) [R:0-1 D:0]: 
+      Transfer Block (TB) [R:0-1 D:0]: 
+      Automatic Write Allocation (AWRE) [R:0-1 D:1]: 
+      Read Retry Count [R:0-255 D:8]: 25
+      Write Retry Count [R:0-255 D:2]: 5
+      scu> 
+
+2 pcf
+  The page control field describes which mode pages to obtain from the
+  device.  The defined page control fields are:
+
+    Format:
+
+      scu> change pages pcf { current | changeable | default | saved }
+
+    Notes:
+      o  The default page control field is "current" values.
+      o  Selecting a "pcf" is sticky (i.e. sets new "pcf" default).
+
+    Example:
+
+      scu> change page error pcf saved
+
+      Changing Error Recovery Parameters (Page 1 - saved values):
+
+      Disable Correction (DCR) [R:0-1 D:0]: 
+      Disable Transfer on Error (DTE) [R:0-1 D:0]: 
+      Post Recoverable Error (PER) [R:0-1 D:0]: 1
+      Transfer Block (TB) [R:0-1 D:0]: 
+      Automatic Write Allocation (AWRE) [R:0-1 D:1]: 
+      Read Retry Count [R:0-255 D:25]: 8
+      Write Retry Count [R:0-255 D:5]: 2
+      scu> 
+
+1 Conventions
+  This section describes the conventions used throughout this help text.
+  Additional topics are available to provide further information on the
+  conventions used.
+
+  The following conventions are used throughout the help text are:
+
+      [ keywords ... ]       Keywords are optional.
+
+      { key1 | key2 ... }    Select one of the keywords listed.
+
+      keyword (alias)        Use keyword or the specified alias.
+
+      [ address-format ]     Optionally accepts an address format.
+
+      [ nexus-information ]  Optionally accepts nexus information.
+
+      [ test-parameters ]    Optionally accepts test parameters.
+
+      D:value or "string"    The value or string shown is the default.
+
+      R:minimum-maximum      Enter a value within the range specified.
+
+2 address-format
+  The address format is an optional parameter available with most CD-ROM
+  audio commands which specified the address format of information returned
+  by the drive for various show audio commands.  The address formats are:
+
+      Format   Description of Format
+      ------   ---------------------
+       lba     Logical Block Address.
+       msf     Minute, Second, and Frame.
+
+    Format:
+
+      scu> command [ format { lba | msf } ]
+
+2 nexus-information
+  The nexus information allows users to specify values to override the
+  bus/target/lun values normally taken from the selected SCSI device.
+  The nexus keywords are:
+
+       bus (pid) R:0-3       The SCSI bus number (path ID).
+       target (tid) R:0-7    The SCSI target number (target ID).
+       lun R:0-7             The SCSI logical unit number.
+
+2 test-parameters
+  This section describes the valid test parameters for various commands.
+
+    Format:
+
+      scu> command [ media-limits ] [ test-control ]
+
+3 expressions
+  An expression is accepted for test parameters which accept numeric values.
+  The special characters accepted as part of this expression are:
+
+    Special Characters:
+
+      b = blocks (512 bytes)             k = kilobytes (1024 bytes)
+      g = gigabytes (1073741824 bytes)   m = megabytes (1048576 bytes)
+      p = page size (usually 4096 bytes) w = word size (2, 4, or 8 bytes)
+
+    Arithmetic Characters:
+
+      + = addition                       - = subtraction
+      * or x = multiplication             / = division
+      % = remainder
+
+    Bitwise Characters:
+
+      ~ = complement of value            >> = shift bits right
+      << = shift bits left               & = bitwise "and" operation
+      | = bitwise "or" operation         ^ = bitwise exclusive "or"
+
+    Notes:
+      o  If value is omitted, the value defaults to one.
+      o  Both upper and lower case characters are accepted.
+      o  Spaces and tabs are ignored between operands.
+      o  Expressions are evaluated from right to left without precedence.
+      o  Parentheses grouping is not supported.
+
+    The "evaluate" command is supplied to display values from a given
+    expression.  This may be useful before using these expressions for
+    test parameter values.
+
+    Examples:
+
+      % scu
+      scu> set verbose off
+      scu> evaluate k
+      Dec: 1024 Hex: 0x400 Blks: 2.00 Kb: 1.00 Mb: 0.00 Gb: 0.00
+      scu> evaluate k<<2
+      Dec: 4096 Hex: 0x1000 Blks: 8.00 Kb: 4.00 Mb: 0.00 Gb: 0.00
+      scu> evaluate k>>1
+      Dec: 512 Hex: 0x200 Blks: 1.00 Kb: 0.50 Mb: 0.00 Gb: 0.00
+      scu> evaluate ~0
+      Dec: -1 Hex: 0xffffffff Blks: 8388608.00 Kb: 4194304.00 Mb: 4096.00 Gb: 4.00
+      scu> evaluate 511&0xf
+      Dec: 15 Hex: 0xf Blks: 0.03 Kb: 0.01 Mb: 0.00 Gb: 0.00
+      scu> evaluate b*w
+      Dec: 2048 Hex: 0x800 Blks: 4.00 Kb: 2.00 Mb: 0.00 Gb: 0.00
+      scu> 
+
+3 media-limits
+  This sections describes the command which control the device media
+  tested.
+
+    Format:
+                     { lba n      }     { length n  }
+      scu> command [ { starting n } ] [ { ending n  } ] [ size n ]
+                                        { limit  n  }
+                                        { records n }
+    Aliases:
+      The alias 'bs' (block size) is accepted for the 'size' keyword.
+      The alias 'count' is accepted for the 'records' keyword.
+      The alias 'lbn' is accepted for the 'lba' keyword.
+
+3 test-control
+  These parameters control various aspects of the test operation.  The
+  test control parameters supported are listed below:
+
+    Format:
+                     { align Align-Offset    }
+                     { compare { on | off }  }
+      scu> command [ { errors Error-Limit    } ]
+                     { passes Pass-Limit     }
+                     { pattern Data-Pattern  }
+                     { recovery { on | off } }
+
+1 download
+  This command may be used with any device that supports the downloading
+  of firmware software using the Write Buffer SCSI command.
+
+    Format:
+
+      scu> download filename [ save ] [ parameters ]
+
+    Notes:
+      o  If the "save" parameter is omitted, a Download microcode (mode 4)
+         command is issued.  Specifying "save" performs a Download microcode
+         and save operation (mode 5).  Not all devices accept both modes.
+      o  If you enter 'scu' using the default device '/dev/cam' and then
+         set the device to download using the "set nexus" command, the code
+         associated with checking for mounted file systems will fail.  This
+         was done purposely to prevent accidental downloading of disks with
+         mounted file systems.
+      o  Some devices such as many disks, require additional time after the
+         download operation to program the flash memory (save the firmware)
+         to recalibrate, or perform other necessary setup before the device
+         can be accessed.  In most cases, waiting 1 to 3 minutes is advised
+         before accessing the device.  Most devices will *not* respond to a
+         selection immediately after a download operation.
+      o  If a disk device determines that a recalibration is necessary, the
+         drive may be unavailable for up to 10 minutes.  During this sequence,
+         you can normally issue a Test Unit Ready "tur" command to determine
+         if the calibration has completed.  If the calibration sequence is
+         interrupted, e.g. by a bus reset, device reset, or by power cycling,
+         the recalibration will be restarted when the drive is powered up.
+      o  Do NOT power cycle devices during the download operation, or you may
+         interrupt the flashy-flash step while saving the firmware which will
+         render your drive useless.
+
+    Errors:
+      If file systems are mounted on a disk to be downloaded, the following
+      error message is displayed and downloading is aborted:
+
+    scu> download NEW_CODE save
+    scu: File system '/dev/rz14a' is mounted on '/mnt2',
+                                           EBUSY (16) - Mount device busy
+
+    Examples:
+
+      scu> download TZ85_V3_DEC.TZ_IMAGE save
+      Downloading & Saving Firmware File 'TZ85_V3_DEC.TZ_IMAGE' of 262144 bytes...
+      scu>
+
+2 parameters
+  Various parameters can be specified to control the download operation.
+  Most devices do not require these optional parameters, but since each
+  vendor may implement the download command differently, these parameters
+  provide the capability to override program defaults.
+
+    Format:
+
+                                        { id buffer-id        }
+      scu> download filename [ save ] [ { offset offset-value } ]
+                                        { segment [ size ]    }
+
+    Notes:
+      o  The default buffer id is 0.
+      o  The default offset value is 0.
+      o  The default segment size is 8k bytes.  If this parameter is not
+         specified, the default is to download the entire image at once.
+      o  Refer to the vendor's SCSI programming manual for information on
+         buffer ID's and buffer modes supported.
+
+    Examples:
+      scu> download ???.fup save
+      Downloading & Saving Firmware File '???.fup' of 131076 bytes...
+      scu> download ???.fup save segment
+      Downloading File '???.fup' of 131076 bytes in 8192 byte segments...
+      Download completed successfully, now saving the microcode...
+      scu> download ???.fup save segment 32k
+      Downloading File '???.fup' of 131076 bytes in 32768 byte segments...
+      Download completed successfully, now saving the microcode...
+      scu> 
+
+2 save
+  The save parameter directs the device to to save the new operating
+  software in non-volatile memory if the command is successfully
+  completed.  The downloaded code will then be effective after each
+  power cycle and reset.
+
+  If the save parameter is not specified, the downloaded software is only 
+  placed in the control memory of the device.  After a power-cycle or 
+  reset, the device operation will revert to a vendor-specific condition.
+
+1 eject
+  This command is used with CD-ROM's to stop play and eject the caddy.
+
+    Format:
+
+      scu> eject
+
+1 exit
+  This command is used to exit the program.  "quit" is an alias for exit.
+  The program can also be terminated in interactive mode, by entering the
+  end of file character (usually CTRL/D).  The program will also exit if
+  the interrupt character (usually CTRL/C) is typed when a command is not
+  currently active.
+
+    Format:
+
+      scu> exit
+
+1 evaluate
+  This command evaluates the given expression and displays values in decimal
+  hexadecimal, blocks, kilobytes, megabytes, and gigabytes.  The expression
+  accepted is the same as the one described for test parameter values.  The
+  output displayed depends on the setting of the verbose display flag.
+
+    Format:
+
+      scu> evaluate expression
+
+    Examples:
+
+      scu> set verbose on
+      scu> evaluate 0xffff
+      Expression Values:
+
+                  Decimal: 65535
+              Hexadecimal: 0xffff
+          512 byte Blocks: 128.00
+                Kilobytes: 64.00
+                Megabytes: 0.06
+                Gigabytes: 0.00
+      scu> evaluate 64k*512
+      Expression Values:
+
+                  Decimal: 33554432
+              Hexadecimal: 0x2000000
+          512 byte Blocks: 65536.00
+                Kilobytes: 32768.00
+                Megabytes: 32.00
+                Gigabytes: 0.03
+      scu> 
+      scu> set verbose off
+      scu> eval 0xffff
+      Dec: 65535 Hex: 0xffff Blks: 128.00 Kb: 64.00 Mb: 0.06 Gb: 0.00
+      scu> eval 64k*1b
+      Dec: 33554432 Hex: 0x2000000 Blks: 65536.00 Kb: 32768.00 Mb: 32.00 Gb: 0.03
+      scu>
+
+1 format
+  This command is used to format both hard and flexible disk media.
+  Since this command modifies the disk media, the full command name must
+  be entered to be recognized.
+
+    Format:
+
+      scu> format [ density density-type ] [ defects defect-list ]
+
+    Notes:
+      If you enter 'scu' using the default device '/dev/cam' and then
+      set the device to format using the "set nexus" command, the code
+      associated with checking for mounted file systems will fail.  This
+      was done purposely to prevent accidental formatting of disks with
+      mounted file systems.
+
+    Errors:
+      If file systems are mounted on the disk to be formatted, the following
+      error message is displayed and then formatting is aborted:
+
+    scu> format
+    scu: File system '/dev/rz14a' is mounted on '/mnt2',
+                                           EBUSY (16) - Mount device busy
+    scu> 
+
+    Examples:
+
+      scu> format defects primary
+      Formatting device /dev/rrz14c (RZ55), please be patient...
+      scu> 
+      scu> format density HD
+      Formatting device /dev/rrz10c (RX23), please be patient...
+      scu>
+
+2 defect-list
+  Specifies the defect list(s) to use during formatting of hard disks
+  (floppy diskettes do not have defect lists at the present time).  If
+  this parameter is omitted, then the default is to format with all
+  known defects (primary and grown lists).
+
+    Format:
+
+      scu> format defects { all | primary | none }
+
+    Aliases:
+      all (known), primary (vendor)
+
+    Notes:
+      Specifying "none" results in the format data, complete list, and
+      defect list format fields being set to zero.  These parameters are
+      vendor specific which means the target implementation determines
+      the degree of defect management to be performed.
+
+2 density-type
+  Specifies the density type for flexible disk media.  The supported density
+  types are:
+
+      RX50, LD (low), DD (double), HD or HD5 (high), ED (extra), or other
+
+    Format:
+
+      scu> format density { RX50 | LD | DD | HD/HD5 | ED | other }
+
+  The default parameters associated with each density are:
+
+    RX50 Density Parameters:
+        heads = 1,                 sector/track = 10,
+        data_sector = 512,         cylinders = 80,
+        step_pulse_cyl = 0,        transfer_rate = 250
+
+    Low Density (LD) Parameters:
+        heads = 2,                 sector/track = 9,
+        data_sector = 512,         cylinders = 40,
+        step_pulse_cyl = 0,        transfer_rate = 250
+
+    Double Density (DD) Parameters:
+        heads = 2,                 sector/track = 9,
+        data_sector = 512,         cylinders = 80,
+        step_pulse_cyl = 0,        transfer_rate = 250
+
+    High Density (HD 3.5") Parameters:
+        heads = 2,                 sector/track = 18,
+        data_sector = 512,         cylinders = 80,
+        step_pulse_cyl = 0,        transfer_rate = 500
+
+    High Density (HD 5.25") Parameters:
+        heads = 2,                 sector/track = 15,
+        data_sector = 512,         cylinders = 80,
+        step_pulse_cyl = 0,        transfer_rate = 500
+
+    Extra Density (ED) Parameters:
+        heads = 2,                 sector/track = 36,
+        data_sector = 512,         cylinders = 80,
+        step_pulse_cyl = 0,        transfer_rate = 1000
+
+  If "other" is specified, you will be prompted for the flexible disk
+  page parameters to set prior to formatting the diskette.
+
+1 help
+  This command displays help on topics.  "?" is an alias.
+
+    Format:
+
+      scu> help [ topic ]
+
+  If you issue the help command without specifying a topic, then a list
+  of all available commands will be displayed.
+
+1 mt
+  This command issues one of the supported 'mt' commands.  Only those 'mt'
+  commands which do not require additional driver information have been
+  implemented.
+
+    Format:
+
+      scu> mt command [ count ]
+
+  For commands which accept a command count, if 'count' is omitted, the
+  count defaults to 1.  Unless errors occur, the 'mt' commands execute
+  silently.  Otherwise, the sense data (if any) returned from the failing
+  command is displayed.
+
+2 bsf
+  This command is used to backward space file marks.
+
+    Format:
+
+      scu> mt bsf [ count ]
+
+2 bsr
+  This command backward space file records.
+
+    Format:
+
+      scu> mt bsr [ count ]
+
+2 erase
+  This command is used to erase the tape.
+
+    Format:
+
+      scu> mt erase
+
+    Notes:
+      Some tape drives will reject this command unless the tape is
+      positioned at beginning of media.
+
+2 fsf
+  This command is used to forward space file marks.
+
+    Format:
+
+      scu> mt fsf [ count ]
+
+2 fsr
+  This command is used to forward space file records.
+
+    Format:
+
+      scu> mt fsr [ count ]
+
+2 load
+  This command is used to load the tape.
+
+    Format:
+
+      scu> mt load
+
+    Notes:
+      This command is the same as the 'mt online' command, except the
+      immediate bit is enabled so the command completes after the load
+      is initiated.
+
+2 offline
+  This command us used to take a tape offline (unload operation).
+
+    Format:
+
+      scu> mt offline
+
+    Alias:
+      The alias 'rewoffl' is accepted for the 'offline' command.
+
+2 online
+  This command is used to bring a tape online (load operation).
+
+    Format:
+
+      scu> mt online
+
+2 rewind
+  This command is used to rewind the tape.
+
+    Format:
+
+      scu> mt rewind
+
+2 retension
+  This command is used to retension the tape.  Retension means moving the
+  tape one complete pass between EOT and BOT.
+
+    Format:
+
+      scu> mt retension
+
+2 seod
+  This command is used to space to end of data (end of recorded media).
+
+    Format:
+
+      scu> mt seod
+
+2 unload
+  This command us used to unload the tape.
+
+    Format:
+
+      scu> mt unload
+
+    Notes:
+      This command is the same as the 'mt offline' command, except the
+      immediate bit is enabled so the command completes after the unload
+      is initiated.
+
+2 weof
+  This command is used to write tape file marks.
+
+    Format:
+
+      scu> mt weof [ count ]
+
+    Alias:
+      The alias 'eof' is accepted for the 'weof' command.
+
+1 pause
+  This command is used to pause the playing of a CD-ROM audio disc.
+
+    Format:
+
+      scu> pause
+
+1 play
+  This command is used to play audio tracks on a CD-ROM audio disc.
+  If keywords are omitted, then all audio tracks are played by default.
+
+    Format:
+
+      scu> play [ keywords ... ]
+
+2 track
+  Plays the specified audio track number.
+
+    Format:
+
+      scu> play track n
+
+2 range
+  Plays a range of audio tracks.  It the starting track number is omitted,
+  the default is first audio track in the disc.  If the ending track number
+  is omitted, the default is the last track on the audio disc.
+
+    Format:
+
+      scu> play [ [ starting_track [ n ] ] [ ending_track [ n ] ] ]
+
+2 lba
+  Plays audio using the logical block addressing (LBA) format.  Audio play
+  starts at the logical block address specified and continues through the
+  length (in blocks) specified.
+
+    Format:
+
+      scu> play audio lba n length n
+
+2 msf
+  Plays audio using the minute/second/frame (MSF) addressing format.  Audio
+  play starts at the MSF address specified and continues through the ending
+  MSF address specified.
+
+    Format:
+      scu> play msf starting minute-units second-units frame-units \
+                    ending minute-units second-units frame-units
+
+    Aliases:
+      The aliases 'mu', 'su', & 'fu' can be used for minute-units,
+      second-units, and frame-units respectively.
+
+1 prevent
+  This command prevents media removal from the selected device.
+
+    Format:
+
+      scu> prevent
+
+1 read
+  This command performs various read operations from the selected device.
+
+    Format:
+
+      scu> read { media [ test-parameters ] }
+
+2 media
+  This command reads the device media and performs a data comparison of
+  the data read.  You must specify transfer parameters which specifies the
+  media area to be read.
+
+    Format:
+
+      scu> read media [ test-parameters ]
+
+  Please refer to the "Conventions" help section for a list of the valid
+  test parameters.
+
+    Examples:
+
+      scu> read media
+      scu: No defaults, please specify test parameters for transfer...
+      scu> read media lba 100
+      Reading 1 block on /dev/rrz10c (RX23) using pattern 0x39c39c39...
+      scu> read media lba 100 pattern 0x12345678
+      Reading 1 block on /dev/rrz10c (RX23) using pattern 0x12345678...
+      scu: Data compare error at byte position 0
+      scu: Data expected = 0x78, data found = 0x39
+      scu> read media ending 100 compare off bs 10k
+      Reading 101 blocks on /dev/rrz10c (RX23)...
+      Reading blocks [ 0 through 19 ]...
+      Reading blocks [ 20 through 39 ]...
+      Reading blocks [ 40 through 59 ]...
+      Reading blocks [ 60 through 79 ]...
+      Reading blocks [ 80 through 99 ]...
+      scu> 
+
+1 reassign
+  This command reassigns a defective block on a disk device.  Since this
+  command modifies the disk media, the full command name must be entered
+  to be recognized.
+
+    Format:
+
+      scu> reassign lba n
+
+1 release
+  This command releases a reserved SCSI device or releases a frozen SIM
+  queue (which occurs after an error).
+
+    Format:
+
+      scu> release { device | simqueue } [ nexus-information ]
+
+2 device
+  This command releases a reserved SCSI device by issuing a release unit
+  command.  Extent release for direct access device is not implemented.
+
+    Format:
+
+      scu> release device
+
+2 simqueue
+  This command is used to issue a Release SIMQ CCB to thaw a frozen SIM
+  queue.  Ordinarily, this command is not necessary since the SIM queue
+  is automatically released after errors occur.  If the nexus information
+  is omitted, the SIM queue for the selected SCSI device will be released.
+
+    Format:
+
+      scu> release simqueue [ nexus-information ]
+
+    Example:
+
+      scu> release simqueue bus 1 target 6 lun 0
+
+1 reserve
+  This command reserves a SCSI device by issuing a reserve unit command.
+  The entire logical unit is reserved for the exclusive use of the initiator.
+  Extent reservation for direct access device is not implemented.
+
+    Format:
+
+      scu> reserve device
+
+1 resume
+  This command is used with CD-ROM's to resume play after being paused.
+
+    Format:
+
+      scu> resume
+
+1 reset
+  The command is used to reset the SCSI bus or the selected SCSI device.
+
+    Format:
+
+      scu> reset { bus | device } [ nexus-information ]
+
+2 bus
+  Issues a CAM Bus Reset CCB.  If the nexus information is omitted, the bus
+  associated with the selected SCSI device is reset.
+
+    Format:
+
+      scu> reset bus [ nexus-information ]
+
+3 Restrictions
+  Since the Reset Bus command can cause loss of data to some devices,
+  this command is restricted to super user (root) access.
+
+2 device
+  Issues a CAM Bus Device Reset CCB.  If the nexus information is omitted,
+  then the selected device is reset.
+
+    Format:
+
+      scu> reset device [ nexus-information ]
+
+3 Restrictions
+  Since the Reset Device command can cause loss of data to some devices,
+  this command requires write access to the selected device.  If nexus
+  information is specified, then this command is restricted to super user
+  (root) access.
+
+1 scan
+  This command is used to scan device media or the CAM Equipment Device
+  Table (EDT).
+
+    Format:
+
+      scu> scan { edt [ [nexus-information] [ report-format ] ] }
+                { media [ test-parameters ]                     }
+
+2 edt
+  This command allows scanning of the SCSI bus which results in the CAM
+  Equipment Device Table (EDT) being updated with devices found.  If nexus
+  information is omitted, then the selected device is scanned.
+
+    Format:
+
+      scu> scan { edt [nexus-information] }
+
+  Please refer to the "Conventions" help section for a list of the valid
+  test parameters.
+
+    Examples:
+      scu> scan edt
+      Scanning bus 1, target 6, lun 0, please be patient...
+      scu> show device
+      Inquiry Information:
+
+                            SCSI Bus ID: 1
+                         SCSI Target ID: 6
+                        SCSI Target LUN: 0
+                 Peripheral Device Type: Direct Access
+                   Peripheral Qualifier: Peripheral Device Connected
+                  Device Type Qualifier: 0
+                        Removable Media: No
+                           ANSI Version: SCSI-1 Compliant
+                           ECMA Version: 0
+                            ISO Version: 0
+                   Response Data Format: CCS
+                      Additional Length: 31
+                  Vendor Identification: DEC     
+                 Product Identification: RZ55     (C) DEC
+                Firmware Revision Level: 0700
+     scu> 
+     scu> scan edt bus 1
+     Scanning bus 1, target 6, lun 0, please be patient...
+     scu> 
+
+2 media
+  This command scans the device media.  This involves writing the media
+  with a data pattern and then reading and verifying the data written.
+  You must specify transfer parameters to define the media area to be
+  scanned.
+
+    Format:
+
+      scu> scan media [ test-parameters ]
+
+    Examples:
+
+      scu> scan media
+      scu: No defaults, please specify test parameters for transfer...
+      scu> scan media length 100 recovery off
+      Scanning 100 blocks on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      scu> scan media lba 200 limit 25k align '1p-1'
+      Scanning 50 blocks on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      scu> scan media starting 0 bs 32k records 10
+      Scanning 640 blocks on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      Scanning blocks [ 0 through 63 ]...
+      Scanning blocks [ 64 through 127 ]...
+      Scanning blocks [ 128 through 191 ]...
+      Scanning blocks [ 192 through 255 ]...
+      Scanning blocks [ 256 through 319 ]...
+      Scanning blocks [ 320 through 383 ]...
+      Scanning blocks [ 384 through 447 ]...
+      Scanning blocks [ 448 through 511 ]...
+      Scanning blocks [ 512 through 575 ]...
+      Scanning blocks [ 576 through 639 ]...
+      scu> 
+
+1 set
+  This command is used to set parameters for a device or the program.
+
+    Format:
+
+              { audio keywords ...                             }
+              { cam keywords ...                               }
+              { debug { on | off }                             }
+              { default parameter                              }
+              { device device-type                             }
+              { dump { on | off }                              }
+              { dump-limit value                               }
+     scu> set { log file-name-path                             }
+              { nexus nexus-information                        }
+              { pages [ mode-page [ pcf page-control-field ] ] }
+              { pager "paging-filter"                          }
+              { paging { on | off }                            }
+              { recovery { on | off }                          }
+              { tape keywords ...                              }
+              { verbose { on | off }                           }
+              { watch {on | off }                              }
+
+2 audio
+  Set parameters for a CD-ROM audio device.
+
+    Format:
+
+                     { address format { lba | msf }         }
+      scu> set audio { volume [ channel-{ 0 | 1 } ] level n }
+
+3 address
+  Sets the default address format associated with CD-ROM audio commands.
+  The address formats are:
+
+      Format   Description of Format
+      ------   ---------------------
+       lba     Logical Block Address.
+       msf     Minute, Second, and Frame.
+
+    Format:
+
+      scu> set address format { lba | msf }
+
+    Notes:
+      Since this command modifies the device parameters, you will require
+      write access to the device to issue this command.
+
+3 volume
+  Sets the audio volume control levels.  You can change either the right
+  or left channels individually, or both channels at the same time.
+
+    Format:
+
+      scu> set audio volume [ channel-{ 0 | 1 } ] level n
+
+    Aliases:
+      You can use the alias "ch0" for "channel-0" or "ch1" for "channel-1".
+
+2 cam
+  Allows you to set various parameters associated with the CAM sub-system.
+
+    Format:
+
+                    { debug debug-flags   }
+      scu>  set cam { flags ccb-flags     }
+                    { retrys { on | off } }
+
+3 debug
+  Allows you to set the CAM debug flags which the user level Special I/O
+  functions use.  The debug flags used by this interface are:
+
+      Debug Flag        Hex Value       Description
+      ----------        ---------       -----------
+      CAMD_INOUT        0x00000001      Routine entry and exit.
+      CAMD_FLOW         0x00000002      Code flow through the modules.
+      CAMD_ERRORS       0x00000010      Error handling.
+      CAMD_CMD_EXP      0x00000020      Expansion of cmds and responses.
+
+    Format:
+
+      scu> set cam debug hex-flags
+
+    Example:
+
+      scu> set cam debug 0xffff
+
+3 flags
+  Allow you to specify various CAM flags to be ored into CCB's generated.
+  The flags which you are permitted to specify are listed below:
+
+      CAM CCB Flag       Hex Value      Description
+      ------------       ---------      -----------
+      CAM_DIS_DISCONNECT 0x00008000	Disable disconnect.
+      CAM_INITIATE_SYNC  0x00004000	Attempt Sync data xfer, and SDTR.
+      CAM_DIS_SYNC       0x00002000	Disable sync, go to async.
+      CAM_SIM_QHEAD      0x00001000	Place CCB at the head of SIM Q.
+      CAM_SIM_QFREEZE    0x00000800	Return the SIM Q to frozen state.
+      CAM_SIM_QFRZDIS    0x00000400	Disable SIM Q freeze on errors.
+      CAM_ENG_SYNC       0x00000200	Flush resid bytes before cmplt.
+
+  The default CAM CCB flags used by the program is CAM_SIM_QFRZDIS.
+
+    Format:
+
+      scu> set cam flags hex-flags
+
+    Example:
+
+      scu> set cam flags 0x4000|0x400
+
+3 retrys
+  This command allows the special I/O error recovery to be enabled or
+  disabled.  By default, device busy, reservation conflict, selection
+  timeout, and unit attentions are automatically retried when this flag
+  is enabled.  These retries may be undesirable during certain testing,
+  e.g., checking for proper UNIT ATTENTION sense key after changing the
+  device media, or checking to see if another host reserved a device.
+
+    Format:
+
+      scu> set cam retrys { on | off }
+
+    Notes:
+      o  Automatic retrys are enabled by default.
+      o  For each of the retryable errors, described above, the special
+         I/O code delays for 2 seconds before retrying the command, and
+         retries up to a maximum of 30 times.  Therefore, if automatic
+         retries are enabled and the error persists, an error is reported
+         after 1 minute.
+
+    Example:
+
+      scu> switch /dev/rmt0h
+      Switching to device entry /dev/rmt0h (TZK10)...
+      scu> set cam retrys off
+      scu> tur
+      scu: 'test unit ready' failed, EIO (5) - I/O error
+      scu: Sense Key = 0x6 = UNIT ATTENTION - Medium changed or target reset,
+           Sense Code/Qualifier = (0x28, 0) = \
+			Not ready to ready transition (medium may have changed)
+      scu> tur
+      scu> 
+
+2 debug
+  This command allows the program debug flag to be enabled or disabled.
+  When enabled, the program displays additional debugging information
+  during processing of various commands.  The default is for debugging
+  output to be disabled.
+
+    Format:
+
+      scu> set debug { on | off }
+
+2 default
+  Allows you to change various program defaults.
+
+    Format:
+
+      scu> set default { savable | test-parameters }
+
+3 savable
+  Allows you to specify whether the mode page parameters are saved or not.
+  By default, if the mode page is savable, then mode parameters being set
+  by the "set" or "change" page will be saved.
+
+    Format:
+
+      scu> set default savable { on | off }
+
+3 test-parameters
+  Allows you to setup the I/O test parameter defaults.  The test parameters
+  which can be set are:
+
+    Parameter   Type     Default     Description
+    ---------   ----     -------     -----------
+    align       value       0        Data buffer alignment offset.
+    compare     flag        On       Compare data during read operations.
+    errors      value       10       Error limit value.
+    mode        value       0        Read/write buffer mode value.
+    passes      value       1        Number of passes to perform.
+    pattern     value    0x39c39c39  Data pattern to use (1st pass).
+    segment     value      8Kb       Download firmware segment size.
+    size (bs)   value      512       Block size per I/O request.
+
+  For type "flag", the parameter can be "1/0", "on/off", or "true/false".
+
+2 device
+  Issues a CAM Set Device Type CCB to change the device type in the EDT.
+  If nexus information is omitted, the command is issued to the selected
+  device.
+
+    Format:
+
+      scu> set device device-type [ nexus-information ]
+
+3 device-type
+  The valid SCSI device types are:
+
+      Device Type        CAM Definition         Value
+      -----------        --------------         -----
+      direct-access      ALL_DTYPE_DIRECT         0
+      sequential-access  ALL_DTYPE_SEQUENTIAL     1
+      printer            ALL_DTYPE_PRINTER        2
+      processor          ALL_DTYPE_PROCESSOR      3
+      worm               ALL_DTYPE_WORM           4
+      rodirect           ALL_DTYPE_RODIRECT       5
+      scanner            ALL_DTYPE_SCANNER        6
+      optical            ALL_DTYPE_OPTICAL        7
+      changer            ALL_DTYPE_CHANGER        8
+      communication      ALL_DTYPE_COMM           9
+
+3 Restrictions
+  Since the Set Device Type CCB will overwrite existing device information
+  in the CAM EDT, this command is restricted to super user (root) access.
+
+2 dump
+  Allows the dump buffer flag to be enabled or disabled.  When enabled,
+  the program dumps the entire data buffer being operated on instead of
+  the length returned from the CAM sub-system.  By default, this flag is
+  disabled.
+
+  When used in conjunction with the CAM debug flag CAMD_CMD_EXP during a
+  data in operation, when enabled then the entire data buffer is dumped,
+  up to the dump limit, instead of the length indicated by the CCB fields.
+
+  When performing diagnostic functions, when enabled then the data buffer
+  is dumped, up to the dump limit, during data verification failures.
+
+    Format:
+
+      scu> set dump { on | off }
+
+2 dump-limit
+  This command limits the number of bytes dumped during debugging.  This
+  limit is used in conjunction with the dump buffer control flag. It limits
+  the number of data bytes displayed when buffer dumping is enabled and/or
+  the CAM debug flag CAMD_CMD_EXP is enabled during command execution. The
+  default value is 512 bytes.
+
+    Format:
+
+      scu> set dump-limit value
+
+2 log
+  This command is used to open a log file for capturing text displayed by
+  the program.  When logging is active, text output is written to both the
+  log file and the terminal.  This command provides a simple mechanism to
+  log an interactive session, similar to capability provided by 'script'.
+
+    Format:
+
+      scu> set log file-name-path
+
+    Notes:
+      This command is also used to close an existing log file by specifying
+      a null file name string.  Both standard output and standard error
+      text is captured in the log file.  The text displayed by the "help"
+      command is not saved in the log file.
+
+2 nexus
+  This command sets up the device nexus information (bus/target/lun) when
+  a SCSI device entry is not specified during program startup.  Normally,
+  this information is automatically obtained and setup from the associated
+  device driver using the DEVIOCGET I/O control command.
+
+    Format:
+
+      scu> set nexus nexus-information
+
+    Example:
+
+      scu> set nexus bus 1 target 6 lun 0
+
+    Notes:
+      o  For commands requiring a nexus, if the nexus information is not
+         setup, the command is aborted with the following error message:
+
+      scu: All or part of device nexus information (b/t/l) is NOT setup yet!
+
+      o  After setting the nexus information, an attempt is made to get
+         the EDT entry associated with this nexus.  If an EDT entry does
+         not exist for this nexus, the following error message is displayed:
+
+      scu: [1/0/0] CAM CCB function 'XPT_GDEV_TYPE' failed,
+           CAM status = CAM_DEV_NOT_THERE (0x8) - Device not installed/there
+      scu: 'get device type' failed, EIO (5) - I/O error
+
+      o  For commands targeted for a particular SCSI device type, if the
+         device type is not setup, then the command is aborted with the
+         following error message:
+
+      scu: DEVICE_TYPE device (DEVICE_NAME) does NOT support this command.
+
+         The "set device" command can also be used to setup the device
+         type or to override the existing device type.
+
+2 pages
+  This command sets mode pages for a device.  At the present time, only
+  previous page parameters are set.  This command will be extended at a
+  later time to permit individual fields to be specified.
+
+    Format:
+                     { [ code hex-code ] }
+      scu> set pages { [ mode-page ]     } [ pcf page-control-field ]
+
+    Note:
+      o  At the present time, you cannot set individual mode page fields.
+      o  The default page control field is "default" values.
+      o  Selecting a "pcf" is sticky (i.e. sets new "pcf" default).
+      o  Setting page values always affects the current page values.
+      o  The default is to save page values if the page saveable bit
+         in the page header is set and the program savable flag is set.
+         Use the "set default savable" command to alter this latter flag.
+      o  Some pages, such as those that affect the physical media, do
+         not actually get saved until the media is formatted.
+
+    Example:
+      scu> set pages
+      Setting Error Recovery Parameters (Page 1)
+      Setting Disconnect/Reconnect Control Parameters (Page 2)
+      Setting Direct-Access Device Format Parameters (Page 3)
+      Parameters are only saved after a FORMAT UNIT command.
+      Setting Rigid Disk Geometry Parameters (Page 4)
+      Parameters are only saved after a FORMAT UNIT command.
+      Setting Cache Control Parameters (Page 8)
+      Setting DEC Specific Parameters (Page 25)
+      scu> 
+
+3 code
+  For mode pages which are unknown to the program, a hex page code can be
+  specified for the page to display.  The page conntrol field selected is
+  used to set the new page values.
+
+    Format:
+
+      scu> set page code hex-code [ pcf page-control-field ]
+
+    Example:
+
+      scu> set page code 0x21 pcf default
+      Setting Unknown Page Parameters (Page 21)
+      scu> 
+
+3 mode-page
+  Describes the mode page to operate on.  The mode pages currently supported
+  are:
+
+    'scu' Keyword          Page Code   Description
+    -------------          ---------   -----------
+    error-recovery           0x01      Error recovery page.
+    disconnect               0x02      Disconnect/reconnect page.
+    direct-access            0x03      Direct access format page.
+    geometry                 0x04      Disk geometry page.
+    flexible                 0x05      Flexible disk page.
+    cache-control            0x08      Cache control page.
+    cdrom                    0x0D      CD-ROM device page.
+    audio-control            0x0E      Audio control page.
+    device-configuration     0x10      Device configuration page.
+    medium-partition-1       0x11      Medium parition page 1.
+    dec-specific             0x25      DEC specific page.
+    readahead-control        0x38      Read-ahead control page.
+
+3 pcf
+  The page control field describes which mode pages to obtain from the
+  device.  The defined page control fields are:
+
+    Format:
+
+      scu> set pages pcf { current | changeable | default | saved }
+
+2 pager
+  The pager specifies the external program(s) to perform screen paging.
+  If you do not specify a pager, then the default pager is "more -d".
+
+    Format:
+
+      scu> set pager "paging-filter"
+
+2 paging
+  This command controls paging when outputting to a terminal device.  By
+  default, paging is enabled when standard output is a terminal device.
+
+    Format:
+
+      scu> set paging { on | off }
+
+2 recovery
+  This command allows you to enable or disable the error control parameters
+  for the selected device.  Ordinarily, the current parameters are used,
+  which are setup from either the saved or the default error control pages
+  when the drive is powered on.  The normal default is for error correction
+  to be enabled.  Disabling error correction is useful during device testing.
+
+    Format:
+
+      scu> set recovery { on | off }
+
+    Notes:
+      o  When disabling error recovery, the previous error control bits
+         are saved and the disable correction (DCR), disable transfer on
+         error (DTE), post recoverable error (PER), and transfer block on
+         error (TB) bits are set, while all other but are cleared.
+
+      o  When enabling error recovery, either the previously saved error
+         control bits are used or the error control bits from the default
+         error page.
+
+      o  Only the current error page parameters are affected.
+
+2 tape
+  Sets parameters for sequential access devices (magnetic tapes).
+
+
+    Format:
+                    { blocking { fixed [ size ] | variable } }
+      scu> set tape { buffered mode                          }
+                    { density { code value | type }          }
+
+    Errors:
+      If the tape drive does not support changing the specified parameter,
+      you will receive the following error message:
+
+      scu> set tape density QIC-1G
+      scu: 'mode select' failed, EIO (5) - I/O error
+      scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+           Sense Code/Qualifier = (0x26, 0) = Invalid field in parameter list
+      scu> 
+
+3 blocking
+  This parameter allows you to switch the blocking mode between fixed
+  and variable length records for tape devices which support both modes.
+  For example, QIC tape devices like the TZK10 allow both blocking modes.
+
+    Format:
+
+      scu> set tape blocking { fixed [ size ] | variable }
+
+    Notes:
+      When setting "fixed" blocking mode, if the "size" value is omitted,
+      the default is either 512 bytes or the last specified block size.
+
+    Example:
+
+      scu> set tape blocking fixed
+      scu> show mode
+
+      Mode Parameters (Page 0 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 11
+                            Medium Type: 0x3
+                             Tape Speed: 0 = Use Default Speed
+                          Buffered Mode: 0x1
+                        Write Protected: Yes
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0x11 = 16000 BPI, QIC-320 (GCR, C)
+               Number of Logical Blocks: 0
+                   Logical Block Length: 512
+      scu>
+
+3 buffered
+  This parameter allows the buffered mode to be changed.  This parameter
+  controls whether the tape controller uses its' data buffer during reads
+  and writes.  When buffered mode is disabled (0), no data buffering is
+  performed and write requests are not completed until the data is written
+  to the physical media.  When buffering mode is enabled, write requests
+  complete as soon as the requested data is transferred to the drive's data
+  buffer.
+
+    scu> set tape buffered mode
+
+    Notes:
+      o  Normally, buffered mode is enabled to provide better performance.
+      o  The "mode" parameter is a value in the range between 0 - 7.  Most
+         tapes drives only support modes 0 (disabled) or 1 (enabled).
+
+    Example:
+
+      scu> set tape buffered 0
+      scu> show mode
+
+      Mode Parameters (Page 0 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 11
+                            Medium Type: 0x3
+                             Tape Speed: 0 = Use Default Speed
+                          Buffered Mode: 0
+                        Write Protected: Yes
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0x11 = 16000 BPI, QIC-320 (GCR, C)
+               Number of Logical Blocks: 0
+                   Logical Block Length: 512
+      scu> 
+
+3 density
+  This parameter allows you to change the tape density before writing the
+  tape, for those tape drives which support multiple densities.
+
+    Format:
+
+      scu> set tape density { code value | type }
+
+    The known tape density codes and the value they equate to are listed
+    below.  The Density Type keyword is accepted for the "type" parameter.
+
+      Density Type            Description            Density Code
+      ------------     --------------------------    ------------
+        default        Default Density                   0x00
+        800-BPI        800 BPI (NRZI, R)                 0x01
+        1600-BPI       1600 BPI (PE, R)                  0x02
+        6250-BPI       6250 BPI (GCR, R)                 0x03
+        8000-BPI       8000 BPI (GCR, C)                 0x04
+        QIC-24         8000 BPI, QIC-24 (GCR, C)         0x05
+        3200-BPI       3200 BPI (PE, R)                  0x06
+        6400-BPI       6400 BPI (IMFM, C)                0x07
+        8000-BPI       8000 BPI (GCR, CS)                0x08
+        38000-BPI      37871 BPI (GCR, C)                0x09
+        6666-BPI       6667 BPI (MFM, C)                 0x0A
+        1600-BPI       1600 BPI (PE, C)                  0x0B
+        12690-BPI      12690 BPI (GCR, C)                0x0C
+        QIC-120-ECC    10000 BPI, QIC-120 with ECC       0x0D
+        QIC-150-ECC    10000 BPI, QIC-150 with ECC       0x0E
+        QIC-120        10000 BPI, QIC-120 (GCR, C)       0x0F
+        QIC-150        10000 BPI, QIC-150 (GCR, C)       0x10
+        QIC-320        16000 BPI, QIC-320 (GCR, C)       0x11
+        QIC-1350       51667 BPI, QIC-1350 (RLL, C)      0x12
+        61000-BPI      61000 BPI, 4mm Tape  (DDS, CS)    0x13
+        54000-BPI      54000 BPI, 8mm Tape  (???, CS)    0x14
+        45434-BPI      45434 BPI, 8mm Tape 8500 mode     0x15
+        10000-BPI      10000 BPI (MFM, C)                0x16
+        42500-BPI      42500 BPI (MFM, CS)               0x17
+        42500-BPI      42500 BPI (MFM, CS)               0x18
+        62500-BPI      62500 BPI (MFM, CS)               0x19
+        QIC-1G         36000 BPI, QIC-1G (GCR, C)        0x1E
+        QIC-2G         40640 BPI, QIC-2G (GCR, C)        0x22
+
+    Notes:
+      o  Normally, changing tape density must be done while positioned
+         at beginning of tape (BOT) since most drives are restricted to
+         a single tape density.
+      o  With most QIC tape devices, the actual density code is not known
+         until a tape movement command is issued to the drive.  This can
+         be accomlished by reading, writing, or spacing a tape record.
+      o  The "code" parameter accepts any value in the range of 0 - 255.
+
+    Errors:
+      If the current media in the tape drive does not support the density
+      code you specified, you will receive the following error message when
+      attempting to write data to the media:
+
+      scu> write media records 1
+      Writing 1024 bytes on [0/5/0] (TZK10) with pattern 0x39c39c39...
+      scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+           Sense Code/Qualifier = (0x30, 0) = Incompatible medium installed
+      scu>
+
+    Example:
+
+      scu> mt rewind
+      scu> set tape density QIC-120
+      scu> set tape blocking variable
+      scu> show mode
+
+      Mode Parameters (Page 0 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 11
+                            Medium Type: 0x3
+                             Tape Speed: 0 = Use Default Speed
+                          Buffered Mode: 0x1
+                        Write Protected: No
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0x11 = 16000 BPI, QIC-320 (GCR, C)
+               Number of Logical Blocks: 0
+                   Logical Block Length: 0
+      scu> write media records 1
+      Writing 512 bytes on [0/5/0] (TZK10) with pattern 0x39c39c39...
+      scu> show mode
+
+      Mode Parameters (Page 0 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 11
+                            Medium Type: 0x3
+                             Tape Speed: 0 = Use Default Speed
+                          Buffered Mode: 0x1
+                        Write Protected: No
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0xf = 10000 BPI, QIC-120 (GCR, C)
+               Number of Logical Blocks: 0
+                   Logical Block Length: 0
+      scu> 
+
+2 verbose
+  This command controls the verbosity of output displayed by the program.
+  By default, verbose display is enable.
+
+    Format:
+
+      scu> set verbose { on | off }
+
+    Example:
+
+      scu> set watch off
+      scu> scan media starting 50 ending 250 bs 32k
+      Scanning 201 blocks on /dev/rrz14c (RZ55) with pattern 0x39c39c39...
+      scu> set verbose off
+      scu> scan media starting 50 ending 250 bs 32k
+      scu> 
+
+2 watch
+  This command controls the watch progress display during I/O testing.
+  The default for this flag is enabled in interactive mode, and disabled
+  in non-interactive mode.
+
+    Format:
+
+      scu> set watch { on | off }
+
+    Example:
+
+      scu> verify media lba 100 length 100 bs 10k
+      Verifying 100 blocks on /dev/rrz14c (RZ55), please be patient...
+      Verifying blocks [ 100 through 119 ]...
+      Verifying blocks [ 120 through 139 ]...
+      Verifying blocks [ 140 through 159 ]...
+      Verifying blocks [ 160 through 179 ]...
+      Verifying blocks [ 180 through 199 ]...
+      scu> set watch off
+      scu> verify media lba 100 length 100 bs 10k
+      Verifying 100 blocks on /dev/rrz14c (RZ55), please be patient...
+      scu> 
+
+1 show
+  This command is used to display parameters for a device or the program.
+
+    Format:
+
+                { audio keywords ...                             }
+                { capacity                                       }
+                { defects defect-list defect-format              }
+                { device [ nexus-information ]                   }
+      scu> show { edt [ [nexus-information] [ report-format ] ]  }
+                { memory [ parameters ]                          }
+                { mode-parameters                                }
+                { nexus                                          }
+                { pages [ mode-page [ pcf page-control-field ] ] }
+                { path-inquiry [nexus-information]               }
+                { sense                                          }
+
+2 audio
+  Displays information for a CD-ROM audio device.
+
+    Format:
+                      { channel                }
+                      { catalog                }
+                      { isrc                   }
+      scu> show audio { header lba n           } [ address-format ]
+                      { position               }
+                      { status                 }
+                      { toc [ toc-parameters ] }
+
+3 channel
+  Displays all Sub-Q channel information.
+
+    Format:
+
+      scu> show audio channel [ address-format ]
+
+    Example:
+
+  scu> show audio channel
+
+  Current Position Information:
+
+                       Track Number: 1
+                       Index Number: 0
+     Absolute Logical Block Address: 4607972
+     Relative Logical Block Address: 28
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+  Media Catalog Number Information:
+
+                Media Catalog Valid: Yes
+               Media Catalog Number: 0 75 99 3 48 2 90 0 0 0 0 0 0 0 0 
+
+  ISRC Information:
+
+                       Track Number: 1
+                   Track Code Valid: No
+  scu> 
+
+3 catalog
+  Displays the media catalog number (if any).
+
+    Format:
+
+      scu> show audio catalog [ address-format ]
+
+    Example:
+
+  scu> show audio catalog
+  CD-ROM Sub-Channel Header:
+
+                       Audio Status: Audio Play Operation Paused
+                        Data Length: 20
+
+  Media Catalog Number Information:
+
+                Media Catalog Valid: Yes
+               Media Catalog Number: 0 75 99 3 48 2 90 0 0 0 0 0 0 0 0 
+  scu> 
+
+3 isrc
+  Displays the ISRC information (if any).
+
+    ISRC = International Standard Recording Code.
+
+    Format:
+
+      scu> show audio isrc [ address-format ]
+
+    Example:
+
+  scu> show audio isrc
+  CD-ROM Sub-Channel Header:
+
+                       Audio Status: Audio Play Operation Paused
+                        Data Length: 20
+
+  ISRC Information:
+
+                       Track Number: 1
+                   Track Code Valid: No
+  scu> 
+
+3 header
+  Displays the logical block address associated with the current position.
+
+    Format:
+
+      scu> show audio header lba n [ address-format ]
+
+3 position
+  Displays the current play position information.
+
+    Format:
+
+      scu> show audio position [ address-format ]
+
+    Example:
+
+  scu> show audio position
+  CD-ROM Sub-Channel Header:
+
+                       Audio Status: Audio Play Operation Paused
+                        Data Length: 12
+
+  Current Position Information:
+
+                       Track Number: 1
+                       Index Number: 0
+     Absolute Logical Block Address: 4607972
+     Relative Logical Block Address: 28
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+  scu> 
+
+3 status
+  Displays the current playback status information.
+
+    Format:
+
+      scu> show audio status lba n [ address-format ]
+
+    Alias:
+      The alias "volume" is accepted for "status" since this command
+      also displays the current volume level.
+
+    Example:
+
+  scu> show audio status
+  Playback Status Information:
+
+                       Audio Status: Audio Pause Operation In Progress
+           Audio Status Data Length: 14
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+                     Address Format: Logical Block Address (LBA)
+     Absolute Logical Block Address: 4607972
+         Channel 0 Output Selection: Connect Channel 0 to this port
+             Channel 0 Volume Level: 255
+         Channel 1 Output Selection: Connect Channel 1 to this port
+             Channel 1 Volume Level: 255
+         Channel 2 Output Selection: Output Port Muted
+             Channel 2 Volume Level: 0
+         Channel 3 Output Selection: Output Port Muted
+             Channel 3 Volume Level: 0
+  scu> 
+
+3 toc
+  Displays the table of contents (TOC) for the current audio disc in the
+  drive.  You can display just the TOC header, a single TOC entry, or the
+  entire table of contents in either a full or summary report format.  If
+  keywords are omitted, the entire TOC is displayed in summary format.
+
+    Format:
+
+      scu> show audio toc [ { entry n | header } ] [ report-format ]
+
+4 entry
+  Displays a single entry from the table of contents (TOC) in full format.
+
+    Format:
+
+      scu> show audio toc entry n
+
+    Notes:
+      The entry 'n' must be within the range of tracks in the TOC.
+
+    Example:
+
+  scu> show audio toc entry 3
+  Track Entry Information:
+
+                       Track Number: 3
+     Absolute Logical Block Address: 252900
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+  scu> 
+
+4 header
+  Displays the information returned in the table of contents (TOC) header.
+  The TOC header contains the starting and ending track numbers.
+
+    Format:
+
+      scu> show audio toc header
+
+    Example:
+
+      scu> show audio toc header
+      Table Of Contents Information:
+
+                            Data Length: 66
+                  Starting Track Number: 1
+                    Ending Track Number: 7
+      scu> 
+
+4 report-format
+  Sets the report format used for displaying the table of contents (TOC).
+  The valid report formats are:
+
+    full or summary
+
+4 Examples
+  scu> show audio toc
+  Table of Contents Summary:
+
+      Track 1: Audio Track, Time: 08:09, LBA:      0, Length: 146609
+      Track 2: Audio Track, Time: 05:54, LBA: 146608, Length: 106293
+      Track 3: Audio Track, Time: 06:19, LBA: 252900, Length: 113689
+      Track 4: Audio Track, Time: 05:03, LBA: 366588, Length: 91021
+      Track 5: Audio Track, Time: 04:50, LBA: 457608, Length: 86873
+      Track 6: Audio Track, Time: 03:19, LBA: 544480, Length: 59701
+      Track 7: Audio Track, Time: 04:06, LBA: 604180, Length: 73809
+
+  There are 7 audio tracks and 0 data tracks, with a total time of 37:40.
+
+  scu> show audio toc full
+  Table Of Contents Information:
+
+                        Data Length: 66
+              Starting Track Number: 1
+                Ending Track Number: 7
+
+                       Track Number: 1
+     Absolute Logical Block Address: 0
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+  
+                       Track Number: 2
+     Absolute Logical Block Address: 146608
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 3
+     Absolute Logical Block Address: 252900
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 4
+     Absolute Logical Block Address: 366588
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 5
+     Absolute Logical Block Address: 457608
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 6
+     Absolute Logical Block Address: 544480
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 7
+     Absolute Logical Block Address: 604180
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+
+                       Track Number: 170
+     Absolute Logical Block Address: 677988
+           Track Control Attributes: Audio Track
+                                     Audio Without Pre-Emphasis
+                                     Digital Copy Prohibited
+                                     Two Channel Audio
+           Address Type Information: Sub-Channel Q Information Not Supplied
+  scu> 
+
+2 capacity
+  Displays the disk capacity in blocks.
+
+    Format:
+
+      scu> show capacity
+
+    Examples:
+
+      scu> show capacity
+      Disk Capacity Information:
+
+                       Maximum Capacity: 204864
+                           Block Length: 512
+
+2 defects
+  Displays the disk defect list(s).
+
+    Format:
+
+      scu> show defects [ [ defect-list [ defect-format ] ] ]
+
+    Examples:
+
+      scu> show defects
+
+      Defect List Header:
+        Format 0x05 MDL GDL SECTOR
+        Defect list length 104 number of defects 13
+       Cylinder     42  Head  3  Sector   30
+       Cylinder    111  Head 12  Sector   27
+       Cylinder    220  Head  1  Sector   16
+       Cylinder    441  Head  0  Sector   27
+       Cylinder    514  Head  9  Sector   29
+       Cylinder    515  Head  9  Sector   29
+       Cylinder    563  Head  0  Sector   22
+       Cylinder    873  Head  3  Sector   35
+       Cylinder    873  Head 13  Sector   24
+       Cylinder    874  Head 13  Sector   24
+       Cylinder   1005  Head 14  Sector    3
+       Cylinder      1  Head  2  Sector   28
+       Cylinder      1  Head  5  Sector   22
+      scu> show defects grown
+
+      Defect List Header:
+        Format 0x05 GDL SECTOR
+        Defect list length 16 number of defects 2
+       Cylinder      1  Head  2  Sector   28
+       Cylinder      1  Head  5  Sector   22
+      scu> 
+
+3 defect-list
+  Specifies the defect list(s) to display.  If this parameter is omitted,
+  then the default is to display all defects (primary and grown lists).
+
+    Format:
+
+      scu> show defects { all | primary | grown }
+
+    Aliases:
+      all (known), primary (vendor)
+
+3 defect-format
+  Specifies the defect format to display.  If the defect format is omitted,
+  the default is "sector" format.
+
+    Format:
+
+      scu> show defects defect-list { block | bfi | sector }
+
+    Notes:
+      Some disk drives do not support all the different defect formats.
+      You must refer to the specific drive manual to determine which
+      formats are actually supported if the defect format chosen fails.
+
+    Examples:
+
+      scu> show defects grown block
+
+      Defect List Header:
+        Format 0x00 GDL BLOCK
+        Defect list length 8 number of defects 2
+       Block      100
+       Block      202
+      scu> 
+      scu> show defects grown bfi
+
+      Defect List Header:
+        Format 0x04 GDL BYTES
+        Defect list length 16 number of defects 2
+       Cylinder      1  Head  2  Byte  16044
+       Cylinder      1  Head  5  Byte  12606
+      scu> 
+      scu> show defects grown sector
+
+      Defect List Header:
+        Format 0x05 GDL SECTOR
+        Defect list length 16 number of defects 2
+       Cylinder      1  Head  2  Sector   28
+       Cylinder      1  Head  5  Sector   22
+      scu> 
+
+2 device
+  Displays the information returned by the CAM Get Device Type CCB.
+  If nexus information is omitted, the command is issued to the selected
+  device.
+
+    Format:
+
+      scu> show device [ nexus-information ]
+
+    Example:
+
+      scu> show device
+      Inquiry Information:
+
+                            SCSI Bus ID: 1
+                         SCSI Target ID: 2
+                        SCSI Target LUN: 0
+                 Peripheral Device Type: Direct Access
+                   Peripheral Qualifier: Peripheral Device Connected
+                  Device Type Qualifier: 0
+                        Removable Media: Yes
+                           ANSI Version: SCSI-1 Compliant
+                           ECMA Version: 0
+                            ISO Version: 0
+                   Response Data Format: CCS
+                      Additional Length: 31
+                  Vendor Identification: DEC     
+                 Product Identification: RX23     (C) DEC
+                Firmware Revision Level: 0054
+      scu> 
+
+2 edt
+  This command displays the CAM Equipment Device Table (EDT) entries.
+  If nexus information is omitted, then all EDT entries are displayed.
+
+    Format:
+
+      scu> show edt [ [nexus-information] [ report-format ] ]
+
+  Specifying nexus information restricts the EDT report to that nexus.
+
+    Example:
+
+      scu> show edt lun 0
+      CAM Equipment Device Table (EDT) Information:
+
+          Bus: 0, Target: 0, Lun: 0, Device Type: Direct Access
+          Bus: 0, Target: 6, Lun: 0, Device Type: Direct Access
+          Bus: 1, Target: 2, Lun: 0, Device Type: Direct Access
+          Bus: 1, Target: 3, Lun: 0, Device Type: Direct Access
+          Bus: 1, Target: 4, Lun: 0, Device Type: Sequential Access
+          Bus: 1, Target: 6, Lun: 0, Device Type: Direct Access
+      scu> 
+
+3 report-format
+  The report format controls the verbosity of the report generated.
+  Omitting the report format defaults to a summary report.
+
+    Format:
+
+      scu> show edt { full | summary }
+
+  A summary report generates a single line of output for each nexus found.
+  A full report causes the inquiry data associated with each nexus to be
+  displayed.
+
+    Example:
+
+      scu> show edt bus 0 lun 0 full
+      CAM Equipment Device Table (EDT) Information:
+
+      Inquiry Information:
+
+                            SCSI Bus ID: 0
+                         SCSI Target ID: 0
+                        SCSI Target LUN: 0
+                 Peripheral Device Type: Direct Access
+                   Peripheral Qualifier: Peripheral Device Connected
+                  Device Type Qualifier: 0
+                        Removable Media: No
+                           ANSI Version: SCSI-1 Compliant
+                           ECMA Version: 0
+                            ISO Version: 0
+                   Response Data Format: CCS
+                      Additional Length: 31
+                  Vendor Identification: DEC     
+                 Product Identification: RZ57     (C) DEC
+                Firmware Revision Level: 5000
+
+      Inquiry Information:
+
+                            SCSI Bus ID: 0
+                         SCSI Target ID: 6
+                        SCSI Target LUN: 0
+                 Peripheral Device Type: Direct Access
+                   Peripheral Qualifier: Peripheral Device Connected
+                  Device Type Qualifier: 0
+                        Removable Media: No
+                           ANSI Version: SCSI-1 Compliant
+                           ECMA Version: 0
+                            ISO Version: 0
+                   Response Data Format: CCS
+                      Additional Length: 31
+                  Vendor Identification: DEC     
+                 Product Identification: RZ55     (C) DEC
+                Firmware Revision Level: 0900
+
+      scu> 
+
+2 memory
+  This command allows you to show the size of various controller buffers.
+  In it's simplist form, this command attempts to obtain and display the
+  controller data buffer size.  This operation uses the SCSI Read Buffer
+  commands
+
+    Format:
+
+      scu> show { memory [ parameters ] }
+
+    Errors:
+      If the device does not support a Read Buffer commands and/or the
+      the default parameters, you'll see an error like the following:
+
+      scu> show memory
+      scu: 'SCMD_READ_BUFFER' failed, EIO (5) - I/O error
+      scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+           Sense Code/Qualifier = (0x24, 0) = Invalid field in cdb
+      scu> 
+
+    Example:
+
+      scu> show memory
+      The Controller Memory Size is 61376 (0xefc0) bytes.
+      scu> 
+
+3 parameters
+  Various parameters can be specified to specify which controller buffer
+  information to access.  Most devices do not require these parameters,
+  but some newer devices may require different modes and/or buffer ID's.
+
+    Format:
+                         { id buffer-id        }
+      scu> show memory [ { mode buffer-mode    } ]
+
+    Notes:
+      o  The default buffer ID is 0.
+      o  The default buffer mode is 0 (selects Combined header and data).
+      o  Refer to the vendor's SCSI programming manual for information on
+         buffer ID's and buffer modes supported.
+
+    Examples:
+
+      scu> show memory mode 3
+      The Memory Size for Mode 3, ID 0 is 493804 (0x788ec) bytes.
+      scu> show memory mode 3 id 2
+      The Memory Size for Mode 3, ID 2 is 124 (0x7c) bytes.
+      scu> show memory mode 3 id 3
+      The Memory Size for Mode 3, ID 3 is 262144 (0x40000) bytes.
+      scu> 
+
+2 mode-parameters
+  This command displays the mode parameter header and block descriptor.
+  Basically, this is a short hand form of the "show pages" commands which
+  only displays the mode headers.  Please be aware, that this command is
+  not supported by all devices (requests page 0 w/mode headers length).
+
+    Format:
+
+      scu> show mode-parameters
+
+    Example:
+
+      scu> show mode
+
+      Mode Parameters (Page 0 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 11
+                            Medium Type: 0x1
+                             Tape Speed: 0 = Use Default Speed
+                          Buffered Mode: 0x1
+                        Write Protected: No
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0 = Default Density
+               Number of Logical Blocks: 0
+                   Logical Block Length: 0
+      scu> 
+
+2 nexus
+  This command displays the current nexus information and device type for
+  the selected device.  Normally, this information is automatically setup
+  from the associated device driver using the DEVIOCGET I/O control cmd.
+
+    Format:
+
+      scu> show nexus
+
+    Example:
+
+      scu> show nexus
+      Device Nexus: Bus: 1, Target: 3, Lun: 0, Device Type: Direct Access
+
+2 pages
+  This command displays the mode page(s) for the selected device.
+
+    Format:
+                      { [ code hex-code ] }
+      scu> show pages { [ mode-page ]     } [ pcf page-control-field ]
+
+    Notes:
+      o  The default page control field is "current" values.
+      o  Selecting a "pcf" is sticky (i.e. sets new "pcf" default).
+
+    Example:
+
+      scu> show pages
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 75
+                            Medium Type: Default Medium Type
+              Device Specific Parameter: 0
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0
+               Number of Logical Blocks: 0
+                   Logical Block Length: 512
+
+      Error Recovery Parameters (Page 1 - current values):
+
+      Page Header:
+                        Page Code: 0x1
+                     Parameters Savable: No
+                            Page Length: 6
+               Disable Correction (DCR): Yes
+        Disable Transfer on Error (DTE): No
+           Post Recoverable Error (PER): Yes
+          Enable Early Correction (EEC): No
+                   Read Continuous (RC): No
+                    Transfer Block (TB): Yes
+       Automatic Read Allocation (ARRE): No
+      Automatic Write Allocation (AWRE): No
+                            Retry Count: 1
+                        Correction Span: 0
+                      Head Offset Count: 0
+               Data Strobe Offset Count: 0
+                    Recovery Time Limit: 255
+
+      Direct-Access Device Format Parameters (Page 3 - current values):
+
+      Page Header:
+                        Page Code: 0x3
+                     Parameters Savable: No
+                            Page Length: 22
+                        Tracks per Zone: 0
+             Alternate Sectors per Zone: 0
+              Alternate Tracks per Zone: 0
+            Alternate Tracks per Volume: 0
+                      Sectors per Track: 18
+         Data Bytes per Physical Sector: 512
+                             Interleave: 1
+                             Track Skew: 0
+                          Cylinder Skew: 0
+                     Surface Addressing: 0
+                        Removable Media: Yes
+                     Soft Sector Format: Yes
+
+      Flexible Disk Parameters (Page 5 - current values):
+
+      Page Header:
+                              Page Code: 0x5
+                     Parameters Savable: No
+                            Page Length: 30
+                          Transfer Rate: 500
+                        Number of Heads: 2
+                      Sectors per Track: 18
+                    Number of Cylinders: 80
+         Data Bytes per Physical Sector: 512
+        Write Precomp Starting Cylinder: 0
+         Reduced Write Current Cylinder: 0
+                        Drive Step Rate: 30
+                 Drive Step Pulse Width: 0
+                      Head Settle Delay: 160
+                         Motor On Delay: 5
+                        Motor Off Delay: 70
+           Starting Sector Number (SSN): 1
+            True Ready Indicator (TRDY): 0
+         Step Pulses Per Cylinder (SPC): 0
+                     Write Compensation: 0
+                        Head Load Delay: 0
+                      Head Unload Delay: 0
+                       Pin 1 Definition: 0
+                       Pin 2 Definition: 3
+                       Pin 4 Definition: 0
+                      Pin 34 Definition: 2
+                     Medium Rotate Rate: 0
+      scu> 
+
+3 code
+  For mode pages which are unknown to the program, a hex page code can be
+  specified for the page to display.  In this mode, mode page fields are
+  displayed in hex.  This format can also be used to override the known
+  formatted page show functions.
+
+    Format:
+
+      scu> show page code hex-code [ pcf page-control-field ]
+
+    Example:
+
+      scu> show page code 21
+
+      Unknown Page Parameters (Page 21 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 23
+                            Medium Type: 0x3 = Reversible or Erasable medium
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0x3
+               Number of Logical Blocks: 1
+                   Logical Block Length: 0
+
+      Page Header:
+                              Page Code: 0x21
+                     Parameters Savable: Yes
+                            Page Length: 10
+                                 Byte 2: 0x3
+                                 Byte 3: 0x8
+                                 Byte 4: 0
+                                 Byte 5: 0
+                                 Byte 6: 0x3
+                                 Byte 7: 0xe8
+                                 Byte 8: 0x2
+                                 Byte 9: 0x96
+                                Byte 10: 0x5
+                                Byte 11: 0
+
+      scu> 
+
+3 mode-page
+  Describes the mode page to operate on.  The mode pages currently supported
+  are:
+
+    'scu' Keyword          Page Code   Description
+    -------------          ---------   -----------
+    error-recovery           0x01      Error recovery page.
+    disconnect               0x02      Disconnect/reconnect page.
+    direct-access            0x03      Direct access format page.
+    geometry                 0x04      Disk geometry page.
+    flexible                 0x05      Flexible disk page.
+    cache-control            0x08      Cache control page.
+    cdrom                    0x0D      CD-ROM device page.
+    audio-control            0x0E      Audio control page.
+    device-configuration     0x10      Device configuration page.
+    medium-partition-1       0x11      Medium parition page 1.
+    dec-specific             0x25      DEC specific page.
+    readahead-control        0x38      Read-ahead control page.
+
+    Format:
+
+      scu> show pages [ mode-page [ pcf page-control-field ] ]
+
+    Example:
+
+      qrp> show page error
+
+      Error Recovery Parameters (Page 1 - current values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 19
+                            Medium Type: Default Medium Type
+              Device Specific Parameter: 0
+                Block Descriptor Length: 8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0
+               Number of Logical Blocks: 0
+                   Logical Block Length: 512
+
+      Page Header:
+                              Page Code: 0x1
+                     Parameters Savable: No
+                            Page Length: 6
+               Disable Correction (DCR): Yes
+        Disable Transfer on Error (DTE): No
+           Post Recoverable Error (PER): Yes
+          Enable Early Correction (EEC): No
+                   Read Continuous (RC): No
+                    Transfer Block (TB): Yes
+       Automatic Read Allocation (ARRE): No
+      Automatic Write Allocation (AWRE): No
+                            Retry Count: 1
+                        Correction Span: 0
+                      Head Offset Count: 0
+               Data Strobe Offset Count: 0
+                    Recovery Time Limit: 255
+
+      scu> 
+
+3 pcf
+  The page control field describes which mode pages to obtain from the
+  device.  The defined page control fields are:
+
+    Format:
+
+      scu> show pages pcf { current | changeable | default | saved }
+
+    Notes:
+      o  When displaying the changeable page parameters, field values are
+         displayed in hexadecimal radix to easily distinguish the changeable
+         parameters (1 = changeable, 0 = cannot change).
+      o  The default page control field is "current" values.
+      o  Selecting a "pcf" is sticky (i.e. sets new "pcf" default).
+
+    Example:
+
+      scu> show page error pcf changeable
+
+      Error Recovery Parameters (Page 1 - changeable values):
+
+      Mode Parameter Header:
+
+                       Mode Data Length: 0x13
+                            Medium Type: 0
+              Device Specific Parameter: 0
+                Block Descriptor Length: 0x8
+
+      Mode Parameter Block Descriptor:
+
+                           Density Code: 0
+               Number of Logical Blocks: 0
+                   Logical Block Length: 0x200
+
+      Page Header:
+                              Page Code: 0x1
+                     Parameters Savable: No
+                            Page Length: 0x6
+               Disable Correction (DCR): 0
+        Disable Transfer on Error (DTE): 0x1
+           Post Recoverable Error (PER): 0x1
+          Enable Early Correction (EEC): 0
+                   Read Continuous (RC): 0
+                    Transfer Block (TB): 0x1
+       Automatic Read Allocation (ARRE): 0
+      Automatic Write Allocation (AWRE): 0
+                            Retry Count: 0xff
+                        Correction Span: 0
+                      Head Offset Count: 0
+               Data Strobe Offset Count: 0
+                    Recovery Time Limit: 0
+
+      scu> 
+
+2 path-inquiry
+  This command displays the CAM Path Inquiry information.  If the nexus
+  information is omitted, then the path inquiry information associated
+  with the selected device is displayed.
+
+  Format:
+
+    scu> show path-inquiry [nexus-information]
+
+  Example:
+
+    % scu show path
+    Path Inquiry Information:
+
+       Version Number For The SIM/HBA: 2.5
+          SCSI HBA Capabilities Flags: 0x92
+                                       0x80 = Supports MDP message.
+                                       0x10 = Supports SDTR message.
+                                       0x2 = Supports tag queue message.
+            Target Mode Support Flags: 0
+      Miscellaneous HBA Feature Flags: 0
+                 The HBA Engine Count: 0
+           Vendor Unique Capabilities: 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        Size of SIM Private Data Area: 50
+          Async Callback Capabilities: 0xf3 Reasons for generating async event:
+                                       0x80 = New devices found during rescan.
+                                       0x40 = SIM module DE-registered.
+                                       0x20 = SIM module Registered.
+                                       0x10 = Sent Bus Device Reset to Target.
+                                       0x2 = Unsolicited Reselection.
+                                       0x1 = Unsolicited SCSI Bus Reset.
+         Highest HBA Path ID Assigned: 0
+          SCSI Device ID of Initiator: 6
+             The Vendor ID of the SIM: DEC OSG BSD/V1  
+             The Vendor ID of the HBA: DEC WSE BSD/V1  
+                The OSD Usage Pointer: 0
+    % 
+
+2 sense
+  This commands displays the last sense information for the last command
+  completed.  The sense data remains valid only until the next command is
+  issued, at which time it gets cleared.
+
+  Format:
+
+    scu> show sense
+
+  Example:
+
+    % scu -f /dev/rrz4c
+    scu> prevent
+    scu> eject
+    scu: 'eject caddy/media' failed, EIO (5) - I/O error
+    scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+         Sense Code/Qualifier = (0x53, 0x2) = Medium removal prevented
+    scu> show sense
+    Request Sense Information:
+
+                           Error Code: 0
+                          Error Class: 0x7
+                            Valid Bit: 0
+                       Segment Number: 0
+                            Sense Key: 0x5 - ILLEGAL REQUEST - Illegal request or CDB parameter
+                       Illegal Length: 0
+                         End Of Media: 0
+                            File Mark: 0
+                   Information Byte 3: 0
+                   Information Byte 2: 0
+                   Information Byte 1: 0
+                   Information Byte 0: 0
+              Additional Sense Length: 0x8
+           Command Information Byte 3: 0
+           Command Information Byte 2: 0
+           Command Information Byte 1: 0
+           Command Information Byte 0: 0
+                Additional Sense Code: 0x53
+                 Sense Code Qualifier: 0x2
+         Sense Code/Qualifier Message: Medium removal prevented
+          Field Replaceable Unit Code: 0
+    scu> 
+  
+1 source
+  This command allows you to source input from an external command file.
+  If any errors occur during command parsing and/or execution, then the
+  command file is closed at that point.
+
+    Format:
+
+      scu> source input-file
+
+    Alias:
+      You can specify the string "@" for the "source" command.  The
+      space following the "@" is required for proper parsing.
+
+    Notes:
+      Lines starting with the '#' character are treated as comment lines.
+      A default file name extension of '.scu' is appended to the input name
+      if an extension is not specified.  If the file is not located using
+      this extension, then 'scu' attempts to locate the original input file.
+
+1 start
+  This command starts a unit which is currently stopped.
+
+    Format:
+
+      scu> start
+
+1 stop
+  This command stops a unit.  This normally involves spinning the disk down
+  and parking the heads ot the landing cylinder.
+
+    Format:
+
+      scu> stop
+
+1 switch
+  This command switchs to another device or to a previous device.  If the
+  device name is omitted, this command acts as a toggle and simply switches
+  to the previous device (if one exists).  Otherwise, the device specified
+  is validated and if successful, it becomes the active device.
+
+    Format:
+
+      scu> switch [ device-name ]
+
+    Notes:
+      If an entry already exists for the device being specified, then
+      a substring can be specified to match either the device entry or
+      the device name to switch to.
+
+    Examples:
+
+      scu> switch /dev/rrz14c
+      Switching to device entry /dev/rrz14c (RZ55)...
+      scu> switch
+      Switching to device entry /dev/rrz10c (RX23)...
+      scu> 
+
+1 test
+  This command performs tests on a controller.  This involves issuing send
+  and receive diagnostic commands or write and read buffer commands (for
+  memory test) to the selected device.  The default is to perform the self
+  test which is supported by most controllers.
+
+    Format:
+
+      scu> test [ controller | drive | memory | selftest ]
+
+    Notes:
+      At the present time, the "controller" and "drive" diagnostics are
+      supported for the RRD42 CD-ROM only.
+
+2 memory
+  This command verifies the controller memory by using the SCSI Read and
+  Write Buffer commands.  Since most controllers only accept the Combined
+  Header and Data Mode with a buffer id and buffer offset of zero, these
+  are the defaults, but may be overridden.  By default, the full memory
+  size returned in the Read Buffer header, is written/read/verified, but
+  this too may be overridden by specifying a smaller data limit or size.
+
+    Format:
+
+      scu> test memory [ test-parameters ] [ parameters ]
+
+    Notes:
+      o  Please be aware, that these optional SCSI commands are *not*
+         supported by all devices.
+      o  If multiple passes are specified, the program cycles through
+         its' table of predefined data patterns.
+
+    Errors:
+      If the device does not support a Read Buffer commands and/or the
+      the default parameters, you'll see an error like the following:
+
+      scu> test memory
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 245760 bytes (Mode 0, Offset 0)
+      Testing 245760 bytes on [1/2/0] (TZK11) using pattern 0x39c39c39...
+      scu: 'SCMD_WRITE_BUFFER' failed, EIO (5) - I/O error
+      scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+           Sense Code/Qualifier = (0x24, 0) = Invalid field in cdb
+
+    Example:
+
+      % scu -f /dev/rrz11c
+      scu> test memory
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 61376 bytes (Mode 0, Offset 0)
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0x39c39c39...
+      scu> test memory pattern 0x12345678 size 50k
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 61376 bytes (Mode 0, Offset 0)
+      Testing 51200 bytes on /dev/rrz11c (RZ56) using pattern 0x12345678...
+      scu> test memory passes 5
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 61376 bytes (Mode 0, Offset 0)
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0x39c39c39...
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0x00ff00ff...
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0x0f0f0f0f...
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0xc6dec6de...
+      Testing 61376 bytes on /dev/rrz11c (RZ56) using pattern 0x6db6db6d...
+      scu> 
+
+3 parameters
+  Various parameters can be specified to control the test memory operation.
+  Most devices do not require these optional parameters, but newer devices
+  may require different parameters to access the controller data buffer.
+
+    Format:
+                                            { id buffer-id        }
+      scu> test memory [ test-parameters] [ { mode buffer-mode    } ]
+                                            { offset offset-value }
+
+    Notes:
+      o  The default buffer id is restricted to 0, since this id normally
+         selects the controller data buffer.
+      o  The default buffer mode is 0 (selects Combined header and data).
+      o  The default offset value is 0.  The program automatically adjusts
+         the memory data bytes being tested when this parameter is non-zero.
+      o  Since writing to the controller data buffer, destroyes data which
+         may be valid for active I/O requests, this command is not permitted
+         to disk devices with mounted file systems.
+      o  Refer to the vendor's SCSI programming manual for information on
+         buffer ID's and buffer modes supported.
+
+    Examples:
+      scu> show memory
+      The Controller Memory Size is 245760 (0x3c000) bytes.
+      scu> test memory mode 2
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 245760 bytes (Mode 2, Offset 0)
+      Testing 245760 bytes on [1/2/0] (TZK11) using pattern 0x39c39c39...
+      scu> 
+
+      - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      scu> show nexus
+      Device Nexus: Bus: 1, Target: 0, Lun: 0, Device Type: Optical
+      scu> show memory
+      scu: 'SCMD_READ_BUFFER' failed, EIO (5) - I/O error
+      scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+           Sense Code/Qualifier = (0x24, 0) = Invalid field in cdb
+      scu> show memory mode 3
+      The Memory Size for Mode 3, ID 0 is 493804 (0x788ec) bytes.
+      scu> test memory mode 2 offset 10k
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 493804 bytes (Mode 2, Offset 10240)
+      Testing 483564 bytes on [1/0/0] (RWZ52) using pattern 0x39c39c39...
+      scu> test memory mode 2
+      Performing Controller Memory Diagnostics...
+      Testing Controller Memory of 493804 bytes (Mode 2, Offset 0)
+      Testing 493804 bytes on [1/0/0] (RWZ52) using pattern 0x39c39c39...
+      scu> 
+
+1 tur
+  This command issues a Test Unit Ready command to determine the readiness
+  of a device.  On failures, the sense data is automatically reported.
+
+    Format:
+
+      scu> tur
+
+1 verify 
+  This command performs verify operations on the selected device.
+
+    Format:
+
+      scu> verify { media [ test-parameters ] }
+
+2 media
+  This command verifies the data written on the device media.  This
+  normally involves reading and performing an ECC check of the data. If
+  the test parameters are omitted, the entire device media is verified.
+
+    Format:
+
+      scu> verify media [ test-parameters ]
+
+    Notes:
+      o  On failures, the failing logical block number is reported and then
+         verification continues following the failing block.
+      o  By default, verification is performed using the current parameters
+         in the Error Recovery mode page.  Drive recovery can be disabled
+         using the "set recovery off" command.
+
+    Errors:
+      If the device does not support the verify data command, the following
+      error message is displayed:
+
+    scu> verify media starting 1000 length 1024
+    Verifying 1024 blocks on /dev/rrz10c (RX23), please be patient...
+    Verifying blocks [ 1000 through 2023 ] ...
+    scu: Sense Key = 0x5 = ILLEGAL REQUEST - Illegal request or CDB parameter,
+         Sense Code/Qualifier = (0x20, 0) = Invalid command operation code
+
+      When an error occurs, the sense key is examined.  The two expected
+      sense keys are Recovered Error (0x01) or Medium Error (0x03).  When
+      these errors are detected, the following error message is displayed
+      and verification continues following the failing block.
+
+    scu: Verify error at logical block number 464392 (0x71608).
+    scu: Sense Key = 0x1 = RECOVERED ERROR - Recovery action performed,
+         Sense Code/Qualifier = (0x17, 0) = Recovered data with no error correction applied
+
+      If any other sense key error occurs, then the full sense data is
+      displayed and the verification process os aborted.
+
+    Examples:
+
+      scu> verify media lba 464388
+      Verifying 1 blocks on /dev/rrz14c (RZ55), please be patient...
+      Verifying blocks [ 464388 through 464388 ] ...
+      scu> 
+      scu> verify media starting 640000
+      Verifying 9040 blocks on /dev/rrz14c (RZ55), please be patient...
+      Verifying blocks [ 640000 through 649039 ] ...
+      scu> 
+      scu> verify media starting 1000 length 250
+      Verifying 250 blocks on /dev/rrz14c (RZ55), please be patient...
+      Verifying blocks [ 1000 through 1249 ] ...
+      scu> 
+      scu> verify media starting 1000 ending 2000
+      Verifying 1001 blocks on /dev/rrz14c (RZ55), please be patient...
+      Verifying blocks [ 1000 through 2000 ] ...
+      scu> 
+
+1 write
+  This command performs various write operations to the selected device.
+
+    Format:
+
+      scu> write { media [ test-parameters ] }
+
+2 media
+  This command writes the device media using various data patterns.  You
+  must specify transfer parameters which specifies the media area to be
+  written.
+
+    Format:
+
+      scu> write media [ test-parameters ]
+
+  Please refer to the "Conventions" help section for a list of the valid
+  test parameters.
+
+    Examples:
+
+      scu> write media
+      scu: No defaults, please specify test parameters for transfer...
+      scu> write media lba 100
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      scu> write media starting 100 ending 250
+      Writing 151 blocks on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      scu> write media starting 2800 limit 1m bs 10k
+      Writing 80 blocks on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      Writing blocks [ 2800 through 2819 ]...
+      Writing blocks [ 2820 through 2839 ]...
+      Writing blocks [ 2840 through 2859 ]...
+      Writing blocks [ 2860 through 2879 ]...
+      scu> write media lba 2879 passes 5
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0x39c39c39...
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0xc6dec6de...
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0x6db6db6d...
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0x00000000...
+      Writing 1 block on /dev/rrz10c (RX23) with pattern 0xffffffff...
+      scu> 
+

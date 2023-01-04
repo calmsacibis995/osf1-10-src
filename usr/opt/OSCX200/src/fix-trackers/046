@@ -1,0 +1,138 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112112110.AA16998@extract.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2269) close XBUG #4711: PEX/PHIGS ar_ops.c writes EOA as long, read as short
+Date: Wed, 11 Dec 91 16:10:36 EST
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX/PHIGS ar_ops.c writes EOA as long, read as short
+        ### bug number:   4711
+        ### area:         pex
+        ### severity:     medium
+        ### comments:     This explains why InsPEX archival tests fail on little
+        ### comments:     endian machines. Knew there was a bug in there, but it
+        ### comments:     wasn't high on my list of bugs to track down. Glad 
+        ### comments:     someone else found it. :-)
+
+This is a cleaner way to do this versus the suggested fix and should
+do the right thing on both little and big endian.
+
+
+
+*** /tmp/,RCSt1a00574	Wed Dec 11 16:06:42 1991
+--- extensions/lib/PEX/include/ar.h	Wed Dec 11 16:05:49 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: ar.h,v 5.5 91/04/04 15:17:54 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1988-1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: ar.h,v 5.6 91/12/11 16:05:26 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright (c) 1988-1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 121,126 ****
+--- 121,131 ----
+      CARD8	pad;
+      /* List of char(length) */
+  } Phg_ar_begin_archive;
++ 
++ typedef struct {
++     CARD16	opcode;		/* Always EOA */
++     CARD8	pad[2];
++ } Phg_ar_end_archive;
+  
+  typedef struct {
+      CARD16	opcode;		/* Always BSE */
+*** /tmp/,RCSt1a00605	Wed Dec 11 16:07:00 1991
+--- extensions/lib/PEX/archive/ar_ops.c	Wed Dec 11 16:05:09 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: ar_ops.c,v 5.5 91/07/10 09:18:29 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: ar_ops.c,v 5.6 91/12/11 16:04:27 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 394,410 ****
+  Ar_handle     arh;
+  { 
+      int nbytes;
+-     short opcode;
+      int fd = arh->fd;
+   
+      /* Find EOA element position */
+      nbytes = lseek(fd, (off_t)-4, L_XTND);
+   
+      /* Insure the last element is EOA */
+!     if (read(fd, (char *)&opcode, sizeof(short)) != sizeof(short)) 
+  	return(1);
+  
+!     if (opcode != PHG_AR_EOA) 
+  	return(1);
+   
+      /* Remove the EOA element.  This is written by pclosearfile. */
+--- 394,410 ----
+  Ar_handle     arh;
+  { 
+      int nbytes;
+      int fd = arh->fd;
++     Phg_ar_end_archive    endar;
+   
+      /* Find EOA element position */
+      nbytes = lseek(fd, (off_t)-4, L_XTND);
+   
+      /* Insure the last element is EOA */
+!     if (read(fd, (char *)&endar, sizeof(endar)) != sizeof(endar))
+  	return(1);
+  
+!     if (endar.opcode != PHG_AR_EOA) 
+  	return(1);
+   
+      /* Remove the EOA element.  This is written by pclosearfile. */
+***************
+*** 477,489 ****
+  phg_ar_write_eoa(fd)
+  int fd;
+  {
+!     int opcode = PHG_AR_EOA << 16;
+!  
+      /* Find end of file */
+      (void) lseek(fd, (off_t)0, L_XTND);
+   
+!     /* Write the EOA element */
+!     if (write(fd, (char *)&opcode, sizeof(int)) != sizeof(int)) 
+  	return(1);
+   
+      return(0);
+--- 477,490 ----
+  phg_ar_write_eoa(fd)
+  int fd;
+  {
+!     Phg_ar_end_archive    endar;
+!     
+      /* Find end of file */
+      (void) lseek(fd, (off_t)0, L_XTND);
+   
+!     endar.opcode = PHG_AR_EOA;
+!     
+!     if (write(fd, (char *)&endar, sizeof(endar)) != sizeof(endar))
+  	return(1);
+   
+      return(0);
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts
+

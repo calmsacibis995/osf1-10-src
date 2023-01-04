@@ -1,0 +1,224 @@
+		     Late Night's Top Ten X11 Questions
+
+			 Dave Lemke (lemke@ncd.com)
+		       Stuart Marks (smarks@sun.com)
+
+1.  Why doesn't my program draw anything?  I create the window and draw into
+    it, but it's always blank.
+
+    In order to get a window on the screen, you must map it first, using the
+    XMapWindow() call.  Drawing into a window and then mapping it won't work
+    in most cases.
+
+1a. But I do map the window before drawing into it, and the window is still
+    blank.
+
+    The problem here is that if the window is a child of the root window,
+    XMapWindow() doesn't actually map the window; it sends a message to the
+    window manager asking it to map the window.  If you having drawing
+    requests right after the XMapWindow() call, they will probably be
+    processed before the window manager has actually mapped the window.  In
+    order to get around this delayed mapping effect, you must wait for an
+    Exposure event from the server.  This event indicates that your window is
+    on the screen and ready to receive graphics.  In general, you should
+    always draw in response to Exposure events.
+
+2.  Why does my program display in inverse-video on some servers?
+
+    You're assuming that 1 is black and 0 is white or vice-versa.  The
+    relationship between pixels 0 and 1 and the colors black and white is
+    implementation-dependent.  They may be reversed, or they may not even
+    correspond to black and white at all.  For instance, an 8-bit grayscale
+    server might choose to have 0 be black and 255 be white.  If you want to
+    draw in black and white, set the foreground and background pixels in the
+    GC using BlackPixel() and WhitePixel() macros instead of 0 and 1.  This
+    will help ensure that your application is portable amongst different
+    servers.
+
+3.  Can I get the background pixel/pixmap of a window using
+    GetWindowAttributes?
+
+    No.  Once set, the background pixel or pixmap of a window cannot be
+    re-read by clients.  The reason for this is that a client can create a
+    pixmap, set it to be the background pixmap of a window, and then free the
+    pixmap.  The window keeps this background, but the pixmap itself is
+    destroyed.  If you're sure a window has a background pixel (not a
+    pixmap), you can use XClearArea() to clear a region to the background
+    color and then use XGetImage() to read back that pixel.  However, this
+    action alters the contents of the window, and it suffers from race
+    conditions with exposures.
+
+4.  Why doesn't my program get keystrokes?  I select input for
+    KeyPress events, but my program never gets them.  (Alternatively,
+    my program works under uwm, but not under ...)
+
+    The window manager controls how the input focus is transferred from one
+    window to another.  In order to get keystrokes, your program must ask the
+    window manager for the input focus.  To do this, you must set up what are
+    called "hints" for the window manager.  If your applications is
+    Xlib-based, you can use something like the following:
+
+	XWMHints wmhints;
+	...
+	wmhints.flags = InputHint;
+	wmhints.input = True;
+	XSetWMHints(dpy, window, &hints)
+
+    If your application is based on the Xt Intrinsics, you can use something
+    like the following:
+
+	Arg arglist[MAXARGS];
+	Cardinal nargs = (Cardinal) 0;
+	...
+	XtSetArg(arglist[nargs++], XtNinput, TRUE);
+	...
+	XtCreatePopupShell(...);
+
+5.  I encountered a breakpoint when I was debugging a program, and now
+    everything is hung.  I can still move the mouse around on the screen,
+    but I can't type anything or get any mouse clicks to do anything.  HELP!
+
+    The debugger stopped your program while it was in the middle of what is
+    called a "grab".  There are various flavors of grabs, but the important
+    effect of all of them is that the grabbing client gets serviced at the
+    expense of other clients in the system.  This kind of feature is
+    necessary for doing highly interactive things like pop-up menu tracking.
+
+    The problem arises because the program you're debugging grabbed some
+    server resource, such as the keyboard, and then hit a breakpoint.  The
+    debugger is sharing the same resource with the debugged program, which
+    has grabbed the keyboard away from the debugger.  You can't type
+    debugger commands to continue the program, and thus you're stuck.
+
+    To get around this problem, you might try to iconify the debugged
+    program's window by using the mouse or the keyboard, whichever isn't
+    grabbed.  When the window goes iconic, any grabs on that window will be
+    deactivated by the server.
+
+    If the debugged program is in the middle of a server grab, you're really
+    stuck.  A server grab grabs *all* of the server's resources.  Thus, you
+    have to attack the problem by going outside of the server.  Killing the
+    debugged program and its debugger will release the grab and get you
+    unstuck, but you obviously can't continue debugging.  You might also try
+    making a special debugging-mode option to your program so that it doesn't
+    grab the server while you're debugging it.  If you can't do that, your
+    only choice is to debug the offending program from somewhere outside the
+    server it's displaying on, e.g. another workstation or a terminal.  If
+    you're running X11/NeWS from Sun, you can run a SunView shelltool on top
+    of the server; it will be unaffected by server grabs.
+
+6.  How do I do XOR drawing to work properly?  It doesn't work at all on some
+    servers, and I get funny colors on other servers.
+
+    It depends on what you mean by "properly."  For the most part, when you
+    do XOR drawing, you want to do some transient animation that won't
+    disturb the contents of the window.  You can do this with XOR because the
+    first XOR operation will change the contents to something different, and
+    then the second XOR operation will restore the original contents.  The
+    trick is to set up the GC source pixel so that the "something different"
+    contrasts properly with the surroundings.
+
+    Confusion arises because XOR drawing uses the GC foreground field as the
+    source pixel for the XOR operation.  If you use your actual foreground
+    pixel as the source for XOR, the result will probably be something off in
+    a random section of whatever colormap is installed.  Unless you've set up
+    and installed your own colormap, the color you end up with will be some
+    unlikely value over which you don't have any control.
+
+    What's often appropriate is to interchange the foreground color with the
+    background color.  If your graphics has the concept of a foreground and a
+    background, you can do XOR animation that switches foreground and
+    background by setting the GC foreground pixel to the XOR of the
+    foreground and background pixels.  In C, this would be
+
+	XGCValues gcvalues;
+	gcvalues.foreground = fgpixel ^ bgpixel;
+	XChangeGC(dpy,gc,GCForeground,&gcvalues);
+
+    For monochrome graphics, you can use
+
+	gcvalues.foreground =
+	BlackPixel(dpy,DefaultScreen(dpy))^WhitePixel(dpy,DefaultScreen(dpy));
+
+7.  I create and draw into a pixmap, but when I copy it to the screen with
+    XCopyArea, I get nothing but garbage.
+
+    The initial contents of pixmaps is undefined.  This means that most
+    servers will allocate the memory and leave around whatever happens to be
+    there -- which is usually garbage.  You probably want to clear the pixmap
+    first using XFillRectangle() with an alu function of GXcopy and a
+    foreground pixel of whatever color you want as your background (or 0L
+    if you are using the pixmap as a mask).
+
+8.  My color program always fails on XAllocColorCells().  But it works on
+    other servers.
+
+    Your program is assuming that the default colormap for the screen is a
+    dynamic one, that is, one out of which you can allocate nonshared color
+    cells via XAllocColorCells().  Some servers have a static colormap as
+    their default colormap, so XAllocColorCells() will fail.
+
+    You have several alternatives.  One possibility is to change your program
+    to use XAllocColor().  You won't be able to alter the color once you've
+    allocated it, but you may not have needed to do that in the first place.
+    You should use XAllocColor() in preference to XAllocColorCells() if you
+    simply want to get colors on the screen.  The reason is that
+    XAllocColor() allows the same colors to be shared amongst different
+    clients.
+
+    If you really need to allocate and change colormap cells, then you still
+    need to use XAllocColorCells() or XAllocColorPlanes().  For these calls
+    to work, you must search the server's visual list for a visual that
+    supports dynamic colormaps.  Then, you must create a colormap against
+    this visual and allocate colors out of this colormap.  If the server
+    doesn't have any dynamic visuals, your program simply won't work on this
+    server.  If you successfully create and use your own dynamic colormap,
+    you'll also have to create a window using the same visual and set that
+    window's colormap attribute to be your newly created colormap.  Don't
+    forget to set up WM_COLORMAP_WINDOWS so the window manager can install
+    your colormap.
+
+9.  My program worked fine in R3, but fails in X11R4 with an error in
+    ChangeWindowAttributes.  Also, my Andrew and Interviews code stopped
+    working with the same error.
+
+    A likely problem is the value given to a window's do_not_propagate mask.
+    R3 allowed bogus values to be set, and early version of both Andrew and
+    Interviews did just that.  X11R4 and several productized servers catch
+    this error and complain.  The events that can be suppressed are:
+
+	KeyPress, KeyRelease, ButtonPress, ButtonRelease, PointerMotion,
+	ButtonMotion and Button[1-5]Motion
+
+10. I set my windows to have BackingStore, yet they still get exposures.
+
+    There are several things that can be going on here.  The most
+    important thing to remember is that backing store is a hint.
+    You may have asked for backing store on your window, but the server may
+    not have enough memory to service your request.  If this is the case,
+    the server will go ahead and create and window without backing store,
+    and then send you an Exposure event to tell you to draw into it.
+
+    Other behavior that could possibly be counterintuitive is that, if you
+    create a window with BackingStore == Always, you will get an Exposure
+    event as soon as you create the window.  The server does this to let you
+    know that the initial contents of the window need to be filled.  It does
+    this even before you have mapped the window.
+
+    Some servers will throw away backing store if they start running out of
+    memory.  A window may start out with backing store, but then have it
+    thrown away by the server because of a memory shortage.  This window
+    will then start getting Exposure events.
+
+    Another possibility is a window manager with a 'Refresh' function.  Some
+    window managers implement this function by doing a ClearArea with the
+    Exposure flag set.  This will force the server the send an Exposure
+    event, even if the window still has backing store.
+
+    The bottom line is that clients must *always* be prepared to repaint
+    their windows in response to Exposure events.  Backing store is a hint,
+    and it is only useful to reduce the number of Exposures on the window;
+    it doesn't guarantee that none will ever occur.  If you need to keep an
+    image in the server, but not on the screen, use pixmaps.
+
+[@(#)answers.txt 1.3 89/12/15]

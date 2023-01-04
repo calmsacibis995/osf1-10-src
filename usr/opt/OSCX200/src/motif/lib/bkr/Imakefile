@@ -1,0 +1,94 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+#
+# Imakefile for building Bookreader V3.1 on OSF/1-Alpha.
+#
+
+#define DoNormalLib NormalLibBkr
+#define DoSharedLib SharedLibBkr
+#define DoDebugLib DebugLibBkr
+#define DoProfileLib ProfileLibBkr
+#include <Library.tmpl>
+
+
+HEADERS = bkr_api.h
+# LOCAL_HEADERS is not used by anthing.  Just for documentation.
+LOCAL_HEADERS = bkr_api_util.h br_common_defs.h br_prototype.h
+
+SRCS = hyperhelp.c bkr_api.c bkr_api_util.c
+OBJS = hyperhelp.o bkr_api.o bkr_api_util.o
+
+DEFINES = -DUSE_PROTOS
+
+SHLIBFLAGS = -check_registry $(CROSSBASE)/usr/shlib/so_locations        -L$(CROSSBASE)/usr/shlib -L$(CROSSBASE)/usr/ccs/lib -shared -set_version motif1.2
+
+# Build the BKR_API archive
+#
+LibraryObjectRule()
+
+#if DoSharedLib
+      SO_REQLIBS = $(IMGLIB) $(CDALIB) $(DPSLIB) MrmClientLibs -lc -lm
+#if DoNormalLib
+SharedLibraryTarget(bkr,$(SOBKRREV),$(OBJS),shared,..)
+#else
+SharedLibraryTarget(bkr,$(SOBKRREV),$(OBJS),.,.)
+#endif
+InstallSharedLibrary(bkr,$(SOBKRREV),$(USRSHLIBDIR))
+#endif
+#if DoNormalLib
+NormalLibraryTarget(bkr,$(OBJS))
+# endif
+
+#
+# install the BKR_API archive
+#
+InstallLibrary(bkr,$(USRLIBDIR))
+
+#
+# build local includes
+#
+BuildIncludes($(HEADERS),DXm,..)
+
+#
+# Install BKR_API headers
+#
+InstallMultiple($(HEADERS),$(INCROOT)/DXm)
+
+DependTarget()
+
+#if ProfileLibBkr
+ProfiledLibraryTarget(bkr,$(OBJS))
+#endif
+#if DebugLibBkr
+#if InstallStaticDebugLibraries
+DebuggedLibraryTarget(bkr,$(OBJS))
+InstallLibrary(bkr_d,$(DEBUGUSRLIBDIR))
+#endif
+#if DoSharedLib && InstallSharedDebugLibraries
+SharedDebuggedLibraryTarget(bkr,$(SOBKRREV),$(OBJS),debugged,..)
+InstallNonExecFile(debugger/libbkr.so,$(DEBUGUSRLIBDIR))
+#endif
+#endif

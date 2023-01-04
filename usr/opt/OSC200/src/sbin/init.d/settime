@@ -1,0 +1,82 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: settime,v $ $Revision: 4.3.3.3 $ (DEC) $Date: 1992/11/16 15:58:14 $ 
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+set `who -r`
+if [ $9 != "S" ]
+then
+        exit
+fi
+
+#
+# Call settz to set the timezone variable in the kernel
+#
+SETTZ=/usr/sbin/settz 
+if [ -f $SETTZ ]; then
+	echo "Setting kernel timezone variable"
+	$SETTZ
+fi 
+
+#
+# Synchronize with network time. Must be run after Inet is started
+#
+NTPDATE=/usr/sbin/ntpdate
+RCMGR=/usr/sbin/rcmgr
+RDATE=/usr/sbin/rdate
+DATE=/sbin/date
+
+NTPDATE_OPTS="-bos"
+XNTPD_CONF=`$RCMGR get XNTPD_CONF`
+XNTP_SERV1=`$RCMGR get XNTP_SERV1`
+XNTP_SERV2=`$RCMGR get XNTP_SERV2`
+XNTP_SERV3=`$RCMGR get XNTP_SERV3`
+
+RDATE_CONF=`$RCMGR get RDATE_CONF`
+
+if [ "$RDATE_CONF" = "YES" ]; then
+	if [ -f $RDATE ]; then
+		echo "Setting the current time and date with rdate"
+		$RDATE -s
+	fi
+fi
+
+if [ "$XNTPD_CONF" = "YES" ]; then
+	if [ -f $NTPDATE ]; then
+		if $NTPDATE $NTPDATE_OPTS $XNTP_SERV1 $XNTP_SERV2 $XNTP_SERV3
+		then
+        		echo "Setting the current time and date with ntpdate"
+			$DATE
+		fi
+	fi
+fi
+

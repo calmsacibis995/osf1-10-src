@@ -1,0 +1,157 @@
+.\"
+.\" $XConsortium: p043,v 5.3 91/08/20 20:09:01 keith Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "ESCAPE" 3P "29 February 1991"
+.SH NAME
+ESCAPE \- invoke an implementation-dependent function
+.IX "ESCAPE" pescape "" "pescape \(em \s-2C\s+2 function"
+.IX pescape "" "pescape \(em \s-2C\s+2 function"
+.IX "C functions" "pescape"
+.IX "Implementation-Specific Functions" "ESCAPE"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pescape ( func_id, in, store, out )
+Pint	func_id;	\fIescape function identifier\fP 
+Pescape_in_data	*in;	\fIinput data for the function\fP 
+Pstore	store;	
+Pescape_out_data	**out;	\fI\s-2OUT\s+2 output data of the function\fP 
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2ESCAPE\s+2 is a standard way of invoking \s-2PHIGS\s+2 functions
+provided by the implementation but not defined in the \s-2PHIGS\s+2 standard.
+Such functions are called \fIescape functions.\fP
+This single function can access any of the implementation-dependent escape
+functions provided.
+These functions either perform an action or return
+information not defined by the \s-2PHIGS\s+2 standard.
+.LP
+The provided escape functions are:
+.RS
+.sp .3
+\(bu  Enforce synchronized error reporting
+.sp .2
+\(bu  Inquire a workstation's drawable and display
+.sp .2
+\(bu  Disable bounds checking of Device Coordinate parameters to \s-2PHIGS\s+2 functions
+.RE
+.LP
+See the separate manual page for each individual escape for a full
+description of its function.
+.SS C Input Parameters
+Applications using the \s-2C\s+2 binding must create a buffer to be used by this
+function as memory space for storing data associated with the device state.
+This buffer is passed as the \fIstore\fP argument.  
+.LP
+The store buffer is a data area managed by \s-2PHIGS\s+2. While the application 
+is responsible for creating the inital buffer through a call to \s-2\CREATE STORE\s+2, 
+\s-2PHIGS\s+2 manages this area such that there is sufficient memory for the 
+specific inquiry. The data record within the store buffer is accessed 
+by the pointer pointed to by \fIout\fR.
+.IP \fIfunc_id \fP
+An integer specifying which escape function to perform.
+The recognized identifiers are:
+.nf
+.ta .5i +\w'-21 'u +\w'PUESC_IGNORE_DC_ERRORS   'u 
+.sp
+\-1	PUESC_ERRSYNC		\fIError Synchronization\fP
+\-2	PUESC_DPYINFO		\fIInquire x_tool's drawable and display\fP
+\-3	PUESC_IGNORE_DC_ERRORS	\fIDisable DC bounds checking\fP
+.sp
+.fi
+.IP \fIin_data\fP
+A pointer to a Pescape_in_data union containing the input data record
+required by the escape function specified in the 
+\fIfunc_id\fP parameter.
+Pescape_in_data is defined in phigs.h as follows:
+.nf
+.ta .5i +.5i +.75i +1.3i
+.sp .4
+typedef union {
+.sp .2
+	/* Implementation dependent escape input data records. */
+	struct {
+		Perrsync	sync_on;
+	} escape_in_u1;	
+	struct {
+		Pint	ws_id;
+	} escape_in_u2;	
+	struct {
+		Pint	ignore_DC_errors;	/* ignore subsequent DC errors if non-zero */
+	} escape_in_u3;
+.sp .2
+} Pescape_in_data;
+.fi
+.sp
+.SS C Output Parameters
+.IP \fIout_data\fP
+A pointer to a pointer to a Pescape_out_data union.
+If the specified escape function returns information,
+\s-2PHIGS\s+2 copies a pointer to the requested information 
+to the variable pointed to by this parameter.
+This parameter is unused if the escape function does not return any
+information.
+Pescape_out_data is defined in phigs.h as follows:
+.nf
+.ta .5i +.5i +1.0i +1.5i
+.sp .4
+typedef union {
+.sp .2
+	/* Implementation dependent escape input data records. */
+	struct {
+	    Pint		 err_ind;	/* error indicator */
+	    Display	*display;	/* may be returned as NULL */
+	    XID		drawable_id;
+	    XID      	 input_overlay_id;	/* will be 0 if category not OUTIN */
+	    char       	*display_name;
+	} escape_out_u2;	
+.sp .2
+} Pescape_out_data;
+.fi
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state (\s-2PHOP, *, *, *\s+2)
+.IP 350
+Warning, the specified escape is not available on one or more workstations
+in this implementation.
+The escape will be processed by those workstations on which it is available
+.IP 351
+Ignoring function, one of the fields within the escape data record is in error
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "ESCAPE -1 (3P)"
+.SM "ESCAPE -2 (3P)"
+.SM "ESCAPE -3 (3P)"
+.SM "CREATE STORE (3P)"
+.SM "DELETE STORE (3P)"
+.fi

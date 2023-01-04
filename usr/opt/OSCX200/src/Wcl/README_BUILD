@@ -1,0 +1,210 @@
+SccsID: %Z% %M% %I% %E% %U%
+
+Widget Creation Library Version 2.02 Build Instructions
+-------------------------------------------------------
+
+Imakefiles and MakeByHand Makefiles
+-----------------------------------
+
+Both Imakefiles and hand-built (MakeByHand) Makefiles are provided.
+
+If imake works on your machine, then USE IT!  The hand-built makefiles
+work, but they are not any where near as convenient nor powerful.
+Imakefiles are a far better way to go.  Bitch to your system
+administrator and/or hardware/software vendor if imake does not work on
+your machine.
+
+Before you use the Imakefiles, you probably need to edit the Wc.tmpl
+file.  Before you use the MakeByHand makefiles, you need to edit
+WcMake1.tmpl and WcMake2.tmpl.
+
+Specific Platform Compilation
+-----------------------------
+
+If you just happen to have the following systems, you have it very
+easy.  These are the systems I use.
+
+
+SunOS 4.1 with X11R5, Motif 1.1.1, OpenLook
+-------------------------------------------
+	% xmkmf
+	% makeSun World
+
+I use XTTRACEMEMORY to be sure there are no memory leaks in the Wcl
+distribution.  Like other debug malloc schemes, this causes a macro to
+be used for invocations to XtMalloc etc.  I had to edit
+/usr/openwin/include/Xol/OlXlibExt.h to wrap the extern decls for
+XtMalloc and XtFree (lines 30 and 31) like this:
+
+	#if !defined(XtMalloc)
+	extern char *XtMalloc();
+	extern void XtFree();
+	#endif
+
+If you do not have a debug version of Xt compiled with XTTRACEMEMORY,
+then you must edit Wc.tmpl to remove this flag from this line:
+
+	 #define DebugClientOptions -g -DXTTRACEMEMORY
+
+
+IRIX SVR3 with X11R4 and Motif 1.1.3
+-----------------------------------
+	% mv Wc.tmpl Wc.tmpl.orig
+	% mv Wc.tmpl.irix Wc.tmpl
+	% xmkmf
+	% makeSun World
+
+Sorry, but the resultant Makefile will NOT install man pages due to
+inconsistencies in the SGI Imake configuration.  I do not want to
+fix this right now, maybe later with popular demand or a fix from
+one of you... ;^)
+
+
+SNI SVR4 with X11R5 and Motif 1.1.1
+-----------------------------------
+	% vi Wc.tmpl
+	< set HaveOpenLookWidgetSet to NO >
+	% xmkmf
+	% makeSNISVR4 World
+
+
+SNI SVR4 with SNI X11R4 and SNI Motif 1.1
+-----------------------------------------
+	% mv WcMake1.tmpl WcMake1.orig
+	% mv WcMake1.svr4 WcMake1.tmpl
+	% mv WcMake2.tmpl WcMake2.orig
+	% mv WcMake2.svr4 WcMake2.tmpl
+	% makeSV -f MakeByHand World
+
+
+SCO ODT SVR3 with X11R3.5 and Motif 1.0
+----------------------------------
+	% mv WcMake1.tmpl WcMake1.orig
+	% mv WcMake1.sco WcMake1.tmpl
+	% mv WcMake2.tmpl WcMake2.orig
+	% mv WcMake2.sco WcMake2.tmpl
+	% makeSV -f MakeByHand World
+
+
+
+Building The Distribution using Imake
+-------------------------------------
+
+You probably need to edit the Wc.tmpl file.  Comments in this file tell you
+what to do.
+
+If Wcl is somewhere in your X source tree (like mit/lib/Wcl or
+contrib/toolkits/Wcl) then you need to add Wcl into the list of SUBDIRS
+in the Imakefile in the parent directory.  Wcl will then be built along
+with everything else.
+
+If building alone, this is what you will need to do (change the include
+file path to point to wherever your imake configuration files are
+installed):
+
+	% imake -DUseInstalled -I/usr/X11R5/lib/X11/config
+	% make World
+
+This should work if your system administrators have installed Imake
+appropriately.  If they have not, then in the worst case just use the
+Hand Built Makefile approach presented below.  You should, however,
+bitch and moan to whoever will listen, because a properly installed
+Imake will allow you to get all sorts of wonderful things off the
+networks and build them very easily.
+
+
+Building The Distribution using Hand Built Makefiles
+----------------------------------------------------
+
+First, you probably have to change things in WcMake1.tmpl and WcMake2.tmpl.
+Many examples and comments are given, so this is not difficult.
+
+Once you have edited the WcMake1.tmpl and WcMake2.tmpl files, then you
+should be able to simply build the distribution from this directory,
+like this:
+
+	% make -f MakeByHand World
+
+
+Testing The Distribution
+------------------------
+
+A program named Test is built which can be used to test the distribution.
+The file ./Mri/Test.c contains the source, which is a very slightly hacked
+version of ./Mri/Mri.c.  There are resource files which test all paths
+within libWc (but not yet libXmp).  Here is how you run Test:
+
+	% cd ./Mri
+	% setenv XAPPLRESDIR ./
+	% Test -name Mri -rf WcAll
+
+or if using sh or ksh:
+
+	% cd ./Mri
+	% XAPPLRESDIR=./
+	% export XAPPLRESDIR
+	% Test -rf WcAll
+
+If you built on a system with shared libraries using imake, then you
+probably will get errors like this:
+
+	dynamic linker: Test: can't find libXmp.so.2.0
+
+In this case, do something like this to tell the dynamic linker where
+to find libXmp and libWc:
+
+	LD_LIBRARY_PATH=../Xmp:../Wc:$LD_LIBRARY_PATH
+
+Each resource interpreter (Ari, Cri, Mri, and Ori) is provided 
+with many
+demonstration resource files which are intended to provide a tutorial
+in the use of Wcl.  Try this:
+
+	% cd ./Ari
+	% Ari -rf Demo
+
+	% cd ./Cri
+	% Cri -rf Demo
+
+	% cd ./Mri
+	% Mri -rf Demo
+
+	% cd ./Ori
+	% Ori -rf Demo
+
+
+Installing the Distribution
+---------------------------
+
+After testing the distribution, Wcl is easy to install.  With Makefiles
+created using imake:
+
+	% make install
+	% make install.man
+
+Or with the hand-built MakeByHand files:
+
+	% make -f MakeByHand install
+	% make -f MakeByHand install.man
+
+In both cases, you install from the top level directory of the distribution.  
+
+
+Passing Wcl on to others
+------------------------
+
+As mentioned in the Wcl copyright (see the COPY include file) the entire
+Wcl distribution can be given to others.  In order to make this easy, the
+hand-built Makefile has targets for making compressed tarfiles:
+
+	% make -f MakeByHand tar.Z
+
+
+
+------------------------------------------------------------
+David E. Smyth                David.Smyth@sniap.mchp.sni.de
+Object/X Researcher           david@ap542.uucp
+Esprit Research               david%ap542@ztivax.siemens.com
+Funding provided by: Siemens Nixdorf Informationssysteme AG
+                     AP 154, Carl-Wery-Str 22, Munich 83 Germany
+

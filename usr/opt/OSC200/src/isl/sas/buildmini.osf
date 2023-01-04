@@ -1,0 +1,302 @@
+#!/kits/bin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: buildmini.osf,v $ $Revision: 1.1.17.6 $ (DEC) $Date: 1993/07/08 18:15:25 $
+# @(#)$RCSfile: buildmini.osf,v $ $Revision: 1.1.17.6 $ (DEC) $Date: 1993/07/08 18:15:25 $
+#
+#	buildmini.osf - build an in memory file system for SAS kernel
+#
+#	buildmini.osf <build-dir> <dev> <devtype>
+#
+#
+#	001	20-nov-1991	jk -- Original version
+#		Combined pieces of buildroot.osf and buildmini
+#
+
+PATH=".:/bin:/sbin:/etc:/usr/ucb:/usr/bin:/usr/sbin:/kits/bin"
+export PATH
+umask 022
+
+
+:	-Variable Declarations
+#
+
+BM_DISKBLK=
+BM_DISKRAW=
+BM_DISKTYPE=
+BM_ISMOUNT=0
+BM_LOG1=fsmrg.log
+BM_LOG2=pmerge.log
+BM_MNT=/tmp/BM$$
+BM_NETLOAD=../../../output/mdec/netload
+BM_SAS=usr/sys/SAS
+BM_SHELL=/bin/sh5
+BM_SYSTYPE=`uname`
+
+if [ -f mini.inv ]
+then
+        . mini.inv
+else
+        echo "Cannot locate buildmini inventory file.  Exiting."
+        exit 1
+fi
+
+[ "$BM_SYSTYPE" = "OSF1" ] &&
+{
+	BM_SHELL=/bin/sh
+	BM_FSCKOPTS=-o
+}
+
+#	Should this be another parameter to buildmini?
+#
+BM_BLKSIZ=8192
+BM_BPI=16384		# bytes/inode on filesystem
+BM_FRAGSIZ=1024
+BM_SIZE=7168		# Same as /sys/conf/SAS.* "pseudo device memd"
+
+:	-Error
+#		Print args on stderr
+#
+
+Error()
+{
+	1>&2 echo $*
+}
+
+
+
+:	-Exit
+#		Exit the program
+#
+#	given:	$1 - exit status
+#	does:	clean up (may dismount disk, remove mount dir) and exit
+#	return:	not at all
+
+Exit()
+{
+	BM_STATUS=$1
+
+	[ "$BM_ISMOUNT" -eq 1 ] &&
+	{
+		umount $BM_MNT ||
+			Error "Warning: cannot dismount $BM_DISKBLK"
+
+		exit $BM_STATUS
+	}
+	rmdir $BM_MNT 2> /dev/null
+	exit $BM_STATUS
+}
+
+:	-Main
+#
+
+Main()
+{
+	BM_HOME=`/bin/pwd`
+
+	#
+	# Get build area output pack paths
+	#
+	case "$#" in
+	4)
+		BM_HDWRBUILD=`(cd $1;/bin/pwd)`
+		[ ! -d $BM_HDWRBUILD ] &&
+		{
+			Error "$BM_HDWRBUILD: no such directory"
+			Exit 1
+		}
+		shift
+		BM_BASEBUILD=`(cd $1;/bin/pwd)`
+		[ ! -d $BM_BASEBUILD ] &&
+		{
+			Error "$BM_BASEBUILD: no such directory"
+			Exit 1
+		}
+		shift
+		;;
+	3)
+		BM_HDWRBUILD="NO_HDWR_PACK"
+		BM_BASEBUILD=`(cd $1;/bin/pwd)`
+		[ ! -d $BM_BASEBUILD ] &&
+		{
+			Error "$BM_BASEBUILD: no such directory"
+			Exit 1
+		}
+		shift
+		;;
+	*)	Error "usage: $0 <update-build-dir> <base-build-dir> <dev> <devtype>"
+		Error "example: $0 /output rz2a RZ55"
+		Exit 1
+		;;
+	esac
+
+	#
+	# Check disk to be used for building miniroot
+	#
+	BM_DISKBLK=/dev/${1}
+	BM_DISKRAW=/dev/r${1}
+	[ ! -c "$BM_DISKRAW" ] &&
+	{
+		Error "$BM_DISKRAW: no such character device"
+		Exit 1
+	}
+	[ ! -b "$BM_DISKBLK" ] &&
+	{
+		Error "$BM_DISKBLK: no such block device"
+		Exit 1
+	}
+	BM_DISKTYPE=$2
+
+	echo "\n*** Creating new filesystem on $BM_DISKRAW ( $BM_DISKTYPE )\n"
+	umount $BM_DISKBLK 2> /dev/null
+	newfs -i $BM_BPI -m 0 -s $BM_SIZE -b $BM_BLKSIZ -f $BM_FRAGSIZ $BM_DISKRAW $BM_DISKTYPE ||
+	{
+		Error "Cannot 'newfs' $BM_DISKRAW"
+		Exit 1
+	}
+
+	echo "\n*** Mounting $BM_DISKBLK on $BM_MNT"
+	mkdir $BM_MNT 2> /dev/null
+	mount $BM_DISKBLK $BM_MNT ||
+	{
+		Error "cannot mount $BM_DISKBLK on $BM_MNT"
+		Exit 1
+	}
+	BM_ISMOUNT=1
+
+
+	echo "\n*** Creating directory structure on $BM_DISKBLK "
+
+	cd $BM_MNT
+	rm -rf lost+found
+	mkdir $DIRLIST
+	chmod 777 tmp
+
+        echo "\tCopying miniroot files to $BM_DISKBLK "
+
+        set - $COPYLIST
+        while [ $# -gt 0 ]
+        do
+		if [ -f $BM_HDWRBUILD/$1 ]
+		then
+			cp $BM_HDWRBUILD/$1 $BM_MNT/$2
+		else
+                	cp $BM_BASEBUILD/$1 $BM_MNT/$2
+		fi
+                shift 2
+        done
+
+        set - $HARDLINKS
+        while [ $# -gt 0 ]
+        do
+                ln $1 $2
+                shift 2
+        done
+
+        set - $SOFTLINKS
+        while [ $# -gt 0 ]
+        do
+                ln -s $1 $2
+                shift 2
+        done
+
+	set - $STOWAWAYS
+        while [ $# -gt 0 ]
+        do
+                cp $1 $BM_MNT/$2
+                shift 2
+        done
+
+	echo "\n*** Creating device files on $BM_DISKBLK "
+	(cd $BM_MNT/dev; $BM_SHELL ./MAKEDEV std)
+	mknod dev/md0a b 1 0
+	mknod dev/md0b b 1 1
+
+	sync; sync; sync
+	(cd $BM_MNT;df .)
+	cd $BM_HOME
+	echo
+
+	if umount $BM_DISKBLK; then
+	{
+		BM_ISMOUNT=0
+	}
+	else
+	{
+		Error "Warning - cannot dismount $DISKBLK"
+	}; fi
+
+	fsck $BM_FSCKOPTS $BM_DISKRAW ||
+	{
+		Error "Error running 'fsck' on $BM_DISKRAW"
+		Exit 1
+	}
+
+	rmdir $BM_MNT
+
+	echo "\n\n*** PREPARING BOOT KERNELS AND OTHER FILES ***"
+
+	echo "\tBuilding CDROM SAS kernel .... \c"
+	if [ -f $BM_HDWRBUILD/$BM_SAS/vmunix ]
+	then
+		cp $BM_HDWRBUILD/$BM_SAS/vmunix $BM_KERNEL
+		BM_BUILD=$BM_HDWRBUILD
+	else
+		cp $BM_BASEBUILD/$BM_SAS/vmunix $BM_KERNEL
+		BM_BUILD=$BM_BASEBUILD
+	fi
+	fsmrg $BM_DISKRAW $BM_KERNEL 1>$BM_LOG1
+	echo done
+
+	echo "\tBuilding bootp SAS kernel .... \c"
+	pmerge sboot $BM_KERNEL $BM_BUILD/$BM_SAS/${BM_KERNEL}.bootp 1>$BM_LOG2
+	echo done
+
+	case "$BM_SYSTYPE" in
+	ULTRIX )
+		echo "\tStripping SAS kernel for mop ...."
+		cp $BM_KERNEL ${BM_KERNEL}.sas
+		astrip ${BM_KERNEL}.sas
+
+		echo "\tBuilding mop SAS kernel .... \c"
+		mopify ${BM_KERNEL}.sas $BM_BUILD/$BM_SAS/${BM_KERNEL}.mop
+		rm ${BM_KERNEL}.sas
+		echo done
+
+		echo "\tBuilding netload.mop .... \c"
+		mopify $BM_NETLOAD $BM_NETLOAD.mop
+		echo done
+		;;
+	* )
+		echo "Build the mop SAS kernel and netload.mop on an ULTRIX machine."
+		;;
+	esac
+
+	echo "*** Done."
+
+	Exit 0
+}
+
+[ "$CHECK_SYNTAX" ] || Main $*		# does not return, program exits.

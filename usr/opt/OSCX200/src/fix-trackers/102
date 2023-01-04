@@ -1,0 +1,249 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9201230518.AA15487@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2325) addendum to seq 2324: xauth should write MIT-MAGIC-COOKIE-1 first
+Date: Thu, 23 Jan 92 00:18:36 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+The previously-distributed fix did not correctly handle multiple displays.
+There is some de-linting here, too.
+
+*** /tmp/,RCSt1a15476	Thu Jan 23 00:16:05 1992
+--- clients/xauth/process.c	Wed Jan 22 23:39:36 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: process.c,v 1.39 92/01/22 17:34:28 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: process.c,v 1.41 92/01/22 23:39:12 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 88,94 ****
+  static int do_help(), do_source(), do_info(), do_exit();
+  static int do_quit(), do_questionmark();
+  
+! CommandTable command_table[] = {	/* table of known commands */
+      { "add",      2, 3, do_add,
+  	"add dpyname protoname hexkey   add entry" },
+      { "exit",     3, 4, do_exit,
+--- 88,94 ----
+  static int do_help(), do_source(), do_info(), do_exit();
+  static int do_quit(), do_questionmark();
+  
+! static CommandTable command_table[] = {	/* table of known commands */
+      { "add",      2, 3, do_add,
+  	"add dpyname protoname hexkey   add entry" },
+      { "exit",     3, 4, do_exit,
+***************
+*** 192,202 ****
+  static char *skip_space (s)
+      register char *s;
+  {
+-     register char c;
+- 
+      if (!s) return NULL;
+  
+!     for (; (c = *s) && isascii(c) && isspace(c); s++) ;
+      return s;
+  }
+  
+--- 192,201 ----
+  static char *skip_space (s)
+      register char *s;
+  {
+      if (!s) return NULL;
+  
+!     for ( ; *s && isascii(*s) && isspace(*s); s++)
+! 	;
+      return s;
+  }
+  
+***************
+*** 204,215 ****
+  static char *skip_nonspace (s)
+      register char *s;
+  {
+-     register char c;
+- 
+      if (!s) return NULL;
+  
+      /* put quoting into loop if need be */
+!     for (; (c = *s) && isascii(c) && !isspace(c); s++) ;
+      return s;
+  }
+  
+--- 203,213 ----
+  static char *skip_nonspace (s)
+      register char *s;
+  {
+      if (!s) return NULL;
+  
+      /* put quoting into loop if need be */
+!     for ( ; *s && isascii(*s) && !isspace(*s); s++)
+! 	;
+      return s;
+  }
+  
+***************
+*** 591,596 ****
+--- 589,595 ----
+  #define _signal_t void
+  #endif
+  
++ /* ARGSUSED */
+  static _signal_t die (sig)
+      int sig;
+  {
+***************
+*** 736,742 ****
+      char *tmpnam;
+  {
+      FILE *fp;
+!     AuthList *list, *magic_cookie;
+  
+      /*
+       * xdm and auth spec assumes auth file is 12 or fewer characters
+--- 735,741 ----
+      char *tmpnam;
+  {
+      FILE *fp;
+!     AuthList *list;
+  
+      /*
+       * xdm and auth spec assumes auth file is 12 or fewer characters
+***************
+*** 755,773 ****
+       * Write MIT-MAGIC-COOKIE-1 first, because R4 Xlib knows
+       * only that and uses the first authorization it finds.
+       */
+-     magic_cookie = (AuthList *)NULL;
+      for (list = xauth_head; list; list = list->next) {
+  	if (list->auth->name_length == 18
+  	    && strncmp(list->auth->name, "MIT-MAGIC-COOKIE-1", 18) == 0)
+  	{
+- 	    magic_cookie = list;
+  	    XauWriteAuth (fp, list->auth);
+- 	    break;
+  	}
+      }
+      for (list = xauth_head; list; list = list->next) {
+! 	if (list != magic_cookie)
+  	    XauWriteAuth (fp, list->auth);
+      }
+  
+      (void) fclose (fp);
+--- 754,772 ----
+       * Write MIT-MAGIC-COOKIE-1 first, because R4 Xlib knows
+       * only that and uses the first authorization it finds.
+       */
+      for (list = xauth_head; list; list = list->next) {
+  	if (list->auth->name_length == 18
+  	    && strncmp(list->auth->name, "MIT-MAGIC-COOKIE-1", 18) == 0)
+  	{
+  	    XauWriteAuth (fp, list->auth);
+  	}
+      }
+      for (list = xauth_head; list; list = list->next) {
+! 	if (list->auth->name_length != 18
+! 	    || strncmp(list->auth->name, "MIT-MAGIC-COOKIE-1", 18) != 0)
+! 	{
+  	    XauWriteAuth (fp, list->auth);
++ 	}
+      }
+  
+      (void) fclose (fp);
+***************
+*** 845,851 ****
+  
+  static void fprintfhex (fp, len, cp)
+      register FILE *fp;
+!     int len;
+      char *cp;
+  {
+      unsigned char *ucp = (unsigned char *) cp;
+--- 844,850 ----
+  
+  static void fprintfhex (fp, len, cp)
+      register FILE *fp;
+!     unsigned int len;
+      char *cp;
+  {
+      unsigned char *ucp = (unsigned char *) cp;
+***************
+*** 875,880 ****
+--- 874,880 ----
+      return;
+  }
+  
++ /* ARGSUSED */
+  static int dump_entry (inputfilename, lineno, auth, data)
+      char *inputfilename;
+      int lineno;
+***************
+*** 1003,1009 ****
+  	AuthList *next = b->next;	/* in case we free it */
+  
+  	a = first;
+! 	while (1) {
+  	    if (match_auth (a->auth, b->auth)) {  /* found a duplicate */
+  		AuthList tmp;		/* swap it in for old one */
+  		tmp = *a;
+--- 1003,1009 ----
+  	AuthList *next = b->next;	/* in case we free it */
+  
+  	a = first;
+! 	for (;;) {
+  	    if (match_auth (a->auth, b->auth)) {  /* found a duplicate */
+  		AuthList tmp;		/* swap it in for old one */
+  		tmp = *a;
+***************
+*** 1092,1097 ****
+--- 1092,1098 ----
+      return errors;
+  }
+  
++ /* ARGSUSED */
+  static int remove_entry (inputfilename, lineno, auth, data)
+      char *inputfilename;
+      int lineno;
+***************
+*** 1183,1188 ****
+--- 1184,1190 ----
+  /*
+   * questionmark
+   */
++ /* ARGSUSED */
+  static int do_questionmark (inputfilename, lineno, argc, argv)
+      char *inputfilename;
+      int lineno;
+***************
+*** 1528,1533 ****
+--- 1530,1536 ----
+   */
+  static Bool alldone = False;
+  
++ /* ARGSUSED */
+  static int do_exit (inputfilename, lineno, argc, argv)
+      char *inputfilename;
+      int lineno;
+***************
+*** 1542,1547 ****
+--- 1545,1551 ----
+  /*
+   * quit
+   */
++ /* ARGSUSED */
+  static int do_quit (inputfilename, lineno, argc, argv)
+      char *inputfilename;
+      int lineno;

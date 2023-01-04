@@ -1,0 +1,178 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getrlimit.2,v $ $Revision: 3.5.7.3 $ (DEC) $Date: 1994/01/11 21:07:19 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 Release 1.0.4
+.\"
+.TH getrlimit 2
+.SH NAME
+.PP
+\*Lgetrlimit\*O, \*Lsetrlimit\*O \- Controls maximum system resource consumption
+.SH SYNOPSIS
+.PP
+.sS
+.sp
+\*L#include <sys/time.h>
+.nL
+#include <sys/resource.h>\*O
+.sp
+\*Lint  setrlimit(
+.nL
+	int \*Vresource1\*L,
+.nL
+	struct rlimit \*V*rlp \*L);
+.nL
+.sp
+\*Lint getrlimit (
+.nL
+	int \*Vresource1\*L,
+.nL
+	struct rlimit \*V*rlp \*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.iX "getrlimit function"
+.iX "setrlimit function"
+.iX "system resources" "returning and setting limits for"
+.VL 4m
+.LI "\*Vresource1\*O"
+Specifies one of the following values:
+.VL 4m
+.LI "RLIMIT_CPU"
+The maximum amount of CPU time (in seconds) to be used by each process.
+.LI "RLIMIT_FSIZE"
+The largest size, in bytes, of any single file that can be created.
+.LI "RLIMIT_DATA"
+The maximum size, in bytes, of the data segment
+.\" Begin Digital-specific information CORRECTION
+.\" Changed 'defines' to 'constrains' per QAR 8536.
+for a process.  This value constrains how far a program can extend its break
+.\" End Digital-specific information CORRECTION
+with the \*Lsbrk(\|)\*O function.
+.LI "RLIMIT_NOFILE"
+The maximum number of open file descriptors that the process can have.
+Any functions that create new file descriptors will fail with
+\*Lerrno\*O set to [EMFILE].
+.LI "RLIMIT_AS"
+The maximum amount, in bytes, of the address space of a process that is defined.
+This resource setting may cause \*Lmmap(\|)\*O and
+\*Lmalloc(\|)\*O to fail with \*Lerrno\*O set to [ENOMEM].
+Also, the automatic stack growth
+will fail with the effects described under RLIMIT_STACK.
+.LI "RLIMIT_STACK"
+The maximum size, in bytes, of the stack segment for a process.  This value
+defines how far a program stack segment
+can be extended.  Stack extension is performed automatically by the system.
+.LI "RLIMIT_CORE"
+The largest size, in bytes, of a \*Lcore\*O file that can be created.
+.LI "RLIMIT_RSS"
+The maximum size, in bytes, to which a process's
+resident set size can grow.  This value imposes a limit on the amount of
+physical memory to be given to a process.  If memory is in short supply, the
+system prefers to take memory from processes that are exceeding their
+declared resident set size.
+.LE
+.LI "\*Vrlp\*O"
+Points to the \*Lrlimit\*O structure, which contains the current soft and
+hard limits.  For the \*Lgetrlimit(\|)\*O function, the requested limits
+are returned in this structure; for
+the \*Lsetrlimit(\|)\*O function, the desired new limits are specified here.
+.LE
+.SH DESCRIPTION
+.PP
+The \*Lgetrlimit(\|)\*O function obtains the
+limits on the consumption of system resources by the current process
+and each process it creates.  You use the
+\*Lsetrlimit(\|)\*O function to set these resources.
+.PP
+Each resource limit is specified as either a soft limit or a hard limit.
+When a soft limit is exceeded (for example, if the CPU time is
+exceeded), a process can receive a signal until it reaches the
+hard limit or until it modifies its resource limit.  The \*Lrlimit\*O
+structure is used to specify the hard and soft limits on a resource,
+as defined in the \*Lsys/resource.h\*O header file.
+.PP
+The calling process must have
+superuser
+privilege in order to raise the maximum limits.  An unprivileged
+process can alter the \*Lrlim_cur\*O field of the \*Lrlimit\*O
+structure within the range from 0 (zero) to \*Lrlim_max\*O
+or can (irreversibly) lower \*Lrlim_max\*O.
+.PP
+An infinite value for a limit is defined as RLIM_INFINITY.
+.PP
+Because this information is stored in the per-process information,
+and inherited by \*Lfork(\|)\*O, the \*Lsetrlimit(\|)\*O
+function should be executed directly by the shell in order to
+affect all future processes created by the shell.  Thus, \*Llimit\*O is
+a built-in command to the shells.
+.PP
+The system refuses to extend the data or stack space when the
+limits would be exceeded in the normal way:  a \*Lbrk(\|)\*O function
+fails if the data space limit is reached. When the stack limit
+is reached, the process receives a SIGSEGV signal.  If this
+signal is not caught by a handler using the signal stack, this signal
+kills the process.  A file I/O operation that would create too large a
+file causes a signal SIGXFSZ to be generated.  This signal
+normally terminates the process, but it can be caught.  When the soft
+CPU time limit is exceeded, the SIGXCPU signal is sent to the
+offending process.
+.SH NOTES
+.PP
+The \*Lulimit(\|)\*O function is implemented in terms of \*Lsetrlimit(\|)\*O.
+Therefore, the two interfaces should not be used in the same program.
+The result of doing so is undefined.
+.SH RETURN VALUES
+.PP
+Upon successful completion, a value of 0 (zero) is returned.
+Otherwise, a value of \-1 is returned and \*Lerrno\*O is set to indicate
+the error.
+.SH ERRORS
+.PP
+If the \*Lgetrlimit(\|)\*O or \*Lsetrlimit(\|)\*O function fails, \*Lerrno\*O
+is set to one of the following values:
+.VL 4m
+.LI "[EFAULT]"
+The address specified for the \*Vrlp\*O parameter is invalid.
+.LI "[EINVAL]"
+.\" Begin Digital-specific information CORRECTION
+.\" Corrected the description of EINVAL per QAR 7477.
+An invalid resource was specified; or, in \*Lsetrlimit(\|) calls, the
+new \*Lrlim_cur\*O exceeds the new \*Lrlim_max\*O.
+.\" End Digital-specific information CORRECTION
+.LI "[EPERM]"
+The limit specified to the \*Lsetrlimit(\|)\*O function would have
+raised the maximum limit value, and the caller does not have appropriate
+privilege.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+.\" Begin Digital-specific information CORRECTION
+.\" \*Lquota\*O(2),
+\*Lquotactl\*O(2),
+.\" End Digital-specific information CORRECTION
+\*Lsetquota\*O(2),
+\*Lsigaction\*O(2),
+\*Lsigstack\*O(2),
+\*Lsigvec\*O(2),
+\*Lulimit\*O(3)
+.EQ
+delim off
+.EN

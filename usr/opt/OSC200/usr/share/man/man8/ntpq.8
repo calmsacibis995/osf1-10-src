@@ -1,0 +1,546 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ntpq.8,v $ $Revision: 3.3.4.3 $ (DEC) $Date: 1993/12/20 22:13:49 $
+.\"
+.\".so /usr/share/lib/tmac/sml
+.\".so /usr/share/lib/tmac/rsml
+.TH ntpq 8
+.SH NAME
+ntpq \- Network Time Protocol (NTP) monitor program for xntpd
+.SH SYNOPSIS
+.PP
+\*L/usr/bin/ntpq\*O [\*L-inp\*O] [\*L-c\*O \*Vcommand\*O] [\*Vhost1 host2 ...\*O]
+.SH FLAGS
+.PP
+.VL
+.LI "\*L-c\*O \*Vcommand\*O"
+Interprets \*Vcommand\*O as an interactive format command
+and adds it to the list of commands to be executed on the specified
+host(s).  Multiple
+.B -c
+options may be given.
+.LI "\*L-i\*O"
+Forces
+\*Lntpq\*O
+to operate in interactive mode.  Prompts will be written to the
+standard output and commands read from the standard input. This is the
+default.
+.LI "\*L-n\*O"
+Outputs all host addresses in dotted\-decimal notation rather than
+converting to the canonical host names.
+.LI "\*L-p\*O"
+Prints a list of the peers known to the server as well as a summary
+of their state.  This is equivalent to the
+.B peers
+interactive command.
+.LE
+.PP
+Specifying the \*L-c\*O or \*L-p\*O options
+sends the specified query (queries) to the indicated
+host(s) immediately; localhost is the default.  Otherwise,
+\*Lntpq\*O
+attempts to read interactive format commands from the standard input.
+.SH DESCRIPTION
+.PP
+The \*Lntpq\*O program
+is used to monitor NTP hosts running
+\*Lxntpd .\*O
+The program may be run either in interactive mode or
+controlled using command line arguments.  Requests to read arbitrary
+variables can be assembled, with raw and formatted output
+options available.
+\*LNtpq\*O
+can also obtain and print a list of peers in a common format
+by sending multiple queries to the server.
+.PP
+If one or more request options is included on the command line when
+\*Lntpq\*O
+is executed, each of the requests will be sent to the \*Lxntpd\*O
+daemons running on each of the hosts given as command line arguments, or on
+\*Vlocalhost\*O
+by default.  If no request options are given,
+\*Lntpq\*O
+will attempt to read commands from the standard input and execute these
+on the first host given on the command line, defaulting to
+\*Vlocalhost\*O
+when no other host is specified.
+\*LNtpq\*O
+will prompt for commands if the standard input is a terminal device.
+.PP
+\*LNtpq\*O
+uses NTP mode 6 packets to communicate with the \*Lxntpd\*O daemons,
+and therefore
+can be used to query any compatible daemon on the network that permits
+it.  Note: Since NTP uses the UDP protocol, this communication will be
+somewhat unreliable, especially over large network topologies.
+\*LNtpq\*O
+makes one attempt to retransmit requests, and will time out if
+the remote host is not heard from within a suitable time.
+.SH COMMANDS
+.PP
+.SS Interactive Commands
+.PP
+Interactive format commands consist of a keyword followed by zero
+or more arguments.  Only enough characters of the full keyword to
+uniquely identify the command need be typed.  The output of a command
+is normally sent to the standard output, but optionally the output of
+individual commands may be sent to a file by appending a \*(lq>\*(rq,
+followed by a file name, to the command line.
+.PP
+A number of interactive format commands are executed entirely within the
+\*Lntpq\*O
+program itself and do not result in NTP mode 6 requests being sent
+to a daemon.  These commands are as follows:
+.PP
+.B ?
+[
+\*Vcommand_keyword\*O
+}
+.PP
+A \*(lq?\*(rq by itself will print a list of all the command keywords
+known to this incarnation of
+\*Lntpq\*O.
+A \*(lq?\*(rq followed by a command keyword will print function and
+usage information about the command.
+.\"  This command is probably a better
+.\"source of information about
+.\".I ntpq
+.\"than this manual page.
+.PP
+.B timeout
+\*Vmilliseconds\*O
+.PP
+Specifies a timeout period for responses to server queries.  The default
+is about 5000 milliseconds. Since
+\*Lntpq\*O
+retries each query once after a timeout, the total waiting time for a
+timeout will be twice the timeout value.
+.\".PP
+.\".B delay
+.\".I milliseconds
+.\".PP
+.\"Specify a time interval to be added to timestamps included in requests
+.\"which require authentication.  This is used to enable (unreliable) server
+.\"reconfiguration over long delay network paths or between machines whose
+.\"clocks are unsynchronized.  Actually the server does not now require
+.\"time stamps in authenticated requests, so this command may be obsolete.
+.PP
+.B host
+[
+\*Vhostname\*O
+]
+.PP
+Sets the host to which future queries will be sent.
+\*VHostname\*O
+may be either a host name or a Internet
+address. If
+\*Vhostname\*O
+is not specified, the current host is used.
+.\".PP
+.\".B poll
+.\"[
+.\".I #
+.\"] [
+.\".B verbose
+.\"]
+.\".PP
+.\"Poll the current server in client mode.  The first argument is the
+.\"number of times to poll (default is 1) while the second argument may
+.\"be given to obtain a more detailed output of the results.  This command
+.\"is currently just wishful thinking.
+.\".PP
+.\".B keyid
+.\".I #
+.\".PP
+.\"This command allows the specification of a key number to be used to
+.\"authenticate configuration requests.  This must correspond to a
+.\"key number the server has been configured to use for this purpose.
+.\".PP
+.\".B passwd
+.\".PP
+.\"This command prompts you to type in a password (which will not be
+.\"echoed) which will be used to authenticate configuration requests.  The
+.\"password must correspond to the key configured for use by the NTP
+.\"server for this purpose if such requests are to be successful.
+.PP
+.B "hostnames yes|no"
+.PP
+If \*(lqyes\*(rq is specified, prints host names in information
+displays.  If \*(lqno\*(rq is given, prints Internet addresses
+instead.  The default is \*(lqyes\*(rq unless modified using the command
+line
+.B -n
+option.
+.PP
+.B raw
+.PP
+Prints all output from query commands as received from the remote server.  The
+only data formatting performed is to translate nonascii data into a printable
+form.
+.PP
+.B cooked
+.PP
+Reformats variables that are recognized by the server. Variables that
+\*Lntpq\*O
+doesn't recognize are marked with a trailing \*(lq?\*(rq.
+.\".PP
+.\".B ntpversion
+.\".B 1|2
+.\".PP
+.\"Sets the NTP version number which
+.\".I ntpq
+.\".PP
+.\".B authenticate
+.\".B yes|no
+.\".PP
+.\"Normally
+.\".I ntpq
+.\"does not authenticate requests unless they are write requests.  The command
+.\".B authenticate yes
+.\"causes
+.\".I ntpq
+.\"to send authentication with all requests it makes.  Authenticated requests
+.\"causes some servers to handle requests slightly differently, and can
+.\"occasionally melt the CPU in fuzzballs if you turn authentication on before
+.\"doing a peer display.
+.PP
+.B addvars
+.IR <variable_name>[=<value>] [,...]
+.B rmvars
+.IR <variable_name> [,...]
+.B clearvars
+.PP
+The data carried by NTP mode 6 messages consists of a list of items
+of the form
+.IP "" 8
+<variable_name>=<value>
+.PP
+where the \*(lq=<value>\*(rq is ignored, and can be omitted, in requests
+to the server to read variables.
+\*LNtpq\*O
+maintains an internal list in which data to be included in control messages
+can be assembled, and sent using
+the
+.B readlist
+.\"and
+.\".B writelist
+command described below.  The
+.B addvars
+command allows variables and their optional values to be added to the
+list.  If more than one variable is to be added, the list should be
+separated by commas and not contain white space.  The
+.B rmvars
+command can be used to remove individual variables from the list, while
+the
+.B clearlist
+command removes all variables from the list.
+.PP
+.B debug
+\*Vmore|less|off\*O
+.PP
+Adjusts level of
+\*Lntpq\*O
+debugging. The default is off.
+.PP
+.B quit
+.PP
+Exit
+\*Lntpq\*O.
+.SS Control Message Commands
+.PP
+Each peer known to an NTP server has a 16 bit integer
+\*Vassociation\*O
+\*Videntifier\*O
+assigned to it.  NTP control messages which carry peer variables
+must identify the peer the values correspond to by including
+its association ID.  An association ID of 0 is special, and indicates
+the variables are system variables, whose names are drawn from a
+separate name space.
+.PP
+Control message commands result in one or more NTP mode 6
+messages being sent to the server, and cause the data returned to be
+printed in some format.  Most commands currently implemented send a single
+message and expect a single response.  The current exceptions are the
+.B peers
+command, which will send a preprogrammed series of messages to obtain
+the data it needs, and the
+.B mreadlist
+and
+.B mreadvar
+commands, which will iterate over a range of associations.
+.PP
+.B associations
+.PP
+Obtains and prints a list of association identifiers and
+peer status for in\-spec
+peers of the server being queried.  The list is printed in
+columns.  The first of these is an index numbering the associations
+from 1 for internal use, the second is the actual association identifier
+returned by the server and the third the status word for the peer.  This
+is followed by a number of columns containing data decoded from the
+status word.  Note:
+The data returned by the \*(lqassociations\*(rq command is cached
+internally in
+\*Lntpq\*O.
+The index is then used when dealing with servers that use
+association identifiers. For any subsequent commands which require an
+association identifier as an argument, the form
+\*V&index\*O
+may be used as an alternative.
+.PP
+.B lassociations
+.PP
+Obtains and prints a list of association identifiers and peer status
+for all associations for which the server is maintaining state.  This
+command differs from the
+\*(lqassociations\*(rq
+command only for servers which retain state for out\-of\-spec client
+associations.  Such associations are normally omitted
+from the display when the
+\*(lqassociations\*(rq
+command is used, but are included in the output of
+\*(lqlassociations\*(rq.
+.PP
+.B passociations
+.PP
+Prints association data concerning in\-spec peers from the internally cached
+list of associations.  This command performs
+identically to the \*(lqassociations\*(rq except that it displays the
+internally stored data rather than making a new query.
+.PP
+.B lpassociations
+.PP
+Prints data for all associations, including out\-of\-spec client
+associations, from the internally cached list of associations.
+.PP
+.B pstatus
+\*VassocID\*O
+.PP
+Sends a read status request to the server for the given association.
+The names and values of the peer variables returned will be printed.  Note:
+The status word from the header is displayed preceding the variables,
+both in hexadecimal and in English.
+.PP
+.B readvar
+[
+\*VassocID\*O
+] [
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+Requests that the values of the specified variables be returned by the
+server by sending a read variables request.  If the association ID
+is omitted or is given as zero, the variables
+are system variables; otherwise, they
+are peer variables, and the values returned will be those
+of the corresponding peer.  Omitting the variable list will send a
+request with no data which should induce the server to return a
+default display.
+.PP
+.B rv
+[
+\*VassocID\*O
+] [
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+An easy\-to\-type short form for the
+.B readvar
+command.
+.PP
+.B writevar
+\*VassocID\*O
+.IR <variable_name>=<value> [,...]
+.PP
+Like the
+.B readvar
+request, except the specified variables are written instead of read.
+.PP
+.B readlist
+[
+\*VassocID\*O
+]
+.PP
+Requests that the server return the values of the variables in the internal
+variable list. If the association ID is omitted
+or is 0, the variables are assumed to be system variables.  Otherwise,
+they are treated as peer variables.  If the internal variable list
+is empty, a request is sent without data; the remote server should return a
+default display.
+.PP
+.B rl
+[
+\*VassocID\*O
+]
+.PP
+An easy\-to\-type short form of the
+.B readlist
+command.
+.\".PP
+.\".B writelist
+.\"[
+.\"\*VassocID\*O
+.\"]
+.\".PP
+.\"Like the
+.\".B readlist
+.\"request, except the internal list variables are written instead of
+.\"read.
+.PP
+.B mreadvar
+\*VassocID\*O
+\*VassocID\*O
+[
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+Like the
+.B readvar
+command except the query is done for each of a range of (nonzero)
+association IDs.  This range is determined from the association list
+cached by the most recent
+.B associations
+command.
+.PP
+.B mrv
+\*VassocID\*O
+\*VassocID\*O
+[
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+An easy\-to\-type short form of the
+.B mreadvar
+command.
+.PP
+.B mreadlist
+\*VassocID\*O
+\*VassocID\*O
+.PP
+Like the
+.B readlist
+command except the query is done for each of a range of (nonzero)
+association IDs.  This range is determined from the association list
+cached by the most recent
+.B associations
+command.
+.PP
+.B mrl
+\*VassocID\*O
+\*VassocID\*O
+.PP
+An easy\-to\-type short form of the
+.B mreadlist
+command.
+.PP
+.B clockvar
+[
+\*VassocID\*O
+]
+[
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+Requests that the server send a list of the clock variables. Servers
+that have a radio clock or other external synchronization will respond
+positively to this.  If the association identifier is omitted or zero,
+the request is for the \*(lqsystem clock\*(rq variables and will
+generally get a positive response from all servers with a clock.  If the
+server treats clocks as pseudo\-peers, and can possibly have more than
+one clock connected at once, referencing the appropriate
+peer association ID will show the variables of a particular clock.  If you omit
+the variable list, the server returns a default variable display.
+.PP
+.B cv
+[
+\*VassocID\*O
+]
+[
+.IR <variable_name>[=<value>] [,...]
+]
+.PP
+An easy\-to\-type short form of the
+.B clockvar
+command.
+.PP
+.B peers
+.PP
+Obtains a list of in\-spec peers of the server, along
+with a summary of each peer's state.  Summary information includes the address
+of the remote peer, the reference ID (0.0.0.0 if the refID is unknown),
+the stratum of the remote peer, the polling interval,
+in seconds, the reachability
+register, in octal, and the current estimated delay, offset and dispersion
+of the peer, all in seconds.  In addition, the character in the left
+margin indicates the fate of this peer in the clock selection algorithm.
+Characters only appear beside peers which were included in the final stage of
+the clock selection algorithm.  A \*(lq.\*(rq indicates that this
+peer was cast off in the falseticker detection, while a \*(lq+\*(rq
+indicates that the peer made it through.  A \*(lq*\*(rq denotes the
+peer the server is currently synchronizing with.  Note: Since the
+.B peers
+command depends on the ability to parse the values in the
+responses it gets, it might fail to work with servers that poorly control the
+data formats.
+.PP
+.B lpeers
+.PP
+Like
+.BR peers ,
+except a summary of all associations for which the server is maintaining
+state is printed.  This can produce a much longer list of peers.
+.PP
+.B opeers
+.PP
+An old form of the
+.B peers
+command with the reference ID
+replaced by the local interface address.
+.\".SH HISTORY
+.\".PP
+.\"Written by Dennis Ferguson at the University of Toronto.
+.SH ERRORS
+.PP
+.VL
+.LI "\*L***Can't find host\*O \*Vhostname\*O"
+The \*Vhostname\*O is not in the local \*L/etc/host\*O file.
+.LI "\*Vhostname\*O\*L: timed out, nothing received\*O"
+.LI "\*L***Request timed out\*O"
+Check that \*Lxntpd\*O is running on the remote host being queried.
+.LE
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/bin/ntpq\*O"
+Specifies the command path
+.LE
+.SH NOTES
+.PP
+The
+.B peers
+command is non\-atomic and may occasionally result in spurious error
+messages about invalid associations occurring and terminating the
+command.
+.PP
+The timeout time is a fixed constant, which means you wait a long time
+for time outs since it assumes sort of a worst case.
+.SH RELATED INFORMATION
+.PP
+\*Lntp.conf\*O(4), \*Lntpdate\*O(8), \*Lntpsetup\*O(8), \*Lxntpd\*O(8), \*Lxntpdc\*O(8)
+.EQ
+delim off
+.EN

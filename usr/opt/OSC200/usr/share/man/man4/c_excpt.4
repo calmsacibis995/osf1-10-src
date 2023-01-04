@@ -1,0 +1,391 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: c_excpt.4,v $ $Revision: 1.1.2.6 $ (DEC) $Date: 1993/12/01 18:02:57 $
+.\"
+.TH c_excpt 4
+.SH NAME
+.PP
+\*Lc_excpt.h\*O \- Header file defining structured exception handling keywords, intrinsics, and structures for the C language compiler
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <excpt.h>\*O      /* includes c_excpt.h */
+.sE
+.SH DESCRIPTION
+.PP
+.iX "c_excpt.h"
+.iX "structured exception handling"
+.iX "frame-based exception handling"
+.iX "exception handling" "structured"
+The c_excpt.h header file defines the keywords, intrinsic functions, and structures
+the C language compiler uses to set up a structured exception handler or termination
+handler.
+.SS Structured Exception Handling
+The syntax for a structured exception handler is as follows:
+.sS
+     \*Ltry {\*O
+.nL
+             \*Vtry-body
+.nL
+     \*L    }
+.nL
+   except (\*Vexception-filter\*L) {
+.nL
+          \*Vexception-handler\*L
+.nL
+          }\*O
+.sE
+.PP
+.iX "try body"
+.iX "try...except statement"
+The \*Vtry-body\*O is the code, expressed as a compound statement,
+that the exception handler protects. The try body
+can be a block of statements or a set of nested blocks.
+If an exception occurs while the try body is executing, exception handling
+code evaluates the \*Vexception-filter\*O to determine whether to transfer control
+to the try body's \*Vexception-handler\*O, continue the search for a handler in some
+outer-level try body, or continue normal execution.
+.PP
+A program can explicitly initiate an application-specific exception
+by calling \*Lexc_raise_exception\*O or \*Lexc_raise_status_exception\*O.
+These functions allow the calling procedure to specify information that describes
+the exception. A program can also install a special signal handler,
+\*Lexc_raise_signal_exception\*O, that converts a signal to an exception,
+invoking the exception dispatcher to search for any frame-based exception
+handlers that have been established.  In this case, the code reported to
+the handler has EXC_SIGNAL in its facility field and the signal value in its
+code field.  See the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+and
+the \*Lexception_intro\*O(3) and its associated reference pages for instructions on how
+to use exception management routines.
+.ix "exception filter"
+.PP
+The \*Vexception-filter\*O is an expression associated with the exception handler
+that guards a given try body. It can be a simple expression or can invoke a function
+that evaluates the exception. An exception filter must evaluate to one of the
+following integral values:
+.ML
+.LI
+< 0 (EXCEPTION_CONTINUE_EXECUTION)
+.PP
+The exception dispatcher dismisses the exception and resumes the thread of
+execution that was originally disrupted by the exception.
+If the exception is noncontinuable, the dispatcher raises a
+STATUS_NONCONTINUABLE_EXCEPTION exception.
+.LI
+0 (EXCEPTION_CONTINUE_SEARCH)
+.PP
+The exception dispatcher continues to search for a handler, first in any
+\*Ltry\*O...\*Lexcept\*O blocks in which the current one might be nested,
+and then in the \*Ltry\*...\*Lexcept\*O blocks defined in the
+procedure frame preceding the current frame on the runtime stack. If a filter
+chooses not to handle an exception, it typically returns this value.
+.LI
+> 0 (EXCEPTION_EXECUTE_HANDLER)
+.PP
+The exception dispatcher transfers control to the exception handler,
+and execution continues in the frame on the runtime stack in which the handler
+is found. This process, known as \*Vhandling the exception\*O, unwinds all
+procedure frames below the current frame and causes any termination handlers
+established within those frames to execute.
+.LE
+.PP
+Note that you can use a comma to make assignments within the filter expression.
+For instance:
+.PP
+.iS
+     except((e=exception_code()) == EXC_VALUE(EXC_SIGNAL, SIGILL) ? 1 :
+.nL
+        (printf("unexpected signal exception code 0x%lx\n", e),0))
+.nL
+     {
+.nL
+        /* exception handler */
+.nL
+     }
+.iE
+Two intrinsic functions are allowed within the exception filter to access
+information about the exception being filtered:
+.ix "exception_code function"
+.iX "exception_info function"
+.PP
+.sS
+     \*Llong                exception_code(\*O);
+.nL
+     \*LException_info_ptr  exception_info(\*O);
+.sE
+.PP
+\*Lexception_code\*O returns the exception code.  The \*Lexcpt.h\*O include file
+defines the
+exception code formats supported by the operating system. It also provides 
+symbolic constants for the facility component of
+DEC OSF/1-format codes,
+definitions of system internal exception codes, and a macro, EXC_VALUE, that
+allows the definition of
+application-specific exception codes.  See \*Lexcpt\*O(4) and the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+for additional discussion of
+exception codes.
+.PP
+\*Lexception_info\*O returns a pointer to an EXCEPTION_POINTERS structure.
+Using this pointer, you can access the machine state at the time of the exception.
+The exception information structure is defined as follows:
+.PP
+.iS
+     typedef struct _EXCEPTION_POINTERS {
+         system_exrec_type*                     ExceptionRecord;
+         PCONTEXT                                 ContextRecord;
+         EXCEPTION_DISPOSITION     Disposition;
+         DISPATCHER_CONTEXT        *DispatcherContext;
+     } EXCEPTION_POINTERS, *PEXCEPTION_POINTERS, *Exception_info_ptr;
+.iE
+An exception record, as defined in the \*Lexcpt.h\*O include file, describes
+.iX "exception record"
+.iX "context record"
+an exception.  In addition to an exception code, an exception record contains flags
+that identify the circumstances under which a handler is called (for instance,
+whether an unwind operation is in progress or whether the exception is
+continuable). \*Lexcpt.h\*O defines
+macros that allow a handler to test the value of these flags.
+.PP
+A context record, also defined in \*Lexcpt.h\*O, provides information about
+the establisher of an exception handler (such as the PC where control left
+the establisher).  This information allows the exception dispatcher to properly
+dispatch the exception. An exception disposition is a value returned by an
+exception handler to indicate to the exception dispatcher whether it should dismiss
+an exception, continue the search for an exception handler, or perform some special
+action. Both the context record and exception disposition are discussed in greater
+detail in  \*Lexcpt\*O(4) and the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+The calling standard also discusses the circumstances under which a handler can
+modify exception records and context records.
+.ix "exception code"
+.ix "exception disposition"
+.PP
+The
+\*Lexception_code\*O intrinsic function can be used within an exception filter and
+exception handler. The \*Lexception_info\*O function can only be used within an
+exception filter.  However, the filter can store the information returned by the
+function and make it subsequently available to the exception handler.
+If you need to refer to exception
+structures outside of the filter, you must copy them as well since their storage
+is valid only during the execution of the filter.
+.PP
+.iX "exception handler"
+When an exception occurs, the exception dispatcher virtually unwinds
+the runtime stack until it reaches a frame for which a handler 
+has been established. The dispatcher initially searches for an exception handler
+in the stack frame that was current when the exception occurred.
+If the handler is not in this stack frame, the dispatcher virtually unwinds the stack
+(in its own context), leaving the current
+stack frame and any intervening stack frames intact until it reaches a
+frame that has established an exception handler.  It then executes the
+exception filter associated with that handler.  Note that, during this phase
+of exception dispatching, the dispatcher has only virtually unwound the runtime
+stack; all call frames that may have existed on the stack at the time of the
+exception are still there.  If it cannot find an exception
+handler, or if all handlers reraise the exception, the exception dispatcher
+invokes the system last-chance handler.
+.PP
+By treating the exception filter as if it were a Pascal-style nested procedure,
+exception handling code evaluates the filter expression within the scope
+of the procedure that includes the \*Ltry\*O...\*Lexcept\*O construct.
+This allows the filter expression to access the local
+variables of that procedure, even though the exception may have occurred in a
+different procedure.
+.PP
+Prior to executing an exception handler (for instance,
+if an exception filter returns EXCEPTION_EXECUTE_HANDLER), the exception
+dispatcher performs a real unwind of the runtime stack,
+executing any termination handlers established for
+\*Ltry\*O...\*Lfinally\*O blocks that terminated as a result of the
+transfer of control to the exception handler.
+Only then does the dispatcher calls the exception handler.
+.PP 
+The \*Vexception-handler\*O is a compound statement that deals with the exception
+condition. It executes within the scope of the procedure that
+includes the \*Ltry\*O...\*Lexcept\*O construct and can access its local variables.
+A handler can respond to an exception in several different ways, depending on
+the nature of the exception.  For instance,
+it can log an error or correct the circumstances the led to the exception
+being raised.
+.PP
+Either an exception filter or exception handler can take steps
+to modify or augment the exception information it has obtained and ask the
+C-language exception dispatcher to deliver the new information to exception
+code established in some outer try body or prior call frame.  This activity
+is more straightforward from within the exception filter, which operates
+with the frames of the latest executing procedures -- and the exception context --
+still intact on the runtime stack.  The filter simply completes its processing 
+by returning a 0 to the dispatcher to request the dispatcher to continue its
+search for the next handler.  For an exception handler to trigger a 
+previously-established handler, it must raise another exception, from its own
+context, that the previously-established handler is equipped to handle.
+.PP
+A procedure (or group of interrelated procedures) can contain any number of
+\*Ltry\*O...\*Lexcept\*O constructs, and can nest these constructs.
+If an exception occurs within the
+\*Ltry\*O...\*Lexcept\*O
+block, the system invokes the exception handler associated with that block.
+.PP
+.SS Termination Handling
+The 
+DEC OSF/1
+C language compiler allows you to ensure
+that whenever control is passed from
+a guarded body of code, a specified block of termination code
+is also executed.  The termination code is executed regardless of how the flow of
+control leaves the guarded code.  For example, a termination handler can guarantee
+that clean-up tasks are performed even if an exception or some other error
+occurs while the guarded body of code is executing.
+.PP
+.ix "try...finally statement"
+The syntax for a termination handler is as follows:
+.sS
+     \*Ltry {\*O
+.nL
+             \*Vtry-body
+.nL
+     \*L    }
+.nL
+     finally \*L {
+.nL
+      \*Vtermination-handler\*L
+.nL
+       }\*O
+.sE
+.PP
+.iX "try body"
+The \*Vtry-body\*O is the code, expressed as a compound statement,
+that the termination handler protects. The try body can be a block of
+statements or a set of nested blocks. It can include the following statement,
+which causes an immediate exit from the block and execution of its termination
+handler:
+.iX "leave statement"
+.PP
+.sS
+     \*Lleave;\*O
+.sE
+.PP
+.iX "termination handler"
+The \*Vtermination-handler\*O is a compound statement that executes
+when the flow of control leaves
+the guarded try body, regardless of whether the try body terminated normally
+or abnormally.
+The guarded body is considered to have terminated normally when the last
+statement in the block is executed (that is, when the body's closing "}" is
+reached). Use of the \*Lleave\*O statement also causes a normal
+termination. The guarded body terminates abnormally when the flow of control leaves
+it by any other means: for example, due to an exception, or due to a control
+statement such as \*Lreturn\*O, \*Lgoto\*O, \*Lbreak\*O or \*Lcontinue\*O.
+.PP
+A termination handler can call the following intrinsic function
+to determine whether the guarded body terminated normally or abnormally.
+.iX "abnormal_termination function"
+.PP
+.sS
+     \*Lint abnormal_termination(\*O);
+.sE
+.PP
+The \*Labnormal_termination\*O function returns 0 if the try body completed
+sequentially; otherwise, it returns 1.
+.PP
+The termination handler itself may terminate sequentially or by a jump out of the
+handler.  If it terminates sequentially (by reaching the closing "}"),
+subsequent control flow depends on how the try body terminated, as follows:
+.ML
+.LI
+If the try body terminated normally, execution continues with the statement
+following the complete
+\*Ltry\*O...\*Lfinally\*O block.
+.LI
+If the try body terminated abnormally with an explicit jump out of the body,
+the jump is completed.  However, if the jump exits the body of one or more
+containing  \*Ltry\*O...\*Lfinally\*O
+statements, their termination handlers are invoked before control is finally
+transferred to the target of the jump.
+.LI
+If the try body terminated abnormally due to
+an unwind, a jump to an exception handler, or by an \*Lexc_longjmp\*O,
+control is returned to the runtime, which will continue invoking termination
+handlers as required before jumping to the target of the unwind.
+.LE
+.PP
+Like exception filters, termination handlers are treated as Pascal-style nested
+procedures, and are executed without the removal of frames from the runtime
+stack. A termination  handler can thus access the local variables of the
+procedure in which it is declared.
+.PP
+Note that there is a performance cost in the servicing of abnormal terminations,
+inasmuch as abnormal terminations (and exceptions) are considered to be outside
+the normal flow of control for most programs.
+Keep in mind that explicit jumps out of a try body are considered abnormal
+termination. Normal termination is the simple case and costs less at runtime.
+In some instances, you can avoid this cost by replacing
+a jump out of a try body with a \*Lleave\*O statement (which transfers control
+to the end of the innermost try body) and testing a status variable after completion
+of the entire \*Ltry\*O...\*Lfinally\*O block.
+.PP
+A termination handler itself may terminate nonsequentially
+(for instance, to abort an unwind) by means of a transfer of
+control (for instance, a \*Lgoto\*O, \*Lbreak\*O, \*Lcontinue\*O, \*Lreturn\*O,
+\*Lexc_longjmp\*O, or the occurrence of an exception). If this transfer of control
+exits another \*Ltry\*O...\*Lfinally\*O block, its termination handler will execute.
+.\"
+.SH NOTES
+.PP
+The try body, exception handler, and termination handler are compound statements
+and thus must each be enclosed in braces ({}).
+.PP
+You must not jump into a try body, exception handler, or termination handler when
+control is outside the body or handler.
+.PP
+You cannot define a procedure or function within a \*Ltry\*O...\*Lexcept\*O or
+\*Ltry\*O...\*Lfinally\*O block, although the sole contents of the block might
+be a procedure or function.
+.PP
+If an exception handler within a
+\*Ltry\*O...\*Lexcept\*O block contains another
+\*Ltry\*O...\*Lexcept\*O block, and
+the \*Lexception_code\*O() function is invoked within the exception filter or
+exception handler for the latter block, it returns the most recent exception code.
+If the original handler later invokes the intrinsic, its
+effects are undefined.
+.PP
+The compiler will disable a number of optimizations in order to ensure the
+integrity of \*Ltry\*O...\*Lexcept\*O and \*Ltry\*O...\*Lfinally\*O blocks.
+.\"
+.SH FILES
+.PP
+.VL 11m
+.LI "\*Lexcpt.h\*O"
+Defines data structures supporting the exception handling system.
+\*Lexcpt.h\*O includes \*Lc_excpt.h\*O.
+.LE
+.\"
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lexception_intro\*O(3), \*Lexception_dispatcher\*O(3), \*Lunwind\*O(3),
+\*Lexc_resume\*O(3), \*Lsignal\*O(2), \*Lsigaction\*O(2).
+.PP
+Files: \*Lexcpt\*O(4), \*Lsignal\*O(4).
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+.EQ
+delim off
+.EN

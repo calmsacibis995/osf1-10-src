@@ -1,0 +1,129 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+
+#define DISABLE_PS NO
+
+#define DoNormalLib NormalLibDvr
+#define DoSharedLib SharedLibDvr
+#define DoDebugLib DebugLibDvr
+#define DoProfileLib ProfileLibDvr
+#include <Library.tmpl>
+
+#if DISABLE_PS
+
+SRCS = dvr_actx.c dvr_back.c dvr_crex.c dvr_fpag.c dvr_pmgt.c dvr_smgt.c \
+       dvr_util.c dvr_dpag.c dvr_dgra.c dvr_grax.c dvr_img.c dvr_csw.c \
+       dvr_wcbr.c 
+
+OBJS = dvr_actx.o dvr_back.o dvr_crex.o dvr_fpag.o dvr_pmgt.o dvr_smgt.o \
+       dvr_util.o dvr_dpag.o dvr_dgra.o dvr_grax.o dvr_img.o dvr_csw.o \
+       dvr_wcbr.o
+
+DEFINES = -std1 -DNO_PS_YET -DDAS_EXPAND_PROTO=0
+
+#else
+
+SRCS = dvr_actx.c dvr_back.c dvr_crex.c dvr_fpag.c dvr_pmgt.c dvr_smgt.c \
+       dvr_util.c dvr_dpag.c dvr_dgra.c dvr_grax.c dvr_img.c dvr_csw.c \
+       dvr_wcbr.c dvr_ps.c psviewW.c psviewwg.c psstruct.c
+
+OBJS = dvr_actx.o dvr_back.o dvr_crex.o dvr_fpag.o dvr_pmgt.o dvr_smgt.o \
+       dvr_util.o dvr_dpag.o dvr_dgra.o dvr_grax.o dvr_img.o dvr_csw.o \
+       dvr_wcbr.o dvr_ps.o psviewW.o psviewwg.o psstruct.o
+
+DEFINES = -std1 -DDAS_EXPAND_PROTO=0
+
+SHLIBFLAGS = -check_registry $(CROSSBASE)/usr/shlib/so_locations        -L$(CROSSBASE)/usr/shlib -L$(CROSSBASE)/usr/ccs/lib -shared -set_version motif1.2
+
+PSWRAP = $(EXTENSIONSRC)/DPS/clients_local/pswrap/pswrap_local
+
+psviewW.c: psviewW.psw
+	$(RM) $@
+	$(PSWRAP) -o psviewW.c -h psviewW.h psviewW.psw
+
+clean::
+	$(RM) psviewW.c psviewW.h
+
+#endif
+
+HEADERS = dvrwdef.h dvrwptp.h dvr_decw_def.h dvr_decw_ptp.h
+
+INCHDRS = dvrwdef.h dvrwint.h dvrwptp.h psviewwg.h psstruct.h psviewwgP.h
+
+INCLUDES = $(STD_INCLUDES)/img -I$(BUILDINCDIR)/DPS
+
+UILINCLUDES = -I$(INCLUDESRC)/DXm -I$(INCLUDESRC)/uil
+
+LibraryObjectRule()
+
+#if DoSharedLib
+      SO_REQLIBS = $(DPSLIB) DXmClientLibs $(DVSLIB) $(CHFLIB) $(IDSLIB) \
+                   $(XIELIB) $(IMGLIB) $(IPSLIB) $(CDALIB) -lm -lc
+#if DoNormalLib
+SharedLibraryTarget(dvr,$(SODVRREV),$(OBJS),shared,..)
+#else
+SharedLibraryTarget(dvr,$(SODVRREV),$(OBJS),.,.)
+#endif
+InstallSharedLibrary(dvr,$(SODVRREV),$(USRSHLIBDIR))
+#endif
+#if DoNormalLib
+NormalLibraryTarget(dvr,$(OBJS))
+InstallLibrary(dvr,$(USRLIBDIR))
+# endif
+
+LintLibraryTarget(dvr,$(SRCS))
+InstallLintLibrary(dvr,$(LINTLIBDIR))
+       
+MSimpleUidTargetInstOther(ddif_wgt,ddif_wgt_1_2) 
+MSimpleUidTargetInstOther(ddif_csw,ddif_csw_1_2)
+
+BuildIncludes($(INCHDRS),.,.)
+InstallMultipleFlags($(HEADERS),/usr/include/X11,$(INSTDATFLAGS))
+
+DependTarget()
+
+/* The following is needed because dvr_crex.o and dvr_csw.o need to be
+   std to accomodate a $-sign in DXm/DECspecific.h */
+
+SpecialLibObjectRule(dvr_crex.o, dvr_crex.c, -std )
+
+/* And dvr_csw needs osf1 defined to pick up dirent instead of direct */
+
+SpecialLibObjectRule(dvr_csw.o, dvr_csw.c, -std -Dosf1)
+
+#if ProfileLibDvr
+ProfiledLibraryTarget(dvr,$(OBJS))
+#endif
+#if DebugLibDvr
+#if InstallStaticDebugLibraries
+DebuggedLibraryTarget(dvr,$(OBJS))
+InstallLibrary(dvr_d,$(DEBUGUSRLIBDIR))
+#endif
+#if DoSharedLib && InstallSharedDebugLibraries
+SharedDebuggedLibraryTarget(dvr,$(SODVRREV),$(OBJS),debugged,..)
+InstallNonExecFile(debugger/libdvr.so,$(DEBUGUSRLIBDIR))
+#endif
+#endif

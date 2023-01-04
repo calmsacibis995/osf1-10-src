@@ -1,0 +1,95 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112092307.AA08304@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2264) close XBUG #4344: Xt: invalid x and y after a resize of the Shell
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Mon, 09 Dec 91 18:07:55 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: invalid x and y after a resize of the Shell
+        ### bug number:   4344
+        ### area:         Xt
+        ### severity:     low
+        ### comments:     fixed, Shell.c 1.120
+
+*** /tmp/,RCSt1a08260	Mon Dec  9 18:03:51 1991
+--- lib/Xt/Shell.c	Fri Dec  6 16:17:27 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: Shell.c,v 1.119 91/07/26 15:49:52 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Shell.c,v 1.120 91/12/06 16:16:40 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 116,121 ****
+--- 116,122 ----
+  static void Realize();
+  static void Resize();
+  static Boolean SetValues();
++ static void GetValuesHook();
+  static void ChangeManaged(); /* XXX */
+  static XtGeometryResult GeometryManager(), RootGeometryManager();
+  static void Destroy();
+***************
+*** 154,160 ****
+      /* set_values	  */	SetValues,
+      /* set_values_hook	  */	NULL,			
+      /* set_values_almost  */	XtInheritSetValuesAlmost,  
+!     /* get_values_hook	  */	NULL,			
+      /* accept_focus	  */	NULL,
+      /* intrinsics version */	XtVersion,
+      /* callback offsets	  */	NULL,
+--- 155,161 ----
+      /* set_values	  */	SetValues,
+      /* set_values_hook	  */	NULL,			
+      /* set_values_almost  */	XtInheritSetValuesAlmost,  
+!     /* get_values_hook	  */	GetValuesHook,
+      /* accept_focus	  */	NULL,
+      /* intrinsics version */	XtVersion,
+      /* callback offsets	  */	NULL,
+***************
+*** 2063,2068 ****
+--- 2064,2095 ----
+      *y = w->core.y;
+  }
+  
++ static void GetValuesHook(widget, args, num_args)
++     Widget	widget;
++     ArgList	args;
++     Cardinal*	num_args;
++ {
++     ShellWidget w = (ShellWidget) widget;
++     extern void _XtCopyToArg();
++ 
++     /* x and y resource values may be invalid after a shell resize */
++     if (! (w->shell.client_specified & _XtShellPositionValid)) {
++ 	Cardinal	n;
++ 	Position	x, y;
++ 
++ 	for (n = *num_args; n; n--, args++) {
++ 	    if (strcmp(XtNx, args->name) == 0) {
++ 		 if (! (w->shell.client_specified & _XtShellPositionValid))
++ 		     _XtShellGetCoordinates(widget, &x, &y);
++ 		_XtCopyToArg((char *) &x, &args->value, sizeof(Position));
++ 	    } else if (strcmp(XtNy, args->name) == 0) {
++ 		 if (! (w->shell.client_specified & _XtShellPositionValid))
++ 		     _XtShellGetCoordinates(widget, &x, &y);
++ 		_XtCopyToArg((char *) &y, &args->value, sizeof(Position));
++ 	    }
++ 	}
++     }
++ }
+  
+  static void ApplicationShellInsertChild(widget)
+      Widget widget;

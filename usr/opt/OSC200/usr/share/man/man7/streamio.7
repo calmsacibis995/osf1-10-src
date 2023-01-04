@@ -1,0 +1,1095 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 1.2
+...\"	[91/10/02  15:33:16  steto]
+...\"
+.TH streamio 7
+.SH NAME
+.PP
+\*Lstreamio\*O \- STREAMS \*Lioctl\*O commands
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+\*L#include <sys/stropts.h>
+.sp 0.4v
+\*Lint ioctl(
+.nL
+	int \*Vfildes\*L,
+.nL
+	const \*Vcommand\*L,
+.nL
+	int \*Varg\*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfildes\*O"
+Contains the open file descriptor for the Stream to be operated on.
+.LI "\*Vcommand\*O"
+Specifies the STREAM \*Lioctl(\|)\*O command function to be performed
+on the Stream.
+.LI "\*Varg\*O"
+Contains additional information that the specified may command need
+for performing  its function.
+This is usually an integer, or a pointer to a command-specific
+structure, but can be of any type.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "STREAMS" "STREAMS ioctl commands"
+.iX "ioctls" "STREAMS"
+The STREAMS \*Lioctl\*O commands
+perform control operations on Streams.
+User processes can use these commands on all STREAMS file types.
+.PP
+When the Stream head receives a STREAMS \*Lioctl\*O function,
+it interprets the \*Vcommand\*O parameter and \*Varg\*O parameter,
+when specified, into an M_IOCTL message.
+In some cases, the \*Vcommand\*O and \*Varg\*O parameters are passed
+onto a module or driver in the Stream.
+.PP
+The modules or drivers in a Stream can also detect errors.
+When they do, they send an error message containing an error
+number to the Stream head.
+Subsequent calls to the functions will fail with \*Lerrno\*O set to
+this number.
+.SS ioctl Commands
+The STREAMS \*Lioctl\*O commands are the following:
+.VL
+.LI "\*LI_ATMARK\*O"
+Lets the user process see if the message currently on the Stream head
+read queue is marked by a downstream module.  A message is marked when
+its \*Lb_flag\*O field has MSGMARK ORed in by a module/driver.
+The \*Varg\*O field specifies how the checking is done when there are
+multiple marked messages on the queue.
+The legal values of \*Varg\*O are:
+.VL
+.LI "ANYMARK"
+Checks if the message is marked.
+.LI "LASTMARK"
+Checks if the message is the last one that is marked on the queue.
+.LE
+.IP
+The command returns a value of 1 if the mark condition is satisfied;
+otherwise, a 0 (zero) is returned.
+.LI "\*LI_CANPUT\*O"
+Checks if the specified priority band is currently
+.\".zA "defect, 6854, R1.1.1: Fixed spelling"
+writable.
+.\".zZ "defect, 6854, R1.1.1: Fixed spelling"
+The \*Varg\*O parameter specifies the priority band to check.
+.IP
+The command returns a value of 0 (zero) if the priority band is being flow
+controlled;
+otherwise, a value of 1 is returned.
+.LI "\*LI_CKBAND\*O"
+Checks if a certain priority band's message is currently
+on the Stream head read queue.
+The \*Varg\*O parameter specifies the priority band
+being checked.
+.IP
+If a message of the priority band is on the Stream head read
+queue, the command returns a value of 1; otherwise, a value of 0 (zero) is
+returned.
+.LI "\*LI_FDINSERT\*O"
+Creates a message from one or more user specified buffers, includes information
+about another Stream, and sends the message downstream.
+The message contains a control part and a data part (which is optional).
+These parts are placed in separate buffers, \*Lctlbuf\*O and \*Ldatabuf\*O,
+pointed to by \*Varg\*O.
+These buffers are contained in an \*Lstrfdinsert\*O structure (defined
+in the \*Lstropts.h\*O header file), whose members are as follows:
+.iS
+\*L
+struct strbuf	ctlbuf;
+struct strbuf	databuf;
+long		flags;
+int		fildes;
+int		offset;
+\*O
+.iE
+.IP
+The \*Lstrbuf\*O structure pointed to by \*Lctlbuf\*O and \*Ldatabuf\*O
+has the following members:
+.iS
+\*L
+int maxlen;
+int len;
+char *buf
+\*O
+.iE
+.IP
+The \*Llen\*O field of the \*Lstrbuf\*O structure for \*Lctlbuf\*O
+must specify the size of a pointer, plus the number of information control
+bytes to be sent in the message.
+.IP
+The \*Lfildes\*O field in the \*Lstrfdinsert\*O structure specifies
+the file descriptor of the Stream in which the message will be sent.
+.IP
+The \*Loffset\*O field needs to be properly aligned. This field specifies
+the number of bytes after the beginning of the control buffer
+where the \*LI_FDINSERT\*O command will store a pointer.
+This pointer will be the address of the read queue structure of the device
+driver for the Stream designated by \*Vfildes\*O in the \*Lstrfdinsert\*O
+structure.
+.IP
+The \*Llen\*O field in the \*Lstrbuf\*O structure for \*Ldatabuf\*O
+must contain the number of bytes of data information
+to be sent with the message, or to 0 (zero) if no data part is to be sent.
+.IP
+The \*Lflags\*O field specifies the type of message to be created.
+When this field contains 0 (zero), the \*LI_FDINSERT\*O command creates
+an ordinary message.
+When the field is set to RS_HIPRI, the \*LI_FDINSERT\*O command creates
+a high priority message.
+This command will block for an ordinary message if the named Stream's
+read queue is full because of internal flow control conditions.
+It will not block on these conditions for a high priority message.
+For ordinary
+.\".zA "defect, 6854, R1.1.1: Fixed spelling"
+messages,
+.\".zZ "defect, 6854, R1.1.1: Fixed spelling"
+the \*Lioctl\*O will not block when the write queue
+is full and O_NDELAY or O_NONBLOCK (see the \*Lopen(\|)\*O function)
+is specified.
+It will fail instead.
+.LI "\*LI_FIND\*O"
+Compares the names of all modules currently present on the Stream
+to the name specified in \*Varg\*O.
+The command returns a value of 1 value if the module is present and a value of
+0 (zero)
+value if the the module is not present.
+.LI "\*LI_FLUSH\*O"
+Flushes the input and output queues of the Stream head and all of the
+modules and drivers on the Stream, according to the value of \*Varg\*O.
+The \*Varg\*O parameter value can specify one of the following operations:
+.VL
+.LI "FLUSHRW"
+Flushes write and read queues.
+.LI "FLUSHW"
+Flushes write queues.
+.LI "FLUSHR"
+Flushes read queues.
+.LE
+.IP
+The command has the following effects on pipes:
+.ML
+.LI
+If a pipe does not have pushed modules,
+then, according to the value of \*Varg\*O,
+the read queue of the Stream head at either end is flushed.
+.LI
+When \*Varg\*O is FLUSHRW and \*Vfildes\*O specifies a pipe, the read queues
+at both ends are flushed.
+.LI
+When \*Varg\*O is FLUSHW and \*Vfildes\*O specifies a pipe, and the other end
+of the pipe exists (for example, the other end is not closed), the read queue
+for the other end of the pipe, and the write queue for this end, are flushed.
+.LI
+When \*Varg\*O is FLUSHR and \*Vfildes\*O specifies a pipe, both the read queue
+for the end which issued the I_FLUSH,
+and the write
+queue for the other end,
+are flushed.
+.LE
+.IP
+The \*Lpipemod\*O module performs flushing operations on pipes.
+This module should be the first one pushed on the Stream for a pipe
+so that it will be located at the midpoint
+of the pipe.
+.LI "\*LI_FLUSHBAND\*O"
+Flushes a band of messages. The band of messages to be flushed is defined
+in the \*Lbandinfo\*O structure pointed to by \*Varg\*O.
+This structure (in the \*Lstropts.h\*O header file)
+has the following members:
+.oS
+\*L
+unsigned char	bi_pri:
+int		bi_flag;
+\*O
+.oE
+.IP
+The value of the \*Lbi_flag\*O field can be FLUSHR, FLUSHW, or FLUSHRW, as
+described for the \*LI_FLUSH\*O command.
+.LI "\*LI_GETBAND\*O"
+Returns the priority of the first message on the Stream head read queue.
+The \*Varg\*O parameter specifies the priority band being checked.
+.LI "\*LI_GETCLTIME\*O"
+Returns the time delay for closing a Stream (see the \*LI_SETCLTIME
+ioctl\*O command).
+The time value is returned in the long pointed to by \*Varg\*O.
+This value may, or may not, have been set by a previously issued
+\*LI_SETCLTIME ioctl\*O.
+.LI "\*LI_GETSIG\*O"
+Returns the events for which the calling process has registered to receive
+a SIGPOLL signal.
+Events are returned as in \*Varg\*O bitmask as defined for the I_SETSIG
+command.
+.LI "\*LI_GRDOPT\*O"
+Returns the current read mode setting of the Stream (see the \*Lread(\|)\*O
+function reference page)
+in an integer pointed to by \*Varg\*O.
+.LI "\*LI_GWROPT\*O"
+Returns the current write mode setting for a Stream in the integer pointed
+to by \*Varg\*O.
+The value of the integer returned in \*Varg\*O is SNDZERO as described
+for the \*LI_SWROPT\*O command.
+.LI "\*LI_LINK\*O"
+Connects two Streams: the file descriptor of the Stream associated
+with the multiplexing driver (where \*Vfildes\*O is the file descriptor)
+and the Stream associated with another driver (where \*Varg\*O is
+the file descriptor).
+The Stream referred to by \*Varg\*O is connected below the multiplexing
+driver.
+.IP
+The \*LI_LINK ioctl\*O requires a multiplexing driver to send an
+acknowledgement message (M_IOCACK or M_IOCNAK) to the Stream head about
+the linking operation.
+Upon successful completion, the call returns a
+multiplexor ID number,
+which is an identifier that is used to disconnect the link
+(see the \*LI_UNLINK\*O command).
+If the request fails, a value of -1 is returned.
+.LI "\*LI_LIST\*O"
+Lets the user process list the names of all the modules present
+on a Stream.  This includes the names up to and including the topmost driver
+name.
+If the \*Varg\*O parameter is a null value, the command returns
+the number of modules, plus the driver, which are present
+on the Stream referred to by \*Vfildes\*O.
+The user can use this information to allocate enough space for the
+module and driver names in user space.
+If the \*Varg\*O parameter is not a null value, its value should point to
+an \*Lstr_list\*O structure (in the \*Lstropts.h\*O header file),
+with the following members:
+.iS
+\*L
+int	sl_nmods;
+struct	str_mlist	*sl_modlist;
+\*O
+.iE
+.IP
+The \*Lstr_mlist\*O structure (also in the \*Lstropts.h\*O header file)
+has the following member:
+.iS
+\*L
+char	1_name[FMNAMESZ+1];
+\*O
+.iE
+.IP
+The \*Lsl_nmods\*O field of the \*Lstr_list\*O structure indicates the
+number of entries that the user process has allocated in the array
+and on return.
+The \*Lsl_modlist\*O field contains the list of module names.
+.IP
+The return value for the \*LI_STR ioctl\*O indicates the number of entries
+that have been filled in the array.
+.LI "\*LI_LOOK\*O"
+Retrieves the name of the module located just below the Stream head,
+placing it in a null terminated
+character string pointed to by \*Varg\*O.
+The Stream is referred to by \*Vfildes\*O.
+The \*Varg\*O parameter should point to a buffer, whose size is at least
+FMNAMESZ+1 bytes.  The \*L<sys/stropts.h>\*O file contains the
+definition for FMNAMESZ.
+.LI "\*LI_NREAD\*O"
+Counts the bytes in the data blocks of the first message on the Stream head
+read queue.  This command places this value in the location pointed to by
+\*Varg\*O.
+The command returns the number of messages on
+the queue.
+For example, if the command call results in a value of 0 (zero) in
+\*Varg\*O,
+but a return value greater than 0 (zero) is returned by the \*Lioctl(\|)\*O
+function, the first message on the queue
+contains 0 (zero) bytes.
+.LI "\*LI_PEEK\*O"
+Allows the user process to look (peek) at the contents of the first message
+on the Stream head read queue.  This is done without taking the message off
+the queue.
+The \*LI_PEEK ioctl\*O operates the same way as the \*Lgetmsg(\|)\*O function,
+except that it does not remove the message.
+The \*Varg\*O parameter points to a \*Lstrpeek\*O structure
+(in the \*Lstropts.h\*O header file) with the following members:
+.iS
+\*L
+struct strbuf	ctlbuf;
+struct strbuf	databuf;
+long		flags;
+\*O
+.iE
+.IP
+The \*Lstrbuf\*O structure pointed to by \*Lctlbuf\*O and \*Ldatabuf\*O
+has the following members:
+.iS
+\*L
+int maxlen;
+int len;
+char *buf
+\*O
+.iE
+.IP
+The \*Lmaxlen\*O field of the \*Lstrbuf\*O structure must specify
+the number of bytes of control or data
+information to be retrieved.
+The \*Lflags\*O field can be set to RS_HIPRI or 0 (zero).
+If this field is set to RS_HIPRI, the \*LI_PEEK ioctl\*O looks for
+a high priority message on the queue.
+If the field is set to 0, the \*LI_PEEK ioctl\*O looks at the first
+message on the queue.
+.IP
+The \*LI_PEEK\*O returns a 1 if a message was retrieved,
+and returns a value of 0 (zero) if no message was found;
+it does not wait for a message.  Upon successful completion, \*Lctlbuf\*O
+specifies control information in the
+control buffer, \*Ldatabuf\*O specifies data information in the data
+buffer, and \*Vflags\*O contains RS_HIPRI or 0 (zero).
+.LI "\*LI_PLINK\*O"
+Connects two Streams: the file descriptor of the Stream associated
+with the multiplexing driver (where \*Vfildes\*O is the file descriptor)
+and the Stream associated with another driver (where \*Varg\*O is
+the file descriptor).
+The Stream referred to by \*Varg\*O is connected via a persistent link
+below the multiplexing driver.
+A persistent link is a link that can exist even if the file descriptor
+\*Vfildes\*O referring to the Stream associated with the multiplexing
+driver is closed.
+.IP
+The \*LI_PLINK ioctl\*O requires a multiplexing driver to send an
+acknowledgement message (M_IOCACK or M_IOCNAK) to the Stream head about
+the linking operation.
+.IP
+On successful completion, the command returns a multiplexor ID number,
+which is an identifier that is used to disconnect the multiplexing driver
+(see the \*LI_PUNLINK\*O command).  Otherwise, a -1 is returned.
+.IP
+The \*LI_PLINK ioctl\*O can also fail if it is waiting for the multiplexing
+driver to acknowledge the link request and an error (M_ERROR) message,
+or hangup (M_HANGUP) message is received at the Stream head for \*Vfildes\*O.
+In addition, an error can be returned in an M_IOCACK or M_IOCNAK message.
+When these occur, the \*LI_PLINK ioctl\*O will fail
+with \*Lerrno\*O set to the value in the message.
+.LI "\*LI_POP\*O"
+Removes the module just below the Stream head.  The Stream is referred
+to by the \*Vfildes\*O parameter.
+The \*Varg\*O parameter must be set to the value 0 (zero) in the request.
+.IP
+In the case of pipes, the module must be popped from the side on which
+it was pushed.
+.LI "\*LI_PUNLINK\*O"
+Disconnects two Streams that are connected via a persistent link,
+where \*Vfildes\*O is the file descriptor of
+the Stream associated with a multiplexing driver and \*Varg\*O is
+the multiplexor ID number returned by the \*LI_PLINK ioctl\*O.
+If \*Varg\*O is \*LMUXID_ALL\*O (as defined in the \*Lstropts.h\*O
+header file), then all Streams that are connected by persistent links
+to the Stream referred to by \*Vfildes\*O
+are disconnected.
+.IP
+The \*LI_PUNLINK ioctl\*O requires a multiplexing driver to send an
+acknowledgement message (M_IOCACK or M_IOCNAK) to the Stream head about
+the unlinking operation.
+.LI "\*LI_PUSH\*O"
+Pushes the module whose name is pointed to by \*Varg\*O on to the Stream,
+just below the Stream head, then calls the open routine of the module.
+In the case of pipes, the module is effectively pushed between the
+Stream head at each end.
+.LI "\*LI_RECVFD\*O"
+Gets the file descriptor associated with the message
+sent by the \*LI_SENDFD\*O command over a Stream pipe.
+.IP
+The \*Varg\*O parameter points to a data buffer large enough to hold
+a \*Lstrrecvfd\*O structure (in the \*Lstropts.h\*O header file),
+which contains user data.
+This structure has the following members:
+.iS
+\*L
+int	fd;
+uid_t	uid;
+gid_t	gid;
+char	fill[8]
+\*O
+.iE
+.IP
+The \*Lfd\*O field of the \*Lstrrecvfd\*O structure contains the integer
+for the file descriptor.
+The \*Luid\*O and \*Lguid\*O fields contain the user ID and group ID of the
+sending Stream.
+If the O_ONDELAY or O_NONBOCK flags (see the \*Lopen(\|)\*O function)
+are not set,
+the \*LI_RECVFD ioctl\*O will block until a message is present at the Stream
+head.
+If the O_ONDELAY or O_NONBOCK flags are set,
+the \*LI_RECVFD ioctl\*O will fail if no message is present
+at the Stream head.
+.IP
+If the \*LI_SENDFD\*O command sent the message at the Stream head, the
+\*LI_RECVFD\*O command allocates
+a new file descriptor for the file pointer contained in
+the message.
+The new file descriptor is placed in the \*Lfd\*O field of the \*Lstrrecvfd\*O
+structure,
+and the structure is copied into the data buffer pointed to by \*Varg\*O.
+.LI "\*LI_SENDFD\*O"
+Requests the Stream referred to by \*Lfildes\*O to send
+a message M_PASSFP to the Stream head at the other end of a Stream pipe.
+The file pointer corresponds to the value of \*Varg\*O, which specifies
+an open file descriptor.
+.IP
+The \*LI_SENDFD\*O command changes the \*Varg\*O value into a system
+file pointer, allocates a message data block, and inserts the file
+pointer in the block.
+It also places the user id and group id associated with the calling
+process are also placed in the block.
+The message is then placed directly
+on the read queue of the Stream head at the other end of the Stream
+pipe.  It does not go through the Stream of the pipe.
+.LI "\*LI_SETCLTIME\*O"
+Lets the user process set the time that the Stream head delays
+when the Stream is closing and the write queues contain data.
+The \*Varg\*O parameter contains a pointer to the number of milliseconds
+to delay, rounded up to the nearest legal value on the system.
+The default time is 15 seconds.
+.IP
+Before Stream modules and drivers are closed, the Stream head will
+delay for the specified amount of time.  This allows the data on the
+write queues
+to drain.
+If data are still present on the writes queues after the delay, the queues
+are flushed.
+.LI "\*LI_SETSIG\*O"
+Tells the Stream head that the user process wants
+a SIGPOLL signal to be issued by the kernel for a particular event
+that can occur on a Stream.
+This command provides support for asynchronous processing in STREAMS.
+.IP
+The \*Varg\*O parameter contains a bitmask specifying the particular
+events that SIGPOLL is to be sent for.
+The value is the bitwise-OR of any combination of the following constants:
+.VL
+.LI "S_BANDURG"
+Indicates that, when used with S_RDBAND,
+a priority message has
+reached the front of the Stream head read queue.  (If only S_RDBAND is
+set, only a SIGPOLL signal will be generated.  If S_BANDURG is also
+set, then a SIGURG signal will be generated.)
+However, SIGURG is generated instead of SIGPOLL.
+.LI "S_ERROR"
+Specifies that an M_ERROR message has reached the front of the
+Stream head read queue.
+The SIGPROC signal is posted to the user.
+.LI "S_HANGUP"
+Specifies that an M_HANGUP message has reached the Stream head.
+The SIGPROC signal is posted, in addition to a SIGHUP signal.
+.LI "S_HIPRI"
+Specifies a high priority message has arrived on the
+readd queue of the Stream head.
+This bit is set even zero length messages.
+.LI "S_INPUT"
+Specifies that a message, which is not a M_PCPROTO type message, has
+arrived on the read queue of the
+Stream head.
+This bit is set even for zero length messages.
+The S_INPUT event is maintained for compatibility with SVID 2.
+.LI "S_MSG"
+Specifies that a STREAMS signal (M_SIG) signal containing the SIGPOLL
+signal has reached
+the front of the Stream head read queue.
+The SIGPROC signal will be posted to the user.  If S_MSG is not
+enabled, SIGPROC will not be sent.
+.LI "S_OUTPUT"
+Specifies that the write queue of the module just below the Stream
+head is not full any more.
+There is room on the queue for the user process to send (write) data
+to the Stream.
+.LI "S_RDBAND"
+Specifies a priority band message (where band is greater than 0 (zero)) has
+arrived on the
+read queue of the Stream head.
+This bit is set even zero length messages.
+.LI "S_RDNORM"
+Specifies that an ordinary message has arrived on the
+read queue of the Stream head.
+This bit is set even for zero length messages.
+.LI "S_WRBAND"
+Specifies that a priority band (where band is greater than 0 (zero))
+exists on a queue downstream.
+The user can send (write)a  priority data message on the queue.
+.LI "S_WRNORM"
+Specifies that this event is the same as S_OUTPUT.
+.LE
+.IP
+User processes must register explicitly using the I_SETSIG command to
+receive SIGPOLL (or SIGURG) signals.
+This is noted by the Stream head.
+When more than one user process registers to receive the signal
+for the same event on a Stream, each is signaled when the event occurs.
+If the value of \*Varg\*O is 0 (zero), the calling process is deregistered
+and does not receive the signal.
+.IP
+A user process can set the \*Varg\*O bitmask to the S_HIPRI value,
+thus allowing itself to be signaled only of high priority messages.
+.LI "\*LI_SRDOPT\*O"
+Sets the read mode of the Stream (see the \*Lread(\|)\*O reference
+page) according
+to the value of \*Varg\*O.
+The \*Varg\*O value specifies the following read modes related to
+data and message boundaries:
+.VL
+.LI "RNORM"
+Byte-stream mode (the default).
+The \*Lread(\|)\*O function completes when the byte count is satisfied,
+the Stream head read queue is empty, or a zero length message is encountered.
+In the case of a zero length message, the message is placed back on the queue,
+and a subsequent \*Lread(\|)\*O returns 0 bytes.
+.LI "RMSGD"
+Message-discard mode.
+The \*Lread(\|)\*O function completes when the byte count is satisfied,
+or a message boundary is reached.  Any remaining data in the message
+are discarded.
+.LI "RMSGN"
+Message-nondiscard mode.
+The \*Lread(\|)\*O function completes when the byte count is satisfied,
+or a message boundary is reached.
+Any data remaining in the message are put back on the read queue.
+.LE
+.IP
+If the following value are set in \*Varg\*O, the Stream head treats
+control (protocol) messages accordingly:
+.VL
+.LI "RPROTNORM"
+The \*Lread(\|)\*O function fails, returning EBADMSG, if a control message
+is at the front of the read queue (the default behavior).
+.LI "RPROTDAT"
+The \*Lread(\|)\*O function delivers the control portion of the message
+as data to the user process.
+.LI "RPROTDIS"
+The \*Lread(\|)\*O function discard the control portion of a message
+and send the data portion to the user process.
+.LE
+.LI "\*LI_STR\*O"
+Builds a STREAMS \*Lioctl\*O (M_IOCTL) message from the data
+pointed to by \*Varg\*O and sends the message downstream to a
+module or driver.
+The command allows a user process to send data with an \*Lioctl\*O request,
+and to receive any information that the downstream recipient of the message
+returns.
+The \*LI_STR ioctl\*O blocks until the intended recipient of the M_IOCTL
+message responds with a positive acknowledgement (M_IOCACK) message or negative
+acknowledgement (M_IOCNAK) message, or until the request times out
+(default time = 15 seconds).
+If the request times out, it fails.
+.IP
+Only one \*LI_STR ioctl\*O can be active on a Stream at a time.
+Other requests must wait until the active request completes
+at the Stream head.
+The O_NDELAY and O_NONBLOCK flags (see the \*Lopen(\|)\*O function)
+have no effect on the call.
+.IP
+User values for the \*LI_STR ioctl\*O request are supplied by a \*Lstrioctl\*O
+structure (in the \*Lstropts.h\*O header file), to which the \*Varg\*O
+parameter points.
+The members of \*Lstrioctl\*O structure are the following:
+.iS
+\*L
+int	ic_cmd;
+int	ic_timeout;
+int	ic_len;
+char	*ic_dp;
+\*O
+.iE
+.IP
+The \*Lic_cmd\*O field of the \*Lstrioctl\*O structure contains
+the \*Lioctl\*O command to be sent to the downstream module or driver.
+The \*Lic_timeout\*O field specifies the number of seconds that
+the \*LI_STR\*O request will wait for an acknowledgement before timing
+out:
+.VL
+.LI "-1"
+Indicates infinite number of seconds.
+.LI "0 (zero)"
+Indicates that the default number of seconds should be used (which is
+infinite).
+.LI ">0"
+Indicates that the specified number of seconds should be used.
+.LE
+.IP
+On input, the \*Lic_len\*O field contains the length of the data argument.
+On return, it contains the number of bytes being returned to the user process,
+(the buffer pointed to by \*Lic_dp\*O).
+The buffer pointed to by \*Lic_dp\*O should be large enough to contain the
+maximum amount of data able to be returned by any module or driver in
+the Stream.
+.LI "\*LI_SWROPT\*O"
+Sets the strea write mode according to the \*Varg\*O parameter value.
+The legal value for \*Varg\*O is:
+.VL
+.LI "SNDZERO"
+When set, the Stream head sends a zero length message downstream upon
+the occurrence of a write of 0 (zero) bytes.
+When not set, the Stream head does not send a zero length message
+downstream when a write of 0 bytes occurs, and returns 0 to the user process.
+.LE
+.LI "\*LI_UNLINK\*O"
+Disconnects two Streams, where \*Vfildes\*O is the file descriptor of
+the Stream associated with a multiplexing driver and \*Varg\*O is
+the multiplexor identifier number returned by the \*LI_LINK ioctl\*O,
+which created the multiplexing configuration.
+If \*Varg\*O is \*LMUXID_ALL\*O (defined in the \*Lstropts.h\*O
+header file), all Streams connected to the Stream referred to by \*Vfildes\*O
+are disconnected.
+.IP
+The \*LI_UNLINK ioctl\*O requires a multiplexing driver to send an
+acknowledgement message (M_IOCACK or M_IOCNAK) to the Stream head about
+the unlinking operation.
+.LE
+.SS RETURN VALUES
+Unless specified differently for a command, the return value for a STREAMS
+\*Lioctl(\|)\*O call is 0 (zero) on success and -1 (minus one) on failure.
+.SH ERRORS
+.PP
+A STREAMS \*Lioctl\*O command fails without performing
+the function and with \*Lerrno\*O set to [EINVAL] if:
+.ML
+.LI
+The Stream referred to by \*Vfildes\*O is linked below a multiplexing
+driver.
+.LI
+The \*Vcommand\*O parameter is not a valid value for the Stream.
+.LE
+.IP
+In addition, if any of the following conditions occur, the STREAMS
+\*Lioctl\*O commands return the corresponding value:
+.IP
+\*LI_ATMARK\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter has an illegal value.
+.LE
+.PP
+\*LI_CANPUT\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter has an illegal value.
+.LE
+.PP
+\*LI_CKBAND\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter has an illegal value.
+.LE
+.PP
+\*LI_FDINSERT\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Vfildes\*O parameter in the \*Lstrfdinsert\*O structure is an invalid,
+open file descriptor.
+.LI "[EINVAL]"
+The size of the pointer plus \*Voffset\*O exceeds the value of the
+\*Llen\*O field for the buffer specified through \*Lctlptr\*O.
+.LI "[EINVAL]"
+The \*Voffset\*O parameter does not specify a properly aligned location
+in the data
+buffer.
+.LI "[EINVAL]"
+The \*Vflags\*O parameter contains an undefined value.
+.LI "\[EFAULT]"
+The \*Varg\*O parameter points, or \*Lctrlbuf\*O or \*Ldatabuf\*O is,
+outside the allocated address space.
+.LI "[EAGAIN]"
+The \*Lioctl\*O request failed because a non-priority message was
+to be created, the O_NDELAY or O_NONBLOCK flag was set,
+and the Stream's write queue was full because of internal flow
+control conditions.
+.LI "[ENOSR]"
+Buffers could not be allocated for the message that was to be created
+due to insufficient STREAMS memory resources.
+.LI "[ENXIO]"
+A hangup was received on the Stream specified by \*Vfildes\*O in the
+\*LI_FDINSERT ioctl\*O call or on the Stream specified by \*Vfildes\*O
+in the \*Lstrfdinsert\*O.
+.LI "[ERANGE]"
+The value of the \*Llen\*O field for the buffer specified through
+\*Ldatabuf\*O does not fall within the range for the minimum
+and maximum sizes of packets for the topmost module on the Stream.
+.LI "[ERANGE]"
+The value of the \*Llen\*O field for the buffer specified through
+\*Ldatabuf\*O is larger the the maximum allowable size for the data
+part of a message.
+.LI "[ERANGE]"
+The value of the \*Llen\*O field for the buffer specified through
+\*Lctlbuf\*O is larger the the maximum allowable size for the control
+part of a message.
+.LE
+.IP
+The \*LI_FDINSERT ioctl\*O can also fail if an error (M_ERROR) message
+was received by the Stream specified by the \*Lfildes\*O field
+in the \*Lstrfdinsert\*O structure.
+In this case, \*Lerrno\*O is set to the error value in the error
+message.
+.PP
+\*LI_FIND\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter does not contain a valid module name.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LE
+.PP
+\*LI_FLUSH\*O
+.nL
+.VL
+.LI "[ENOSR]"
+Could not allocate buffers for flush operation because of a lack of STREAMS
+memory resources.
+.LI "[EINVAL]"
+The \*Varg\*O parameter is an invalid value.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LE
+.PP
+\*LI_FLUSHBAND\*O
+.PP
+.VL
+.LI "[EINVAL]"
+The \*Vbi_pr\*O parameter value exceeds the maximum band, or the
+\*Vbi_flag\*O parameter is not FLUSHR, FLUSHW, or FLUSHRW.
+.LE
+.PP
+\*LI_GETBAND\*O
+.nL
+.VL
+.LI "[ENODATA]"
+No message exists on the Stream head read queue.
+.LE
+.PP
+\*LI_GETSIG\*O
+.nL
+.VL
+.LI "[EINVAL]"
+User process is not registered to receive the SIGPOLL signal.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LE
+.PP
+\*LGRDOPT\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter is pointing outside the allocated address space.
+.LE
+.PP
+\*LI_LINK\*O
+.nL
+.VL
+.LI "[EAGAIN]"
+Temporarily unable to allocate storage to perform the linking operation.
+.LI "[EBADF]"
+The \*Varg\*O parameter is an invalid, open file descriptor.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LI "[EINVAL]"
+The Stream referred to by \*Vfildes\*O does not support multiplexing.
+.LI "[EINVAL]"
+The file referred to by \*Varg\*O is not a Stream, or the Stream is
+already linked under a multiplexor.
+.LI "[EINVAL]"
+The link operation would cause a "cycle" in the resulting multiplexing
+configuration.
+In other words, the driver referred to by the \*Varg\*O parameter is
+linked into this
+configuration at multiple places
+.LI "[EINVAL]"
+The \*Vfildes\*O parameter is the file descriptor of a pipe.
+.LE
+.IP
+The \*LI_LINK ioctl\*O can also fail if it is waiting for the multiplexing
+driver to acknowledge the link request and an error (M_ERROR) message,
+or hangup (M_HANGUP) message is received at the Stream head for \*Vfildes\*O.
+In addition, an error can be returned in an M_IOCACK or M_IOCNAK message.
+When these occur, the \*LI_LINK ioctl\*O will fail
+with \*Lerrno\*O set to the value in the message.
+.PP
+\*LI_LIST\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Lsl_mods\*O number members is less than 1.
+.LI "[EAGAIN]"
+Could not allocate buffers.
+.LE
+.PP
+\*LI_LOOK\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The named module is not present on the Stream.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LE
+.PP
+\*LI_NREAD\*O
+.nL
+.VL
+.LI "[EFAULT]"
+The \*Varg\*O parameter is pointing outside the allocated address space.
+.LE
+.PP
+\*LI_PEEK\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Vflags\*O parameter is an illegal value.
+.LI "[EFAULT]"
+\*Varg\*O points, or \*Lctrlbuf\*O or \*Ldatabuf\*O is,
+outside the allocated address space.
+.LI "[EBADMSG]"
+Message to be looked at is not valid for the \*LI_PEEK\*O command.
+.LE
+.PP
+\*LI_PLINK\*O
+.nL
+.VL
+.LI "[ENXIO]"
+A hangup was received on the Stream referred to by the \*Vfildes\*O parameter.
+.LI "[ETIME]"
+A timeout occurred before an acknowledgement message was received
+at the Stream head.
+.LI "[EAGAIN]"
+Temporarily unable to allocate storage to perform the linking operation.
+.LI "[EBADF]"
+The \*Varg\*O parameter is an invalid, open file descriptor.
+.LI "[EINVAL]"
+The Stream referred to by the \*Vfildes\*O parameter does not support
+multiplexing.
+.LI "[EINVAL]"
+The file referred to by the \*Varg\*O parameter is not a Stream, or is already
+linked under a multiplexing driver.
+.LI "[EINVAL]"
+The link operation would cause a "cycle" in the resulting multiplexing
+configuration.
+In other words, the driver referred to by the \*Varg\*O parameter is
+linked into the
+configuration at multiple places.
+.LI "[EINVAL]"
+The \*Vfildes\*O parameter is the file descriptor of a pipe.
+.LE
+.PP
+\*LI_POP\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The named module is not present on the Stream.
+.LI "[ENXIO]"
+Error value returned by the module being popped.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LE
+.PP
+\*LI_PUNLINK\*O
+.nL
+.VL
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LI "ETIME"
+A timeout
+.\".zA "defect, 6854, R1.1.1: Fixed spelling"
+occurred
+.\".zZ "defect, 6854, R1.1.1: Fixed spelling"
+before an acknowledgement message was received
+at the Stream head.
+.LI "[EAGAIN]"
+Temporarily unable to allocate storage to perform the linking operation.
+.LI "[EINVAL]"
+The \*Varg\*O parameter is an invalid multiplexor ID number.
+.LI "[EINVAL]"
+\*Vfildes\*O is the file descriptor of a pipe.
+.LE
+.IP
+An \*LI_PUNLINK ioctl\*O can also fail if it is waiting for the multiplexor
+to acknowledge the unlink request and an error (M_ERROR) message,
+or hangup (M_HANGUP) is received
+at the Stream head for \*Vfildes\*O.
+In addition, an error can be returned in an M_IOCACK or M_IOCNAK message.
+When these occur, the \*LPUNI_LINK ioctl\*O will fail
+with \*Lerrno\*O set to the value in the message.
+.PP
+\*LI_PUSH\*O
+.nL
+.VL
+.LI "[EINVAL]"
+An invalid module name was used.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LI "[ENXIO]"
+Error value returned by the module being pushed.
+The push has failed.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LE
+.PP
+\*LI_RECVFD\*O
+.nL
+.VL
+.LI "[EAGAIN]"
+The O_ONDELAY or O_NONBOCK flag was set, and
+a message was not present on the Stream head read queue,
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LI "[EBADMSG]"
+The message present on the Stream head read queue did not contain
+a passed file descriptor.
+.LI "[EMFILE]"
+No more file descriptors are permitted to be opened.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LE
+.PP
+\*LI_SENDFD\*O
+.nL
+.VL
+.LI "[EAGAIN]"
+The sending Stream head could not allocate a message block
+for the file pointer.
+.LI "[EAGAIN]"
+The read queue of the receiving Stream head was full and could not
+accept the message.
+.LI "[EBADF]"
+The \*Varg\*O parameter is an invalid, open file descriptor.
+.LI "[EINVAL]"
+The \*Vfildes\*O parameter does not refer to a Stream pipe.
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LE
+.PP
+\*LI_SETCLTIME\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter has an illegal value.
+.LE
+.PP
+\*LI_SETSIG\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The user process is not registered to receive the SIGPOLL signal.
+.LI "[EAGAIN]"
+A data structure to store the signal request could not be allocated.
+.LE
+.PP
+\*LI_SRDOPT\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter contains an illegal value.
+.LE
+.PP
+\*LI_STR\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Lic_len\*O field is less than 0 (zero) bytes or larger than the
+maximum allowable
+size of the data part of a message (\*Lic_dp\*O).
+.LI "[EINVAL]"
+The \*Lic_timeout\*O field is less than -1.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points, or the buffer area specified by \*Lic_dp\*O or
+\*Lic_len\*O is,
+outside the allocated address space.
+.LI "[ENOSR]"
+Buffers could not be allocated for the \*Lioctl\*O request
+because of a lack of STREAMS memory resources.
+.LI "[ENXIO]"
+A hangup was received on the Stream referred to by \*Vfildes\*O.
+.LI "[ETIME]"
+The \*Lioctl\*O request timed out before an acknowledgement was received.
+.LE
+.IP
+The \*LI_STR ioctl\*O can also fail if the Stream head receives a message
+indicating an error (M_ERROR) or a hangup (M_HANGUP).
+In addition, an error can be returned in an M_IOCACK or M_IOCNAK message.
+In these cases, the \*Lioctl\*O will fail with \*Lerrno\*O set to the
+error value in the message.
+.PP
+\*LI_SWROPT\*O
+.nL
+.VL
+.LI "[EINVAL]"
+The \*Varg\*O parameter is an illegal value.
+.LE
+.PP
+\*LI_UNLINK\*O
+.nL
+.VL
+.LI "[ENXIO]"
+A hangup was received on \*Vfildes\*O.
+.LI "[ETIME]"
+A timeout
+.\".zA "defect, 6854, R1.1.1: Fixed spelling"
+occurred
+.\".zZ "defect, 6854, R1.1.1: Fixed spelling"
+before an acknowledgement message was received
+at the Stream head.
+.LI "[EINVAL]"
+The \*Varg\*O parameter is an invalid multiplexor ID number, or
+the \*Vfildes\*O parameter is already
+linked under a multiplexing driver.
+.LI "[EINVAL]"
+The \*Vfildes\*O parameter is the file descriptor of a pipe.
+.LE
+.IP
+An \*LI_UNLINK ioctl\*O can also fail if it is waiting for the multiplexor
+to acknowledge the unlink request and an error (M_ERROR) message,
+or hangup (M_HANGUP) is received
+at the Stream head for \*Vfildes\*O.
+In addition, an error can be returned in M_IOCACK or M_IOCNAK message.
+When this occurs, the \*LI_UNLINK ioctl\*O will fail
+with \*Lerrno\*O set to the value in the message.
+.SH FILES
+.PP
+.VL
+.LI "<\*L/sys/stream.h\*O>"
+The system file containing all of the structure and constant definitions
+for STREAMS.
+.LI "<\*L/sys/types.h\*O>"
+The system file that contains type definitions used in STREAMS header files.
+.LI "<\*L/sys/stropts.h\*>O"
+The system file that contains definitions of the arguments to the
+STREAMS M_FLUSH message type required by users and STREAMS modules and drivers.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lclose(2)\*O, \*Lfattach(3)\*O, \*Lfcntl(2)\*O,
+\*Lfdetach(3)\*O, \*Lgetmsg(2)\*O, \*Lioctl(2)\*O,
+\*Lopen(2)\*O, \*Lpoll(2)\*O, \*Lputmsg(2)\*O, \*Lread(2)\*O,
+\*Lsigaction(2)\*O, \*Lwrite(2)\*O.
+.PP
+Files: \*Lsignal(4)\*O.
+.EQ
+delim off
+.EN

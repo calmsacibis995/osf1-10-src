@@ -1,0 +1,167 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: .mrg..dec.ti,v $ $Revision: 1.1.2.4 $ (DEC) $Date: 1993/10/14 23:06:20 $
+# 
+#
+#  merge file to add vt510 terminfo data to /usr/lib/terminfo/dec.ti
+#
+#  F.P.Murphy    UNX    07/29/93
+#
+
+
+MERGE_ROUTINE=DRI_Merge
+
+
+#	-DRI_Merge
+#		merge routine provided by the DRIs.
+#
+#	given: 	global variables $_FILE and $_NEWFILE
+#	return: 0 if success
+#		non-zero if failure
+#
+#	Note:	1) use MRG_Echo() to output additional messages.
+#		2) see also /usr/share/lib/shell/libmrg for other available 
+#		   global variables.
+
+DRI_Merge()
+{
+
+	grep -q vt510 $_FILE ||
+	{
+
+		MRG_Echo "adding vt510 terminfo data"
+
+		echo "#\n#" >> $_FILE
+		sed -n /"^# VT510 Series"/,/"^###"/p $_NEWFILE >> $_FILE 
+		[ $? = 0 ] ||
+		{
+			MRG_Echo "\tfailed to add vt510 terminfo data"
+			return 1
+		}
+	}
+
+	awk '
+	BEGIN {
+		vt100 = 0; vt125 = 0; vt200 = 0
+		found1 = 0; found2 = 0; found3 = 0; found4 = 0
+	}
+
+	/^vt100\|/ {
+		print $0; vt100 = 1
+	}
+
+	/^vt125\|/ {
+		print $0; vt125 = 1
+	}
+
+	/^vt200\|/ {
+		print $0; vt200 = 1
+	}
+
+	/^#/ {
+		vt100 = 0; vt125 = 0; vt200 = 0; print $0
+	}
+
+	/sgr0=\\E\[m/ {
+		if (vt100 == 0 && vt125 == 0 && vt200 == 0) {
+			print $0
+		} else {
+			if (vt100 == 1) found1 = 1
+			if (vt125 == 1) found2 = 1
+			if (vt200 == 1) found3 = 1
+			n = 1
+			printf "\t"
+			while ( n <= NF ) {
+				if (index($n,"sgr0=")) {
+					if (vt100 == 1 || vt125 == 1) 
+					   printf "%s ", "sgr0=\E[m\E(B$<2>,"
+					else
+					   printf "%s ", "sgr0=\E[m\E(B,"
+				} else
+					printf "%s ", $n
+				n++
+			}
+			printf "\n"
+		} 
+	}
+
+	/smacs=\\E\(<\$<2>/ {
+		if (vt200 == 1 ) {
+			found4 = 1
+			n = 1
+			printf "\t"
+			while ( n <= NF ) {
+				if (index($n,"smacs="))
+					printf "%s ", "smacs=\E(0$<2>,"
+				else
+					printf "%s ", $n
+				n++
+			}
+			printf "\n"
+		} else
+			print $0
+	}
+
+	$0 !~ /^#/  && $0 !~ /^vt100\|/  && $0 !~ /^vt125\|/ && \
+	$0 !~ /^vt200\|/ && $0 !~ /sgr0=\\E\[m/  && $0 !~ /smacs=\\E\(<\$<2>/ 
+
+	END {
+		if (found1 == 0 || found2 == 0 || found3 == 0 || found4 == 0) 
+			exit 1
+		else
+			exit 0
+	}' $_FILE > /tmp/dec.ti
+
+	[ $? = 0 ] ||
+	{
+		MRG_Echo "\tfailed to create updated $_FILE"
+		return 1
+	}
+
+        [ -s /tmp/dec.ti ] ||
+        {
+		MRG_Echo "\tfailed to create updated $_FILE"
+		return 1
+	}
+
+	mv /tmp/dec.ti $_FILE
+        
+       	tic $_FILE ||
+	{
+		MRG_Echo "\tfailed to run tic on $_FILE"
+		return 1
+	}
+
+	return 0
+}
+
+
+SHELL_LIB=${SHELL_LIB:-/usr/share/lib/shell}
+. $SHELL_LIB/libmrg
+
+
+[ "$CHECK_SYNTAX" ] || MRG_Merge "$@" 
+

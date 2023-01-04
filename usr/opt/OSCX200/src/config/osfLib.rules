@@ -1,0 +1,203 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/*
+ * OSF shared library rules
+ * These rules override certain rules in Imake.rules that are either
+ * shared lib specific or have been modified to do shared libs in 
+ * addition to a static library.
+ *
+ * InstallSharedLibrary(libname,rev,dest)
+ * InstallSharedLibraryData(libname,rev,dest)
+ *
+ * SharedLibraryTarget(libname,rev,solist,down,up)
+ * SharedLibraryDataTarget(libname,rev,salist)
+ *
+ * InstallSharedDebuggedLibrary(libname,rev,dest)
+ * InstallSharedDebuggedLibraryData(libname,rev,dest)
+ *
+ * SharedDebuggedLibraryTarget(libname,rev,solist,down,up)
+ * SharedDebuggedLibraryDataTarget(libname,rev,salist)
+ *
+ * DebuggedLibraryTarget(libname,solist) (old support)
+ */
+
+/**/#  Using OSF shared library rules
+
+#ifndef HasSharedLibraries
+#define HasSharedLibraries YES
+#endif
+#ifndef ForceNormalLib 
+#define ForceNormalLib YES
+#endif
+#ifndef SharedDataSeparation
+#define SharedDataSeparation NO
+#endif
+#ifndef SharedCodeDef
+#define SharedCodeDef -DSHAREDCODE
+#endif
+#ifndef CommonSharedNormalObjects
+#define CommonSharedNormalObjects YES
+#endif
+#ifndef SharedLibraryDef
+#define SharedLibraryDef 
+#endif
+#ifndef ShLibIncludeFile
+#define ShLibIncludeFile <osfLib.tmpl>
+#endif
+#ifndef PositionIndependentCFlags
+#define PositionIndependentCFlags
+#endif
+#ifndef ExtraLoadFlags
+#define ExtraLoadFlags 
+#endif
+#ifndef UsrShLibDir
+#define UsrShLibDir /usr/shlib
+#endif
+
+/*
+ * InstallSharedLibrary - generate rules to install the shared library.
+ */
+#ifndef InstallSharedLibrary
+#define	InstallSharedLibrary(libname,rev,dest)				@@\
+									@@\
+install:: Concat(lib,libname.so)					@@\
+	MakeDir($(DESTDIR)dest)						@@\
+	$(INSTALL) -c $(INSTLIBFLAGS) Concat(lib,libname.so) \		@@\
+		$(DESTDIR)/dest	
+
+#endif /* InstallSharedLibrary */
+
+/*
+ * InstallSharedLibraryData - generate rules to install the shared library data
+ */
+#ifndef InstallSharedLibraryData
+#define	InstallSharedLibraryData(libname,rev,dest)
+#endif /* InstallSharedLibraryData */
+
+/*
+ * SharedLibraryTarget - generate rules to create a shared library;
+ */
+
+#ifndef SharedLibraryTarget
+#define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
+									@@\
+all:: Concat(lib,libname.so)						@@\
+									@@\
+Concat(lib,libname.so):: solist						@@\
+	$(RM) $@ 							@@\
+	$(LD) $(SHLIBFLAGS) -O2 -shared -all \				@@\
+		-o $@ solist \						@@\
+		-none $(SO_REQLIBS)					@@\
+									@@\
+clean::									@@\
+	$(RM) Concat(lib,libname.so)
+
+#endif /* SharedLibraryTarget */
+
+/*
+ * SharedLibraryDataTarget - generate rules to create shlib data file;
+ */
+#ifndef SharedLibraryDataTarget
+#define SharedLibraryDataTarget(libname,rev,salist)
+#endif /* SharedLibraryTarget */
+
+
+/*
+ * SharedDebuggedLibraryTarget - generate rules to create a shared library;
+ * build an itermediate archive & then the .so from it.
+ */
+
+#ifndef SharedDebuggedLibraryTarget
+#define SharedDebuggedLibraryTarget(libname,rev,solist,down,up)			@@\
+									@@\
+all:: Concat3(debugger/lib,libname,.so)					@@\
+									@@\
+Concat3(debugger/lib,libname,.so):: Concat3(lib,libname,.so)		@@\
+	$(RM) $@ Concat3(debugger/lib,libname,_d.a) 			@@\
+	(cd ./debugger; $(AR) Concat3(lib,libname,_d.a) solist  )	@@\
+	RanLibrary(Concat3(debugger/lib,libname,_d.a))			@@\
+	$(LD) $(SHLIBFLAGS) -shared -o $@ -all 	\			@@\
+		debugger/Concat3(lib,libname,_d.a) \			@@\
+		-soname Concat3(lib,libname,.so) \			@@\
+		-none $(SO_REQLIBS)		 			@@\
+	$(RM) Concat3(debugger/lib,libname,_d.a)			@@\
+									@@\
+clean::									@@\
+	$(RM) Concat3(lib,libname,.so) Concat3(debugger/lib,libname,_d.a)
+
+#endif /* SharedDebuggedLibraryTarget */
+
+
+/*
+ * SharedDebuggedLibraryDataTarget - generate rules to create shlib data file;
+ */
+#ifndef SharedDebuggedLibraryDataTarget
+#define SharedDebuggedLibraryDataTarget(libname,rev,salist)
+#endif /* SharedDebuggedLibraryTarget */
+
+/*
+ * InstallSharedDebuggedLibrary - 
+ *   generate rules to install the shared debugged library.
+ */
+#ifndef InstallSharedDebuggedLibrary
+#define	InstallSharedDebuggedLibrary(libname,rev,dest)			@@\
+									@@\
+install:: Concat(debugger/lib,libname.so)				@@\
+	MakeDir($(DESTDIR)dest)						@@\
+	$(INSTALL) -c $(INSTLIBFLAGS) Concat(debugger/lib,libname.so) \	@@\
+		$(DESTDIR)dest
+
+#endif /* InstallSharedDebuggedLibrary */
+
+/*
+ * InstallSharedDebuggedLibraryData - 
+ *   generate rules to install the shared debugged library data
+ */
+#ifndef InstallSharedDebuggedLibraryData
+#define	InstallSharedDebuggedLibraryData(libname,rev,dest)
+#endif /* InstallSharedDebuggedLibraryData */
+
+#ifdef NoStaticDebugLibs
+/*
+ * DebuggedLibraryTarget - generate rules to create a debuggable library.
+ *   a workaround for the NoStaticDebugLibs case for those Imakefiles
+ *   that used the older style
+ */
+#ifndef DebuggedLibraryTarget
+#define	DebuggedLibraryTarget(libname,objlist)				@@\
+AllTarget(Concat3(debugger/lib,libname,.so))				@@\
+									@@\
+Concat3(debugger/lib,libname,.so):: Concat3(lib,libname,.so)		@@\
+	$(RM) $@ 							@@\
+	$(LD) $(SHLIBFLAGS) -shared -all \				@@\
+		-o $@ -soname Concat3(lib,libname,.so) \		@@\
+		debugger/?*.o -none $(SO_REQLIBS)	 		@@\
+									@@\
+clean::									@@\
+	$(RM) Concat3(debugger/lib,libname,.so)
+
+#endif /* DebuggedLibraryTarget */
+#endif /* NoStaticDebugLibs */

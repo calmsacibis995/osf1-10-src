@@ -1,0 +1,208 @@
+*
+* *****************************************************************
+* *                                                               *
+* *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+* *                                                               *
+* *   All Rights Reserved.  Unpublished rights  reserved  under   *
+* *   the copyright laws of the United States.                    *
+* *                                                               *
+* *   The software contained on this media  is  proprietary  to   *
+* *   and  embodies  the  confidential  technology  of  Digital   *
+* *   Equipment Corporation.  Possession, use,  duplication  or   *
+* *   dissemination of the software and media is authorized only  *
+* *   pursuant to a valid written license from Digital Equipment  *
+* *   Corporation.                                                *
+* *                                                               *
+* *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+* *   by the U.S. Government is subject to restrictions  as  set  *
+* *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+* *   or  in  FAR 52.227-19, as applicable.                       *
+* *                                                               *
+* *****************************************************************
+*
+*
+* HISTORY
+*
+NOTE: 
+
+o  there are warnings from imake, which normally can be ignored
+
+o  there are warnings when building the shared-libs which can be ignored
+
+o  the server might only be used if all has been installed properly
+
+o  the server may produce unpredictable results if it is not run suid-root.
+
+o  You must have a installed libdbm.a (This is the renamed PD libgdbm.a). There
+   must be /usr/include/ndbm.h installed. Use the same C-compiler for compiling
+   libgdbm.a as for X11R4. If working with gcc use -fwritable-strings 
+   -fpcc-struct-return.
+
+o  /usr/lib/X11/fonts/misc , 75dpi, 100dpi are used, so also if one of these
+   directories does not contain any font, there must be a fonts.dir in it.
+
+*******************************************************************************
+
+SCO:
+
+The compiler I used was gcc. The SCO development system contains two
+compilers, cc which is an ANSIish Microsoft C 5.1 port and rcc which
+is the AT&T pcc-based compiler. I'll discuss the other compiler
+attempts below.
+
+sin() and cos() seemed to screw up the stack. This seems to be a known
+bug with _ftol() that is fixed in the next rev of the DevSys.  In
+./lib/X/XlibInt.c I have redefined _ftol() and it either fixes the
+problem or moves it somewhere else.
+
+I have been unsuccessful at creating shared libraries. This is a known
+problem with the SCO DevSys 3.2, one which is fixed in the SCO DevSys
+3.2v2.0 -- The Sequel.
+
+The build was done using 'make BOOTSTRAPCFLAGS=-DSCO -DSYSV386 -DSYSV" World'.
+
+Compiler problems --
+cc is picky about function prototypes and declarations matching. To avoid
+these problems I would specify -DNeedFunctionPrototypes=0 everywhere.
+
+cc has resource limitations. I had to simplify one compilicated
+expression in ./lib/X/XPutImage.c. It also had a problem with a huge
+macro in ./server/ddx/at386/vga/vgaGlyph.c. Splitting the #define up
+fixed that.  Identifiers are truncated to 32 characters. This caused
+problems with the two macros sz_xMbufGetMultiBufferAttributesRequest
+and sz_xMbufGetMultiBufferAttributesReply defined in
+./extensions/include/multibufst.h as well as some interdependent
+identifiers elsewhere in ./extensions/include/multibuf.h,
+./extensions/lib/XMultibuf.c and ./extensions/server/multibuf.c. This
+also caused the compiler to generate the message
+      UNKNOWN ERROR: Contact Microsoft Technical Support
+
+In the file ./lib/Xt/Selection.c, cc gave me the error
+      static function 'HandleSelectionReplies' not found
+This function is first declared static within the scope of another
+function and then defined, as static, later in the same file. So I
+rearranged some functions so that it is defined before it is invoked.
+Then I ran into another problem with another function that was defined
+as static, but later it generated an external reference, one which
+could never be resolved. By playing musical functions I was able to
+find a function ordering that produced a usable object file.
+
+The GNU assembly routines for I/O ports did not hang well with cc. SCO
+has built-in functions inp, outp and outpw which I used to simulate
+inb, outb and outw in place of the GNU inline assembly in
+./server/ddx/at386/compiler.h. These functions are declared intrinsic
+using #pragma so the compiler will generate inline in's and out's,
+i.e. no function calls.
+ 
+I have not tried rcc on this code and I don't think I will. It does not
+produce very good code.
+
+That leaves us with gcc, which is capable of compiling all the
+sources. Be careful to specify the -fpcc-struct-return switch or
+else you'll produce incompatible code with SCO's libdbm.a.
+
+I've seen one instances where the three compilers produce mutually
+incompatible code.
+
+./server/ddx/mfb/mfb.h defines the struct mfbPrivGC which contains 3
+unsigned char followed by two unsigned bitfields, each one bit,
+followed by a pointer and other stuff.
+
+      struct bad_news {
+          unsigned char a;
+          unsigned char b;
+          unsigned char c;
+          unsigned      x:1;
+          unsigned      y:1;
+          char *        p;
+      };
+
+offsets generated          cc  rcc gcc
+        unsigned char a    0   0   0
+        unsigned char b    1   1   1
+        unsigned char c    2   2   2
+        unsigned      x:1  4   3   3
+        unsigned      y:1  4   3   3
+        char *        p    8   4   4
+ 
+Not a good situation when you compile different files with different
+compilers.
+
+1.1 has additional TCP/IP support for System V/386 Unixes. Each vendor
+has decided to support the Berkeley socket interface each in their own
+twisted ways. Differences not only crop up with the kernel interface
+but also which include files contain the appropriate definitions.
+
+The SCO kernel interface is the non-STREAMS driver /dev/socksys. There
+is a convenient library libsocket.a with all the Berkeley networking
+and utility functions. Problem is it is not a STREAMS driver and
+it cannot handle the I_NREAD ioctl. This driver will accept FIONREAD.
+In ./mit/lib/X/Xlibos.h, BytesReadable is defined in terms of one of
+these two ioctls. Which one should SCO use? The answer is both. When
+you want BytesReadable from a LOCALCONN you need to use I_NREAD. From
+a TCPCONN you use FIONREAD. So the #define BytesReadable is replaced
+by a function in ./mit/lib/X/XlibInt.c, which will try I_NREAD and
+then FIONREAD if that fails.
+ 
+With the new TCP/IP support I have found yet another problem, this
+time with the TCP/IP dev sys. I have an early version 1.0.0. The
+function inet_addr() seems to be corrupting some of the non-disposable
+registers.  However I couldn't reproduce this behavior in a standalone
+program.  For this I went ahead and replaced inet_addr() in libsocket.a
+using 'ar' with my own simple-minded function.
+ 
+unsigned long inet_addr(name)
+char *name;
+{
+    unsigned d0, d1, d2, d3;
+
+    if (sscanf(name, "%d.%d.%d.%d", &d3, &d2, &d1, &d0) != 4)
+	return 0xffffffff;
+
+    return (d0<<24)|(d1<<16)|(d2<<8)|(d3);
+}
+ 
+More incompatibilties. Thomas has beefed up his select() via poll()
+emulation routine, ./mit/server/ddx/at386/bsdemul/select.c. POLLPRI is
+added to the events mask of all the fd's. For whatever reason this
+causes /dev/tty and /dev/tty[12]a (serial port) to induce poll to fail
+with EINVAL. The STREAMS connection /dev/ptmx and the TCP connection
+/dev/socksys don't mind as much.
+ 
+February 24, 1991
+-----------------
+ 
+Jim Kelly
+Microsoft Corporation
+uunet!microsoft!jimke
+
+
+*******************************************************************************
+
+Ok floks, it really works !!!
+
+(PLEASE EVERYBODY WHO DEVELOPES X-APPLICATIONS SHOULD READ THIS !!!)
+
+
+1) Building X386
+
+The only point is that stock AT&T cc may fail in many places. But on the other
+hand gcc doesn't understand '-z nodefs'. Thus we should use here cc and add
+this flag to gcc later. BTW throught all the places is assumed that there
+exist dbm.h & ndbm.h in /usr/include. If not, make links from /usr/ucbinclude.
+
+
+2) Library paths
+
+All libs are now in /usr/X386/lib. Thus you have to add this directory to
+you LD_LIBRARY_PATH. But just setting LD_LIBRARY_PATH fails for suid-clients.
+For these you have to specify LD_RUN_PATH during linking. Thus all you have
+to do is:
+
+      1) Normal 'make World'
+      2) 'export LD_RUN_PATH=/usr/X386/lib'
+         delete mit/clients/xterm/xterm & mit/clients/xload/xload and
+         relink them again.
+      3) Continue with 'make install'
+
+

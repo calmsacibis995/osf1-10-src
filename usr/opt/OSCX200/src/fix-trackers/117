@@ -1,0 +1,516 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9201310031.AA04418@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2340) Close XBUG #4528, #4529, #4626, #4871: various mipointer bugs
+Date: Thu, 30 Jan 92 19:31:48 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Note: this fix introduces an interface change between mipointer and mieq;
+if you're using your own event queue, you'll need to incorpoate this change.
+
+Also note:  I'm getting rather tired of the horrible DIX/DDX interface for
+this stuff; R6 will probably include a change in this area.
+
+From: Stuart Marks <Stuart.Marks@eng.sun.com>
+Subject: server: warping pointer to another screen may cause erratic behavior
+
+### bug number:   4528
+### area:         server
+### severity:     low
+### comments:     
+
+From: Stuart Marks <Stuart.Marks@eng.sun.com>
+Subject: server: pointer grab confinement may allow cursor onto other screen
+
+### bug number:   4529
+### area:         server
+### severity:     low
+### comments:     
+
+From: "Dipl.-Math. Frank Wuebbeling" <wuebbel@GINA.UNI-MUENSTER.DE>
+Subject: server: Xsun XGrabPointer allows screen change from color to b/w
+
+### bug number:   4626
+### area:         server
+### severity:     low
+### comments:     
+
+From: kaleb@thyme.jpl.nasa.gov (Kaleb Keithley)
+Subject: server : software cursor code may be faked into drawing two cursors
+
+### bug number:   4871
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1a04308	Thu Jan 30 19:23:10 1992
+--- server/ddx/mi/mipointer.c	Thu Jan 30 19:21:32 1992
+***************
+*** 2,8 ****
+   * mipointer.c
+   */
+  
+! /* $XConsortium: mipointer.c,v 5.16 91/12/17 17:28:56 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+--- 2,8 ----
+   * mipointer.c
+   */
+  
+! /* $XConsortium: mipointer.c,v 5.18 92/01/30 19:21:30 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+***************
+*** 107,122 ****
+       * set up the pointer object
+       */
+      miPointer.pScreen = NULL;
+      miPointer.pCursor = NULL;
+      miPointer.limits.x1 = 0;
+      miPointer.limits.x2 = 32767;
+      miPointer.limits.y1 = 0;
+      miPointer.limits.y2 = 32767;
+-     miPointer.noninterest.x1 = -1;
+-     miPointer.noninterest.x2 = -1;
+-     miPointer.noninterest.y1 = -1;
+-     miPointer.noninterest.y2 = -1;
+-     miPointer.wasnoninterest = FALSE;
+      miPointer.x = 0;
+      miPointer.y = 0;
+      miPointer.history_start = miPointer.history_end = 0;
+--- 107,119 ----
+       * set up the pointer object
+       */
+      miPointer.pScreen = NULL;
++     miPointer.pSpriteScreen = NULL;
+      miPointer.pCursor = NULL;
++     miPointer.pSpriteCursor = NULL;
+      miPointer.limits.x1 = 0;
+      miPointer.limits.x2 = 32767;
+      miPointer.limits.y1 = 0;
+      miPointer.limits.y2 = 32767;
+      miPointer.x = 0;
+      miPointer.y = 0;
+      miPointer.history_start = miPointer.history_end = 0;
+***************
+*** 171,177 ****
+      SetupScreen(pScreen);
+  
+      miPointer.pCursor = pCursor;
+!     (*pScreenPriv->spriteFuncs->SetCursor) (pScreen, pCursor, miPointer.x, miPointer.y);
+      return TRUE;
+  }
+  
+--- 168,175 ----
+      SetupScreen(pScreen);
+  
+      miPointer.pCursor = pCursor;
+!     miPointer.pScreen = pScreen;
+!     miPointerUpdate ();
+      return TRUE;
+  }
+  
+***************
+*** 181,187 ****
+      BoxPtr	pBox;
+  {
+      miPointer.limits = *pBox;
+-     miPointer.onScreen = PointerConfinedToScreen ();
+  }
+  
+  /*ARGSUSED*/
+--- 179,184 ----
+***************
+*** 190,196 ****
+      ScreenPtr	pScreen;
+      BoxPtr	pBox;
+  {
+!     miPointer.noninterest = *pBox;
+  }
+  
+  /*ARGSUSED*/
+--- 187,193 ----
+      ScreenPtr	pScreen;
+      BoxPtr	pBox;
+  {
+!     /* until DIX uses this, this will remain a stub */
+  }
+  
+  /*ARGSUSED*/
+***************
+*** 204,209 ****
+--- 201,208 ----
+      *pTopLeftBox = *pHotBox;
+  }
+  
++ static Bool GenerateEvent;
++ 
+  static Bool
+  miPointerSetCursorPosition(pScreen, x, y, generateEvent)
+      ScreenPtr pScreen;
+***************
+*** 211,231 ****
+      Bool      generateEvent;
+  {
+      SetupScreen (pScreen);
+!     if (*checkForInput[0] != *checkForInput[1])
+! 	ProcessInputEvents ();
+      /* device dependent - must pend signal and call miPointerWarpCursor */
+      (*pScreenPriv->screenFuncs->WarpCursor) (pScreen, x, y);
+!     if (generateEvent)
+!     {
+! 	xEvent	e;
+! 
+!     	e.u.u.type = MotionNotify;
+!     	e.u.keyButtonPointer.rootX = x;
+!     	e.u.keyButtonPointer.rootY = y;
+!     	e.u.keyButtonPointer.time = GetTimeInMillis ();
+!     	(*miPointer.pPointer->processInputProc) (&e, miPointer.pPointer, 1);
+!     }
+!     miPointerUpdate ();
+      return TRUE;
+  }
+  
+--- 210,221 ----
+      Bool      generateEvent;
+  {
+      SetupScreen (pScreen);
+! 
+!     GenerateEvent = generateEvent;
+      /* device dependent - must pend signal and call miPointerWarpCursor */
+      (*pScreenPriv->screenFuncs->WarpCursor) (pScreen, x, y);
+!     if (!generateEvent)
+! 	miPointerUpdate();
+      return TRUE;
+  }
+  
+***************
+*** 236,244 ****
+      ScreenPtr	pScreen;
+      int		x, y;
+  {
+!     miPointer.pScreen = pScreen;
+!     miPointer.x = x;
+!     miPointer.y = y;
+  }
+  
+  /*
+--- 226,254 ----
+      ScreenPtr	pScreen;
+      int		x, y;
+  {
+!     SetupScreen (pScreen);
+! 
+!     if (miPointer.pScreen != pScreen)
+! 	(*pScreenPriv->screenFuncs->NewEventScreen) (pScreen, TRUE);
+! 
+!     if (GenerateEvent)
+!     {
+! 	miPointerMove (pScreen, x, y, GetTimeInMillis()); 
+!     }
+!     else
+!     {
+! 	/* everything from miPointerMove except the event and history */
+! 
+!     	if (!pScreenPriv->waitForUpdate && pScreen == miPointer.pSpriteScreen)
+!     	{
+! 	    miPointer.devx = x;
+! 	    miPointer.devy = y;
+! 	    (*pScreenPriv->spriteFuncs->MoveCursor) (pScreen, x, y);
+!     	}
+! 	miPointer.x = x;
+! 	miPointer.y = y;
+! 	miPointer.pScreen = pScreen;
+!     }
+  }
+  
+  /*
+***************
+*** 293,303 ****
+      Bool		newScreen = FALSE;
+  
+      pScreen = miPointer.pScreen;
+      if (!pScreen)
+  	return;
+      pScreenPriv = GetScreenPrivate (pScreen);
+-     x = miPointer.x;
+-     y = miPointer.y;
+      /*
+       * if the cursor has switched screens, disable the sprite
+       * on the old screen
+--- 303,315 ----
+      Bool		newScreen = FALSE;
+  
+      pScreen = miPointer.pScreen;
++     x = miPointer.x;
++     y = miPointer.y;
++     devx = miPointer.devx;
++     devy = miPointer.devy;
+      if (!pScreen)
+  	return;
+      pScreenPriv = GetScreenPrivate (pScreen);
+      /*
+       * if the cursor has switched screens, disable the sprite
+       * on the old screen
+***************
+*** 316,339 ****
+  	    }
+  	    (*pOldPriv->screenFuncs->CrossScreen) (miPointer.pSpriteScreen, FALSE);
+  	}
+- 	miPointer.pSpriteScreen = pScreen;
+- 	miPointer.devx = x;
+- 	miPointer.devy = y;
+  	(*pScreenPriv->screenFuncs->CrossScreen) (pScreen, TRUE);
+  	(*pScreenPriv->spriteFuncs->SetCursor)
+  				(pScreen, miPointer.pCursor, x, y);
+      }
+!     else
+      {
+! 	devx = miPointer.devx;
+! 	devy = miPointer.devy;
+! 	if (x != devx || y != devy)
+! 	{
+! 	    miPointer.devx = x;
+! 	    miPointer.devy = y;
+! 	    (*pScreenPriv->spriteFuncs->MoveCursor) (pScreen, x, y);
+! 	}
+      }
+  }
+  
+  /*
+--- 328,358 ----
+  	    }
+  	    (*pOldPriv->screenFuncs->CrossScreen) (miPointer.pSpriteScreen, FALSE);
+  	}
+  	(*pScreenPriv->screenFuncs->CrossScreen) (pScreen, TRUE);
+  	(*pScreenPriv->spriteFuncs->SetCursor)
+  				(pScreen, miPointer.pCursor, x, y);
++ 	miPointer.devx = x;
++ 	miPointer.devy = y;
++ 	miPointer.pSpriteCursor = miPointer.pCursor;
++ 	miPointer.pSpriteScreen = pScreen;
+      }
+!     /*
+!      * if the cursor has changed, display the new one
+!      */
+!     else if (miPointer.pCursor != miPointer.pSpriteCursor)
+      {
+! 	(*pScreenPriv->spriteFuncs->SetCursor) 
+! 	    (pScreen, miPointer.pCursor, x, y);
+! 	miPointer.devx = x;
+! 	miPointer.devy = y;
+! 	miPointer.pSpriteCursor = miPointer.pCursor;
+      }
++     else if (x != devx || y != devy)
++     {
++ 	miPointer.devx = x;
++ 	miPointer.devy = y;
++ 	(*pScreenPriv->spriteFuncs->MoveCursor) (pScreen, x, y);
++     }
+  }
+  
+  /*
+***************
+*** 370,385 ****
+  	pScreenPriv = GetScreenPrivate (pScreen);
+  	/*
+  	 * if the pointer is not confined to the current screen,
+! 	 * allow the device to adjust the position
+  	 */
+! 	newScreen = pScreen;
+! 	if (!miPointer.onScreen)
+  	{
+  	    (*pScreenPriv->screenFuncs->CursorOffScreen) (&newScreen, &x, &y);
+  	    if (newScreen != pScreen)
+  	    {
+  		pScreen = newScreen;
+! 		(*pScreenPriv->screenFuncs->NewEventScreen) (pScreen);
+  		pScreenPriv = GetScreenPrivate (pScreen);
+  	    	/* Smash the confine to the new screen */
+  	    	miPointer.limits.x2 = pScreen->width;
+--- 389,406 ----
+  	pScreenPriv = GetScreenPrivate (pScreen);
+  	/*
+  	 * if the pointer is not confined to the current screen,
+! 	 * allow the device to adjust the position.  Note -
+! 	 * this code assumes that DIX allows us to call
+! 	 * this function at signal time; true for now at least...
+  	 */
+! 	if (!PointerConfinedToScreen())
+  	{
++ 	    newScreen = pScreen;
+  	    (*pScreenPriv->screenFuncs->CursorOffScreen) (&newScreen, &x, &y);
+  	    if (newScreen != pScreen)
+  	    {
+  		pScreen = newScreen;
+! 		(*pScreenPriv->screenFuncs->NewEventScreen) (pScreen, FALSE);
+  		pScreenPriv = GetScreenPrivate (pScreen);
+  	    	/* Smash the confine to the new screen */
+  	    	miPointer.limits.x2 = pScreen->width;
+***************
+*** 416,429 ****
+   * miPointerMove.  The pointer has moved to x,y on current screen
+   */
+  
+- /* true iff (x,y) is in Box */
+- #define INBOX(r,x,y) \
+-       ( ((r)->x2 >  x) && \
+-         ((r)->x1 <= x) && \
+-         ((r)->y2 >  y) && \
+-         ((r)->y1 <= y) )
+- 
+- 
+  static void
+  miPointerMove (pScreen, x, y, time)
+      ScreenPtr	    pScreen;
+--- 437,442 ----
+***************
+*** 430,460 ****
+      int		    x, y;
+      unsigned long   time;
+  {
+!     SetupScreen(miPointer.pScreen);
+      xEvent		xE;
+      miHistoryPtr	history, prevHistory;
+      int			prev, end, start;
+-     Bool		isnoninterest;
+  
+!     if (!pScreenPriv->waitForUpdate && pScreen == miPointer.pScreen)
+      {
+  	miPointer.devx = x;
+  	miPointer.devy = y;
+  	(*pScreenPriv->spriteFuncs->MoveCursor) (pScreen, x, y);
+      }
+-     isnoninterest = INBOX(&miPointer.noninterest, x, y);
+-     if (!miPointer.wasnoninterest || !isnoninterest);
+-     {
+-     	xE.u.u.type = MotionNotify;
+-     	xE.u.keyButtonPointer.rootX = x;
+-     	xE.u.keyButtonPointer.rootY = y;
+-     	xE.u.keyButtonPointer.time = time;
+- 	(*pScreenPriv->screenFuncs->EnqueueEvent) (&xE);
+-     }
+-     miPointer.wasnoninterest = isnoninterest;
+      miPointer.x = x;
+      miPointer.y = y;
+      miPointer.pScreen = pScreen;
+      end = miPointer.history_end;
+      start = miPointer.history_start;
+      prev = end - 1;
+--- 443,469 ----
+      int		    x, y;
+      unsigned long   time;
+  {
+!     SetupScreen(pScreen);
+      xEvent		xE;
+      miHistoryPtr	history, prevHistory;
+      int			prev, end, start;
+  
+!     if (!pScreenPriv->waitForUpdate && pScreen == miPointer.pSpriteScreen)
+      {
+  	miPointer.devx = x;
+  	miPointer.devy = y;
+  	(*pScreenPriv->spriteFuncs->MoveCursor) (pScreen, x, y);
+      }
+      miPointer.x = x;
+      miPointer.y = y;
+      miPointer.pScreen = pScreen;
++ 
++     xE.u.u.type = MotionNotify;
++     xE.u.keyButtonPointer.rootX = x;
++     xE.u.keyButtonPointer.rootY = y;
++     xE.u.keyButtonPointer.time = time;
++     (*pScreenPriv->screenFuncs->EnqueueEvent) (&xE);
++ 
+      end = miPointer.history_end;
+      start = miPointer.history_start;
+      prev = end - 1;
+*** /tmp/,RCSt1a04326	Thu Jan 30 19:23:16 1992
+--- server/ddx/mi/mipointrst.h	Thu Jan 30 19:21:33 1992
+***************
+*** 3,9 ****
+   *
+   */
+  
+! /* $XConsortium: mipointrst.h,v 5.2 91/04/26 21:46:52 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+--- 3,9 ----
+   *
+   */
+  
+! /* $XConsortium: mipointrst.h,v 5.4 92/01/30 19:21:32 keith Exp $ */
+  
+  /*
+  Copyright 1989 by the Massachusetts Institute of Technology
+***************
+*** 33,42 ****
+      ScreenPtr		    pScreen;    /* current screen */
+      ScreenPtr		    pSpriteScreen;/* screen containing current sprite */
+      CursorPtr		    pCursor;    /* current cursor */
+!     Bool		    onScreen;	/* cursor confined to current screen */
+      BoxRec		    limits;	/* current constraints */
+-     BoxRec		    noninterest;/* non interest box */
+-     Bool		    wasnoninterest; /* last position in non interest box */
+      int			    x, y;	/* hot spot location */
+      int			    devx, devy;	/* sprite position */
+      DevicePtr		    pPointer;   /* pointer device structure */
+--- 33,40 ----
+      ScreenPtr		    pScreen;    /* current screen */
+      ScreenPtr		    pSpriteScreen;/* screen containing current sprite */
+      CursorPtr		    pCursor;    /* current cursor */
+!     CursorPtr		    pSpriteCursor;/* cursor on screen */
+      BoxRec		    limits;	/* current constraints */
+      int			    x, y;	/* hot spot location */
+      int			    devx, devy;	/* sprite position */
+      DevicePtr		    pPointer;   /* pointer device structure */
+*** /tmp/,RCSt1a04344	Thu Jan 30 19:23:22 1992
+--- server/ddx/mi/mieq.c	Thu Jan 30 19:22:28 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: mieq.c,v 1.4 91/07/19 23:20:26 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: mieq.c,v 1.5 92/01/30 13:43:06 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 123,132 ****
+  }
+  
+  void
+! mieqSwitchScreen (pScreen)
+      ScreenPtr	pScreen;
+  {
+      miEventQueue.pEnqueueScreen = pScreen;
+  }
+  
+  /*
+--- 123,135 ----
+  }
+  
+  void
+! mieqSwitchScreen (pScreen, fromDIX)
+      ScreenPtr	pScreen;
++     Bool	fromDIX;
+  {
+      miEventQueue.pEnqueueScreen = pScreen;
++     if (fromDIX)
++ 	miEventQueue.pDequeueScreen = pScreen;
+  }
+  
+  /*

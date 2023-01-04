@@ -1,0 +1,248 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: fza.7,v $ $Revision: 3.2.6.4 $ (DEC) $Date: 1994/01/19 23:37:44 $
+.\" 
+.TH fza 7
+.SH NAME
+.PP
+\*Lfza\*O \- DEFZA FDDI Network Interface
+.SH SYNOPSIS
+.PP
+\*Ldevice fza0 at * vector fzaintr\*O
+.SH DESCRIPTION
+.PP
+.iX "fza interface" "DEFZA FDDI Network interface"
+.iX "DEFZA FDDI Network interface"
+.iX "FDDI interface" "DEFZA FDDI Network interface"
+.PP
+The \*Lfza\*O interface is a high speed TURBOchannel bus
+to a 100 Mbit/second Fiber Distributed Data Interface (FDDI)
+timed token ring network adapter.  The \*Lfza\*O interface allows
+the host system to be an FDDI single attachment station.
+.PP
+The host's Internet address is specified at boot time with
+an SIOCSIFADDR ioctl.
+The \*Lfza\*O interface employs the address resolution protocol
+described in \*Larp\*O(7)
+to map dynamically between Internet and FDDI addresses on the local
+network.
+.PP
+The Maximum Transmit Unit (MTU) size for \*Lfza\*O
+interface is 4352 bytes, which is substantially larger that
+the 1500 bytes maximum packet size of the Ethernet interfaces.
+The \*Lfza\*O
+interface does not support the BSD trailer encapsulation.
+.PP
+The SIOCRPHYSADDR ioctl can be used to read the physical
+address of the DEFZA adapter. The physical address of the
+DEFZA adapter cannot be changed.
+.PP
+The SIOCADDMULTI and SIOCDELMULTI ioctls can be used to add or delete
+multicast addresses.
+The DEFZA supports up to 64 multicast addresses. The argument to the
+latter ioctls is a pointer to an \*Lifreq\*O structure found in
+\*L<net/if.h>\*O.
+.PP
+The SIOCRDCTRS ioctl can be used to read the FDDI driver counters.
+The DEFZA adapter status and characteristics can also be read
+through this
+ioctl by providing an FDDI_STATUS flag.  The argument to this ioctl
+is a pointer to a counter or status structure, \*Lctrreq\*O,
+found in \*L<net/if.h>\*O.
+.PP
+The SIOCENABLBACK and SIOCDISABLBACK ioctls can be used to enable
+and disable the interface loopback mode, respectively.
+.PP
+The SIOCEEUPDATE ioctl can be used to update the adapter's firmware.
+.PP
+The SIOCIFRESET ioctl can be used to reset the adapter.
+.PP
+Some of the FDDI link characteristics can be changed by the
+SIOCIFSETCHAR
+ioctl. These characteristics include Request Token Rotation Time
+(T_REQ), Valid Transmission Time, Link Error Monitor (LEM) Threshold,
+Restricted Token Timeout, and Ring Purger Enable. The latter two
+characteristics are supported by the firmware revision V1.2 and higher.
+The T_REQ, Valid Transmission Time, and Restricted Token Timeout
+value are based on 80 ns units. The setable FDDI attributes are
+shown in the following table.
+.PP
+.TS
+tab(~);
+l l l
+l l l.
+Attribute Name~Range~Default Value
+.sp
+Requested Token Rotation Time~4.0ms to 167.77208ms~8.0ms
+Valid Transmission Time~2.35ms to 5.2224ms~2.621ms
+Restricted Token Timeout~0ms to 10000ms~1000ms
+LEM Threshold~5 to 8~8
+Ring Purger Enable~True or False~True
+.TE
+.PP
+For a LEM Threshold attribute value of \f2N\fP, the threshold value is
+10 of power \-\f2N\fP.  The Ring Purger can be disabled by setting
+the Ring Purger Enable field value to zero. The unchanged
+characteristics need to be filled by a -1 or 0xffffffff value.
+The argument to this ioctl is a pointer to an \*Lifchar\*O
+structure found in \*L<net/if.h>\*O.
+To set the FDDI link characteristics, use the following form:
+.PP
+.iS
+ioctl(\*Vs\*O, SIOCIFSETCHAR, \*Vifchar\*O)
+
+struct  ifchar  *\*Lifchar\*O;
+.iE
+.PP
+The following example changes the Restricted Token Timeout value
+to 16ms and disables the Ring Purger mode:
+.PP
+.oS
+int s ;
+struct ifchar ifchar;
+
+        if((s = socket( AF_INET, SOCK_DGRAM, 0 )) < 0 )
+                exit(1);
+
+        strcpy(&ifchar.ifc_name[0],"fza0");
+
+        ifchar.ifc_treq = 200000 ;     /* 200000 * 80 ns = 16 ms */
+        ifchar.ifc_rtoken = -1;        /* unchanged */
+        ifchar.ifc_tvx = -1;           /* unchanged */
+        ifchar.ifc_lem = -1;           /* unchanged */
+        ifchar.ifc_ring_purger = 0 ;   /* disable the ring purger */
+
+        if(ioctl( s, SIOCIFSETCHAR, &ifchar) < 0 )
+                exit(1);
+.oE
+.PP
+The FDDI link characteristics can be displayed by using the
+following command:
+.PP
+.iS
+netstat -I \*Vinterface\*O -s
+.iE
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"fza0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"fza0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+Diagnostic error messages contain information provided by the
+\*Lfza\*O driver. For example:
+.PP
+.oS
+fza%d: fzaprobe selftest failed
+.oE
+.PP
+The DEFZA adapter did not pass the power-up selftest during
+autoconfiguration.
+.PP
+.oS
+fza%d: port init failed
+.oE
+.PP
+The DEFZA adapter cannot be initialized.
+.PP
+.oS
+fza%d: port in the Halt State -> CNS hardware fault
+.oE
+.PP
+The DEFZA adapter went to the Halt state because of an adapter firmware
+fault.
+.PP
+.oS
+fza%d: LINK unavailable
+.oE
+.PP
+The network link went down which means than the station is not on
+the FDDI ring.
+.PP
+.oS
+fza%d: Ring Init Received
+.oE
+.PP
+A Ring Initialization unsolicited event has been received from
+the fza%d interface.
+.PP
+.oS
+fza%d: Invalid T_REQ value
+.oE
+.PP
+An invalid T_REQ value was discovered by the adapter while user was
+trying to change the FDDI link characteristics.
+.SH RELATED INFORMATION
+.PP
+\*Lfddi_config\*O(1), \*Lnetstat\*O(1), \*Larp\*O(7), \*Linet\*O(7)
+.EQ
+delim off
+.EN

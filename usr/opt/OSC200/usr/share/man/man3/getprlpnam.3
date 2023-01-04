@@ -1,0 +1,222 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getprlpnam.3,v $ $Revision: 1.1.2.8 $ (DEC) $Date: 1994/01/15 02:28:20 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1988-90 SecureWare, Inc.
+.\" All rights reserved
+.\" @(#)getprlpent.3	1.2 17:52:47 3/28/90
+.\" #ifdef SEC_BASE
+.\"
+.\" This file is based on the OSF-supplied /OSF-SEC_ONlY/man3/getprlpent.3 file.
+.\" The STERLING changes were massive and required a new source file.
+.\"
+.TH getprlpnam 3
+.SH NAME
+.PP
+\*Lgetprlpnam\*O, \*Lputprlpnam\*O \- Manipulate printer control database entry (Enhanced Security)
+.SH LIBRARY
+.PP
+Security Library \*Llibsecurity.a\*O
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+#include <sys/security.h>
+.nL
+#include <prot.h>
+struct pr_lp *getprlpnam (
+.nL
+	char *\*Vname\*L );
+.sp 0.4v
+int putprlpnam (
+.nL
+	char *\*Vname\*L,
+.nL
+	struct pr_lp *\*Vpr\*L );
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vname\*O"
+Specifies a printer control database entry name.
+.LI "\*Vpr\*O"
+Specifies a printer control database entry structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "database" "manipulating entry in printer control"
+.iX "printer control database" "defined"
+.iX "printer control database" "manipulating entry in"
+.iX "getprlpnam function"
+.iX "putprlpnam function"
+The
+\*Lgetprlpnam(\|)\*O
+function
+returns a pointer to
+an object with the following structure containing the
+broken-out fields of a line in the printer control database.
+Each line in the database contains a \*Lpr_lp\*O structure, declared
+in the \*Lprot.h\*O header file:
+.oS
+...\" Ignore Bold in iS !!! -- changed to oS
+/*  Printer Control Database Entry  */
+struct   l_field  {
+        char    fd_name[15];    /* holds printer name */
+        char    fd_initseq[256];/* initial sequence */
+        char    fd_termseq[256];/* termination sequence */
+        char    fd_emph[256];   /* emphasize sequence */
+        char    fd_deemph[256]; /* de-emphasize sequence */
+        char    fd_chrs[130];   /* characters to filter */
+        ushort  fd_chrslen;     /* length of string of illegal chars */
+        char    fd_escs[256];   /* escape sequences */
+        ushort  fd_escslen;     /* length of string: illegal escapes */
+        int     fd_linelen;     /* length of a line in characters */
+        int     fd_pagelen;     /* length of a page in lines */
+        char    fd_truncline;   /* printer truncates long lines? */
+};
+struct  l_flag  {
+        unsigned short
+                fg_name:1,      /* Is fd_name set? */
+                fg_initseq:1,   /* Is fd_initseq set? */
+                fg_termseq:1,   /* Is fd_termseq set? */
+                fg_emph:1,      /* Is fd_emph set? */
+                fg_deemph:1,    /* Is fd_deemph set? */
+                fg_chrs:1,      /* Is fd_chrs set? */
+                fg_chrslen:1,   /* Is fd_chrslen set? */
+                fg_escs:1,      /* Is fd_escs set? */
+                fg_escslen:1,   /* Is fd_escslen set? */
+                fg_linelen:1,   /* Is fd_linelen set? */
+                fg_pagelen:1,   /* Is fd_pagelen set? */
+                fg_truncline:1  /* Is fd_truncline set? */
+                ;
+};
+struct  pr_lp  {
+        struct l_field ufld;
+        struct l_flag uflg;
+        struct l_field sfld;
+        struct l_flag sflg;
+};
+.oE
+.PP
+The
+\*Lgetprlpnam(\|)\*O
+function
+searches from the beginning of the database until a
+printer name matching \*Vname\*O is found, and returns a pointer to
+the particular structure in which it was found.
+If an End-of-File or an error is encountered on reading, the
+function return a
+null
+pointer.
+.PP
+The
+\*Lputprlpnam(\|)\*O
+function
+puts a new or replaced printer control entry
+\*Vpr\*O
+with key
+\*Vname\*O
+into the database.
+If the \*Luflg.fg_name\*O field is 0, the requested entry is deleted from the
+printer control database.
+The
+\*Lputprlpnam(\|)\*O
+function
+locks the database for all update operations,
+and performs a
+\*Lendprlpent(\|)\*O
+after the update or failed attempt.
+.\"
+.\"
+.\"\f(HB(Writer Note:  What do I do here??)\fP
+.\"
+.PP
+The fields in the printer control database contain, for ASCII printers, the
+characteristics of the printer so the trusted line printer subsystem can
+apply labels to the top and bottom of printed pages.
+The \*Lufld.fd_name\*O field matches the printer model, supplied by the line
+printer scheduler to the \*Llprcat\*O program to access the appropriate
+entry in this database.
+The \*Lufld.fd_initseq\*O
+field is a null-terminated string containing the initialization sequence
+for the printer; it is sent by line printer software at the start of each
+job.  Similarly, \*Lufld.fd_termseq\*O contains a null-terminated string which
+is sent to the printer when each job is complete.  The size of the printed
+page is specified in \*Lufld.fd_linelen\*O (width) and \*Lufld.fd_pagelen\*O
+(height).
+These values are expressed in characters for dot
+matrix printers, and points (1/72 inch) for laser printers.
+Other values are used for character filtering,
+only supported on dot matrix printers.
+.P
+\*Lufld.fd_emph\*O is a null-terminated
+character string that causes the printer to begin
+emphasizing characters printed.  Similarly, \*Lufld.fd_deemph\*O
+is a null-terminated character string that resumes normal printing.
+The \*Lufld.fd_chrs\*O array is a list of characters that is automatically
+filtered out by the line printer software because it causes carriage motion
+that would cause the line printer software to lose its place on the page.
+The length of this array is \*Lufld.fd_chrslen\*O.
+The \*Lufld.fd_escs\*O string
+contains characters that cause carriage motion after an escape character
+(ASCII \e033).  The \*Lufld.fd_truncline\*O Boolean indicator specifies whether
+the printer truncates lines when they are too long.  This allows the
+printer software to keep track of the logical line printed.
+.SH NOTES
+.PP
+All information is contained in a static area, so it must be
+copied if it is to be saved.  Specifically, specifying a buffer returned to
+\*Lputprlpnam(\|)\*O does not perform the intended
+action.
+.P
+Programs using this routine must be compiled with \*L-lsecurity\*O.
+.SH RETURN VALUES
+.PP
+A
+null
+pointer is returned on
+EOF
+or error.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/auth/system/lps.*\*O"
+Line printer subsystem configuration file.
+.LI "\*L/usr/include/prot.h\*O"
+General security databases file.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgetprpwent\*O(3),
+\*Lgetprtcent\*O(3),
+\*Lgetprdfent\*O(3)
+.iX "getprlpent function"
+.iX "getprlpnam function"
+.iX "setprlpent function"
+.iX "endprlpent function"
+.iX "putprlpnam function"
+.\" #endif /* SEC_BASE */
+.PP
+\*EEnhanced Security\*O
+.EQ
+delim off
+.EN

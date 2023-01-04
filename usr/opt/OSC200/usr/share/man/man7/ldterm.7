@@ -1,0 +1,485 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 1.2
+...\"	[91/10/02  13:51:49  steto]
+...\"
+.TH ldterm 7
+.SH "NAME"
+.PP
+\*Lldterm\*O - STREAMS line discipline module
+.SH "DESCRIPTION"
+.PP
+.iX "ldterm"
+The \*Lldterm\*O module is a STREAMS module that supplies the line discipline
+for terminal devices.
+This module provides most of the functions of the terminal interface described
+in the \*L/usr/include/termios.h\*O and \*L/usr/include/termio.h\*O
+header files for session management, and input and output processing.
+However, it does not perform the low-level device control
+functions specified by the \*Lc_cflag\*O word and control the speeds
+defined by the \*Ltermios\*O
+structure in the \*Ltermios.h\*O header file.
+Also, some operations require the cooperation of the modules and drivers
+pushed below the \*Lldterm\*O module in the tty or pty stream.
+.PP
+Internally, the \*Lldterm\*O module uses the Extended UNIX Code (EUC) character
+encoding scheme.
+This encoding scheme enables the module to process multibyte
+characters as well as simple 8-bit characters.
+It correctly handles
+backspacing and tab expansion for multibyte characters.
+.PP
+The \*Lldterm\*O module provides standard terminal operation
+consistent with the behavior specified by POSIX 1003.1.
+It also provides compatibility with the behavior of the BSD line discipline
+module used in OSF/1 (see the \*Ltty\*O reference page), including
+System V Interface Definition (SVID) compatibility.
+.SS STREAMS Messages
+The \*Lldterm\*O module processes various types of STREAMS messages.
+The line discipline will act on any of the following message types.
+Any others that the module receives, however, are passed on to the next module.
+.SS "Read Put Routine"
+The \*Lldterm\*O read put routine processes the following STREAMS messages:
+.VL
+.LI "\*LM_FLUSH\*O"
+If FLUSHR is set, the read put routine flushes the read queue, discards
+characters in the input message buffers, and discards any partially
+buffered multibyte characters.
+Then, it forwards the message upstream.
+.LI "\*LM_BREAK\*O"
+The read put routine processes the message according to POSIX rules for
+processing \*LBREAK\*O events, parity errors, and framing errors.
+If there is no data in the message,
+the message is assumed to represent an input \*LBREAK\*O event, which
+is represented by a framing error with a
+character value of 0 (zero).  If there is
+data in the message, the data value is an integer that indicates the
+occurrence of an input \*LBREAK\*O event, or a character received with
+a parity or framing error.
+The low-order 8 bits of the data
+value is the byte that was read.  If the
+\*LTTY_PE\*O flag is set in the higher-order bits of this integer, then
+a parity error was detected.
+If the \*LTTY_FE\*O flag is set in the higher-order bits of this
+integer, a framing
+error was detected.
+.sp 0.4v
+After reading the data value, the read put routine discards the
+message.
+.LI "\*LM_DATA\*O"
+The read put routine processes the message according to the
+POSIX 1003.1 specification, using multibyte processing for tab
+expansion and backspacing, as appropriate.
+.sp 0.4v
+It generates echo
+characters and places them in the output buffer to be sent downstream to the
+write queue.
+While processing incoming data, it scans for \*LSTART\*O and \*LSTOP\*O
+characters and sends \*LM_START\*O/\*LM_STOP\*O messages downstream to
+the write queue, if needed.
+.sp 0.4v
+The read queue high-water mark is \*LPOSIX_MAX_INPUT\*O/2 and the
+low-water mark is \*LPOSIX_MAX_INPUT\*O/5.  If the total number of
+buffered input
+characters is more than the high-water mark and \*LIXOFF\*O is set,
+the read put routine sends an
+\*LM_STOPI\*O
+message downstream.
+When the queue reduces its backlog below the low water mark, it
+sends an \*LM_STARTI\*O message downstream.
+.sp 0.4v
+If the number of buffered input characters reaches \*LPOSIX_MAX_INPUT\*O, and
+the \*LIMAXBEL\*O flag is set, the read put routine discards new input
+characters and sends a \*LBEL\*O character (\*LCtrl-G\*O) downstream.
+If \*LIMAXBEL\*O is not set, it flushes the input queue.
+.sp 0.4v
+If the \*LISIG\*O flag is set, the read put routine sends \*LM_PCSIG\*O
+messages upstream when the appropriate signal
+characters are encountered.
+Then, it discards the characters.
+.sp 0.4v
+If a character matching \*Lc_cc[VDISCARD]\*O is encountered,
+and the \*LIEXTEN\*O flag is set, the read put routine sends an \*LM_FLUSH\*O
+(\*LFLUSHW\*O) message upstream to flush all write queues.
+The \*LM_FLUSH\*O message is reflected by
+the stream head and sent downstream through all the write queues.
+.sp 0.4v
+If the character signifies the logical termination of input,
+the read put routine sends the
+currently buffered characters upstream to the stream head.
+.sp 0.4v
+Logical termination of input depends on the state of the \*LICANON\*O flag.
+If \*LICANON\*O is set, the \*Lldterm\*O module is
+in \*Ecanonical input\*O mode.  In that
+case, the read put routine logically terminates input at the end of a line of
+input.  Canonical line termination characters are \*LNEWLINE\*O,
+\*LEOF\*O, \*LEOL\*O,
+and \*LEOL2\*O.
+.sp 0.4v
+If \*LICANON\*O is clear, the \*Lldterm\*O discipline module is
+in \*Enoncanonical\*O or \*Eraw\*O input
+mode.  In that case, the read put routine terminates input
+when at least \*LVMIN\*O bytes are
+present in the input message buffer or the timer specified by \*LVTIME\*O
+expires.
+.LI "\*LM_IOCACK\*O"
+If the message acknowledges the \*Ltermios\*O
+\*LTIOCGETA\*O command, the read put routine copies the \*Lc_cflag\*O and
+speeds information, which is sent by the console driver
+downstream, from the message into the internal \*Ltermios\*O structure.
+Then, it copies the internal \*Ltermios\*O structure into the message.
+.sp 0.4v
+If the message acknowledges one of the \*Ltermios\*O
+set commands \*LTIOCSETA\*O, \*LTIOCSETAW\*O, or \*LTIOCSETAF\*O,
+the read put routine copies all of the data
+from the message into the internal \*Ltermios\*O
+structure.
+.sp 0.4v
+If the message acknowledges an \*LTIOCOUTQ\*O command,
+the read put routine records the
+number of bytes in the \*Lldterm\*O module's internal output buffer
+in the message and forwards the message upstream.
+.sp 0.4v
+After this processing is done, the read put routine determines if the
+I/O control command was originally a BSD or System V I/O control command that
+was converted to a \*Ltermios\*O command by the
+write service routine.
+If so, it restores the original data so that
+the message acknowledges the original I/O control command.
+Then, it forwards the message upstream.
+.LE
+.SS Write Service Routine
+The \*Lldterm\*O write service
+routine processes messages that may be delayed due to
+STREAMS flow control.
+.VL
+.LI "\*LM_CTL\*O"
+This message was sent by the driver to communicate changes in the
+driver's state.
+In the OSF STREAMS tty and pty subsystems, the structure of
+\*LM_CTL\*O messages is
+the same as that of \*LM_IOCTL\*O messages.  The \*LM_CTL\*O message block
+points to a message buffer containing an \*Liocblk\*O data structure.
+The \*Lioc_cmd\*O
+member of this structure contains a command, just as it does in an
+\*LM_IOCTL\*O message.  The \*Lb_cont\*O
+member of the \*LM_CTL\*O message block contains a pointer to an \*LM_DATA\*O
+message block, which contains data associated with the \*LM_CTL\*O message.
+.sp 0.4v
+The read put routine processes \*LM_CTL\*O messages containing the following
+commands:
+.VL
+.\".LI "\*LTIOCGETMODEM\*O"
+.\".nL
+.\"This message is sent by the driver to communicate the state of its
+.\"\*Vmodem carrier on\*O flag.  The associated \*LM_DATA\*O block
+.\"contains a value of 1 to
+.\"indicate the carrier is on, or a value of 0 (zero) to indicate the
+.\"carrier is off.
+.\".sp 0.4v
+.\"The read put routine uses this information to update the \*Lldterm\*O
+.\"module state, then frees the associated \*LM_CTL\*O message using the
+.\"\*Lfreemsg(\|)\*O function.
+.\".sp 0.4v
+.\"If the module's \*LCLOCAL\*O flag is clear, and the
+.\"carrier state has just made a transition from on to off,
+.\"the read put routine sends an \*LM_HANGUP\*O message upstream to inform the
+.\"stream head that the terminal connection was broken.
+.LI "\*LTIOCSWINSZ"
+The driver sends this message to reflect an asynchronous change
+in its \*Lwinsz\*O structure settings.  The \*Lread put\*O service
+routine copies the \*Lwinsz\*O structure into its internal structure.
+It then frees the associated \*LM_CTL\*O message using the \*Lfreemsg\*O
+function.
+.LI "\*LTIOCSETA\*O"
+The driver sends this message to reflect an asynchronous change
+in its \*Ltermios\*O flag settings.
+.sp 0.4v
+The read put service copies the \*Ltermios\*O
+structure from the attached \*LM_DATA\*O message block
+into its internal \*Ltermios\*O structure.
+Then, it frees the associated \*LM_CTL\*O
+message using the \*Lfreemsg(\|)\*O function.
+.LE
+.LE
+.SS "Write Put Routine"
+The \*Lldterm\*O write put routine processes the following STREAMS messages.
+Messages not listed here are simply forwarded downstream.
+.VL
+.LI "\*LM_FLUSH\*O"
+If \*LFLUSHW\*O is set, the
+write put routine flushes the write queue and discards any
+buffered output data.
+Then, it forwards the message downstream.
+.LI "\*LM_DATA\*O"
+The write put routine queues the message to the write queue for
+later processing.
+.LI "\*LM_IOCTL\*O"
+The write put routine validates the format of the \*LM_IOCTL\*O message
+and checks for
+known commands.  If the message format is invalid, it turns
+the \*LM_IOCTL\*O message into an \*LM_IOCNAK\*O message, and returns
+the message upstream.  If the I/O control command is not recognized,
+it forwards the \*LM_IOCTL\*O message downstream for processing
+by other modules.
+.sp 0.4v
+The write put routine determines if the command is one that must be
+processed in the proper sequence relative to \*LM_DATA\*O messages.
+If so, it queues
+the \*LM_IOCTL\*O message to the write queue for later processing by
+the write service routine.  Commands that require processing in
+sequence are as follows:
+.ML
+.LI
+\*LTIOCSETAW\*O
+.LI
+\*LTIOCSETAF\*O
+.LI
+\*LTCSETAW\*O
+.LI
+\*LTCSETAF\*O
+.LI
+\*LTCSBRK\*O
+.LE
+.sp 0.4v
+Otherwise, the module's write put routine processes the command immediately.
+Detailed descriptions of the preceding \*Lioctl\*O commands
+are provided in the \*LThe ioctl Commands\*O section.
+.LI "\*LM_READ\*O"
+This message is sent by the stream head to notify downstream modules when an
+application has issued a read request
+and there is not enough data queued at the stream head to satisfy the request.
+The \*LM_READ\*O message contains the number of characters requested by the
+application.
+.sp 0.4v
+If the module is in noncanonical input mode, and \*LVTIME\*O is positive,
+the write put routine starts an
+input timer.  When the timer expires, it sends all buffered input
+upstream.
+Then, it forwards the \*LM_READ\*O message downstream.
+.LI "\*LM_DATA\*O"
+The write service routine processes the data according
+to the POSIX 1003.1 specification output flags.
+It sends the processed characters downstream to the driver when
+the output queue fills up and all of the data is processed.
+.LI "\*LM_IOCTL\*O"
+Some I/O control commands must wait until output drains before they are
+processed.  \*LM_IOCTL\*O messages containing these commands are queued on
+the write queue so that the write service
+routine processes them in the correct sequence relative to preceding
+data.  A list of these commands is provided in the \*LWrite Put
+Routine\*O section.
+Processing of the individual I/O control commands is described in the
+\*LThe ioctl Commands\*O section of this reference page and in the
+\*Ltty\*O and \*Ltermios\*O reference pages.
+.LE
+.SS The ioctl Commands
+The \*Lldterm\*O module acts on three categories of \*Lioctl\*O commands:
+.ML
+.LI
+Primary I/O control commands
+.LI
+BSD4.3 compatibility I/O control commands
+.LI
+System V Interface Definition compatibility I/O control commands
+.LE
+.SS Primary I/O Control Commands
+The \*Lldterm\*O module acts on the following primary I/O commands:
+.VL
+.LI "\*LTIOCSETD\*O"
+The \*Lldterm\*O module does nothing but reply to this command.
+In a BSD system, the command is used to set the current
+line discipline type. It does not have much meaning
+in a STREAMS environment, because line
+discipline modules are changed by popping the current module from the
+stream and pushing a different one onto the stream.
+.LI "\*LTIOCGETD\*O"
+In a BSD system, this command is used to get the current line discipline
+type. The command does not have much meaning in a STREAMS
+environment.
+The \*Lldterm\*O module replies with a value of 0 (zero).
+.LI "\*LTIOCFLUSH\*O"
+The \*Lldterm\*O module generates \*LM_FLUSH\*O messages and flushes the
+appropriate internal message buffers.
+Then, it acknowledges the message with \*LM_IOCACK\*O.
+.LI "\*LFIOASYNC\*O"
+The \*Lldterm\*O module sets or resets the \*LTS_ASYNC\*O state.
+Then, it forwards the message to the next module.
+.LI "\*LTIOCOUTQ\*O"
+When the \*Lldterm\*O module receives this command in an \*LM_IOCTL\*O message,
+it forwards the command downstream.
+When the module receives the \*LM_IOCACK\*O message in the read queue,
+it adds the number of characters in the output buffer to the reply value
+in the \*LM_IOCACK\*O message and forwards the message upstream.
+.LI "\*LTIOCSETA\*O, \*LTIOCSETAW\*O, and \*LTIOCSETAF\*O"
+.nL
+When the \*Lldterm\*O module receives any of these commands in
+an \*LM_IOCTL\*O message,
+it forwards them downstream.
+When it receives the \*LM_IOCACK\*O message in the read queue,
+it copies the POSIX \*Ltermios\*O information from the message
+into the internal \*Ltermios\*O structure and forwards the message
+upstream.
+.LI "\*LTIOCGETA\*O"
+The \*Lldterm\*O module forwards the \*LM_IOCTL\*O message downstream.
+When it receives the \*LM_IOCACK\*O message in the read queue,
+it copies the \*LCLOCAL\*O flags and speeds
+from the message into the internal \*Ltermios\*O structure.  Then, it
+copies the entire structure into
+the \*LM_IOCACK\*O message and forwards the message upstream.
+.LI "\*LTIOCSWINSZ\*O"
+This command sets the window size variable. The \*Lldterm\*O module
+does not use this variable, but maintains it here for any needed replies to
+\*LTIOCGWINSZ\*O commands.
+The module forwards the message downstream.
+.LI "\*LTIOCGWINSZ\*O"
+When the \*Lldterm\*O module receives this command,
+it returns the window size variable that was last set by the last
+\*LTIOCSWINSZ\*O command.
+.LI "\*LTIOCHPCL\*O"
+This command sets the \*Ltermios HUPCL\*O flag to indicate that the
+terminal line
+should be disconnected when
+the last file descriptor associated with that line is closed.
+The \*Lldterm\*O module converts the command into a compatible
+\*Ltermios\*O I/O control command by
+sending an \*LM_IOCTL\*O message containing the \*LTIOCSETA\*O
+command with current \*Ltermios\*O settings downstream.
+.LI "\*LTIOCSTOP\*O"
+This command stops output. The \*Lldterm\*O module sends an \*LM_STOP\*O
+message downstream.
+.LI "\*LTIOCSTART\*O"
+The command restarts output. If the terminal was stopped,
+the \*Lldterm\*O module sends an \*LM_START\*O message downstream.
+.LI "\*LEUC_WSET\*O"
+This command sets the EUC character widths.
+The \*Lldterm\*O module forwards the message to the next module.
+.LI "\*LEUC_WGET\*O"
+This command returns the EUC character widths.
+.LI "\*LTIOCSBRK\*O"
+This command set the break condition on a line.
+The \*Lldterm\*O module sends an \*LM_BREAK\*O message containing
+a value of 1 as data to the driver, then replies with \*LM_IOCACK\*O.
+.LI "\*LTIOCCBRK\*O"
+This command clears the break condition on a line.
+The \*Lldterm\*O module sends an \*LM_BREAK\*O message containing
+a value of 0 (zero) as data to the driver, then replies with \*LM_IOCACK\*O.
+.LE
+.SS BSD4.3 Compatible I/O Commands
+The \*Lldterm\*O module acts on the following I/O commands,
+which are compatible with the BSD I/O environment:
+.VL
+.LI "\*LTIOCGETP\*O"
+This command retrieves the hardware bits of the \*Lsgttyb\*O control
+structure.  The \*Lldterm\*O module converts the message to a
+\*Ltermios M_IOCTL\*O so that the driver does not have
+to know about the \*Lsgttyb\*O control structure.  Then it forwards
+the \*Ltermios M_IOCTL\*O message to the driver.  The original I/O
+control command and \*LM_IOCTL\*O message are stored for use
+on the \*LM_IOCACK message.
+.LI "\*LTIOCSETP\*O and \*LTIOCSETN\*O"
+These commands set the \*Lsgttyb\*O information.
+The \*Lldterm\*O module converts the message to a \*Ltermios\*O
+\*LM_IOCTL\*O so that the driver does not
+have to know about the BSD or System V I/O control structures.
+Then, it forwards the \*Ltermios\*O \*LM_IOCTL\*O message with a
+corresponding \*Ltermios\*O command.
+The original I/O control command and \*LM_IOCTL\*O message are stored for
+use on the \*LM_IOCACK\*O message.
+.LI "\*LTIOCGETC\*O"
+The \*Lldterm\*O module returns the \*Ltchars\*O information in a
+\*Ltermios\*O structure.
+.LI "\*LTIOCSETC\*O"
+This command sets the \*Ltchars\*O information.
+The \*Lldterm\*O module
+converts the message to a \*Ltermios\*O \*LM_IOCTL\*O so that the
+driver does not
+have to know about the BSD or System V I/O control structures.
+Then, it forwards the \*Ltermios M_IOCTL\*O message with a
+corresponding \*Ltermios\*O command.
+The original I/O control command and \*LM_IOCTL\*O message are stored for use
+on the \*LM_IOCACK\*O message.
+.LI "\*LTIOCGLTC\*O"
+The \*Lldterm\*O module returns the \*Lltchars\*O information in a
+\*Ltermios\*O structure.
+.LI "\*LTIOCSLTC\*O"
+This command sets the \*Lltchars\*O information.
+The \*Lldterm\*O module converts the message to a \*Ltermios M_IOCTL\*O
+so that the driver does not
+have to know about the BSD or System V I/O control structures.
+Then, it forwards the \*Ltermios M_IOCTL\*O message with a corresponding
+\*Ltermios\*O command.
+The original I/O control command and \*LM_IOCTL\*O message are stored for use
+on the \*LM_IOCACK\*O message.
+.LI "\*LTIOCLGET\*O"
+The \*Lldterm\*O module returns the BSD4.3 flags information in a
+\*Ltermios\*O structure.
+.LI "\*LTIOCLBIS\*O, \*LTIOCLBIC\*O, and \*LTIOCLSET\*O"
+.nL
+These commands set the BSD4.3 flags information.
+The \*Lldterm\*O module converts the message to a \*Ltermios\*O \*LM_IOCTL\*O,
+then forwards the \*Ltermios M_IOCTL\*O message with a corresponding
+\*Ltermios\*O command.
+It stores the original I/O control command and \*LM_IOCTL\*O message
+to be used on the \*LM_IOCACK\*O message.
+.LI "\*LOTIOCGETD\*O"
+This I/O control command is meaningless in a STREAMS environment.
+The \*Lldterm\*O module replies with a value of 0 (zero).
+.LI "\*LOTIOCSETD\*O"
+This I/O control command is meaningless in a STREAMS environment.
+The \*Lldterm\*O module does nothing and replies.
+.LE
+.SS System V Interface Definition Compatibility I/O Commands
+The \*Lldterm\*O module acts on the following I/O commands,
+which are compatible with the SVID I/O environment:
+.VL
+.LI "\*LTCXONC\*O"
+This command results in the same action as \*LTIOCSTOP\*O or \*LTIOCSTART\*O,
+depending on the argument.
+.LI "\*LTCFLSH\*O"
+This command has the same behavior as the \*LTIOCFLUSH\*O command.
+.LI "\*LTCGETA\*O"
+The \*Lldterm\*O module converts the command to a \*Ltermios M_IOCTL\*O
+message, then forwards the message with
+the \*LTIOCGETA\*O command.
+The original I/O control command and \*LM_IOCTL\*O message are stored to be
+used on the \*LM_IOCACK\*O message.  When it receives the matching \*LM_IOCACK\*O message,
+the \*Lldterm\*O module processes it as for a \*LTIOCGETA\*O command,
+then converts the \*Ltermios\*O
+information into the System V \*Ltermio\*O information and replies.
+.LI "\*LTCSETA\*O, \*LTCSETAW\*O, and \*LTCSETAF\*O"
+.nL
+These commands set the System V \*Ltermio\*O information.
+The \*Lldterm\*O module converts the command to a \*Ltermios M_IOCTL\*O
+message, then forwards the message with a corresponding
+\*Ltermios\*O command.
+The original I/O control command and \*LM_IOCTL\*O message are stored
+for use on the \*LM_IOCACK\*O message.
+.LI "\*LTCSBRK\*O"
+The \*Lldterm\*O module forwards this command downstream to be handled by
+the driver.
+.LE
+.SH RELATED INFORMATION
+.PP
+File: \*Ltermios\*O(4).
+.nL
+Interfaces: \*Leucioctl\*O(7), \*Ltty\*O(7).
+.EQ
+delim off
+.EN

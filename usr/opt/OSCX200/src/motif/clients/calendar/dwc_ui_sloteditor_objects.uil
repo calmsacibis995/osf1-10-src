@@ -1,0 +1,2733 @@
+! $Id$
+!++
+!
+! Facility:
+!   Calendar.
+!
+! Abstract:
+!   dwc_ui_sloteditor_objects.uil
+! UIL definition for the time slot dialog box.
+!
+! Author:
+!   Denis G. Lacroix
+!
+! Creation Date:
+!   16-Jan-1989
+!   
+!--
+
+!++
+!
+!   Naming conventions: objects (widgets or gadgets) are given a name formed 
+!   by collapsing a descriptive name with the abbreviated object type. The
+!   constant used in the MrmNcreateCallback callback is formed by prefixing the widget's 
+!   name with 'k_ts' (ts = TimeSlot) or k_dn (dn = DayNote).
+!
+!--
+
+!++
+!
+!   Non-translatable part. In theory, 
+!   no one will have to touch this part.
+!
+!--
+
+!++
+!
+!   Procedures
+!
+!--
+
+value
+    k_sloteditor_left_margin : 18;
+
+procedure
+
+    sloteditor_padb_create_proc ( integer );
+    sloteditor_create_proc	( integer );
+    
+    sloteditor_stext_changed	( integer );
+
+    sloteditor_alarm_changed	( integer );
+    sloteditor_alarm_val_changed( integer );
+    sloteditor_alarm_scale_changed
+				( integer );
+
+    sloteditor_repeat_interval_proc 
+				( integer );
+    sloteditor_attributes_proc	( integer );
+    sloteditor_special_proc	( integer );
+
+    condition_value_changed	( integer );
+
+    sloteditor_work_nonwork_proc
+				( integer );
+    sloteditor_move_proc	( integer );
+
+    sloteditor_ok_proc		( integer );
+    sloteditor_delete_proc	( integer );
+    sloteditor_reset_proc	( integer );
+    sloteditor_cancel_proc	( integer );
+
+    sloteditor_select_ibw	( integer );
+    sloteditor_order_ibw	( integer );
+
+    sloteditor_flag_changed	( integer );
+    
+    !	Activate and XmNmapCallback routines for the menu XmNlistItems
+
+    sloteditor_inc_activate_proc	( integer );
+
+    sloteditor_edit_map_proc		( integer );
+    sloteditor_cut_activate_proc	( integer );
+    sloteditor_copy_activate_proc	( integer );
+    sloteditor_paste_activate_proc	( integer );
+    sloteditor_clear_activate_proc	( integer );
+    sloteditor_sel_activate_proc	( integer );
+
+    !	For the 'include file' dialog box
+
+    do_tse_include_unmap    ( integer );
+    do_tse_include	    ( integer );
+
+!++
+!
+!   Identifiers
+!
+!--
+
+identifier
+    sloteditor;
+
+
+!++
+!
+!   The	 timeslot editor attached dialog box
+!
+!--
+
+! The FormDialog-ScrolledWindow-Form structure is so that we can muck with
+!	the sizes and run-time so that we can get automatic scrollbars
+!	for small screen stuff.
+object sloteditor_formdialog : XmFormDialog
+{
+    arguments
+    {
+	XmNautoUnmanage		= false;
+	XmNhorizontalSpacing	= k_left_margin;
+	XmNverticalSpacing	= k_top_margin;
+	XmNmarginHeight		= k_top_margin;
+	XmNmarginWidth		= k_left_margin;
+	XmNallowOverlap		= false;
+	XmNdialogStyle		= XmDIALOG_MODELESS;
+	XmNdialogTitle		= k_ts_timeslot_dialog_title;
+	XmNnoResize		= false;    ! true;
+	XmNresizePolicy		= XmRESIZE_ANY;
+	XmNdefaultButton	= XmPushButton timeslot_ok_button;
+	XmNcancelButton		= XmPushButton timeslot_cancel_button;
+	XmNdefaultPosition	= true;
+	XmNshadowType = XmSHADOW_OUT;
+	XmNmappedWhenManaged	= false;
+    };
+    controls
+    {
+	XmMenuBar	timeslot_menu_bar;
+
+	XmLabel		timeslot_date_label;
+	XmLabel		from_label;
+	XmLabel		to_label;
+
+	XmForm		slot_tsw_container;
+
+	XmForm		timeslot_alarms_form;
+
+	XmSeparator	separator_2;
+
+	user_defined	timeslot_select_ibw;
+
+	XmSeparator	timeslot_separator_1;
+
+	XmForm		timeslot_repeat_form;
+
+	XmForm		timeslot_buttons_rc;
+!	XmRowColumn	timeslot_buttons_rc;
+
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure sloteditor_padb_create_proc 
+	    (sloteditor);
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse);
+    };
+};
+
+!++
+!
+!   The Timeslot Editor Menu bar
+!
+!--
+
+object timeslot_menu_bar : XmMenuBar
+{
+    arguments
+    {
+	XmNorientation = XmHORIZONTAL;
+	XmNmenuHelpWidget = XmCascadeButton help_menu_entry;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = 0;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNrightOffset = 0;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNtopOffset = 0;
+    };
+    controls
+    {
+	XmCascadeButton file_menu_entry;
+	XmCascadeButton edit_menu_entry;
+	XmCascadeButton help_menu_entry;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_timeslot_menus);
+    };
+};
+
+!++
+!   File menu XmNentryCallback, pulldown menu and push buttons
+!--
+
+object file_menu_entry : XmCascadeButton
+{
+	arguments {
+	    XmNlabelString	= k_ts_file_label_text;
+	    XmNmnemonic		= k_ts_file_label_mn;
+	};
+	controls {
+	    XmPulldownMenu file_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menu_file);
+	};
+};
+
+!
+
+object
+    file_pulldown_menu : XmPulldownMenu {
+	controls {
+	    XmPushButton include_menu_item;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menu_file);
+	} ;
+    };
+
+!
+
+include_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_include_label_text;
+	    XmNmnemonic		= k_ts_include_label_mn;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	       (hlp_csh_timeslot_menu_file);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_include_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_inc_activate_proc
+		( sloteditor );
+	};
+    };
+
+!++
+!   Edit menu XmNentryCallback, pulldown menu, and push buttons
+!--
+
+object
+    edit_menu_entry : XmCascadeButton {
+	arguments {
+	    XmNlabelString	= k_ts_edit_label_text;
+	    XmNmnemonic		= k_ts_edit_label_mn;
+	};
+	controls {
+	    XmPulldownMenu edit_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menu_edit);
+	} ;
+    };
+
+!
+
+object
+    edit_pulldown_menu : XmPulldownMenu {
+	controls {
+	    XmPushButton cut_menu_item;
+	    XmPushButton copy_menu_item;
+	    XmPushButton paste_menu_item;
+	    XmPushButton clear_menu_item;
+	    XmSeparator	edit_menu_separator;
+	    XmPushButton selectall_menu_item;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_timeslot_menu_edit);
+	    XmNmapCallback = procedure sloteditor_edit_map_proc
+		( sloteditor );
+	};
+    };
+
+!
+
+object
+    cut_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_cut_label_text;
+	    XmNmnemonic		= k_ts_cut_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_timeslot_menu_edit);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_cut_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_cut_activate_proc
+		( sloteditor );
+	};
+    };
+
+!
+
+object
+    copy_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_copy_label_text;
+	    XmNmnemonic		= k_ts_copy_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_timeslot_menu_edit);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_copy_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_copy_activate_proc
+		( sloteditor );
+	};
+    };
+
+!
+
+object
+    paste_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_paste_label_text;
+	    XmNmnemonic		= k_ts_paste_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menu_edit);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_paste_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_paste_activate_proc
+		( sloteditor );
+	};
+    };
+
+!
+
+object
+    clear_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_clear_label_text;
+	    XmNmnemonic		= k_ts_clear_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menu_edit);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_clear_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_clear_activate_proc
+		( sloteditor );
+	};
+    };
+
+!
+
+object
+    edit_menu_separator : XmSeparator {
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_timeslot_menu_edit);
+	} ;
+    };
+    
+!
+
+object
+    selectall_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_ts_selectall_label_text;
+	    XmNmnemonic		= k_ts_selectall_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback	= procedure dwc_help_for_widget_activate
+		(hlp_csh_timeslot_menu_edit);
+	    MrmNcreateCallback	= procedure sloteditor_create_proc
+		( k_ts_selectall_menu_item );
+	    XmNactivateCallback	= procedure sloteditor_sel_activate_proc
+		( sloteditor );
+	};
+    };
+
+!++
+!   Help menu XmNentryCallback, pulldown menu and push buttons
+!--
+
+object
+    help_menu_entry : XmCascadeButton {
+	arguments {
+	    XmNlabelString	= k_help_label_text;
+	    XmNmnemonic		= k_help_label_mn;
+	};
+	controls {
+	    XmPulldownMenu help_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_ovr_help_menu);
+	} ;
+    };
+
+!
+
+!+
+! Help menu
+! Conformance with the style guide requires the following ordering 
+! of help menu items:
+! 	Context-Sensitive Help
+!	Overview
+!	Index (NYI)
+!	Keyboard (NYI)
+!	Tutorial (NYI)
+!	Using Help (NYI)
+!	Product Information
+! Additional items are placed between Index and Using Help. 
+! In our case the additional item is:
+! 	Glossary
+!-
+object help_pulldown_menu : XmPulldownMenu
+{
+    arguments
+    {
+    };
+    controls
+    {
+	XmPushButton		! Context-Sensitive Help
+	{
+	    arguments
+	    {
+		XmNlabelString	= k_oncontext_label_text;
+		XmNmnemonic	= k_oncontext_label_mn;
+		XmNaccelerator	= k_oncontext_accelerator;
+		XmNacceleratorText = k_oncontext_accelerator_text;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure dwc_help_for_widget_activate
+		    (hlp_overview);
+		XmNactivateCallback = procedure dwc_help_from_menu_activate
+		    (k_oncontext);
+	    };
+	};
+! pjw - Is this separator style guide conformant? Can't really tell from the picture
+! in the 1.2 style guide. Have to check with the Supplement. 
+	XmSeparator
+	{
+	    arguments
+	    {
+		XmNorientation = XmHORIZONTAL;
+	    };
+	};
+	XmPushButton 			! Overview
+	{
+	    arguments
+	    {
+		XmNlabelString	= k_onwindow_label_text;
+		XmNmnemonic	= k_onwindow_label_mn;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure dwc_help_for_widget_activate
+		    (hlp_overview);
+		XmNactivateCallback = procedure dwc_help_from_menu_activate
+		    (k_onwindow);
+	    };
+	};
+	XmPushButton			! Glossary
+	{
+	    arguments
+	    {
+		XmNlabelString	= k_onterms_label_text;
+		XmNmnemonic	= k_onterms_label_mn;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure dwc_help_for_widget_activate
+		    (hlp_overview);
+		XmNactivateCallback = procedure dwc_help_from_menu_activate
+		    (k_onterms);
+	    };
+	};
+	XmPushButton			! Using Help
+	{
+	    arguments
+	    {
+		XmNlabelString	= k_onhelp_label_text;
+	        XmNmnemonic	= k_onhelp_label_mn;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		    (hlp_overview);
+		XmNactivateCallback = procedure dwc_help_from_menu_activate
+		    (k_onhelp);
+	    };
+	};
+	XmPushButton			! Product Information
+	{
+	    arguments
+	    {
+		XmNlabelString	= k_onversion_label_text;
+	        XmNmnemonic	= k_onversion_label_mn;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		    (hlp_overview);
+		XmNactivateCallback = procedure dwc_help_from_menu_activate
+		    (k_onversion);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_ovr_help_menu);
+    };
+};
+
+!
+
+object
+    oncontext_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_oncontext_label_text;
+	    XmNmnemonic		= k_oncontext_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_ovr_help_menu);
+	    XmNactivateCallback = procedure dwc_help_from_menu_activate 
+		( k_oncontext );
+	};
+    };
+
+!
+
+object
+    onwindow_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_onwindow_label_text;
+	    XmNmnemonic		= k_onwindow_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_ovr_help_menu);
+	    XmNactivateCallback = procedure dwc_help_from_menu_activate 
+		( k_onwindow );
+	};
+    };
+
+!
+
+object
+    onterms_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_onterms_label_text;
+	    XmNmnemonic		= k_onterms_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_ovr_help_menu);
+	    XmNactivateCallback = procedure dwc_help_from_menu_activate 
+		( k_onterms );
+	};
+    };
+
+!
+
+object
+    onversion_menu_item : XmPushButton {
+	arguments {
+	    XmNlabelString	= k_onversion_label_text;
+	    XmNmnemonic		= k_onversion_label_mn;
+	}; 
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_ovr_help_menu);
+	    XmNactivateCallback = procedure dwc_help_from_menu_activate 
+		( k_onversion );
+	};
+    };
+
+
+
+!++
+!
+!   The Timeslot Editor Date, From and To labels
+!
+!--
+
+!
+
+object
+    timeslot_date_label : XmLabel widget {
+        arguments {
+	    XmNlabelString	= k_ts_testing_label_text;
+!	    XmNalignment	= XmALIGNMENT_CENTER;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopOffset	= 0 ;
+	    XmNtopWidget	= XmMenuBar timeslot_menu_bar;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= k_left_margin;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= k_right_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_date_label );
+	};
+    };
+
+!
+
+object
+    from_label : XmLabel widget {
+	arguments {
+	    XmNlabelString		    = k_ts_testing_label_text;
+	    XmNtopAttachment	    = XmATTACH_WIDGET;
+	    XmNtopOffset	    = 0;
+	    XmNtopWidget	    = XmLabel timeslot_date_label;
+	    XmNleftAttachment	    = XmATTACH_FORM;
+	    XmNleftOffset	    = k_left_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_from_label );
+	};
+    };
+
+!
+
+object
+    to_label : XmLabel widget {
+	arguments {
+	    XmNlabelString		    = k_ts_testing_label_text;
+	    XmNtopAttachment	    = XmATTACH_WIDGET;
+	    XmNtopOffset	    = 0;
+	    XmNtopWidget	    = XmLabel timeslot_date_label;
+	    XmNrightAttachment    = XmATTACH_FORM;
+	    XmNrightOffset	    = k_right_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_to_label );
+	};
+    };
+
+
+
+!++
+!
+!   Form to contain the icon box running down the left side and the text widget
+!
+!--
+object slot_tsw_container : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNshadowThickness = 2;
+	XmNshadowType = XmSHADOW_ETCHED_IN;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopOffset = 0;
+	XmNtopWidget = XmLabel from_label;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = k_left_margin;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNrightOffset = k_right_margin;
+	XmNresizePolicy = XmRESIZE_GROW;
+    };
+    controls
+    {
+	user_defined		timeslot_order_ibw;
+!	XmScrolledText		timeslot_scrolled_text;
+	DXmScrolledCSText	timeslot_scrolled_text;
+    };
+};
+
+
+!++
+!
+!   The Timeslot Editor Icon Box Widget for display on the left side of 
+!   the text widget
+!
+!--
+
+object
+    timeslot_order_ibw : user_defined procedure IconBoxLowLevelCreate
+    {
+	arguments
+	{
+	    dwc_ibw_icon_box_style  = DwcIbwOrderList;
+	    dwc_ibw_icon_height	    = 17;
+	    dwc_ibw_icon_width	    = 17;
+	    dwc_ibw_off_icons	    = sloteditor_off_pixmap_array;
+	    dwc_ibw_number_of_icons = 24;
+	    dwc_ibw_columns	    = 1;
+	    dwc_ibw_rows	    = 8;
+
+	    XmNshadowThickness	    = 2;
+	    XmNtopAttachment	    = XmATTACH_FORM;
+	    XmNtopOffset	    = 0;
+	    XmNleftAttachment	    = XmATTACH_FORM;
+	    XmNleftOffset	    = 0;
+	    XmNbottomAttachment	    = XmATTACH_FORM;
+	    XmNbottomOffset	    = 0 ;
+
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	       (hlp_csh_tse_timeslot_icons);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_order_ibw );
+	    dwc_ibw_value_changed   = procedure sloteditor_order_ibw
+		( sloteditor );
+	};
+    };
+
+!++
+!
+!   Scrolled Text Widget for displaying the content of the XmNentryCallback
+!
+!--
+
+object timeslot_scrolled_text : DXmScrolledCSText
+!object timeslot_scrolled_text : XmScrolledText
+{
+	arguments {
+	    XmNscrollHorizontal	= false;
+	    XmNeditMode		= XmMULTI_LINE_EDIT;
+	    XmNrows		= 6;
+	    XmNcolumns		= 50;
+	    XmNeditable		= true;
+	    XmNwordWrap		= true;
+	    XmNresizeHeight	= false;
+	    XmNresizeWidth	= false;
+	    XmNautoShowCursorPosition = true;
+	    XmNcursorPositionVisible = true;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNrightOffset      = 0;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftOffset       = 0;
+	    XmNleftWidget       = user_defined timeslot_order_ibw;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset     = 0;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNtopOffset        = 0;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_timeslot_stext );
+	    XmNvalueChangedCallback = procedure sloteditor_stext_changed
+		( sloteditor );
+	};
+    };
+
+
+
+!++
+!
+!   For Maintenance ease, all the widgets and gadgets for setting alarms are
+!   in a form of their own.
+!
+!--
+
+object timeslot_alarms_form : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNshadowThickness = 2;
+	XmNshadowType = XmSHADOW_IN;
+	XmNhorizontalSpacing = k_left_margin;
+	XmNverticalSpacing = k_top_margin;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmForm slot_tsw_container;
+	XmNresizePolicy = XmRESIZE_GROW;
+    };
+    controls
+    {
+	XmToggleButton	timeslot_entry_time_tb;
+	XmLabel		timeslot_entry_time_label;
+
+	XmToggleButton	timeslot_short_tb;
+	XmToggleButton	timeslot_short_val_tb;
+
+	XmToggleButton	timeslot_medium_tb;
+	XmToggleButton	timeslot_medium_val_tb;
+
+	XmToggleButton	timeslot_long_tb;
+	XmToggleButton	timeslot_long_val_tb;
+
+	XmToggleButton	timeslot_vlong_tb;
+	XmToggleButton	timeslot_vlong_val_tb;
+
+	XmScale		timeslot_alarm_scale;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_alarm_setting);
+    };
+
+};
+
+!++
+!
+!--
+
+object
+    timeslot_entry_time_tb : XmToggleButton widget {
+	arguments {
+	    XmNlabelType	= XmPIXMAP;
+	    XmNindicatorOn	= false;
+	    XmNshadowThickness	= 2;
+	    XmNlabelPixmap	= bell_17X17;
+
+	    XmNleftAttachment	= XmATTACH_FORM ;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_entry_time_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_changed
+		( k_ts_entry_time_toggle );
+	};
+    };
+
+object
+    timeslot_entry_time_label : XmLabel {
+	arguments {
+	    XmNlabelString	= k_ts_entry_time_label_text ;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmToggleButton timeslot_entry_time_tb;
+	    XmNleftOffset	= 0;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_alarm_setting);
+	};
+    };
+
+!++
+!   Short alarm
+!--
+
+object
+    timeslot_short_tb : XmToggleButton widget {
+	arguments {
+	    XmNlabelType	= XmPIXMAP;
+	    XmNindicatorOn	= false;
+	    XmNshadowThickness	= 2;
+	    XmNlabelPixmap	= bell_17X17;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel timeslot_entry_time_label;
+	    XmNleftOffset	= k_left_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_short_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_changed
+		( k_ts_short_toggle );
+	};
+    };
+
+object
+    timeslot_short_val_tb : XmToggleButton {
+	arguments {
+	    XmNlabelString	= compound_string('14:45am');
+	    XmNindicatorType	= XmONE_OF_MANY;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftOffset	= 0;
+	    XmNleftWidget	= XmToggleButton timeslot_short_tb;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_short_val_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_val_changed
+		( k_ts_short_val_toggle );
+	};
+    };
+
+!++
+!   Medium alarm
+!--
+
+object
+    timeslot_medium_tb : XmToggleButton widget {
+	arguments {
+	    XmNlabelType	= XmPIXMAP;
+	    XmNindicatorOn	= false;
+	    XmNshadowThickness	= 2;
+	    XmNlabelPixmap	= bell_17X17;
+
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmToggleButton timeslot_short_val_tb;
+	    XmNleftOffset	= k_left_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_medium_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_changed
+		( k_ts_medium_toggle );
+	};
+    };
+
+object
+    timeslot_medium_val_tb : XmToggleButton {
+	arguments {
+	    XmNlabelString	= compound_string('14:45am');
+	    XmNindicatorType	= XmONE_OF_MANY;
+
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftOffset	= 0;
+	    XmNleftWidget	= XmToggleButton timeslot_medium_tb;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNalignment	= XmALIGNMENT_BEGINNING ;
+	    XmNrightAttachment  = XmATTACH_FORM ;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_medium_val_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_val_changed
+		( k_ts_medium_val_toggle );
+	};
+    };
+
+
+!++
+!   Long alarm
+!--
+
+object
+    timeslot_long_tb : XmToggleButton widget {
+	arguments {
+	    XmNlabelType	= XmPIXMAP;
+	    XmNindicatorOn	= false;
+	    XmNshadowThickness	= 2;
+	    XmNlabelPixmap	= bell_17X17;
+
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton timeslot_entry_time_tb;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_long_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_changed
+		( k_ts_long_toggle );
+	};
+    };
+
+object
+    timeslot_long_val_tb : XmToggleButton {
+	arguments {
+	    XmNlabelString	= compound_string('Mon 24th Apr\n12:45pm');
+	    XmNindicatorType	= XmONE_OF_MANY;
+
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftOffset	= 0;
+	    XmNleftWidget	= XmToggleButton timeslot_long_tb;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton timeslot_entry_time_tb;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_long_val_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_val_changed
+		( k_ts_long_val_toggle );
+	};
+    };
+
+!++
+!   Vlong alarm
+!--
+
+object
+    timeslot_vlong_tb : XmToggleButton widget {
+	arguments {
+	    XmNlabelType	= XmPIXMAP;
+	    XmNindicatorOn	= false;
+	    XmNshadowThickness	= 2;
+	    XmNlabelPixmap	= bell_17X17;
+
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton timeslot_entry_time_tb;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmToggleButton timeslot_long_val_tb;
+	    XmNleftOffset	= k_left_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_vlong_toggle );
+
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_changed
+		( k_ts_vlong_toggle );
+	};
+    };
+
+object
+    timeslot_vlong_val_tb : XmToggleButton {
+	arguments {
+	    XmNlabelString	= compound_string('Mon 24th Apr\n12:45pm');
+	    XmNindicatorType	= XmONE_OF_MANY;
+	    XmNalignment	= XmALIGNMENT_BEGINNING ;
+!	    XmNrightAttachment  = XmATTACH_FORM ;
+
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton timeslot_entry_time_tb;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftOffset	= 0;
+	    XmNleftWidget	= XmToggleButton timeslot_vlong_tb;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback = procedure sloteditor_create_proc 
+		( k_ts_vlong_val_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_val_changed
+		( k_ts_vlong_val_toggle );
+	};
+    };
+
+!++
+!
+!--
+
+object timeslot_alarm_scale : XmScale {
+	arguments { 
+!HACK - XmNscaleWidth doesn't work, although XmNscaleHeight does.
+	    XmNwidth		= 200;
+	    XmNorientation	= XmHORIZONTAL;
+	    XmNprocessingDirection	= XmMAX_ON_RIGHT;
+	    XmNshowValue	= true;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= k_left_margin + k_left_margin;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton timeslot_long_val_tb;
+	    XmNbottomAttachment	= XmATTACH_FORM;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_alarm_setting);
+	    MrmNcreateCallback  = procedure sloteditor_create_proc
+		( k_ts_alarm_scale );
+	    XmNdragCallback    = procedure sloteditor_alarm_scale_changed
+		( sloteditor );
+	    XmNvalueChangedCallback = procedure sloteditor_alarm_scale_changed
+		( sloteditor );
+	};
+    };
+
+
+!++
+!
+!   Separator
+!
+!--
+
+object separator_2 : XmSeparator {
+	arguments {
+	    XmNleftAttachment	    = XmATTACH_FORM;
+	    XmNleftOffset	    = k_left_margin;
+	    XmNrightAttachment    = XmATTACH_FORM;
+	    XmNrightOffset	    = k_right_margin;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmForm timeslot_alarms_form;
+	    XmNtopOffset	= k_small_spacing;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	} ;
+    };
+
+
+!++
+!
+!   Another icon box widget used to select and deselect icons for the entry
+!
+!--
+
+object timeslot_select_ibw : user_defined procedure
+	IconBoxLowLevelCreate {
+	arguments {
+	    dwc_ibw_icon_box_style  = DwcIbwMultipleSelection;
+	    dwc_ibw_icon_height	    = 17;
+	    dwc_ibw_icon_width	    = 17;
+	    dwc_ibw_off_icons	    = sloteditor_off_pixmap_array;
+	    dwc_ibw_number_of_icons = 24;
+	    dwc_ibw_columns	    = 12;
+	    dwc_ibw_rows	    = 2;
+	    XmNborderWidth	    = 0 ;
+
+	    XmNshadowThickness	= 2;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= separator_2;
+	    XmNtopOffset	= k_small_spacing;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_timeslot_icons);
+	    MrmNcreateCallback		    = procedure sloteditor_create_proc
+		( k_ts_select_ibw );
+	    dwc_ibw_value_changed   = procedure sloteditor_select_ibw
+		( sloteditor );
+	};
+    };
+
+
+!++
+!
+!   Separator
+!
+!--
+
+object timeslot_separator_1 : XmSeparator {
+	arguments {
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= k_left_margin;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= k_right_margin;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= user_defined timeslot_select_ibw;
+	    XmNtopOffset	= k_small_spacing;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	} ;
+    };
+
+
+object timeslot_repeat_form : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNshadowThickness = 2;
+	XmNshadowType = XmSHADOW_IN;
+	XmNhorizontalSpacing = k_left_margin;
+	XmNverticalSpacing = k_top_margin;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmSeparator timeslot_separator_1;
+	XmNresizePolicy = XmRESIZE_GROW;
+    };
+    controls
+    {
+	XmOptionMenu	timeslot_repeat_option_menu;
+	XmOptionMenu	timeslot_attributes_option_menu;
+
+	XmToggleButton	timeslot_condition_toggle;	    
+	XmOptionMenu	timeslot_work_nonwork_optmenu;
+	XmOptionMenu	timeslot_move_option_menu;
+
+	XmToggleButton	timeslot_flags_toggle;
+	XmLabel		timeslot_flags_dummy_label;
+    };
+};
+!++
+!
+!   Repeating entries option menu.
+!
+!--
+object timeslot_repeat_option_menu : XmOptionMenu {
+    arguments {
+	XmNlabelString	= k_ts_repeat_label_text;
+	XmNmenuHistory	= XmPushButton daily_button;
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNtopAttachment	= XmATTACH_FORM;
+    };
+    controls {
+	XmPulldownMenu repeat_pulldown_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_repeat_optmenu );
+    };	
+};
+
+!
+
+object repeat_pulldown_menu : XmPulldownMenu {
+    arguments {
+	XmNpacking = XmPACK_COLUMN;
+	XmNnumColumns = 2;
+    };
+    controls {
+	XmPushButton	none_button;
+	XmSeparator	repeat_pulldown_separator;
+	
+	XmPushButton	daily_button;
+	XmPushButton	weekly_button;
+	XmPushButton	fortnight_button;
+	XmPushButton	fourweek_button;
+!	    XmSeparator	repeat_pulldown_separator;
+
+	XmPushButton monthly_button;
+	XmPushButton bimonthly_button;
+	XmPushButton quarterly_button;
+	XmPushButton triannually_button;
+	XmPushButton biannually_button;
+	XmPushButton annually_button;
+    };   
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object none_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_none_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_none_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_none_button );
+    };  
+};
+
+!
+
+object repeat_pulldown_separator : XmSeparator {
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object daily_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_daily_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_daily_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_daily_button );
+    };  
+};
+
+!
+
+object weekly_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_weekly_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_weekly_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_weekly_button );
+    };  
+};
+
+!
+
+object fortnight_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_fortnight_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_fortnight_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_fortnight_button );
+    };  
+};
+
+!
+
+object fourweek_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_fourweek_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_fourweek_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_fourweek_button );
+    };  
+};
+
+!
+
+object monthly_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_monthly_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_monthly_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_monthly_button );
+    };  
+};
+
+!
+
+object bimonthly_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_bimonthly_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_bimonthly_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_bimonthly_button );
+    };  
+};
+
+!
+
+object quarterly_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_quarterly_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_quarterly_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_quarterly_button );
+    };  
+};
+
+!
+
+object triannually_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_triannually_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_triannually_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_triannually_button );
+    };  
+};
+
+!
+
+object biannually_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_biannually_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_biannually_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_biannually_button );
+    };  
+};
+
+!
+
+object annually_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_annually_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_annually_button );
+	XmNactivateCallback = procedure sloteditor_repeat_interval_proc
+	    ( k_ts_annually_button );
+    };  
+};
+
+
+
+
+!++
+!
+!   Repeating entries attributes option menu.
+!
+!--
+
+object  timeslot_attributes_option_menu : XmOptionMenu {
+    arguments {
+	XmNlabelString	= k_empty_string ;	    
+	XmNentryAlignment	= XmALIGNMENT_BEGINNING;
+	XmNmenuHistory	= XmPushButton nth_day_button;
+	XmNtopAttachment	= XmATTACH_FORM;
+	XmNleftAttachment	= XmATTACH_WIDGET;
+	XmNleftWidget	= XmOptionMenu timeslot_repeat_option_menu;
+	XmNleftOffset	= k_left_margin;
+!	XmNrightAttachment	= XmATTACH_FORM;
+    };
+    controls {
+	XmPulldownMenu attributes_pulldown_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_attributes_optmenu );
+    };	
+};
+
+!
+
+object attributes_pulldown_menu : XmPulldownMenu {
+    arguments {
+	XmNpacking = XmPACK_COLUMN;
+	XmNnumColumns = 2;
+    };
+    controls {
+	XmPushButton	    nth_day_button;
+	XmPushButton	    nth_day_end_button;
+	XmPushButton	    nth_xday_button;
+	XmPushButton	    last_weekday_button;
+	XmCascadeButton  special_day_menu_entry;
+    };   
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object nth_day_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_nth_day_button );
+	XmNactivateCallback = procedure sloteditor_attributes_proc
+	    ( k_ts_nth_day_button );
+    };  
+};
+
+!
+
+object nth_day_end_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_nth_day_end_button );
+	XmNactivateCallback = procedure sloteditor_attributes_proc
+	    ( k_ts_nth_day_end_button );
+    };  
+};
+
+!
+
+object nth_xday_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_nth_xday_button );
+	XmNactivateCallback = procedure sloteditor_attributes_proc
+	    ( k_ts_nth_xday_button );
+    };  
+};
+
+!
+
+object last_weekday_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+		( k_ts_last_weekday_button );
+	XmNactivateCallback = procedure sloteditor_attributes_proc
+		( k_ts_last_weekday_button );
+    };  
+};
+
+object special_day_menu_entry : XmCascadeButton {
+    arguments {
+	XmNlabelString = k_ts_special_label_text;
+    };
+    controls {
+	XmPulldownMenu special_day_pulldown_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback  = procedure sloteditor_create_proc
+	    ( k_ts_special_day_menu_entry );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_special_day_menu_entry );
+    };
+};
+
+object special_day_pulldown_menu : XmPulldownMenu {
+    controls {
+	XmLabel	the_day_at_or_label;
+	XmSeparator	special_day_pulldown_separator;
+	XmPushButton after_6_button;
+	XmPushButton after_5_button;
+	XmPushButton after_4_button;
+	XmPushButton after_3_button;
+	XmPushButton after_2_button;
+	XmPushButton after_1_button;
+	XmPushButton after_0_button;
+	XmSeparator	special_day_pulldown_separator;
+	XmPushButton before_0_button;
+	XmPushButton before_1_button;
+	XmPushButton before_2_button;
+	XmPushButton before_3_button;
+	XmPushButton before_4_button;
+	XmPushButton before_5_button;
+	XmPushButton before_6_button;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object the_day_at_or_label : XmLabel {
+    arguments {
+	XmNlabelString = k_ts_the_day_at_or_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_the_day_at_or_label );
+    };
+};
+
+!
+
+object special_day_pulldown_separator : XmSeparator {
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object after_6_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_6_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_6_button );
+    };
+};
+
+!
+
+object after_5_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_5_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_5_button );
+    };
+};
+
+object after_4_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_4_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_4_button );
+    };
+};
+
+object after_3_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_3_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_3_button );
+    };
+};
+
+object after_2_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_2_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_2_button );
+    };
+};
+
+object after_1_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_1_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_1_button );
+    };
+};
+
+object after_0_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_after_0_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_after_0_button );
+    };
+};
+
+object before_0_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_0_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_0_button );
+    };
+};
+
+object before_1_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_1_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_1_button );
+    };
+};
+
+object before_2_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_2_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_2_button );
+    };
+};
+
+object before_3_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_3_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_3_button );
+    };
+};
+
+object before_4_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_4_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_4_button );
+    };
+};
+
+object before_5_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_5_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_5_button );
+    };
+};
+
+object before_6_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_long_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_before_6_button );
+	XmNactivateCallback = procedure sloteditor_special_proc
+	    ( k_ts_before_6_button );
+    };
+};
+
+
+!++
+!
+!   Condition toggle button
+!
+!--
+
+object timeslot_condition_toggle : XmToggleButton {
+    arguments {
+	XmNlabelString	= k_ts_condition_text ;
+	XmNset		= false;
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget	= XmOptionMenu timeslot_repeat_option_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_condition_toggle );
+	XmNvalueChangedCallback = procedure condition_value_changed
+	    ( sloteditor );
+    };
+
+};
+
+
+!++
+!
+!   Work/Nonwork option menu.
+!
+!--
+
+object timeslot_work_nonwork_optmenu : XmOptionMenu {
+    arguments {
+	XmNlabelString	= k_empty_string ;
+	XmNmenuHistory	= XmPushButton work_button;
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget	= XmOptionMenu timeslot_repeat_option_menu;
+	XmNleftAttachment	= XmATTACH_WIDGET;
+	XmNleftWidget	= XmToggleButton timeslot_condition_toggle;
+    };
+    controls {
+	XmPulldownMenu work_nonwork_pulldown_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_work_nonwork_optmenu );
+    };	
+};
+
+!
+
+object work_nonwork_pulldown_menu : XmPulldownMenu {
+    controls {
+	XmPushButton	nonwork_button;
+	XmPushButton	work_button;
+    };   
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint);
+    } ;
+};
+
+!
+
+object nonwork_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_nonwork_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_nonwork_button );
+	XmNactivateCallback = procedure sloteditor_work_nonwork_proc
+	    ( k_ts_nonwork_button );
+    };  
+};
+
+
+!
+
+object work_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_work_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_work_button );
+	XmNactivateCallback = procedure sloteditor_work_nonwork_proc
+	    ( k_ts_work_button );
+    };  
+};
+
+
+
+!++
+!
+!   Move option menu.
+!
+!--
+
+object timeslot_move_option_menu : XmOptionMenu {
+    arguments {
+	XmNlabelString	= k_empty_string ;	    
+	XmNmenuHistory	= XmPushButton skip_button;
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget	= XmOptionMenu timeslot_repeat_option_menu;
+	XmNleftAttachment	= XmATTACH_WIDGET;
+	XmNleftWidget	= XmOptionMenu timeslot_work_nonwork_optmenu;
+    };
+    controls {
+	XmPulldownMenu move_pulldown_menu;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_move_optmenu );
+    };	
+};
+
+!
+
+object move_pulldown_menu : XmPulldownMenu {
+    controls {
+	XmPushButton	skip_button;
+	XmPushButton	forward_button;
+	XmPushButton	backward_button;
+    };   
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+    } ;
+};
+
+!
+
+object skip_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_skip_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_skip_button );
+	XmNactivateCallback = procedure sloteditor_move_proc
+	    ( k_ts_skip_button );
+    };  
+};
+
+!
+
+object forward_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_forward_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_forward_button );
+	XmNactivateCallback = procedure sloteditor_move_proc
+	    ( k_ts_forward_button );
+    };  
+};
+
+!
+
+object backward_button : XmPushButton {
+    arguments {
+	XmNlabelString = k_ts_backward_label_text;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_repint_nonworkday);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    ( k_ts_backward_button );
+	XmNactivateCallback = procedure sloteditor_move_proc
+	    ( k_ts_backward_button );
+    };  
+};
+
+
+
+!++
+!
+!   Flag day toggle button
+!
+!--
+
+object timeslot_flags_toggle : XmToggleButton {
+    arguments {
+	XmNlabelString	= k_ts_flags_label_text;
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget	= XmOptionMenu timeslot_work_nonwork_optmenu;
+	XmNleftAttachment	= XmATTACH_OPPOSITE_WIDGET;
+	XmNleftWidget	= XmOptionMenu timeslot_work_nonwork_optmenu;
+	XmNleftOffset	= 30;
+    };
+    callbacks {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_ovr_optmen_day_italicday);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    ( k_ts_flags_toggle );
+	XmNvalueChangedCallback = procedure sloteditor_flag_changed
+	    ( sloteditor );
+    };
+};
+
+object timeslot_flags_dummy_label : XmLabel
+{
+    arguments
+    {
+	XmNlabelString = "";
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmToggleButton timeslot_flags_toggle;
+	XmNtopOffset = 2;
+    };
+};
+
+
+!++
+!
+!   Pushbutton bar at the bottom of the view: ok, delete, reset and XmNcancelCallback.
+!
+!--
+object timeslot_buttons_rc : XmForm
+{
+    arguments
+    {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmForm timeslot_repeat_form;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = 2;
+	XmNrightOffset = 2;
+	XmNbottomAttachment = XmATTACH_FORM;
+	XmNresizePolicy = XmRESIZE_GROW;
+	XmNmarginWidth = 0;
+	XmNhorizontalSpacing = 0;
+    };
+    controls
+    {
+	XmPushButton	timeslot_ok_button;
+	XmPushButton	timeslot_delete_button;
+	XmPushButton	timeslot_reset_button;   
+	XmPushButton	timeslot_cancel_button;
+	XmPushButton	timeslot_help_button;
+    };
+};
+
+object timeslot_ok_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_ok_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 1;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback   = procedure sloteditor_create_proc
+	    (k_ts_ok_button);
+	XmNactivateCallback = procedure sloteditor_ok_proc (sloteditor);
+    };
+};
+
+!
+
+object timeslot_delete_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_delete_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton timeslot_ok_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    (k_ts_delete_button);
+	XmNactivateCallback = procedure sloteditor_delete_proc (sloteditor);
+    };
+};
+
+!
+
+object timeslot_reset_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_reset_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton timeslot_delete_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    (k_ts_reset_button);
+	XmNactivateCallback = procedure sloteditor_reset_proc (sloteditor);
+    };
+};
+
+!
+
+object timeslot_cancel_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_cancel_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton timeslot_reset_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    (k_ts_cancel_button);
+	XmNactivateCallback = procedure sloteditor_cancel_proc (sloteditor);
+    };
+};
+
+object timeslot_help_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_help_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton timeslot_cancel_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNactivateCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+    };
+};
+
+!++
+!
+!   The daynote editor attached dialog box   
+!
+!--
+
+! The FormDialog-ScrolledWindow-Form structure is so that we can muck with
+!	the sizes and run-time so that we can get automatic scrollbars
+!	for small screen stuff.
+object daynoteeditor_formdialog : XmFormDialog
+{
+    arguments
+    {
+	XmNautoUnmanage	= false;
+	XmNhorizontalSpacing = k_left_margin;
+	XmNverticalSpacing = k_top_margin;
+	XmNmarginHeight = k_top_margin;
+	XmNmarginWidth = k_left_margin;
+	XmNallowOverlap = false;
+	XmNdialogStyle = XmDIALOG_MODELESS;
+	XmNdialogTitle = k_ts_daynote_dialog_title;
+	XmNnoResize = false;	! true;
+	XmNdefaultButton = XmPushButton daynote_ok_button;
+	XmNcancelButton = XmPushButton daynote_cancel_button;
+	XmNdefaultPosition = true;
+	XmNresizePolicy = XmRESIZE_ANY;
+	XmNmappedWhenManaged = false;
+    };
+    controls
+    {
+	XmMenuBar	daynote_menu_bar;
+	XmLabel		daynote_date_label;
+	XmForm		daynote_tsw_container;
+	user_defined	daynote_select_ibw;
+	XmSeparator	daynote_separator_1;
+	XmForm		daynote_repeat_form;
+	XmForm		daynote_buttons_rc;
+!	XmRowColumn	daynote_buttons_rc;
+
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure sloteditor_padb_create_proc (sloteditor);
+    };
+};
+
+!++
+!
+!   The Daynote Editor Menu Bar
+!
+!++
+
+    daynote_menu_bar : XmMenuBar {
+	arguments {
+	    XmNorientation	= XmHORIZONTAL;
+	    XmNmenuHelpWidget	= XmCascadeButton help_menu_entry;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= 0;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= 0;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNtopOffset	= 0;
+	};
+	controls {
+	    XmCascadeButton file_menu_entry;
+	    XmCascadeButton edit_menu_entry;
+	    XmCascadeButton help_menu_entry;
+	};
+    	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_timeslot_menus);
+	};
+    };
+
+
+
+!++
+!
+!   The Daynote Editor Date XmLabel.
+!
+!--
+object
+    daynote_date_label : XmLabel widget {
+        arguments {
+	    XmNlabelString	= k_ts_testing_label_text;
+	    XmNalignment	= XmALIGNMENT_CENTER;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopOffset	= 0 ;
+	    XmNtopWidget	= XmMenuBar daynote_menu_bar;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= k_left_margin;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= k_right_margin;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_date_label );
+	};
+    };
+
+
+
+!++
+!
+!   Form to contain the icon box running down the left side and the text widget
+!
+!--
+object daynote_tsw_container : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNshadowThickness = 2;
+	XmNshadowType = XmSHADOW_ETCHED_IN;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopOffset = 0;
+	XmNtopWidget = XmLabel daynote_date_label;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = k_left_margin;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNrightOffset = k_right_margin;
+	XmNresizePolicy = XmRESIZE_GROW;
+    };
+    controls
+    {
+	user_defined		timeslot_order_ibw;
+	DXmScrolledCSText	timeslot_scrolled_text;
+    };
+};
+
+
+
+
+!++
+!
+!   Another icon box widget used to select and deselect icons for the XmNentryCallback
+!
+!--
+
+object
+    daynote_select_ibw : user_defined procedure
+	IconBoxLowLevelCreate {
+	arguments {
+	    dwc_ibw_icon_box_style  = DwcIbwMultipleSelection;
+	    dwc_ibw_icon_height	    = 17;
+	    dwc_ibw_icon_width	    = 17;
+	    dwc_ibw_off_icons	    = sloteditor_off_pixmap_array;
+	    dwc_ibw_number_of_icons = 24;
+	    dwc_ibw_columns	    = 12;
+	    dwc_ibw_rows	    = 2;
+	    XmNborderWidth	    = 0;
+
+	    XmNshadowThickness	= 2;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmForm daynote_tsw_container;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_timeslot_icons) ;
+	    MrmNcreateCallback		    = procedure sloteditor_create_proc
+		( k_ts_select_ibw );
+	    dwc_ibw_value_changed   = procedure sloteditor_select_ibw
+		( sloteditor );
+	};
+    };
+
+
+
+!++
+!
+!   Separator
+!
+!--
+
+object
+    daynote_separator_1 : XmSeparator {
+	arguments {
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNleftOffset	= k_left_margin;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= k_right_margin;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= user_defined daynote_select_ibw;
+	    XmNtopOffset	= k_small_spacing;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse);
+	} ;
+    };
+
+
+
+object daynote_repeat_form : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNshadowThickness = 2;
+	XmNshadowType = XmSHADOW_IN;
+	XmNhorizontalSpacing = k_left_margin;
+	XmNverticalSpacing = k_top_margin;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmSeparator daynote_separator_1;
+	XmNresizePolicy = XmRESIZE_GROW;
+    };
+    controls
+    {
+	XmOptionMenu	daynote_repeat_option_menu;
+	XmOptionMenu	daynote_attributes_option_menu;
+
+	XmToggleButton	daynote_condition_toggle;	    
+	XmOptionMenu	daynote_work_nonwork_optmenu;
+	XmOptionMenu	daynote_move_option_menu;
+
+	XmToggleButton	daynote_flags_toggle;
+    };
+};
+!++
+!
+!   Repeating entries option menu.
+!
+!--
+
+object 
+    daynote_repeat_option_menu : XmOptionMenu {
+	arguments {
+	    XmNlabelString		    = k_ts_repeat_label_text;
+	    XmNmenuHistory	= XmPushButton daily_button;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	};
+	controls {
+	    XmPulldownMenu repeat_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_repint);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_repeat_optmenu );
+	};	
+    };
+
+
+
+!++
+!
+!   Repeating entries attributes option menu.
+!
+!--
+
+object 
+    daynote_attributes_option_menu : XmOptionMenu {
+	arguments {
+	    XmNlabelString	= k_empty_string ;	    
+	    XmNmenuHistory	= XmPushButton nth_day_button;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmOptionMenu daynote_repeat_option_menu;
+	    XmNleftOffset	= k_left_margin;
+!	    XmNrightAttachment	= XmATTACH_FORM;
+	};
+	controls {
+	    XmPulldownMenu attributes_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+			   (hlp_csh_tse_repint);
+	    MrmNcreateCallback = procedure sloteditor_create_proc( k_ts_attributes_optmenu );
+	};	
+    };
+
+
+
+!++
+!
+!   Day Note Condition toggle button
+!
+!--
+
+object
+    daynote_condition_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString	= k_ts_condition_text ;
+	    XmNset		= false;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmOptionMenu daynote_repeat_option_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_repint_nonworkday);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_condition_toggle );
+	    XmNvalueChangedCallback = procedure condition_value_changed
+		( sloteditor );
+	};
+
+    };
+
+
+!++
+!
+!   Day Note Work/Nonwork option menu.
+!
+!--
+
+object 
+    daynote_work_nonwork_optmenu : XmOptionMenu {
+	arguments {
+	    XmNlabelString	= k_empty_string ;	    
+	    XmNmenuHistory	= XmPushButton work_button;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmOptionMenu daynote_repeat_option_menu;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmToggleButton daynote_condition_toggle;
+	};
+	controls {
+	    XmPulldownMenu work_nonwork_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_repint_nonworkday);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_work_nonwork_optmenu );
+	};	
+    };
+
+
+
+!++
+!
+!   Day Note Move option menu.
+!
+!--
+
+object 
+    daynote_move_option_menu : XmOptionMenu {
+	arguments {
+	    XmNlabelString	= k_empty_string ;	    
+	    XmNmenuHistory	= XmPushButton skip_button;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmOptionMenu daynote_repeat_option_menu;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmOptionMenu daynote_work_nonwork_optmenu;
+	};
+	controls {
+	    XmPulldownMenu move_pulldown_menu;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_csh_tse_repint_nonworkday);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_move_optmenu );
+	};	
+    };
+
+
+
+!++
+!
+!   Daynote Condition toggle button
+!
+!--
+
+object
+    daynote_flags_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString		    = k_ts_flags_label_text;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmOptionMenu daynote_work_nonwork_optmenu;
+	    XmNleftAttachment	= XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget	= XmOptionMenu daynote_work_nonwork_optmenu;
+	    XmNleftOffset	= 30;
+	};
+	callbacks {
+	    XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		(hlp_ovr_optmen_day_italicday);
+	    MrmNcreateCallback = procedure sloteditor_create_proc
+		( k_ts_flags_toggle );
+	    XmNvalueChangedCallback = procedure sloteditor_flag_changed
+		( sloteditor );
+	};
+    };
+
+
+
+!++
+!
+!   Pushbutton bar at the bottom of the view: XmNokCallback, delete, reset and XmNcancelCallback.
+!
+!--
+
+!object daynote_buttons_rc : XmRowColumn {
+object daynote_buttons_rc : XmForm
+{
+    arguments
+    {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmForm daynote_repeat_form;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNbottomAttachment = XmATTACH_FORM;
+	XmNresizePolicy = XmRESIZE_GROW;
+	XmNleftOffset = 2;
+	XmNrightOffset = 2;
+	XmNmarginWidth = 0;
+	XmNhorizontalSpacing = 0;
+    };
+    controls {
+	XmPushButton	daynote_ok_button;
+	XmPushButton	daynote_delete_button;
+	XmPushButton	daynote_reset_button;   
+	XmPushButton	daynote_cancel_button;
+	XmPushButton	daynote_help_button;
+    };
+};
+
+object daynote_ok_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_ok_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 1;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc (k_ts_ok_button);
+	XmNactivateCallback = procedure sloteditor_ok_proc (sloteditor);
+    };
+};
+
+!
+
+object daynote_delete_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_delete_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton daynote_ok_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+		       (hlp_csh_tse_timeslot_buttons) ;
+	MrmNcreateCallback   = procedure sloteditor_create_proc( k_ts_delete_button );
+	XmNactivateCallback = procedure sloteditor_delete_proc( sloteditor );
+    };
+};
+
+!
+
+object daynote_reset_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_reset_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton daynote_delete_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	XmNhelpCallback   = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    (k_ts_reset_button);
+	XmNactivateCallback = procedure sloteditor_reset_proc (sloteditor);
+    };
+};
+
+!
+
+object daynote_cancel_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_cancel_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton daynote_reset_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNhelpCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+	MrmNcreateCallback = procedure sloteditor_create_proc
+	    (k_ts_cancel_button);
+	XmNactivateCallback = procedure sloteditor_cancel_proc (sloteditor);
+    };
+};
+
+object daynote_help_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_ts_help_label_text;
+	XmNdefaultButtonShadowThickness = k_default_button_shadow_thickness;
+	XmNshowAsDefault = 0;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton daynote_cancel_button;
+	XmNleftOffset = k_sloteditor_left_margin;
+	XmNrecomputeSize = false;
+    }; 
+    callbacks
+    {
+	XmNactivateCallback = procedure dwc_help_for_widget_activate
+	    (hlp_csh_tse_timeslot_buttons);
+    };
+};
+
+
+
+!++
+!
+!   The file XmSelectionDialog dialog box brought up when the include menu item is 
+!   chosen in the timeslot or daynote editor file menu.
+!
+!--
+
+object timeslot_include_filebox : XmFileSelectionDialog {
+    arguments {
+	XmNdefaultPosition	= true;
+	XmNdialogTitle		= k_ts_include_dialog_title;
+	};
+    callbacks {
+	XmNunmapCallback  = procedure do_tse_include_unmap ( sloteditor );
+	XmNhelpCallback   = procedure dwc_help_for_modal_activate
+	    (hlp_ovr_calmen_incl) ;
+	XmNcancelCallback	    = procedure	do_tse_include ( sloteditor );
+	XmNokCallback    = procedure	do_tse_include ( sloteditor );
+	};
+    };
+

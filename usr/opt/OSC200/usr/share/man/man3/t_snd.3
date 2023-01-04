@@ -1,0 +1,299 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_snd.3,v $ $Revision: 3.2.8.3 $ (DEC) $Date: 1993/12/15 00:05:00 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Begin Digital-specific information - CORRECTION
+.\" Recoded entire page to fix a multitude of font problems
+.TH t_snd 3
+.SH NAME
+.PP
+t_snd \- Sends normal data or expedited data over a connection
+.SH LIBRARY
+.PP
+XTI Library (\*Llibxti.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <xti.h>\*O
+.sp 4p
+\*Lint t_snd(\*O
+    \*Lint \*Vfd\*L,\*O
+    \*Lchar *\*Vbuf\*L,\*O
+    \*Lunsigned \*Vnbytes\*L,\*O
+    \*Lint \*Vflags\*L) ;\*O
+.sE
+.SH "PARAMETERS"
+.PP
+The
+\*Lt_snd\*O(\|)
+function can only be called in the T_DATAXFER and
+T_INREL transport provider states. The following table
+summarizes the relevance of input and output parameters before and
+after
+\*Lt_snd\*O(\|)
+is called:
+.sp
+.TS
+center, tab(@);
+lb  lb  lb
+l   c   c.
+Parameters@Before Call@After Call
+_
+\*Vfd\*O@y@n
+\*Vbuf\*O@y(y)@n
+\*Vnbytes\*O@y@n
+\*Vflags\*O@y@n
+.TE
+Notes to Table:
+.RS
+.nf
+.ta 5
+y	This is a meaningful parameter.
+n	This is not a meaningful parameter.
+(y)	The content of the object pointed to by \*Vy\*O is meaningful.
+.RE
+.fi
+.TP
+\*Vfd\*O
+Specifies
+a file descriptor returned by the
+\*Lt_open\*O(\|)
+function that
+identifies the local transport endpoint where an active connection exists.
+.TP
+\*Vbuf\*O
+Points to the data buffer from which data is to be sent.
+.TP
+\*Vnbytes\*O
+Specifies the length in bytes of the send data buffer
+contents pointed to by the
+\*Vbuf\*O
+parameter.
+.sp
+.ne 3i
+.TP
+\*Vflags\*O
+Points to an integer whose bits specify certain optional information.
+Corresponding values and symbolic names for these flag bits are
+defined in the
+\*Lxti.h\*O
+include file. Flags specified by this
+function are:
+.RS
+.TP 1.5i
+\*LSymbolic Name\*O
+\*LMeaning\*O
+.sp 0.5v
+.TP 1.5i
+T_MORE
+When set, this bit notifies the transport provider that sent data is a
+fragment of a Transport Service Data Unit (TSDU) or Expedited Transport Service
+Data Unit (ETSDU), and that more data will be sent on the same TSDU or
+ETSDU via the
+\*Lt_snd\*O(|) function.
+The rest of the TSDU or
+ETSDU can be sent
+through
+further
+\*Lt_snd\*O(\|)
+function calls.
+.TP 1.5i
+\0
+Each
+time the T_MORE flag is set, another
+\*Lt_snd\*O(\|)
+call follows so
+that additional parts of the TSDUs or ETSDUs can be sent. When the
+final piece is
+sent, this flag bit is set to a value of 0 (zero). When the transport
+provider does not support TSDU or ETSDU data exchanges (refer to the
+\*Lt_open\*O(\|)
+and
+\*Lt_getinfo\*O(\|)
+functions) the state of this flag bit is meaningless.
+.TP 1.5i
+T_EXPEDITED
+When set, this bit notifies the transport provider that expedited
+data is sent. When the value of ETSDU data exceeds the value specified
+by
+\*Vnbytes\*O
+parameter, this flag bit and the T_MORE flag bit should be
+set
+prior to the initial
+\*Lt_snd\*O(\|)
+call. Subsequent
+\*Lt_snd\*O(\|)
+calls used to send pieces of ETSDU must have both these flag bits set.
+When the final ETSDU is sent, the T_MORE flag bit is set to a
+value of 0 (zero).
+.RE
+.SH "DESCRIPTION"
+.PP
+.iX "t_snd"
+.iX "XTI" "t_snd function"
+The
+\*Lt_snd\*O(|) function is an XTI connection-oriented service function
+that is used to
+send normal or expedited data. The transport endpoint through which
+normal Transport Service Data Unit (TSDU) data or special
+Expedited TSDU (ETSDU) data is sent is specified by a file
+descriptor
+previously returned by the
+\*Lt_open\*O(\|)
+function.
+.PP
+.ne 3i
+The size of each TSDU or ETSDU must not exceed the size limits
+specified by \%\*Vinfo\*O->\*Ltsdu\*O
+or \%\*Vinfo\*O->\*Letsdu\*O,
+respectively,
+returned by the
+\*Lt_open\*O(\|)
+or
+\*Lt_getinfo\*O(\|)
+functions.
+Failure to comply with specified size constraints results in return of
+a [TSYSERR] protocol error. By
+default,
+the
+\*Lt_snd\*O(\|)
+function executes in the synchronous
+operating mode.
+In
+the synchronous operating mode
+\*Lt_snd\*O(\|)
+waits for data to be
+accepted by the transport provider, before returning control to the
+calling transport user.
+.PP
+When the transport endpoint specified by the file
+descriptor has been opened with the O_NONBLOCK flag set in the
+\*Lt_open\*O(\|)
+or
+\*Lfcntl\*O(\|)
+function, the
+\*Lt_snd\*O(\|)
+function executes
+in asynchronous mode. When data cannot be immediately
+accepted because flow control restrictions apply, control is immediately
+returned to the caller.
+.PP
+When the
+\*Lt_snd\*O(\|)
+function executes successfully, the number of
+bytes accepted
+by the transport provider is returned. It is possible that only
+part of the data may be accepted by a transport provider. When only
+partial data is accepted, the returned value is less than the
+number of bytes sent.  If the
+\*Vnbytes\*O
+parameter is specified as
+0 (zero), and the underlying transport service does not support the
+sending of 0 octets,
+\*Lt_errno\*O
+is set to [TBADDATA] and -1
+is returned.
+.SH NOTES
+.PP
+In asynchronous mode, when the number of bytes accepted by the
+transport provider is less than the number of bytes sent, the
+transport provider may be blocked because of flow-control restrictions.
+.SH "RETURN VALUES"
+.PP
+Upon
+successful completion, the
+\*Lt_snd\*O(\|)
+function returns the
+number of bytes
+of data accepted by the transport provider. Otherwise,
+-1 is returned and
+\*Lt_errno\*O
+is set to indicate the
+error.
+.SH ERRORS
+.PP
+If the
+\*Lt_snd\*O(|) function fails,
+\*Lt_errno\*O
+may be set to one of
+the following values:
+.TP 1i
+[TBADF]
+File descriptor
+\*Vfd\*O
+does not refer to a valid transport endpoint.
+.TP
+[TBADDATA]
+Illegal amount of data.  Zero octets is not supported.
+.TP
+[TBADFLAG]
+An invalid
+\*Vflags\*O
+value was specified.
+.sp
+.ne 3i
+.TP
+[TFLOW]
+Asynchronous mode is indicated because O_NONBLOCK was set, but no data
+can currently  be accepted by the transport provider because of
+flow-control restrictions.
+.TP
+[TLOOK]
+An asynchronous event occurred on this transport endpoint.
+.TP
+[TOUTSTATE]
+The
+\*Lt_snd\*O(\|)
+function was issued in the wrong sequence on the
+transport endpoint referenced by the
+\*Vfd\*O
+parameter.
+.TP
+[TSYSERR]
+A
+system error occurred during execution of the
+\*Lt_snd\*O(\|)
+function. A
+protocol
+error may not cause
+\*Lt_snd\*O(\|)
+to fail until a subsequent
+access of the transport endpoint is made.
+.TP
+[TNOTSUPPORT]
+This function is not supported by the underlying transport provider.
+.SH "RELATED INFORMATION"
+.PP
+Functions:
+\*Lfcntl\*O(2),
+\*Lt_getinfo\*O(3),
+\*Lt_look\*O(3),
+\*Lt_open\*O(3),
+\*Lt_optmgmt\*O(3),
+\*Lt_rcv\*O(3)
+.\" End Digital-specific information - CORRECTION
+.EQ
+delim off
+.EN

@@ -1,0 +1,2108 @@
+! #module SM.UIL "v1.0"
+!
+!  Copyright (c) Digital Equipment Corporation, 1990
+!  All Rights Reserved.  Unpublished rights reserved
+!  under the copyright laws of the United States.
+!  
+!  The software contained on this media is proprietary
+!  to and embodies the confidential technology of 
+!  Digital Equipment Corporation.  Possession, use,
+!  duplication or dissemination of the software and
+!  media is authorized only pursuant to a valid written
+!  license from Digital Equipment Corporation.
+!
+!  RESTRICTED RIGHTS LEGEND   Use, duplication, or 
+!  disclosure by the U.S. Government is subject to
+!  restrictions as set forth in Subparagraph (c)(1)(ii)
+!  of DFARS 252.227-7013, or in FAR 52.227-19, as
+!  applicable.
+!
+!
+! FACILITY:
+!	DECwindows Print Screen
+!
+! ABSTRACT:
+!	This module is part of the PRINT SCREEN component.
+!	It contains no translatable text.
+!	
+!
+! NOTES:
+!	
+!
+! REVISION HISTORY:
+!
+! dp -	07-DEC-1993
+!		Fix ootb_bug 357. The client data being passed to
+!		print_menu_cb was 0 which prevented bringing up
+!		of the screen selection dialog box. Changed this
+!		value to 1.
+!
+
+module print_screen
+    version = 'v1.2'
+    names = case_sensitive
+    objects =
+    {
+	XmSeparator	= gadget;
+	XmLabel		= gadget;
+!	XmPushButton	= gadget;
+	XmToggleButton	= gadget;
+	XmCascadeButton	= gadget;
+    }
+
+include file 'sm_ui_text.uil';
+include file 'sm_ui_values.uil';
+include file 'sm_defs.uil';
+
+identifier
+	quitbutton;
+	use_last_button;
+	use_system_button;
+	save_current_button;
+	printesbutton;
+	printposbutton;
+	captureesbutton;
+	captureposbutton;
+	postopbutton;
+	sixopbutton;
+	helpwin;
+	helpver;
+	helpcon;
+	helphelp;
+	FormatBoxId;
+	PostScriptId;
+	SixelId;
+	BitmapId;
+	RatioBoxId;
+	OnetoOneId;
+	TwotoOneId;
+	SaverBoxId;
+	PositiveId;
+	NegativeId;
+	FilenameId;
+	ColorBoxId;
+	PSBWId;
+	PSColorId;
+	PSGreyId;
+	RotatePromptId;
+	FitBoxId;
+	FitScaleId;
+	FitGrowId;
+	FitShrinkId;
+	FitReduceId;
+	FitCropId;
+	DestPrintId;
+	DestFileId;
+	DestBothId;
+	CaptEntrId;
+	CaptPartId;
+	DelayId;
+	OrientBoxId;
+	BestId;
+	PortraitId;
+	LandscapeId;
+	PageBoxId;
+	LetterId;
+	BsizeId;
+	AsizeId;
+	A5sizeId;
+	A4sizeId;
+	A3sizeId;
+	B5sizeId;
+	B4sizeId;
+	LedgerId;
+	LegalId;
+	ExecId;
+	SixelDevId;
+	VTId;
+	LA50Id;
+	LA75Id;
+	LA100Id;
+	LA210Id;
+	LN03Id;
+	LJ250Id;
+	LJ250lrId;
+	LCG01Id;
+	messagearea;
+	menubarId;
+	blinkerId;
+	sixelOKId;
+	sixelCancelId;
+	sixelHelpId;
+	pagesizeOKId;
+	pagesizeCancelId;
+	pagesizeHelpId;
+	pageyornId;
+	sixelyornId;
+	confirmprtbox_id;
+
+procedure
+	session_menu_cb();
+	customize_menu_cb();
+	print_menu_cb(integer);
+	help_menu_cb(any);
+	PSPostCallback();
+	PSDDIFCallback();
+	PSColorCallback();
+	widget_create_proc(any);
+	sens_help_proc(any);
+	page_size_cancel();
+	sixel_device_cancel();
+	ConfirmScrOkCallback();
+	ConfirmScrCancelCallback();
+	end_session();
+
+value
+    k_empty_string : "";    
+
+!
+!	Top level objects not controlled by any other widgets.
+!
+object MainWindow : XmMainWindow
+{
+    arguments
+    {
+	XmNscrolledWindowMarginHeight = 0;
+	XmNscrolledWindowMarginWidth = 0;
+	XmNspacing = 0;
+    };
+    controls
+    {
+	XmMenuBar		menubar;
+	XmForm			print_screen_options;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_main_help_text);
+    };
+};
+
+object menubar : XmMenuBar
+{
+    arguments
+    {
+	XmNorientation =	XmHORIZONTAL;
+	XmNmenuHelpWidget =	XmCascadeButton help_menu_entry;
+    };
+    controls
+    {
+	XmCascadeButton		file_menu_entry;
+	XmCascadeButton		customize_menu_entry;
+	XmCascadeButton		help_menu_entry;
+	XmCascadeButton		blinker;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(menubarId);
+	XmNhelpCallback = procedure sens_help_proc(k_menubar_help_text);
+    };
+};
+
+object print_screen_options : XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = true;
+	XmNmarginWidth = 10;
+	XmNmarginHeight = 10;
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 10;
+    };
+    controls
+    {
+	XmFrame		delay_frame;
+	XmFrame		filename_frame;
+	XmFrame		options_frame;
+
+	XmLabel
+	{
+	    arguments
+	    {
+		XmNheight = 0;
+		XmNwidth = 0;
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmFrame filename_frame;
+		XmNtopOffset = 5;
+		XmNleftAttachment = XmATTACH_WIDGET;
+		XmNleftWidget = XmFrame options_frame;
+		XmNleftOffset = 5;
+		XmNbottomAttachment = XmATTACH_NONE;
+		XmNrightAttachment = XmATTACH_NONE;
+		XmNlabelString = k_empty_string;		
+	    };
+	};
+!
+! Temporary to permit initialization of database
+!
+	XmForm			ratio_form;
+
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_settings_help_text);
+    };
+};
+
+!
+!	Objects contained in menubar
+!
+object file_menu_entry : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString		= k_session_menu_text;
+	XmNmnemonic		= k_session_menu_mnemonic;
+    };
+    controls
+    {
+	XmPulldownMenu		file_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_file_help_text);
+    };
+};
+
+object customize_menu_entry : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString		= k_customize_menu_text;
+	XmNmnemonic		= k_customize_menu_mnemonic;
+    };
+    controls
+    {
+	XmPulldownMenu		customize_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_customize_help_text);
+    };
+};
+
+object blinker : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString		= k_flash_text;
+    };
+    controls
+    {
+!	XmPulldownMenu		blink_menu;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(blinkerId);
+    };
+};
+
+object blink_menu : XmPulldownMenu
+{
+    arguments
+    {
+    };
+    controls
+    {
+	XmPushButton		blink_button;
+    };
+    callbacks
+    {
+    };
+};
+
+object blink_button : XmPushButton
+{
+    arguments
+    {
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+    };
+};
+
+object help_menu_entry : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString		= k_help_menu_text;
+	XmNmnemonic		= k_help_menu_mnemonic;
+    };
+    controls
+    {
+	XmPulldownMenu		help_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_help_help_text);
+    };
+};
+
+!
+!	file_menu_entry and file_menu objects
+!
+object file_menu : XmPulldownMenu
+{
+    arguments
+    {
+!	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+    };
+    controls
+    {
+	XmPushButton		quick_print_button;
+	XmPushButton		print_button;
+	XmPushButton		quit_button;
+    };
+    callbacks
+    {
+    };
+};
+
+object quick_print_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_session_quick_print_text;
+	XmNmnemonic = k_session_quick_print_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+!dp: Changed the client data value from 0 to 1 to enable
+!    bringing up of a dialog box for selection of the 
+!    screen to do the capture on.
+	XmNactivateCallback = procedure print_menu_cb (1);
+    };
+};
+
+object print_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = k_session_print_text;
+	XmNmnemonic = k_session_print_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	XmNactivateCallback = procedure print_menu_cb (1);
+    };
+};
+
+object quit_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_session_quit_text;
+	XmNmnemonic		= k_session_quit_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (quitbutton);
+	XmNactivateCallback = procedure end_session ();
+    };
+};
+
+!
+!	customize_menu_entry and customize_menu objects
+!
+object customize_menu : XmPulldownMenu
+{
+    arguments
+    {
+!	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+    };
+    controls
+    {
+
+! pjw - NYI
+!	XmPushButton		postscript_options;
+	XmPushButton		sixel_options;
+	XmSeparator		customize_separator;
+	XmPushButton		save_button;		
+! pjw - NYI
+!	XmPushButton		load_button;
+!	XmPushButton		default_button;
+    };
+    callbacks
+    {
+	XmNentryCallback = procedure customize_menu_cb();
+    };
+};
+
+object postscript_options : XmPushButton
+{
+    arguments
+    {
+	XmNsensitive		= false;
+	XmNlabelString		= k_customize_postop_text;
+	XmNmnemonic		= k_customize_postop_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(postopbutton);
+	XmNhelpCallback = procedure sens_help_proc(k_page_size_help_text);
+    };
+};
+
+object sixel_options : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_customize_sixop_text;
+	XmNmnemonic		= k_customize_sixop_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(sixopbutton);
+	XmNhelpCallback = procedure sens_help_proc(k_sixel_device_help_text);
+    };
+};
+
+object customize_separator : XmSeparator
+{
+    arguments
+    {
+    };
+};
+
+object load_button : XmPushButton
+{
+    arguments
+    {
+	XmNsensitive		= false;
+	XmNlabelString		= k_customize_load_text;
+	XmNmnemonic		= k_customize_load_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(use_last_button);
+	XmNhelpCallback = procedure sens_help_proc(k_load_help_text);
+    };
+};
+
+object default_button : XmPushButton
+{
+    arguments
+    {
+	XmNsensitive		= false;
+	XmNlabelString		= k_customize_default_text;
+	XmNmnemonic		= k_customize_default_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(use_system_button);
+	XmNhelpCallback = procedure sens_help_proc(k_default_help_text);
+    };
+};
+
+object save_button : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_customize_save_text;
+	XmNmnemonic		= k_customize_save_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(save_current_button);
+	XmNhelpCallback = procedure sens_help_proc(k_save_help_text);
+    };
+};
+
+!
+!	help_menu_entry and help_menu objects
+!
+object 	help_menu : XmPulldownMenu
+{
+    arguments
+    {
+!	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+    };
+    controls
+    {
+	XmPushButton		help_on_context;
+	XmSeparator {};
+	XmPushButton		help_on_window;
+	XmPushButton		help_on_help;
+	XmPushButton		help_on_version;
+    };
+    callbacks
+    {
+!	XmNentryCallback = procedure help_menu_cb();
+    };
+};
+
+object help_on_context : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_help_context_text;
+	XmNmnemonic		= k_help_context_mnemonic;
+	XmNaccelerator		= k_help_context_accel;
+	XmNacceleratorText 	= k_help_context_accel_text;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+!	MrmNcreateCallback = procedure widget_create_proc(helpcon);
+	XmNactivateCallback = procedure help_menu_cb(k_help_on_context_value);
+	XmNhelpCallback = procedure sens_help_proc(k_help_on_context_help_text);
+    };
+};
+
+object 	help_on_window : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_help_window_text;
+	XmNmnemonic		= k_help_window_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(helpwin);
+	XmNactivateCallback = procedure help_menu_cb(k_help_on_window_value);
+	XmNhelpCallback = procedure sens_help_proc(k_help_on_window_help_text);
+    };
+};
+
+object help_on_help : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_help_on_help_text;
+	XmNmnemonic		= k_help_on_help_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(helphelp);
+	XmNactivateCallback = procedure help_menu_cb(k_help_on_help_value);
+	XmNhelpCallback = procedure sens_help_proc(k_help_on_help_help_text);
+    };
+};
+
+
+object help_on_version : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString		= k_help_version_text;
+	XmNmnemonic		= k_help_version_mnemonic;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(helpver);
+	XmNactivateCallback = procedure help_menu_cb(k_help_on_version_value);
+	XmNhelpCallback = procedure sens_help_proc(k_help_on_version_help_text);
+    };
+};
+
+!
+! Form for the option menus.
+!
+object options_frame : XmFrame
+{
+    arguments
+    {
+	XmNshadowType = XmSHADOW_ETCHED_IN;
+	XmNshadowThickness = 2;
+
+	XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+	XmNtopWidget = XmFrame delay_frame;
+	XmNtopOffset = 0;
+
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmFrame delay_frame;
+
+	XmNrightAttachment = XmATTACH_NONE;
+
+	XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	XmNbottomOffset = 0;
+	XmNbottomWidget = XmFrame filename_frame;
+    };
+    controls
+    {
+!	XmLabel widget
+!	{
+!	    arguments
+!	    {
+!		XmNchildType = XmFRAME_TITLE_CHILD;
+!		XmNlabelString = k_options_frame_text;
+!	    };
+!	};
+	XmForm			options_form;
+    };
+};
+
+object options_form : XmForm
+{
+    arguments
+    {
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 10;
+	XmNmarginWidth = 10;
+	XmNmarginHeight = 10;
+    };
+    controls
+    {
+	!
+	! change the order of these
+	!
+	XmOptionMenu		format_menu;
+	XmOptionMenu		saver_menu;
+	XmOptionMenu		orientation_menu;
+	XmOptionMenu		color_menu;
+	XmOptionMenu		fit_menu;
+!	XmLabel
+!	{
+!	    arguments
+!	    {
+!		XmNtopAttachment = XmATTACH_WIDGET;
+!		XmNtopWidget = XmOptionMenu fit_menu;
+!		XmNleftAttachment = XmATTACH_WIDGET;
+!		XmNleftWidget = XmOptionMenu saver_menu;
+!		XmNrightAttachment = XmATTACH_NONE;
+!		XmNbottomAttachment = XmATTACH_NONE;
+!		XmNlabelString = k_empty_string;		
+!	    };
+!	};
+    };
+};
+
+!
+! Output format
+!
+object format_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_format_text;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton format_post_script;
+		XmToggleButton format_sixel;
+		XmToggleButton format_ddif;
+	    };
+	    callbacks
+	    {
+		MrmNcreateCallback = procedure widget_create_proc (FormatBoxId);
+		XmNhelpCallback = procedure sens_help_proc (k_format_help_text);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_format_help_text);
+    };
+};
+
+object format_post_script : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_format_ps_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (PostScriptId);
+	XmNvalueChangedCallback = procedure PSPostCallback ();
+    };
+};
+
+object format_sixel : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_format_sixel_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (SixelId);
+    };
+};
+
+object format_ddif : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_format_ddif_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (BitmapId);
+	XmNvalueChangedCallback = procedure PSDDIFCallback ();
+    };
+};
+
+!
+! Toner saver
+!
+object saver_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_saver_text;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmOptionMenu format_menu;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton saver_positive;
+		XmToggleButton saver_negative;
+	    };
+	    callbacks
+	    {
+		MrmNcreateCallback = procedure widget_create_proc (SaverBoxId);
+		XmNhelpCallback = procedure sens_help_proc (k_saver_help_text);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc (k_saver_help_text);
+    };
+};
+
+object saver_positive : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_saver_pos_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(PositiveId);
+    };
+};
+
+object saver_negative : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_saver_neg_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (NegativeId);
+    };
+};
+
+!
+! Orientation
+!
+object orientation_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_orientation_text;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmOptionMenu saver_menu;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton orientation_best;
+		XmToggleButton orientation_portrait;
+		XmToggleButton orientation_landscape;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure sens_help_proc
+		    (k_orientation_help_text);
+		MrmNcreateCallback = procedure widget_create_proc (OrientBoxId);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_orientation_help_text);
+    };
+};
+
+object orientation_best : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_orientation_b_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (BestId);
+    };
+};
+
+object orientation_portrait : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_orientation_p_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (PortraitId);
+    };
+};
+
+object orientation_landscape : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_orientation_l_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (LandscapeId);
+    };
+};
+
+!
+! Color
+!
+object color_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_color_text;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmOptionMenu orientation_menu;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton color_bw;
+		XmToggleButton color_color;
+		XmToggleButton color_grey_scale;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure sens_help_proc (k_color_help_text);
+		MrmNcreateCallback = procedure widget_create_proc (ColorBoxId);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc (k_color_help_text);
+    };
+};
+
+object color_bw: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString		= k_print_color_bw_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(PSBWId);
+    };
+};
+
+object color_color: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_color_color_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(PSColorId);
+	XmNvalueChangedCallback = procedure PSColorCallback();
+    };
+};
+
+object color_grey_scale: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_color_grey_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(PSGreyId);
+    };
+};
+
+!
+! Fit to page
+!
+object fit_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_fit_text;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmOptionMenu color_menu;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton fit_scale;
+		XmToggleButton fit_reduce;
+		XmToggleButton fit_crop;
+		XmToggleButton fit_grow;
+		XmToggleButton fit_shrink;
+	    };
+	    callbacks
+	    {
+		XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+		MrmNcreateCallback = procedure widget_create_proc (FitBoxId);
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+    };
+};
+
+object fit_scale: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_fit_scale_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FitScaleId);
+    };
+};
+
+object fit_reduce: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_fit_reduce_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FitReduceId);
+    };
+};
+
+object fit_crop: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_fit_crop_text;
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FitCropId);
+    };
+};
+
+object fit_grow: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = "Increase 2:1";
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FitGrowId);
+    };
+};
+
+object fit_shrink: XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = "Decrease 2:1";
+	XmNindicatorOn = false;
+	XmNrecomputeSize = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FitShrinkId);
+    };
+};
+
+!
+! Time delay control
+!
+object delay_frame : XmFrame
+{
+    arguments
+    {
+	XmNresizable		= false;
+	XmNshadowType		= XmSHADOW_ETCHED_IN;
+	XmNshadowThickness	= 2;
+
+	XmNtopAttachment	= XmATTACH_FORM;
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNrightAttachment	= XmATTACH_NONE;
+	XmNbottomAttachment	= XmATTACH_NONE;
+
+    };
+    controls
+    {
+	XmForm			delay_form;
+    };
+};
+
+object delay_form: XmForm
+{
+    arguments
+    {
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 10;
+	XmNmarginWidth = 10;
+	XmNmarginHeight = 10;
+	XmNallowOverlap		= false;
+    };
+    controls
+    {
+	XmOptionMenu capture_menu;
+	XmScale delay_scale;
+	XmLabel
+	{
+	    arguments
+	    {
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmScale delay_scale;
+
+		XmNleftAttachment = XmATTACH_WIDGET;
+		XmNleftWidget = XmScale delay_scale;
+
+		XmNbottomAttachment = XmATTACH_NONE;
+		XmNrightAttachment = XmATTACH_NONE;
+
+		XmNlabelString = k_empty_string;		
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_delay_help_text);
+    };
+};
+
+object capture_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_capture_option_text;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton capture_full;
+		XmToggleButton capture_part;
+!		XmToggleButton capture_window;
+	    };
+	    callbacks
+	    {
+!		XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+	    };
+	};
+    };
+    callbacks
+    {
+!	XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+    };
+};
+
+object capture_full : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_capture_full_text;
+	XmNindicatorOn = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (CaptEntrId);
+    };
+};
+
+object capture_part : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_capture_part_text;
+	XmNindicatorOn = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (CaptPartId);
+    };
+};
+
+object delay_scale: XmScale
+{
+    arguments
+    {
+	XmNtitleString		= k_print_delay_text;
+
+	XmNorientation		= XmHORIZONTAL;
+	XmNshowValue		= true;
+
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget		= XmOptionMenu capture_menu;
+
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNbottomAttachment	= XmATTACH_NONE;
+	XmNrightAttachment	= XmATTACH_NONE;
+
+	XmNwidth = 250;
+    };
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(DelayId);
+    };
+};
+
+object filename_frame : XmFrame
+{
+    arguments
+    {
+	XmNshadowType		= XmSHADOW_ETCHED_IN;
+	XmNshadowThickness	= 2;
+
+	XmNtopWidget		= XmFrame delay_frame;
+	XmNtopAttachment	= XmATTACH_WIDGET;
+
+	XmNleftAttachment	= XmATTACH_OPPOSITE_WIDGET;
+	XmNleftOffset		= 0;
+	XmNleftWidget		= XmFrame delay_frame;
+
+	XmNrightAttachment	= XmATTACH_OPPOSITE_WIDGET;
+	XmNrightOffset		= 0;
+	XmNrightWidget		= XmFrame delay_frame;
+
+	XmNbottomAttachment	= XmATTACH_NONE;
+
+	XmNresizable		= true;
+    };
+    controls
+    {
+!	XmLabel widget
+!	{
+!	    arguments
+!	    {
+!		XmNchildType = XmFRAME_TITLE_CHILD;
+!		XmNlabelString = k_print_destination_frame_text;
+!	    };
+!	};
+	XmForm			filename_form;
+    };
+};
+
+object filename_form: XmForm
+{
+    arguments
+    {
+	XmNallowOverlap = false;
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 10;
+	XmNmarginWidth = 10;
+	XmNmarginHeight = 10;
+    };
+    controls
+    {
+	XmOptionMenu		destination_menu;
+	XmLabel			filename_label;
+	XmText			filename;
+	XmLabel
+	{
+	    arguments
+	    {
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmText filename;
+
+		XmNleftAttachment = XmATTACH_FORM;
+		XmNbottomAttachment = XmATTACH_NONE;
+		XmNrightAttachment = XmATTACH_NONE;
+
+		XmNlabelString = k_empty_string;		
+	    };
+	};
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_filename_help_text);
+    };
+};
+
+object destination_menu : XmOptionMenu
+{
+    arguments
+    {
+	XmNlabelString = k_print_destination_option_text;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNrightAttachment = XmATTACH_NONE;
+	XmNbottomAttachment = XmATTACH_NONE;
+    };
+    controls
+    {
+	XmPulldownMenu
+	{
+	    arguments
+	    {
+		argument ('DXmdelayPopupMenuRealization') = true;
+		XmNradioBehavior = true;
+	    };
+	    controls
+	    {
+		XmToggleButton destination_printer;
+		XmToggleButton destination_file;
+		XmToggleButton destination_both;
+	    };
+	    callbacks
+	    {
+!		XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+	    };
+	};
+    };
+    callbacks
+    {
+!	XmNhelpCallback = procedure sens_help_proc (k_fit_help_text);
+    };
+};
+
+object destination_printer : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_destination_printer_text;
+	XmNindicatorOn = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (DestPrintId);
+    };
+};
+
+object destination_file : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_destination_file_text;
+	XmNindicatorOn = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (DestFileId);
+    };
+};
+
+object destination_both : XmToggleButton
+{
+    arguments
+    {
+	XmNlabelString = k_print_destination_both_text;
+	XmNindicatorOn = false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (DestBothId);
+    };
+};
+
+object filename_label : XmLabel
+{
+    arguments
+    {
+	XmNlabelString		= k_print_filename_text;
+
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopWidget		= XmOptionMenu destination_menu;
+
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNrightAttachment	= XmATTACH_NONE;
+	XmNbottomAttachment	= XmATTACH_NONE;
+    };
+};
+
+object filename: XmText
+{
+    arguments
+    {
+	XmNtopAttachment	= XmATTACH_WIDGET;
+	XmNtopOffset		= 5;
+	XmNtopWidget		= XmLabel filename_label;
+
+	XmNleftAttachment	= XmATTACH_FORM;
+	XmNrightAttachment	= XmATTACH_FORM;
+	XmNbottomAttachment	= XmATTACH_NONE;
+
+	XmNresizeHeight		= false;
+	XmNresizeWidth		= false;
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc(FilenameId);
+    };
+};
+
+!
+! Temporary to permit initialization of database
+!
+
+object
+	ratio_form: XmForm {
+	    arguments {
+		XmNmappedWhenManaged	= false;
+		};
+	    controls {
+		XmRadioBox		ratio_box;
+		};
+	    callbacks {
+		};
+	    };
+
+object
+	ratio_box: XmRadioBox {
+	    arguments {
+		};
+	    controls {
+		XmToggleButton		ratio_one_to_one;
+		XmToggleButton		ratio_two_to_one;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(RatioBoxId);
+		};
+	    };
+
+object
+	ratio_one_to_one: XmToggleButton {
+	    arguments {
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(OnetoOneId);
+		};
+	    };
+
+object
+	ratio_two_to_one: XmToggleButton {
+	    arguments {
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(TwotoOneId);
+		};
+	    };
+
+
+object page_size_dialog: XmFormDialog
+{
+    arguments
+    {
+	XmNallowOverlap		= false;
+	XmNdialogTitle		= k_page_size_dialog_text;
+	XmNresizable		= true;
+    };
+    controls
+    {
+	XmRadioBox		page_size_box;
+	XmSeparator		page_separator;
+	XmForm			page_yorn;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_page_size_help_text);
+    };
+};
+
+object sixel_device_dialog: XmFormDialog
+{
+    arguments
+    {
+	XmNallowOverlap		= false;
+	XmNdialogTitle		= k_sixel_device_dialog_text;
+	XmNresizable		= true;
+    };
+    controls
+    {
+	XmRadioBox		sixel_device_box;
+	XmSeparator		sixel_separator;
+	XmForm			sixel_yorn;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure sens_help_proc(k_sixel_device_help_text);
+    };
+};
+
+object application_help: DXmHelp
+{
+    arguments
+    {
+    };
+};
+
+object WorkAreaDialog: XmForm
+{
+    controls
+    {
+    };
+    callbacks
+    {
+	MrmNcreateCallback = procedure widget_create_proc (messagearea);
+    };
+};
+
+!
+!	page_size_dialog objects
+!
+
+object
+	page_size_box: XmRadioBox {
+	    arguments {
+		XmNorientation		= XmVERTICAL;
+		XmNpacking		= XmPACK_COLUMN;
+		XmNnumColumns		= 2;
+		};
+	    controls {
+		XmToggleButton		letter_button;
+		XmToggleButton		b_size_button;
+		XmToggleButton		a_size_button;
+		XmToggleButton		a5_size_button;
+		XmToggleButton		a4_size_button;
+		XmToggleButton		a3_size_button;
+		XmToggleButton		b5_size_button;
+		XmToggleButton		b4_size_button;
+		XmToggleButton		ledger_button;
+		XmToggleButton		legal_button;
+		XmToggleButton		executive_button;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(PageBoxId);
+		};
+	    };
+
+object
+	letter_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_letter_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LetterId);
+		};
+	    };
+
+object
+	b_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_b_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(BsizeId);
+		};
+	    };
+object
+	a_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_a_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(AsizeId);
+		};
+	    };
+object
+	a5_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_a5_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(A5sizeId);
+		};
+	    };
+object
+	a4_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_a4_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(A4sizeId);
+		};
+	    };
+object
+	a3_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_a3_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(A3sizeId);
+		};
+	    };
+object
+	b5_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_b5_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(B5sizeId);
+		};
+	    };
+object
+	b4_size_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_b4_size_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(B4sizeId);
+		};
+	    };
+object
+	ledger_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_ledger_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LedgerId);
+		};
+	    };
+object
+	legal_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_legal_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LegalId);
+		};
+	    };
+object
+	executive_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_executive_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(ExecId);
+		};
+	    };
+
+object
+	page_separator: XmSeparator {
+	    arguments {
+		XmNtopAttachment	= XmATTACH_WIDGET;
+		XmNtopOffset		= 10;
+		XmNtopWidget		= XmRadioBox page_size_box;
+		};
+	    };
+
+object
+	page_yorn: XmForm {
+	    arguments {
+		XmNtopAttachment	= XmATTACH_WIDGET;
+		XmNtopOffset		= 10;
+		XmNtopWidget		= XmSeparator page_separator;
+		XmNresizable		= true;
+		};
+	    controls {
+		XmPushButton		page_OK;
+		XmPushButton		page_Cancel;
+		XmPushButton		page_Help;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(pageyornId);
+		};
+	    };
+
+object
+	page_OK: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNshowAsDefault	= 3;
+		XmNlabelString		= k_OK_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(pagesizeOKId);
+		XmNactivateCallback = procedure customize_menu_cb();
+		};
+            };
+
+object
+	page_Cancel: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_WIDGET;
+		XmNleftOffset		= 10;
+		XmNleftWidget		= XmPushButton page_OK;
+!		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNlabelString		= k_Cancel_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(pagesizeCancelId);
+		XmNactivateCallback = procedure page_size_cancel();
+		};
+            };
+object
+	page_Help: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_WIDGET;
+		XmNleftOffset		= 10;
+		XmNleftWidget		= XmPushButton page_Cancel;
+!		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNlabelString		= k_Help_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(pagesizeHelpId);
+		XmNactivateCallback = procedure sens_help_proc(k_page_size_help_text);
+		};
+            };
+
+!
+!	sixel_device_dialog objects
+!
+
+object
+	sixel_device_box: XmRadioBox {
+	    arguments {
+		XmNorientation		= XmVERTICAL;
+		XmNpacking		= XmPACK_COLUMN;
+		XmNnumColumns		= 2;
+		};
+	    controls {
+		XmToggleButton		vt_button;
+		XmToggleButton		la50_button;
+		XmToggleButton		la75_button;
+		XmToggleButton		la100_button;
+		XmToggleButton		la210_button;
+		XmToggleButton		ln03_button;
+		XmToggleButton		lj250_button;
+		XmToggleButton		lj250_lr_button;
+		XmToggleButton		lcg01_button;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(SixelDevId);
+		};
+	    };
+
+object
+	vt_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_vt_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(VTId);
+		};
+	    };
+
+object
+	la50_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_la50_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LA50Id);
+		};
+	    };
+
+object
+	la75_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_la75_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LA75Id);
+		};
+	    };
+
+object
+	la100_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_la100_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LA100Id);
+		};
+	    };
+
+object
+	la210_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_la210_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LA210Id);
+		};
+	    };
+
+object
+	ln03_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_ln03_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LN03Id);
+		};
+	    };
+
+object
+	lj250_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_lj250_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LJ250Id);
+		};
+	    };
+
+object
+	lj250_lr_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_lj250_lr_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LJ250lrId);
+		};
+	    };
+
+object
+	lcg01_button: XmToggleButton {
+	    arguments {
+		XmNlabelString		= k_lcg01_text;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(LCG01Id);
+		};
+	    };
+
+object
+	sixel_separator: XmSeparator {
+	    arguments {
+		XmNtopAttachment	= XmATTACH_WIDGET;
+		XmNtopOffset		= 10;
+		XmNtopWidget		= XmRadioBox sixel_device_box;
+		};
+	    };
+
+object
+	sixel_yorn: XmForm {
+	    arguments {
+		XmNtopAttachment	= XmATTACH_WIDGET;
+		XmNtopOffset		= 10;
+		XmNtopWidget		= XmSeparator sixel_separator;
+		XmNresizable		= true;
+		};
+	    controls {
+		XmPushButton		sixel_OK;
+		XmPushButton		sixel_Cancel;
+		XmPushButton		sixel_Help;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(sixelyornId);
+		};
+	    };
+
+object
+	sixel_OK: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNlabelString		= k_OK_text;
+		XmNshowAsDefault	= 3;
+		XmNresizable		= true;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(sixelOKId);
+		XmNactivateCallback = procedure customize_menu_cb();
+		};
+            };
+
+object
+	sixel_Cancel: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_WIDGET;
+		XmNleftOffset		= 10;
+		XmNleftWidget		= XmPushButton sixel_OK;
+!		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNlabelString		= k_Cancel_text;
+		XmNresizable		= true;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(sixelCancelId);
+		XmNactivateCallback = procedure sixel_device_cancel();
+		};
+            };
+object
+	sixel_Help: XmPushButton {
+	    arguments {
+		XmNleftAttachment	= XmATTACH_WIDGET;
+		XmNleftOffset		= 10;
+		XmNleftWidget		= XmPushButton sixel_Cancel;
+!		XmNleftAttachment	= XmATTACH_NONE;
+		XmNrightAttachment	= XmATTACH_NONE;
+		XmNdefaultButtonShadowThickness = 3;
+		XmNlabelString		= k_Help_text;
+		XmNresizable		= true;
+		};
+	    callbacks {
+		MrmNcreateCallback = procedure widget_create_proc(sixelHelpId);
+		XmNactivateCallback = procedure sens_help_proc(k_sixel_device_help_text);
+		};
+            };
+
+object
+	end_quit_cb : XmWarningDialog
+ {
+	    arguments {
+		XmNdialogTitle = k_caution_text;
+		XmNdefaultPosition = true;
+		XmNmessageString = k_end_quit_text;
+		XmNokLabelString = k_end_quit_yes_text;
+		XmNcancelLabelString = k_end_quit_cancel_text;
+	    };
+	};
+object
+	end_save_cb : XmWarningDialog
+ {
+	    arguments {
+		XmNdialogTitle = k_caution_text;
+		XmNdefaultPosition = true;
+		XmNmessageString = k_end_save_text;
+		XmNokLabelString = k_end_save_yes_text;
+		XmNcancelLabelString  = k_end_save_no_text;
+		XmNhelpLabelString = k_end_save_cancel_text;
+	    };
+	};
+
+object
+        error_mb : XmInformationDialog {
+            arguments {
+		XmNnoResize = false;
+		XmNokLabelString = k_message_button_text;
+                XmNdefaultPosition = true;
+                XmNdialogType = XmDIALOG_ERROR;
+                XmNdialogTitle = k_message_box_label_text;
+            };
+        };
+
+!
+! confirm screennum popup
+!
+
+object
+	ConfirmScreen: XmFormDialog {
+	    arguments {
+		XmNdialogTitle = k_screenconf_title_text;
+		XmNmarginHeight = k_screenconf_db_mheight;
+		XmNmarginWidth = k_screenconf_db_mwidth;
+                XmNdefaultPosition = true;
+		XmNdefaultButton = XmPushButton ConfirmScreenOK;
+		XmNcancelButton = XmPushButton ConfirmScreenCancel;
+	    };
+	    controls {
+		XmLabel ConfirmScreenLabel;
+		XmRadioBox ConfirmScreenBox;
+		XmPushButton ConfirmScreenOK;
+		XmPushButton ConfirmScreenCancel;
+	   };
+	};
+
+object
+	ConfirmScreenLabel: XmLabel {
+	    arguments {
+		XmNtopAttachment = XmATTACH_FORM;
+		XmNtopOffset = 10;
+		XmNleftAttachment = XmATTACH_FORM;
+		XmNleftOffset = 10;
+		XmNlabelString = k_screenconf_label_text;
+	    };
+	};
+
+object
+	ConfirmScreenBox: XmRadioBox {
+	    arguments {
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmLabel ConfirmScreenLabel;
+		XmNtopOffset = 10;
+		XmNleftAttachment = XmATTACH_FORM;
+		XmNleftOffset = 10;
+		XmNborderWidth = 0;
+		XmNradioBehavior = true;
+		XmNorientation = XmHORIZONTAL;
+	    };
+            callbacks {
+                MrmNcreateCallback
+			= procedure widget_create_proc (confirmprtbox_id);
+            };
+	};
+
+object
+	ConfirmScreenOK: XmPushButton {
+	    arguments {
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmRadioBox ConfirmScreenBox;
+		XmNtopOffset = 10;
+		XmNleftAttachment = XmATTACH_FORM;
+		XmNleftOffset = 10;
+		XmNbottomAttachment = XmATTACH_FORM;
+		XmNbottomOffset = 10;
+		XmNwidth = k_screenconf_ok_pb_width;
+		XmNlabelString = k_screenconf_ok_text;
+	    };
+            callbacks {
+		XmNactivateCallback = procedure ConfirmScrOkCallback();
+            };
+	};
+object
+	ConfirmScreenCancel: XmPushButton {
+	    arguments {
+		XmNtopAttachment = XmATTACH_WIDGET;
+		XmNtopWidget = XmRadioBox ConfirmScreenBox;
+		XmNtopOffset = 10;
+		XmNbottomAttachment = XmATTACH_FORM;
+		XmNbottomOffset = 10;
+		XmNleftAttachment = XmATTACH_WIDGET;
+		XmNleftWidget = XmPushButton ConfirmScreenOK;
+		XmNleftOffset = 10;
+		XmNrightAttachment = XmATTACH_FORM;
+		XmNrightOffset = 10;
+		XmNlabelString = k_screenconf_cancel_text;
+	    };
+            callbacks {
+		XmNactivateCallback = procedure ConfirmScrCancelCallback();
+            };
+	};
+
+end module;

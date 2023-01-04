@@ -1,0 +1,162 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: lio_listio.3,v $ $Revision: 1.2.4.2 $ (DEC) $Date: 1993/06/21 14:24:34 $
+.\"
+.\" SCCSID: @(#)lio_listio.3 6.5 1/7/92
+.\" SCCSID: @(#)lio_listio.3	6.5	1/7/92
+.TH lio_listio 3
+.SH NAME
+.PP
+\*Llio_listio\*O \- Initiate a list of asynchronous I/O requests (P1003.4/D11)
+.SH SYNOPSIS
+.PP
+#include \*L<aio.h>\*O
+.PP
+int \*Llio_listio\*O (
+.br
+int \*Vmode\*O,
+.br
+struct \*Laiocb\*O \*V*list[]\*O,
+.br
+int \*Vnent\*O,
+.br
+struct \*Lsigevent\*O \*V*sig\*O);
+.SH PARAMETERS
+.PP
+.TP 8
+.I mode
+Determines whether the \*Llio_listio\*O returns when the I/O operations
+are completed or as soon as the operations are queued. The \*Vmode\*O
+argument can have a value of either LIO_WAIT or LIO_NOWAIT.
+.TP
+.I *list
+A pointer to an array of pointers to \*Laiocb\*O structures. The array contains
+\*Vnent\*O elements.
+.TP
+.I nent
+The length of the array pointed to by the \*Vlist\*O argument. The \*Vnent\*O
+argument also specifies the number of I/O operations potentially
+performed by the \*Llio_listio\*O function.
+.TP
+.I *sig
+A pointer to a \*Lsigevent\*O structure.
+.SH DESCRIPTION
+.PP
+.iX "lio_listio function"
+.iX "input/output" "listing I/O requests"
+The \*Llio_listio\*O function allows the calling process to initiate a
+list of I/O requests
+with a single function call. The \*Vmode\*O argument determines whether
+the function returns after the I/O operations are complete or as soon as
+they have been queued.
+.PP
+The \*Vlist\*O argument is a pointer to an array
+of pointers to \*Laiocb\*O structures. The \*Laio_lio_opcode\*O field of
+each \*Laiocb\*O structure specifies the operation to be performed
+and can take any one of three values; LIO_READ, LIO_WRITE,
+and LIO_NOP as defined in the \*L<aio.h>\*O header file.
+Whether the operation is specified as a read or write operation,
+the \*Vaiocbp\*O field contains the address
+of the \*Laiocb\*O structure for that operation.
+If the \*Vlio_opcode\*O is LIO_READ, the I/O operation is submitted as
+an \*Laio_read\*O operation.
+If the \*Vlio_opcode\*O is LIO_WRITE the I/O operation is submitted as
+an \*Laio_write\*O operation. If the \*Vlio_opcode\*O is LIO_NOP,
+the list entry is skipped.
+.PP
+The \*Vaio_fildes\*O member specifies the file descriptor for the operation.
+The \*Vaio_buf\*O member specifies the address of the
+data transfer buffer. The number of bytes to be transferred is specified
+in the \*Vaio_nbytes\*O member.
+.PP
+The \*Vsig\*O argument points to a \*Lsigevent\*O structure, which contains
+the signal number of the signal to be sent upon completion of the asynchronous
+I/O operation.
+If you specify LIO_WAIT, the function waits until all I/O operations
+are completed and the \*Vsig\*O argument is ignored.
+If you specify LIO_NOWAIT, and \*Vsigevent.signo\*O is 0,
+no signal is generated.
+If you specify LIO_NOWAIT, and the \*Vsig\*O argument is a valid signal,
+the signal is generated.
+.SH RETURN VALUES
+.PP
+On a successful call, a value of 0 is returned, indicating that the function is
+successfully queued.
+.PP
+On an unsuccessful call,
+a value of \-1 is returned and \*Lerrno\*O is set to indicate that an
+error occurred.
+.PP
+If an error occurs, the only way to determine which operations were initiated
+is to check the \*Vaiocb\*O by using the \*Laio_error\*O function.
+.PP
+If the \*Vmode\*O argument has the value of LIO_NOWAIT, the return status
+indicates whether all of the I/O operations were successfully initiated. If
+the \*Vmode\*O argument has the value of LIO_WAIT, the return status
+indicates whether the I/O operations were successfully completed.
+.PP
+In either case, the return value indicates the success or failure of
+the \*Llio_listio\*O function
+call, not the status of individual I/O requests. In some cases one or
+more of the I/O requests contained in the list may fail. Failure of an
+individual request does not prevent completion of any other individual
+request. To determine the outcome of each I/O request,
+examine the error status associated with each operation. The address of the
+\*Laiocb\*O structure is used as a handle for retrieving error and return
+status of the asynchronous operation while it is in progress (equal to
+[EINPROGRESS]). The error codes returned are identical to those returned
+as the result of an \*Laio_read\*O or \*Laio_write\*O function.
+.SH ERRORS
+.PP
+The \*Llio_listio\*O function fails under the following conditions:
+.TP 15
+[EAGAIN]
+The resources necessary to queue all the I/O requests were not available.
+The application may check the error status for each \*Laiocb\*O to determine
+the individual request(s) that failed.
+.sp
+\*VNent\*O was greater than AIO_LISTIO_MAX.
+.sp
+The number of entries indicated by \*Vnent\*O would exceed the system limit of
+AIO_MAX.
+.TP 15
+[EINTR]
+A signal or event was delivered while waiting for all I/O requests
+to complete during a LIO_WAIT operation. Each I/O operation invoked by the
+\*Llio_listio\*O function may send a signal when it completes. Therefore,
+this error may be caused by the completion of one (or more) of the very
+operations being awaited. Outstanding I/O requests are not canceled and
+the application must examine each list element to determine whether the request
+was initiated, interrupted, or completed.
+.TP 15
+[EIO]
+One or more of the individual I/O operations failed. The application may check
+error status for each \*Laiocb\*O structure to determine the individual
+requests that failed.
+.TP 15
+[EINVAL]
+The \*Vmode\*O argument is not a proper value.
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lclose\*O(2), \*Lexec\*O(2), \*L_exit\*O(2), \*Lfork\*O(2),
+\*Llseek\*O(2), \*Lread\*O(2), \*Lwrite\*O(2),
+\*Laio_cancel\*O(3), \*Laio_error\*O(3), \*Laio_read\*O(3), \*Laio_return\*O(3),
+\*Laio_write\*O(3)
+.EQ
+delim off
+.EN

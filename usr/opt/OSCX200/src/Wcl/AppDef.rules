@@ -1,0 +1,95 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/**/###########################################################################
+/**/# Imake rules for converting "master" application resource files
+/**/# into resource files for a specific version of Motif.
+/**/#
+/**/# New cpp variables:
+/**/#	UsingOldMotif	(Pre-1.1) YES or NO
+/**/#
+/**/# Make variables used:
+/**/#	APPDEFS		the list of app defaults files.
+/**/#
+/**/# Author:	David E. Smyth
+/**/# SccsID:	@(#) AppDef.rules	1.2 92/02/28 09:00:34
+/**/###########################################################################
+
+/*
+ * Warning, when defining rules: make sure you don't include both a trailing
+ * backslash and double ampersand backslash or else you will get an extra
+ * backslash in the Makefile.
+ *
+ * These macros are defined for the various templates and Imakefiles:
+ *
+ *      CppAppDefaultsFiles
+ */
+
+/*
+ * CppAppDefaultsFiles - Passes each application resource file listed
+ * in APPDEFS through cpp, passing in the cpp variable UsingOldMotif.
+ * In order to guarantee application resource files work properly for
+ * Motif 1.1 (the `standard' as far as I am concerned), the resource
+ * specifications for Motif 1.0 come *before* the resource specs for
+ * 1.1 - therefore, the resource files will work as expected for 1.1
+ * even if this pre-processing is never done for some reason.
+ */
+#ifdef CppAppDefaultsFiles
+#undef CppAppDefaultsFiles
+#endif
+#define CppAppDefaultsFiles(class,appDefs,appDefDefines,appDefDir)	@@\
+									@@\
+.SUFFIXES: .ad $(SUFFIXES)						@@\
+									@@\
+all:: class appDefs							@@\
+									@@\
+.ad:									@@\
+	$(CPP) $(STD_CPP_DEFINES) \					@@\
+		appDefDefines -DAPPDEFDIR=appDefDir 	\		@@\
+		< $< | awk -f $(WCTOPDIR)/nsb.awk > $*			@@\
+									@@\
+clean::									@@\
+	rm -f class appDefs						@@\
+									@@\
+MakeDirectories(install,appDefDir)					@@\
+									@@\
+InstallMultipleFlags(class,$(XAPPLOADDIR),$(INSTAPPFLAGS))		@@\
+InstallMultipleFlags(appDefs,appDefDir,$(INSTAPPFLAGS))			@@\
+
+#ifdef CppAppDefIntoDemo
+#undef CppAppDefIntoDemo
+#endif
+#define CppAppDefIntoDemo(demoSrc,appDefDefines)			@@\
+									@@\
+all:: Demo								@@\
+									@@\
+Demo: demoSrc								@@\
+	$(CPP) $(STD_CPP_DEFINES) \					@@\
+		-DDEMO -DAPPDEFDIR=. appDefDefines 	\		@@\
+		< demoSrc | awk -f $(WCTOPDIR)/nsb.awk > Demo		@@\
+									@@\
+clean::									@@\
+	rm -f Demo							@@\
+

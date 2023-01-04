@@ -1,0 +1,178 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sigvec.2,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/15 14:51:08 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.TH sigvec 2
+.SH NAME
+\*Lsigvec\*O \- Provides a compatibility interface to the \*Lsigaction(\|)\*O function
+.SH SYNOPSIS 
+.sS
+\*L#include <sys/signal.h>
+.nL
+int sigvec (
+.nL
+	int \*Vsignal\*L,
+.nL
+	struct sigvec *\*Vin_vec\*L,
+.nL
+	struct sigvec *\*Vout_vec \*L);
+.sE 
+.SH PARAMETERS
+.\"from TP "  
+.VL 
+.LI "\*Vsignal\*O"
+\*OSpecifies the signal number.
+.\"from TP "  
+.LI "\*Vin_vec" 
+\*OPoints to a \*Lsigvec(\|)\*O structure that specifies
+the action to be taken when the specified signal is delivered, the
+mask to be used when calling the signal handler, and the flags that modify
+signal behavior.
+.\"from TP "  
+.LI "\*Vout_vec" 
+\*OPoints to a \*Lsigvec(\|)\*O structure that is
+set to the previous signal action state on successful return from
+the \*Lsigvec(\|)\*O function.
+.LE 
+.SH DESCRIPTION
+.iX "sigvec function"
+.iX "compatibility" "with old UNIX systems"
+.iX "interface" "to the sigaction function"
+.iX "signal" "taking action upon receipt"
+.iX "process" "examining and changing actions"
+.iX "process" "receiving signals"
+.PP 
+The \*Lsigvec(\|)\*O function is provided for compatibility to
+old UNIX systems;  its function is a subset of that available with
+the\*L sigaction(\|)\*O function. Like the \*Lsigaction(\|)\*O
+function, the \*Lsigvec(\|)\*O function allows the user to set the action
+to take upon the receipt of a signal and to specify a signal handler
+mask to block signals before calling the signal handler. However,
+only signals with values 1 to 31 can be masked on entry to a signal-handler
+set up with the \*Lsigvec(\|)\*O function.
+.PP 
+The \*Lsigvec(\|)\*O structure has the following members:
+.rS 
+\*Lvoid	(*sv_handler)( );
+.nL
+int	sv_mask;
+.nL
+int	sv_flags;\*O
+.rE 
+.PP 
+The \*Lsv_handler\*O field specifies the action for the signal, and
+can be SIG_DFL, SIG_IGN, or the address of a signal
+handler function. See the \*Lsigaction(\|)\*O function for a detailed
+description of the signal actions.
+.PP 
+The \*Lsv_mask\*O field specifies a mask which specifies signals to
+block (in addition to any signals already blocked at time of delivery)
+when the signal handler function is called for the signal.
+Signal \*Vi\*O is blocked if the \*Vi\*O-th bit of the
+mask is set. Only signals with values 1 to 31 can be masked with the \*Lsigvec(\|)\*O
+function.
+The
+\*Lsv_flags\*O
+field contains flags that further specify signal behavior.  If
+SV_ONSTACK is set, the signal handler runs on the signal stack
+specified by the
+\*Lsigstack(\|)\*O
+function;  otherwise, the signal handler runs on the stack of the
+process receiving the signal.
+If SV_INTERRUPT is set, a system call that is interrupted by
+\*Vsignal\*O
+returns a value of -1 with
+\*Lerrno\*O
+set to [EINTR];  otherwise, a system call interrupted by
+\*Vsignal\*O
+is restarted.
+.PP 
+If the value of the \*Vin_vec\*O parameter is
+a null pointer, then the signal handler information is not
+set. If the value of the \*Vout_vec\*O parameter is null, then the
+previous signal handler information is not returned.
+.PP 
+Once a signal handler is assigned, it remains assigned until another
+call to the
+\*Lsigvec(\|)\*O, \*Lsignal(\|)\*O, \*Lsigaction(\|)\*O, or \*Lexec\*O
+function is made.
+.SH NOTES
+.PP 
+The
+\*Lsigvec(\|)\*O
+function is provided for compatibility only, and its use is not
+recommended.   Programs should use the
+\*Lsigaction(\|)\*O
+function instead.
+.PP 
+\*OThe \*Lsigvec(\|)\*O function does
+not check the validity of the \*Lsv_handler\*O field pointer. If
+it points to a location outside of the process address space, the
+process receives a memory fault when the system attempts to call the
+signal handler. If the \*Lsv_handler \*Ofield points to anything
+other than a function, the results are unpredictable.
+.PP 
+The signal-handler function can be declared as follows:
+.rS
+\*Lvoid \*Vhandler \*L(
+.nL
+	int \*Vsignal \*L);\*O
+.rE
+.SH RETURN VALUES
+.PP 
+Upon successful completion, a value of 0 (zero) is returned.  If the
+\*Lsigvec(\|)\*O function fails, a value of -1 is returned and
+\*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP 
+If the \*Lsigvec(\|)\*O function fails, no new signal handler
+is installed and
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EFAULT]"
+\*OThe \*Vin_vec\*O or \*Vout_vec\*O parameter
+points to a location outside of the process' address space.
+.\"from TP 1i"  
+.LI "[EINVAL]" 
+\*OThe \*Vsignal\*O parameter is not a valid
+signal number.
+.\"from TP 1i"  
+.LI "[EINVAL]" 
+\*OAn attempt was made to ignore or supply a handler
+for the SIGKILL signal.
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Functions:
+\*Lkill\*O(2),
+\*Lptrace\*O(2),
+\*Lsigaction\*O(2),
+\*Lsigblock\*O(2),
+\*Lsigpause\*O(3),
+\*Lsigstack\*O(2)
+.iX "sigvec function"
+.EQ
+delim off
+.EN

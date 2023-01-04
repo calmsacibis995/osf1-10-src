@@ -1,0 +1,212 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: fta.7,v $ $Revision: 1.1.4.3 $ (DEC) $Date: 1993/08/27 18:28:08 $
+.\"
+.TH fta 7
+.PP
+.SH NAME
+.PP
+\*Lfta\*O - DEFTA FDDI Network Interface
+.SH SYNOPSIS
+.PP
+.iX "FDDI interface" "DEFTA"
+.iX "DEFTA FDDI network interface"
+.sS
+\*Ldevice fta0 at * vector ftaintr\*O
+.sE
+.PP
+This is the entry in the configuration file.
+.SH DESCRIPTION
+.PP
+The \*Lfta\*O interface is a high-speed TURBOchannel adapter to a 100 megabit
+per second Fiber Distributed Data Interface (FDDI) timed token ring network
+adapter.  The \*Lfta\*O interface allows the host system to be an FDDI single
+attachment station.
+.PP
+The DEFTA uses DMA transfers for both transmitted and received data. The driver
+initializes the DMA engine before placing the adapter on the ring.
+.PP
+The DEFTA can operate in full duplex mode.  To allow the \*Lfta\*O interface
+operate in full duplex mode, connect two DEFTA adapters back-to-back.  The full
+duplex mode is enabled or disabled by using the \*Lfddi_config\*O command.
+.PP
+The host's Internet address is specified at boot time with an SIOCSIFADDR
+ioctl.  The \*Lfta\*O interface employs the address resolution protocol
+described in \*Larp\*O(7) to map dynamically between Internet and physical
+addresses on the FDDI ring.
+.PP
+The maximum frame size for the \*Lfta\*O interface is 4500 bytes, which is
+substantially larger that the 1500 bytes maximum packet size of the Ethernet
+interfaces. The \*Lfta\*O interface does not support the BSD trailer
+encapsulation, which is specific to the VAX architecture.
+.PP
+The SIOCRPHYSADDR ioctl can be used to read the physical address of the
+DEFTA adapter. The physical address of the DEFTA adapter can be
+changed by use of the SIOCSPHYSADDR ioctl.
+.PP
+The SIOCADDMULTI and SIOCDELMULTI ioctls can be used to add or delete
+multicast addresses. The DEFTA supports up to 62 multicast addresses.
+.PP
+The SIOCRDCTRS ioctl can be used to read the FDDI driver counters.  The
+DEFTA adapter status and characteristics can also be read through this
+ioctl by providing one of the following flags: FDDI_STATUS, CTR_FDDI,
+FDDIMIB_PATH, FDDIMIB_SMT, FDDIMIB_MAC, FDDIMIB_PORT, and FDDIMIB_ATTA.  The
+argument to this ioctl is a pointer to a counter or status structure,
+\*Lctrreq\*O, found in \*L<net/if.h>\*O.
+.PP
+The SIOCENABLBACK and SIOCDISABLBACK ioctls can be used to enable and
+disable the interface loopback mode, respectively. The driver enables internal
+loopback only.
+.PP
+The SIOCIFRESET ioctl can be used to reset the adapter.
+.SH EXAMPLES
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"fta0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"fta0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+Diagnostic messages contain information provided by the \*Lfta\*O
+driver and the adapter. The following messages contain information about the
+adapter's state, and are printed on the console, where \*Vn\*O
+is an message number:
+.VL
+.LI "fta\*Vn\*O: Reset"
+.LI "fta\*Vn\*O: Upgrade"
+.LI "fta\*Vn\*O: DMA Unavailable"
+.LI "fta\*Vn\*O: DMA Available"
+.LI "fta\*Vn\*O: Link Available"
+.LI "fta\*Vn\*O: Link Unavailable"
+.LI "fta\*Vn\*O: Halted"
+.LE
+.PP
+Once in the DMA Available state, the adapter goes to the
+Link Unavailable state and finally to the Link Available state.
+.PP
+The following messages contain information about adapter events:
+.VL
+.LI "fta\*Vn\*O: Directed beacon received"
+The DEFTA has received a directed beacon.
+.LI "fta\*Vn\*O: Host bus parity error"
+There is a parity error on the host bus.
+.LI "fta\*Vn\*O: Link transmit underrun"
+A link transmit underrun occurred.
+.LI "fta\*Vn\*O: Link transmit failure"
+A link transmit failure occurred.
+.LI "fta\*Vn\*O: Packet memory parity error"
+The DEFTA adapter has detected a parity error in the packet memory.
+.LI "fta\*Vn\*O: PC Trace initiated"
+A PC Trace has been initiated.
+.LI "fta\*Vn\*O: PC Trace received"
+The DEFTA adapter received a PC trace.
+.LI "fta\*Vn\*O: Receive overrun"
+The adapter's receive queue is full and packets are being dropped.
+.LI "fta\*Vn\*O: Ring beacon initiated"
+A ring beacon was initiated.
+.LI "fta\*Vn\*O: Ring initialized"
+The FDDI ring is being initialized. This occurs each time a machine comes on or
+goes off the ring.
+.LI "fta\*Vn\*O: Ring purge error"
+A ring purge error has occurred.
+.LE
+The following are diagnostic error messages about driver events:
+.VL
+.LI "fta\*Vn\*O: Cannot start error recovery thread"
+The driver could not start the thread that perform error recovery. This error
+is not fatal. If an error occurs, the driver will not reinitialize the
+adapter.
+.LI "fta\*Vn\*O: Could not initialize network adapter"
+The DEFTA cannot transition to the DMA Available state.
+.LI "fta\*Vn\*O: Disable Internal Loop Back Failed"
+The driver could not disable the internal loopback on the DEFTA adapter.
+.LI "fta\*Vn\*O: Driver disabled. Check the network adapter."
+A fatal error occurred, and the driver cannot recover. The driver is off line.
+.LI "fta\*Vn\*O: Enable Internal Loop Back Failed"
+The driver could not enable the internal loopback on the DEFTA adapter.
+.LI "fta\*Vn\*O: Flushing Transmit queue"
+The DEFTA detected an error and signalled the driver to flush the transmit
+queue.
+.LI "fta\*Vn\*O: Reinitializing network adapter"
+The DEFTA is being reinitialized. The adapter will reset the adapter and force
+it to the DMA Available state.
+.LI "fta\*Vn\*O: Self test failure"
+The adapter self test failed.
+.LI "fta\*Vn\*O: Unknown location accessed on the network adapter"
+The driver accessed an illegal location on the adapter.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lfddi_config\*O(1), \*Lnetstat\*O(1), \*Larp\*O(7), \*Linet\*O(7), \*Lintro\*O(7)
+.EQ
+delim off
+.EN

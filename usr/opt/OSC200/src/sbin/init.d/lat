@@ -1,0 +1,116 @@
+#!/sbin/sh 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: lat,v $ $Revision: 1.1.7.2 $ (DEC) $Date: 1993/03/16 22:03:35 $
+# 
+#
+# /sbin/init.d/lat: lat startup/shutdown scripts.
+# This file should be symbolically linked to the files:
+#	/sbin/rc0.d/K07lat - shuts down the LAT
+#	/sbin/rc2.d/K03lat - shuts down the LAT
+#	/sbin/rc3.d/S58lat - starts up LAT
+#
+
+# Get the name of the booted kernel.
+BOOTED_KERNEL="/`sizer -b`"
+if [ ! -f $BOOTED_KERNEL ]; then
+       	echo "$0 ERROR: Could not find kernel $BOOTED_KERNEL."
+	exit 1
+fi
+
+
+# Get actual configuration.
+LAT_SETUP=0
+if [ -f /etc/rc.config ]; then
+       	. /etc/rc.config
+else
+       	echo "$0 ERROR: /etc/rc.config defaults file MISSING"
+	exit 1
+fi
+export LAT_SETUP
+
+# if LAT is not setup, just exit don't start.
+if [ "$LAT_SETUP" = '' -o "$LAT_SETUP" = 0 ]; then
+	exit 1
+fi
+
+# check to see that LAT is built into the running kernel.
+# Otherwise, we will not start LAT.
+nm $BOOTED_KERNEL | grep -s 'lat_open' > /dev/null
+if [ $? -ne 0 ]
+then
+        /bin/echo "
+LAT is not built into the kernel, $BOOTED_KERNEL.  Cannot start or stop LAT."
+        exit 1
+fi
+
+if [ ! -c /dev/lat ]	# latcp needs /dev/lat to run.  See lat man page.
+then	echo "$0: /dev/lat not found."
+	exit 1
+fi
+
+case "$1" in
+'start')# 
+	set `who -r`
+	# Now:	$7 = Current run state
+	#	$8 = Previous times in current state
+	#	$9 = Prior state
+
+	# When 'latcp -s' or 'latcp -r' is executed and a LAT node name has
+	# not been defined, LAT will use the System node name as the LAT node
+	# name.  If no services have been defined, then a default service will
+	# be added and have the same name as the LAT node name (and will have
+	# only group 0 enabled).
+	if [ "$9" = "S" ]
+	then	if [ "$8" = "0" ]
+		then	# This code is only executed the *first* time the
+                        # system enters run level 3.  All latcp commands used
+			# for customizing LAT (such as adding additional
+			# services, changing group codes, changing the multi-
+			# cast timer, etc.) should follow the 'latcp -r'
+			# command below.  As an example, to define a service
+			# name other than the node name and add group codes
+			# for this service, use the following commands:
+			# /usr/sbin/latcp -A -a new_service -i "DEC OSF/1"
+			# /usr/sbin/latcp -g52 -a new_service
+			# The 'latcp -r' command below will add a default
+			# service (and have the same name as the LAT node name,
+			# which will default to the system name).  If this
+			# service name is not desired, comment out the
+			# 'latcp -r' command and replace it with the
+			# appropriate 'latcp -A -a' command.
+			/usr/sbin/latcp -r
+		fi
+
+		# The following line(s) get executed everytime
+		# '/sbin/init.d/lat start' is executed.
+		/usr/sbin/latcp -s
+	fi ;;
+
+stop)	# 
+	/usr/sbin/latcp -h ;;
+
+*)	echo "usage: $0 {start|stop}"
+	exit 1 ;;
+esac

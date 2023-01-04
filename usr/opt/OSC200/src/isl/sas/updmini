@@ -1,0 +1,150 @@
+#!/bin/sh5
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: updmini,v $ $Revision: 4.2.3.2 $ (DEC) $Date: 1992/03/03 12:44:34 $ 
+#
+#	updmini - update the sas.
+#
+#	updmini <build-pack> dev type
+#
+#	000	21-jun-1991	ccb
+#		put here for safe keeping
+#
+#	001	04-dec-1991	ccb
+#		add support for new btd and for rz58part
+
+SASMNT=/tmp/SAS$$
+PROG=$0
+USAGE="usage example: $PROG ../build rz0a rz23"
+
+:	-Error
+#		print args on stderr
+#
+
+Error()
+{
+	1>&2 echo $*
+}
+
+
+:	-Exit
+#		exit program, cleanly.
+
+Exit()
+{
+	STATUS=$1
+
+	exit $STATUS
+}
+
+
+
+:	-Main
+#		The main program
+
+Main()
+{
+	PATH=/kits/bin:/bin:/sbin:/etc:/usr/ucb:/usr/bin:/usr/sbin:/usr/etc
+	export PATH
+
+	[ -f .miniconf ] ||
+	{
+		echo "no .miniconf"
+		exit 1
+	}
+	. ./.miniconf ||
+	{
+		echo "error reading .miniconf"
+		exit 1
+	}
+
+	TOP=$MINI_BUILDDIR
+	DSAS=$MINI_FSNAME
+	TSAS=$MINI_FSTYPE
+
+	[ -d $TOP ] ||
+	{
+		Error "$TOP: cannot find directory"
+		Exit 1
+	}
+	[ -c /dev/r$DSAS ] ||
+	{
+		Error "$PROG: /dev/r$DSAS: cannot find char device"
+		exit 1
+	}
+	[ -b /dev/$DSAS ] ||
+	{
+		Error "$PROG: /dev/$DSAS: cannot find block device"
+		exit 1
+	}
+
+
+	echo "*****	Preparing SAS partition...\c"
+	dd if=$TOP/isl/sas/sasimage of=/dev/r$DSAS bs=512
+	echo "done."
+
+	echo "*****	Copying data to SAS...\c"
+	mkdir $SASMNT && mount /dev/$DSAS $SASMNT &&
+	{
+		cp $TOP/isl/sas/install.1 $SASMNT &&
+			cp $TOP/isl/sas/route $SASMNT/etc &&
+			cp $TOP/isl/sas/btd $SASMNT/bin &&
+			cp $TOP/isl/sas/rz58part $SASMNT &&
+			(cd $SASMNT;
+				chmod 755 install.1 etc/route bin/btd rz58part) &&
+			cp $TOP/isl/data/tin/package.dat $SASMNT &&
+			cp $TOP/usr/mdec/bootblks $SASMNT &&
+			sync &&
+			umount $SASMNT && echo done.
+	} || 
+	{
+		umount /dev/$DSAS
+		echo failed.
+		exit 1
+	}
+
+	echo "*****	Snapshot SAS...\c"
+	dd if=/dev/r$DSAS of=sasimage		# dd gives bogus status
+	echo done.
+
+	echo "*****	Merge into Kernel...\c"
+	fsmrg sasimage $TOP/usr/mdec/u_vmunix.sas ||
+	{
+		echo failed.
+		exit 1
+	}
+	echo "*****	Make TK50.1 boot image...\c"
+	mksastape $TOP/usr/mdec/u_vmunix.sas TK50.1 ||
+	{
+		echo failed.
+		exit 1
+	}
+
+	echo "Don't forget to update the RIS area"
+	exit 0
+}
+
+
+[ "$CHECK_SYNTAX" ] || Main $*

@@ -1,0 +1,371 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ntp.conf.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/17 19:00:14 $
+.\" 
+.TH ntp.conf 4
+.PP
+.SH NAME
+.PP
+\*Lntp.conf\*O \- Network Time Protocol (NTP) configuration file
+.SH DESCRIPTION
+.PP
+.iX "NTP configuration file"
+The \*Lxntpd\*O configuration file \*L/etc/ntp.conf\*O
+is read by \*Lxntpd\*O at startup.
+.PP
+The \*Lxntpd\*O configuration file is relatively free of formatting.
+Comments, which may be freely inserted, begin with a \*(lq#\*(rq character
+and extend to the end of the line. Blank lines are ignored. Configuration
+statements include an initial keyword followed by white space separated
+arguments, some of which may be optional.  Configuration statements
+may not be continued over multiple lines.  Arguments may be network
+numbers (which must be written in numeric, dotted decimal notation), integers,
+floating point numbers (when specifying times in seconds) and text
+strings.  Optional arguments are delimited by \*(lq[]\*(rq in the following
+descriptions, while alternatives are separated by \*(lq|\*(rq.
+.SS Options
+.PP
+\*Lpeer\*O \*Vhost_address\*O [\*Lversion\*O \*V#\*O] [\*Lminpoll\*O]
+.nL
+\*Lserver\*O \*Vhost_address\*O [\*Lversion\*O \*V#\*O] [\*Lminpoll\*O]
+.nL
+\*Lbroadcast\*O \*Vhost_address\*O [\*Lversion\*O \*V#\*O] [\*Lminpoll\*O]
+.PP
+These three statements specify various time servers to be used or
+time services to be provided.  The \*Lpeer\*O
+statement specifies that the given host is to be polled in
+\*(lqsymmetric active\*(rq mode, that is, the host is requested to
+provide time which you might synchronize to and, in addition, indicates
+that you are willing to have the remote host synchronize to your time
+if need be.  The \*Lserver\*O
+statement specifies that the given host is to be polled in
+\*(lqclient\*(rq mode: the host is requested to provide
+time which you might synchronize with but that you are unwilling to have
+the remote host synchronize to your own time.  The \*Lbroadcast\*O
+statement requests your local daemon to transmit broadcast NTP to
+the specified address.  The latter is usually the broadcast address
+on your local network(s).
+.PP
+The \*Lversion\*O
+option allows you to specify the version number to be used for outgoing
+NTP packets.  Versions 1 and 2 are the choices; version 2 is the default.
+Version 1 must be used for hosts running the University of Maryland
+\*Lntpd\*O daemon. The \*Lminpoll\*O
+option specifies that the polling interval should be kept at
+the (64 second) minimum even when the local daemon is not using the
+remote server's data for synchronization.  This is the default for
+broadcasting.  Otherwise, this option should not be specified other
+than for testing since it will increase traffic to the servers without
+purpose.
+.PP
+\*Ldriftfile\*O \*Vfilename\*O
+.PP
+Specifies the name of the file used to record the \*(lqdrift\*(rq (or
+frequency error) value \*Lxntpd\*O
+has computed.  If the file exists on startup, it is read and the value
+used to initialize \*Lxntpd\*O's internal value of the frequency error.
+The file is then updated once every hour by replacing the old file
+with a new one containing the current value of the frequency error.
+.NT
+The file is updated by first writing the current drift value into a temporary
+file and then using \*Lrename\*O(2) to replace the old version.  This implies
+that \*Lxntpd\*O must have write permission for the directory the drift
+file is located in, and that file system links, symbolic or otherwise,
+should probably be avoided.
+.NE
+.PP
+\*Lmonitor yes|no\*O
+.PP
+Indicates whether the \*Lxntpd\*O
+traffic monitoring function should be enabled or not.  When enabled,
+this causes the origin address of each packet received by the server
+to be recorded along with a limited amount of additional information, such
+as the mode of the request and whether it originated from an NTP server port
+or not.  Traffic monitoring data may be inspected using the \*Lxntpdc\*O(8)
+\*Lmonlist\*O command.  The default is \*(lqno\*(rq, that is,
+traffic monitoring should not be done.
+.NT
+Traffic monitoring facility will increase the CPU used by \*Lxntpd\*O,
+as well as increasing the daemon's memory utilization by as much as
+8.5 kilobytes.  This facility is normally useful for the detection of
+peers with malfunctioning software or which are sending erroneous data.  It
+is primarily intended for very popular servers that exchange time with
+large numbers of peers, though it may also be useful for access monitoring
+of local servers if you are willing to accept the overhead.
+.NE
+.PP
+\*Lbroadcastclient yes|no\*O
+.PP
+This indicates whether the local server should listen for, and attempt to
+synchronize to, broadcast NTP.  The default is \*(lqno\*(rq.
+.PP
+\*Lbroadcastdelay\*O \*Vseconds\*O
+.PP
+Specifies the default round trip delay to the host whose broadcasts
+are being synchronized to.  The value is specified in seconds and is
+typically (for Ethernet) a number between 0.007 and 0.015 seconds.  This
+initial estimate may be improved by polling each server to determine a
+more accurate value.  Defaults to 0.008 seconds.
+.PP
+\*Lrestrict\*O \*Vaddress\*O [\*Lmask\*O \*Vnumeric_mask\*O] [\*Vflag\*O] [\*V...\*O]
+.PP
+\*LXntpd\*O implements a general purpose address\-and\-mask based restriction
+list.  The list is sorted by address and by mask, and the list is
+searched in this order for matches, with the last match found defining
+the restriction flags associated with the incoming packets.  The source
+address of incoming packets is used for the match, with the 32 bit address
+being and'ed with the mask associated with the restriction entry and
+then compared with the entry's address (which has also been and'ed with
+the mask) to look for a match.  The \*(lqmask\*(rq argument defaults
+to 255.255.255.255, meaning that the \*(lqaddress\*(rq is treated as the
+address of an individual host.  A default entry (address 0.0.0.0, mask
+0.0.0.0) is always included and, given the sort algorithm, is always the
+first entry in the list.
+.NT
+While \*(lqaddress\*(rq is normally given using dotted decimal notation, the
+text string \*(lqdefault\*(rq, with no mask option, may be used to indicate the
+default entry.
+.NE
+.PP
+In the current implementation, flags always restrict access: an entry
+with no flags indicates that free access to the server is to be given.  The
+flags are not orthogonal, in that more restrictive flags will often make
+less restrictive ones redundant.  The flags can generally be classed into
+two categories: those that restrict time service and those that restrict
+informational queries. One or more of the following flags may be specified:
+.VL
+.LI "\*Lignore\*O"
+Ignores all packets from hosts that match this entry.  If this flag
+is specified, queries and time server polls will receive no response.
+.LI "\*Lnoquery\*O"
+Ignores all NTP mode 6 and 7 packets (information queries and configuration
+requests) from the source.  Time service is not affected.
+.LI "\*Lnotrap\*O"
+Declines to provide mode 6 control message trap service to matching
+hosts.  The trap service is a subsystem of the mode 6 control message
+protocol, which is intended for use by remote event logging programs.
+.LI "\*Llowpriotrap\*O"
+Declares traps set by matching hosts to be low priority.  The number
+of traps a server can maintain is limited (the current limit is 3).
+Traps are usually assigned on a first come, first served basis, with
+later trap requestors being denied service.  This flag modifies the
+assignment algorithm by allowing low priority traps to be overridden
+by later requests for normal priority traps.
+.LI "\*Lnoservei\*O"
+Ignores NTP packets whose mode is other than 6 or 7. In effect, time service is
+denied, though queries may still be permitted.
+.LI "\*Lnopeer\*O"
+Provides stateless time service to polling hosts, but does not allocate peer
+memory resources to these hosts even if they otherwise might be considered
+useful as future synchronization partners.
+.LI "\*Lnotrust\*O"
+Treats these hosts normally in other respects, but never uses them as
+synchronization sources.
+.LI "\*Lntpport\*O"
+This is actually a match algorithm modifier, rather than a restriction
+flag.  Its presence causes the restriction entry to be matched only if
+the source port in the packet is the standard NTP UDP port (123).  Both
+\*(lqntpport\*(rq and non\-\*(lqntpport\*(rq may be specified.  The
+\*(lqntpport\*(rq is considered more specific and is sorted later in the
+list.
+.LE
+.PP
+Default restriction list entries, with the flags \*(lqignore, ntpport\*(rq,
+for each of the local host's interface addresses are inserted into the
+table at startup to prevent the server from attempting to synchronize to
+its own time.  A default entry is also always present, though if it is
+otherwise unconfigured, no flags are associated with the default entry
+(everything besides your own NTP server is unrestricted).
+.PP
+The restriction facility was added to allow the current access policies
+of the time servers running on the NSFnet backbone to be implemented with
+\*Lxntpd\*O as well.  While this facility may be otherwise useful
+for keeping unwanted time servers from affecting your own, it should not be
+considered secure from all intruders. Source
+address based restrictions are easily circumvented by a determined cracker.
+.PP
+\*Ltrap\*O \*Vhost_address\*O [\*Lport\*O \*Vport_number\*O] [\*Linterface\*O
+\*Vinterface_address\*O]
+.PP
+Configures a trap receiver at the given host address and port number,
+sending messages with the specified local interface address.  If the
+port number is unspecified, a value of 18447 is used.  If the interface
+address is not specified, the message is sent with a source address
+which is that of the local interface the message is sent through.
+.NT
+On a multihomed host, the interface used may vary from time to time
+with routing changes.
+.NE
+.PP
+The trap receiver will generally log event messages and other information
+from the server in a log file.  While such monitor programs may also
+request their own trap dynamically, configuring a trap receiver will
+ensure that no messages are lost when the server is started.
+.PP
+\*Lmaxskew\*O \*Vseconds\*O
+.PP
+Set the system maximum skew parameter to the number of seconds given.  The
+default value is 0.010 seconds.  This is a tuning parameter of use in
+improving performance when network link conditions are poor, and should
+probably not be changed unless your server is to run under exceptional
+conditions.
+.PP
+\*Lselect\*O \*Valgorithm_number\*O
+.PP
+Selects the use of one of five selection weight algorithms.  The
+default is algorithm number 1, which is the algorithm specified
+in RFC 1119.  Algorithm numbers 2 through 5 select alternative,
+experimental selection weighting algorithms, all of which tend to
+give a greater degree of trust to either lower stratum or lower
+delay peers than the standard algorithm.
+.SS Primary Clock Support Options
+.PP
+\*LXntpd\*O includes support for local reference clocks and the Traconex
+(formerly Precision Time Standard) 1010/1020 WWV/H Receiver.
+The 1010/1020 is a radio timecode receiver that is synchronized to a
+source of standard time, such as the services offered by the NRC in
+Canada and NIST in the U.S.  The interface between the computer and
+the timecode receiver is device dependent and will vary, but is
+often a serial port.
+.PP
+For configuration purposes, \*Lxntpd\*O
+treats reference clocks in a manner analogous to normal NTP peers
+as much as possible.  Reference clocks are referred to by address,
+much as a normal peer is, though an invalid IP address is used to
+distinguish them from normal peers.  Reference clock addresses are
+of the form 127.127.\*Vt.u\*O, where \*Vt\*O is an integer denoting
+the clock type and \*Vu\*O indicates the type\-specific unit number.
+Reference clocks are normally enabled by configuring the clock
+as a server using a \*Lserver\*O
+statement in the configuration file that references the clock's
+address (configuring a reference clock with a \*Lpeer\*O
+statement can also be done, though with some clock drivers this may cause
+the clock to be treated somewhat differently and by convention is used
+for debugging purposes).  Clock addresses may generally
+be used anywhere else in the configuration file a normal IP address
+can be used, for example, in \*Lrestrict\*O statements.
+.PP
+There is one additional configuration statement
+for reference clock support.  The statement's format is:
+.PP
+\*Lfudge\*O \*V127.127.t.u\*O [\*Ltime1\*O \*Vsecs\*O] [\*Ltime2\*O \*Vsecs\*O] [\*Lvalue1\*O |*Vint\*O] [\*Lvalue2\*O \*Vint\*O] [\*Lflag1\*O \*V0|1\*O] [\*Lflag2\*O \*V0|1\*O]
+.PP
+There are two times (whose values are specified in fixed point seconds),
+two integral values and two binary flags available for customizing
+the operation of a clock.  The interpretation of these values, and
+whether they are used at all, is a function of the needs of the particular
+clock driver.
+.PP
+The clock drivers, and the addresses used to configure
+them, are described as follows:
+.PP
+\*L127.127.1.\*O\*Vu\*O \- Local synchronization clock driver
+.PP
+This driver does not support an actual clock, but rather allows the
+server to synchronize to its own clock, in essence to free run without
+its stratum increasing to infinity.  This can be used to run an
+isolated NTP synchronization network where no standard time source is
+available, by allowing a free running clock to appear as if it has
+external synchronization to other servers.  By running the local clock
+at an elevated stratum, it can also be used to prevent a server's stratum
+from rising above a fixed value. This allows a synchronization subnet
+to synchronize to a single local server for periods when connectivity
+to the primary servers is lost.
+.PP
+The unit number of the clock (the least significant octet in the address)
+must lie in the range 0 through 15 inclusive and is used as the stratum
+the local clock will run at.
+.NT
+.\".sp
+.\".ce 1
+.\"\f(HBNote\fP
+.\".sp 0.4v 
+.\".RS 5
+The server, when synchronized
+to the local clock, will advertise a stratum one greater than the clock
+peer's stratum.  More than one local clock may be configured (indeed all
+16 units may be active at once), though this might not be useful.
+.\".RE
+.NE
+.PP
+The local clock driver uses only the fudge time1 parameter.  This parameter
+actually provides write access to the local clock drift compensation
+register.  This value, which provides a fine resolution speed
+adjustment for the local clock, is settable but will remain unchanged
+from any set value
+when the clock is free running without external synchronization.  The
+fudge time1 parameter, therefore, provides a way to manually adjust
+the speed of the clock to maintain reasonable synchronization with
+a voice time announcement.
+.PP
+\*L127.127.3.\*O\*Vu\*O \- Traconex (formerly Precision Time Standard) 1010/1020 WWV/H Receiver
+.PP
+This driver can be used to receive time from a PST 1020 WWV receiver
+connected to a serial port on the computer.  Any or all of
+four units, with unit numbers in the range 0 through 3, can be
+configured.  The driver assumes the serial line to which the clock is
+connected is \*L/dev/pst\*Oi\*Vd\*O and the PST receiver is configured
+for 9600 baud operation. For example, unit 1, at 127.127.3.1, opens
+/dev/pst1 to speak to the clock.
+.PP
+The fudge \*Ltime1\*O and \*Ltime2\*O parameters are used by
+the driver as nominal
+propagation delays when synchronized to WWV and WWVH, respectively.  They
+default to 0.0075 and 0.0265 seconds, values which are about right for
+Toronto.  While this should in principle be set to the propagation delays
+appropriate for the location, one should not feel inhibited from tweaking
+the values to make the output of the clock match other stratum 1 NTP
+peers more exactly.  The only consideration when adjusting these is that
+the difference between the values should be kept set to the predicted
+difference in propagation delay between WWV and WWVH at all times.
+.PP
+The \*Lvalue1\*O parameter can be used to set the stratum at which
+the peer operates.  The default is 0, which is correct if you want the
+clock to be considered for synchronization whenever it is operating, though
+higher values may be assigned if you only want the clock to provide backup
+service when all other primary sources have failed.  The \*Lvalue2\*O parameter
+is set to the number of minutes which the daemon will allow the clock to go
+without synchronization before it starts disbelieving it.  The default
+is 20, which is suitable if you have good quality backup NTP peers.  If
+your network is isolated or your network connections are poor it might
+be advantageous to increase this value substantially.
+.PP
+The fudge \*Lflag1\*O can be set if your system clock's precision is worse than
+about 500 microseconds. The parameter causes the code processing algorithms to
+be modified slightly in a way which should produce better results with
+imprecise clocks.  Setting fudge \*Lflag2\*O forces the driver to send to
+the clock the commands required to program the current WWV and WWVH fudge
+delays into it (this is normally done only when the values change).  Setting
+the (otherwise undocumented) fudge \*Lflag3\*O causes the driver to reset
+the clock.  The latter two flags are generally only useful for debugging.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/ntp.conf\*O"
+Default name of the configuration file
+.LI "\*L/etc/ntp.drift\*O"
+Conventional name of the drift file
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lntp\*O(1), \*Lntpdate\*O(8), \*Lntpq\*O(8),
+\*Lxntpd\*O(8), \*Lxntpdc\*O(8)
+.PP
+\*ENetwork Configuration\*O
+.EQ
+delim off
+.EN

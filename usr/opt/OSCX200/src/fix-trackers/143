@@ -1,0 +1,668 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202191957.AA07276@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2366) Close XBUG #4944: server: mi wide lines don't pass unisoft suite
+Date: Wed, 19 Feb 92 14:57:40 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4944
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da7147	Wed Feb 19 14:54:11 1992
+--- server/ddx/mi/mispans.c	Tue Dec 17 19:39:17 1991
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: mispans.c,v 5.1 91/07/03 17:22:37 keith Exp $ */
+  
+  #include "misc.h"
+  #include "pixmapstr.h"
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: mispans.c,v 5.2 91/12/17 19:39:12 keith Exp $ */
+  
+  #include "misc.h"
+  #include "pixmapstr.h"
+***************
+*** 49,59 ****
+      spanGroup->ymax = MINSHORT;
+  } /* InitSpanGroup */
+  
+! void miAppendSpans(spanGroup, spans)
+      SpanGroup   *spanGroup;
+      Spans       *spans;
+  {
+!     register    int y;
+      register    int spansCount;
+  
+      spansCount = spans->count;
+--- 49,168 ----
+      spanGroup->ymax = MINSHORT;
+  } /* InitSpanGroup */
+  
+! #define YMIN(spans) (spans->points[0].y)
+! #define YMAX(spans)  (spans->points[spans->count-1].y)
+! 
+! void miSubtractSpans (spanGroup, sub)
+!     SpanGroup	*spanGroup;
+!     Spans	*sub;
+! {
+!     int		i, subCount, spansCount;
+!     int		ymin, ymax, xmin, xmax;
+!     Spans	*spans;
+!     DDXPointPtr	subPt, subPtNext, spansPt, spansPtNext;
+!     int		*subWid, *spansWid;
+!     int		extra;
+! 
+!     ymin = YMIN(sub);
+!     ymax = YMAX(sub);
+!     spans = spanGroup->group;
+!     for (i = spanGroup->count; i; i--, spans++) {
+! 	if (YMIN(spans) <= ymax && ymin <= YMAX(spans)) {
+! 	    subCount = sub->count;
+! 	    subPt = sub->points;
+! 	    subWid = sub->widths;
+! 	    spansCount = spans->count;
+! 	    spansPt = spans->points;
+! 	    spansWid = spans->widths;
+! 	    extra = 0;
+! 	    for (;;)
+!  	    {
+! 		while (spansCount && spansPt->y < subPt->y)
+! 		{
+! 		    spansPt++;  spansWid++; spansCount--;
+! 		}
+! 		if (!spansCount)
+! 		    break;
+! 		while (subCount && subPt->y < spansPt->y)
+! 		{
+! 		    subPt++;	subWid++;   subCount--;
+! 		}
+! 		if (!subCount)
+! 		    break;
+! 		if (subPt->y == spansPt->y)
+! 		{
+! 		    xmin = subPt->x;
+! 		    xmax = xmin + *subWid;
+! 		    if (xmin >= spansPt->x + *spansWid || spansPt->x >= xmax)
+! 		    {
+! 			;
+! 		    }
+! 		    else if (xmin <= spansPt->x)
+! 		    {
+! 			if (xmax >= spansPt->x + *spansWid) 
+! 			{
+! 			    bcopy (spansPt + 1, spansPt, sizeof *spansPt * (spansCount - 1));
+! 			    bcopy (spansWid + 1, spansWid, sizeof *spansWid * (spansCount - 1));
+! 			    spansPt--;
+! 			    spansWid--;
+! 			    spans->count--;
+! 			    extra++;
+! 			}
+! 			else 
+! 			{
+! 			    *spansWid = *spansWid - (xmax - spansPt->x);
+! 			    spansPt->x = xmax;
+! 			}
+! 		    }
+! 		    else
+! 		    {
+! 			if (xmax >= spansPt->x + *spansWid)
+! 			{
+! 			    *spansWid = xmin - spansPt->x;
+! 			}
+! 			else
+! 			{
+! 			    if (!extra) {
+! 				DDXPointPtr newPt;
+! 				int	    *newwid;
+! 
+! #define EXTRA 8
+! 				newPt = (DDXPointPtr) xrealloc (spans->points, (spans->count + EXTRA) * sizeof (DDXPointRec));
+! 				if (!newPt)
+! 				    break;
+! 				spansPt = newPt + (spansPt - spans->points);
+! 				spans->points = newPt;
+! 				newwid = (int *) xrealloc (spans->widths, (spans->count + EXTRA) * sizeof (int));
+! 				if (!newwid)
+! 				    break;
+! 				spansWid = newwid + (spansWid - spans->widths);
+! 				spans->widths = newwid;
+! 				extra = EXTRA;
+! 			    }
+! 			    bcopy (spansPt, spansPt + 1, sizeof *spansPt * (spansCount));
+! 			    bcopy (spansWid, spansWid + 1, sizeof *spansWid * (spansCount));
+! 			    spans->count++;
+! 			    extra--;
+! 			    *spansWid = xmin - spansPt->x;
+! 			    spansWid++;
+! 			    spansPt++;
+! 			    *spansWid = *spansWid - (xmax - spansPt->x);
+! 			    spansPt->x = xmax;
+! 			}
+! 		    }
+! 		}
+! 		spansPt++;  spansWid++; spansCount--;
+! 	    }
+! 	}
+!     }
+! }
+!     
+! void miAppendSpans(spanGroup, otherGroup, spans)
+      SpanGroup   *spanGroup;
++     SpanGroup	*otherGroup;
+      Spans       *spans;
+  {
+!     register    int ymin, ymax;
+      register    int spansCount;
+  
+      spansCount = spans->count;
+***************
+*** 66,75 ****
+  
+  	spanGroup->group[spanGroup->count] = *spans;
+  	(spanGroup->count)++;
+! 	y = spans->points[0].y;
+! 	if (y < spanGroup->ymin) spanGroup->ymin = y;
+! 	y = spans->points[spansCount - 1].y;
+! 	if (y > spanGroup->ymax) spanGroup->ymax = y;
+      }
+      else
+      {
+--- 175,190 ----
+  
+  	spanGroup->group[spanGroup->count] = *spans;
+  	(spanGroup->count)++;
+! 	ymin = spans->points[0].y;
+! 	if (ymin < spanGroup->ymin) spanGroup->ymin = ymin;
+! 	ymax = spans->points[spansCount - 1].y;
+! 	if (ymax > spanGroup->ymax) spanGroup->ymax = ymax;
+! 	if (otherGroup &&
+! 	    otherGroup->ymin < ymax &&
+! 	    ymin < otherGroup->ymax)
+! 	{
+! 	    miSubtractSpans (otherGroup, spans);
+! 	}
+      }
+      else
+      {
+*** /tmp/da7171	Wed Feb 19 14:54:23 1992
+--- server/ddx/mi/mispans.h	Tue Dec 17 19:39:19 1991
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: mispans.h,v 5.0 89/11/05 13:52:39 rws Exp $ */
+  
+  typedef struct {
+      int         count;		/* number of spans		    */
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: mispans.h,v 5.1 91/12/17 19:39:14 keith Exp $ */
+  
+  typedef struct {
+      int         count;		/* number of spans		    */
+***************
+*** 40,47 ****
+  /* Initialize SpanGroup.  MUST BE DONE before use. */
+  extern void miInitSpanGroup(/* spanGroup */);
+  
+! /* Add a Spans to a SpanGroup.  The spans MUST BE in y-sorted order */
+! extern void miAppendSpans(/* spanGroup, spans */);
+  
+  /* Paint a span group, possibly with some overlap */
+  extern void miFillSpanGroup(/* spanGroup */);
+--- 40,47 ----
+  /* Initialize SpanGroup.  MUST BE DONE before use. */
+  extern void miInitSpanGroup(/* spanGroup */);
+  
+! /* Add a Spans to a SpanGroup. The spans MUST BE in y-sorted order */
+! extern void miAppendSpans(/* spanGroup, otherGroup, spans */);
+  
+  /* Paint a span group, possibly with some overlap */
+  extern void miFillSpanGroup(/* spanGroup */);
+***************
+*** 51,53 ****
+--- 51,57 ----
+  
+  /* Free up data in a span group.  MUST BE DONE or you'll suffer memory leaks */
+  extern void miFreeSpanGroup(/* spanGroup */);
++ 
++ /* Rops which must use span groups */
++ #define miSpansCarefulRop(rop)	(((rop) & 0xc) == 0x8 || ((rop) & 0x3) == 0x2)
++ #define miSpansEasyRop(rop)	(!miSpansCarefulRop(rop))
+*** /tmp/da7194	Wed Feb 19 14:54:33 1992
+--- server/ddx/mi/miwideline.c	Sat Jan 25 13:25:55 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: miwideline.c,v 1.45 91/11/20 15:33:19 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: miwideline.c,v 1.47 92/01/25 13:23:35 rws Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 162,175 ****
+      }
+      else
+      {
+- 	SpanGroup   *group;
+- 
+  	spanRec.count = ppt - spanRec.points;
+! 	if (pixel == pGC->fgPixel)
+! 	    group = &spanData->fgGroup;
+! 	else
+! 	    group = &spanData->bgGroup;
+! 	miAppendSpans (group, &spanRec);
+      }
+  }
+  
+--- 162,169 ----
+      }
+      else
+      {
+  	spanRec.count = ppt - spanRec.points;
+! 	AppendSpanGroup (pGC, pixel, &spanRec, spanData)
+      }
+  }
+  
+***************
+*** 238,248 ****
+  	    y++;
+  	}
+  	spanRec.count = ppt - spanRec.points;
+! 	if (pixel == pGC->fgPixel)
+! 	    group = &spanData->fgGroup;
+! 	else
+! 	    group = &spanData->bgGroup;
+! 	miAppendSpans (group, &spanRec);
+      }
+  }
+  
+--- 232,238 ----
+  	    y++;
+  	}
+  	spanRec.count = ppt - spanRec.points;
+! 	AppendSpanGroup (pGC, pixel, &spanRec, spanData)
+      }
+  }
+  
+***************
+*** 416,421 ****
+--- 406,445 ----
+  }
+  
+  static void
++ miLineOnePoint (pDrawable, pGC, pixel, spanData, x, y)
++     DrawablePtr	    pDrawable;
++     GCPtr	    pGC;
++     unsigned long   pixel;
++     SpanDataPtr	    spanData;
++     int		    x, y;
++ {
++     DDXPointRec pt;
++     int	    wid;
++     unsigned long	oldPixel;
++ 
++     MILINESETPIXEL (pDrawable, pGC, pixel, oldPixel);
++     if (pGC->fillStyle == FillSolid)
++     {
++ 	pt.x = x;
++ 	pt.y = y;
++ 	(*pGC->ops->PolyPoint) (pDrawable, pGC, CoordModeOrigin, 1, &pt);
++     }
++     else
++     {
++ 	wid = 1;
++ 	if (pGC->miTranslate) 
++ 	{
++ 	    x += pDrawable->x;
++ 	    y += pDrawable->y;
++ 	}
++ 	pt.x = x;
++ 	pt.y = y;
++ 	(*pGC->ops->FillSpans) (pDrawable, pGC, 1, &pt, &wid, TRUE);
++     }
++     MILINERESETPIXEL (pDrawable, pGC, pixel, oldPixel);
++ }
++ 
++ static void
+  miLineJoin (pDrawable, pGC, pixel, spanData, pLeft, pRight)
+      DrawablePtr	    pDrawable;
+      GCPtr	    pGC;
+***************
+*** 435,450 ****
+      int		    joinStyle = pGC->joinStyle;
+      int		    lw = pGC->lineWidth;
+  
+!     if (joinStyle == JoinRound)
+!     {
+! 	miLineArc(pDrawable, pGC, pixel, spanData,
+! 		  pLeft, pRight,
+! 		  (double)0.0, (double)0.0, TRUE);
+! 	return;
+      }
+-     denom = - pLeft->dx * pRight->dy + pRight->dx * pLeft->dy;
+-     if (denom == 0)
+- 	return;	/* no join to draw */
+  
+      swapslopes = 0;
+      if (denom > 0)
+--- 459,489 ----
+      int		    joinStyle = pGC->joinStyle;
+      int		    lw = pGC->lineWidth;
+  
+!     if (lw == 1 && !spanData) {
+! 	/* Lines going in the same direction have no join */
+! 	if (pLeft->dx >= 0 == pRight->dx <= 0)
+! 	    return;
+! 	if (joinStyle != JoinRound) {
+!     	    denom = - pLeft->dx * pRight->dy + pRight->dx * pLeft->dy;
+!     	    if (denom == 0)
+! 	    	return;	/* no join to draw */
+! 	}
+! 	if (joinStyle != JoinMiter) {
+! 	    miLineOnePoint (pDrawable, pGC, pixel, spanData, pLeft->x, pLeft->y);
+! 	    return;
+! 	}
+!     } else {
+!     	if (joinStyle == JoinRound)
+!     	{
+! 	    miLineArc(pDrawable, pGC, pixel, spanData,
+! 		      pLeft, pRight,
+! 		      (double)0.0, (double)0.0, TRUE);
+! 	    return;
+!     	}
+!     	denom = - pLeft->dx * pRight->dy + pRight->dx * pLeft->dy;
+!     	if (denom == 0)
+! 	    return;	/* no join to draw */
+      }
+  
+      swapslopes = 0;
+      if (denom > 0)
+***************
+*** 1029,1042 ****
+      }
+      else
+      {
+- 	SpanGroup   *group;
+- 
+  	spanRec.count = n;
+! 	if (pixel == pGC->fgPixel)
+! 	    group = &spanData->fgGroup;
+! 	else
+! 	    group = &spanData->bgGroup;
+! 	miAppendSpans (group, &spanRec);
+      }
+  }
+  
+--- 1068,1075 ----
+      }
+      else
+      {
+  	spanRec.count = n;
+! 	AppendSpanGroup (pGC, pixel, &spanRec, spanData)
+      }
+  }
+  
+***************
+*** 1428,1459 ****
+      SpanDataPtr	spanData;
+      int		npt;
+  {
+!     if (npt < 3 && pGC->capStyle != CapRound)
+  	return (SpanDataPtr) NULL;
+!     switch(pGC->alu)
+!     {
+!     case GXclear:	/* 0 */
+!     case GXand:		/* src AND dst */
+!     case GXcopy:	/* src */
+!     case GXandInverted:	/* NOT src AND dst */
+!     case GXnoop:	/* dst */
+!     case GXor:		/* src OR dst */
+!     case GXcopyInverted:/* NOT src */
+!     case GXorInverted:	/* NOT src OR dst */
+!     case GXset:		/* 1 */
+! 	spanData = (SpanDataPtr) NULL;
+! 	break;
+!     case GXandReverse:	/* src AND NOT dst */
+!     case GXxor:		/* src XOR dst */
+!     case GXnor:		/* NOT src AND NOT dst */
+!     case GXequiv:	/* NOT src XOR dst */
+!     case GXinvert:	/* NOT dst */
+!     case GXorReverse:	/* src OR NOT dst */
+!     case GXnand:	/* NOT src OR NOT dst */
+! 	if (pGC->lineStyle == LineDoubleDash)
+! 	    miInitSpanGroup (&spanData->bgGroup);
+! 	miInitSpanGroup (&spanData->fgGroup);
+!     }
+      return spanData;
+  }
+  
+--- 1461,1471 ----
+      SpanDataPtr	spanData;
+      int		npt;
+  {
+!     if (npt < 3 && pGC->capStyle != CapRound || miSpansEasyRop(pGC->alu))
+  	return (SpanDataPtr) NULL;
+!     if (pGC->lineStyle == LineDoubleDash)
+! 	miInitSpanGroup (&spanData->bgGroup);
+!     miInitSpanGroup (&spanData->fgGroup);
+      return spanData;
+  }
+  
+***************
+*** 1562,1571 ****
+  	    	if (selfJoin)
+  		    firstFace = leftFace;
+  	    	else if (pGC->capStyle == CapRound)
+! 		    miLineArc (pDrawable, pGC, pixel, spanData,
+! 			       &leftFace, (LineFacePtr) NULL,
+!  			       (double)0.0, (double)0.0,
+! 			       TRUE);
+  	    }
+  	    else
+  	    {
+--- 1574,1588 ----
+  	    	if (selfJoin)
+  		    firstFace = leftFace;
+  	    	else if (pGC->capStyle == CapRound)
+! 		{
+! 		    if (pGC->lineWidth == 1 && !spanData)
+! 			miLineOnePoint (pDrawable, pGC, pixel, spanData, x1, y1);
+! 		    else
+! 		    	miLineArc (pDrawable, pGC, pixel, spanData,
+! 			       	   &leftFace, (LineFacePtr) NULL,
+!  			       	   (double)0.0, (double)0.0,
+! 			       	   TRUE);
+! 		}
+  	    }
+  	    else
+  	    {
+***************
+*** 1582,1591 ****
+  		miLineJoin (pDrawable, pGC, pixel, spanData, &firstFace,
+  			    &rightFace);
+  	    else if (pGC->capStyle == CapRound)
+! 		miLineArc (pDrawable, pGC, pixel, spanData,
+! 			   (LineFacePtr) NULL, &rightFace,
+! 			   (double)0.0, (double)0.0,
+! 			   TRUE);
+  	}
+      }
+      /* handle crock where all points are coincedent */
+--- 1599,1613 ----
+  		miLineJoin (pDrawable, pGC, pixel, spanData, &firstFace,
+  			    &rightFace);
+  	    else if (pGC->capStyle == CapRound)
+! 	    {
+! 		if (pGC->lineWidth == 1 && !spanData)
+! 		    miLineOnePoint (pDrawable, pGC, pixel, spanData, x2, y2);
+! 		else
+! 		    miLineArc (pDrawable, pGC, pixel, spanData,
+! 			       (LineFacePtr) NULL, &rightFace,
+! 			       (double)0.0, (double)0.0,
+! 			       TRUE);
+! 	    }
+  	}
+      }
+      /* handle crock where all points are coincedent */
+***************
+*** 1991,2002 ****
+      Bool	    selfJoin;
+      Bool	    endIsFg, startIsFg, firstIsFg = FALSE, prevIsFg;
+  
+-     if (pGC->lineStyle == LineDoubleDash && 
+- 	(pGC->fillStyle == FillOpaqueStippled || pGC->fillStyle == FillTiled))
+-     {
+- 	miWideLine (pDrawable, pGC, mode, npt, pPts);
+- 	return;
+-     }
+      /* XXX backward compatibility */
+      if (pGC->lineWidth == 0)
+      {
+--- 2013,2018 ----
+***************
+*** 2003,2008 ****
+--- 2019,2030 ----
+  	miZeroDashLine (pDrawable, pGC, mode, npt, pPts);
+  	return;
+      }
++     if (pGC->lineStyle == LineDoubleDash && 
++ 	(pGC->fillStyle == FillOpaqueStippled || pGC->fillStyle == FillTiled))
++     {
++ 	miWideLine (pDrawable, pGC, mode, npt, pPts);
++ 	return;
++     }
+      if (npt == 0)
+  	return;
+      spanData = miSetupSpanData (pGC, &spanDataRec, npt);
+***************
+*** 2126,2132 ****
+  	    }
+  	}
+      }
+!     /* handle crock where all points are coincedent */
+      if (!somethingDrawn && (pGC->lineStyle == LineDoubleDash || !(dashIndex & 1)))
+      {
+  	/* not the same as endIsFg computation above */
+--- 2148,2154 ----
+  	    }
+  	}
+      }
+!     /* handle crock where all points are coincident */
+      if (!somethingDrawn && (pGC->lineStyle == LineDoubleDash || !(dashIndex & 1)))
+      {
+  	/* not the same as endIsFg computation above */
+***************
+*** 2135,2147 ****
+  	case CapRound:
+  	    miLineArc (pDrawable, pGC, pixel, spanData,
+  		       (LineFacePtr) NULL, (LineFacePtr) NULL,
+! 		       (double)x1, (double)y1,
+  		       FALSE);
+  	    break;
+  	case CapProjecting:
+! 	    x2 = pGC->lineWidth;
+  	    miFillRectPolyHelper (pDrawable, pGC, pixel, spanData,
+! 				  x1 - (x2 >> 1), y1 - (x2 >> 1), x2, x2);
+  	    break;
+  	}
+      }
+--- 2157,2169 ----
+  	case CapRound:
+  	    miLineArc (pDrawable, pGC, pixel, spanData,
+  		       (LineFacePtr) NULL, (LineFacePtr) NULL,
+! 		       (double)x2, (double)y2,
+  		       FALSE);
+  	    break;
+  	case CapProjecting:
+! 	    x1 = pGC->lineWidth;
+  	    miFillRectPolyHelper (pDrawable, pGC, pixel, spanData,
+! 				  x2 - (x1 >> 1), y2 - (x1 >> 1), x1, x1);
+  	    break;
+  	}
+      }
+*** /tmp/da7217	Wed Feb 19 14:54:44 1992
+--- server/ddx/mi/miwideline.h	Tue Dec 17 19:39:13 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: miwideline.h,v 1.7 90/11/19 15:16:41 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: miwideline.h,v 1.8 91/12/17 19:39:09 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 28,33 ****
+--- 28,49 ----
+  
+  extern SpanDataPtr  miSetupSpanData ();
+  
++ #define AppendSpanGroup(pGC, pixel, spanPtr, spanData) { \
++ 	SpanGroup   *group, *othergroup = NULL; \
++ 	if (pixel == pGC->fgPixel) \
++ 	{ \
++ 	    group = &spanData->fgGroup; \
++ 	    if (pGC->lineStyle == LineDoubleDash) \
++ 		othergroup = &spanData->bgGroup; \
++ 	} \
++ 	else \
++ 	{ \
++ 	    group = &spanData->bgGroup; \
++ 	    othergroup = &spanData->fgGroup; \
++ 	} \
++ 	miAppendSpans (group, othergroup, spanPtr); \
++ }
++ 
+  /*
+   * Polygon edge description for integer wide-line routines
+   */
+***************
+*** 111,116 ****
+--- 127,146 ----
+  	    	    	    right_x += right_signdx; \
+  	    	    	    right_e -= right_dy; \
+      	    	    	}
++ 
++ #define MILINESETPIXEL(pDrawable, pGC, pixel, oldPixel) { \
++     oldPixel = pGC->fgPixel; \
++     if (pixel != oldPixel) { \
++ 	DoChangeGC (pGC, GCForeground, (XID *) &pixel, FALSE); \
++ 	ValidateGC (pDrawable, pGC); \
++     } \
++ }
++ #define MILINERESETPIXEL(pDrawable, pGC, pixel, oldPixel) { \
++     if (pixel != oldPixel) { \
++ 	DoChangeGC (pGC, GCForeground, (XID *) &oldPixel, FALSE); \
++ 	ValidateGC (pDrawable, pGC); \
++     } \
++ }
+  
+  #ifdef NOINLINEICEIL
+  #define ICEIL(x) ((int)ceil(x))

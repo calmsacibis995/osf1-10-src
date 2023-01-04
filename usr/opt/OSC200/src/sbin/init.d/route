@@ -1,0 +1,91 @@
+#!/bin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: route,v $ $Revision: 1.1.9.2 $ (DEC) $Date: 1993/05/05 17:16:09 $
+# 
+
+# Get actual configuration 
+NUM_NETCONFIG=0;ROUTED=no;ROUTED_FLAGS=
+if [ -f /etc/rc.config ]; then
+       	. /etc/rc.config
+else
+       	echo "$0 ERROR: /etc/rc.config defaults file MISSING"
+	exit 1
+fi
+export NUM_NETCONFIG ROUTED ROUTED_FLAGS
+
+# if network not configured, just exit
+if [ "$NUM_NETCONFIG" = '' -o "$NUM_NETCONFIG" = 0 ]; then
+	exit 1
+fi
+
+#
+# start or stop route daemon
+#
+case $1 in
+'start')
+	if [ "$ROUTED" = 'yes' ]; then
+		if [ -f /usr/sbin/routed ]; then
+			pid=`/bin/ps -e | grep routed | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+			if [ "X$pid" = "X" ]; then
+				if /usr/sbin/routed $ROUTED_FLAGS; then
+					echo "route daemon started"
+				else
+					echo "$0: cannot start route daemon"
+					exit 1
+				fi
+			fi
+		else
+			echo "$0: /usr/sbin/routed does not exist"
+			exit 1
+		fi
+	fi
+	# static routes
+	if [ -f /usr/sbin/route ]; then
+		if [ -f /etc/routes ]; then
+			cat /etc/routes | while read line
+			do
+				/usr/sbin/route add $line
+			done
+		fi
+	else
+		echo "$0: /usr/sbin/route does not exist"
+		exit 1
+	fi
+        ;;
+'stop')
+	if [ -f /usr/sbin/routed ]; then
+		pid=`/bin/ps -e | grep routed | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+		if [ "X$pid" != "X" ]; then
+			/bin/kill $pid
+		fi
+	fi
+        ;;
+*)
+        echo "usage: $0 {start|stop}"
+	exit 1
+        ;;
+esac
+exit 0

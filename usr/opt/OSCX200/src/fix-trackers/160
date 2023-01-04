@@ -1,0 +1,417 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9202282347.AA02640@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2384) Close XBUG #4966: server: doesn't allow wrapping of screen saver functionality
+Date: Fri, 28 Feb 92 18:47:14 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4966
+### area:         server
+### severity:     enhancement
+### comments:     
+
+This is obviously the prelude to the proposal for a real screen saver
+extension; details to follow.
+
+I also just noticed that this patch also includes a small diff to window.c
+replacing more PixmapBytePad (..., 1) with BitmapBytePad.  Bob said he'd
+shipped all of the DIX patches for that out; guess he missed a few.  Sorry...
+
+*** /tmp/da2320	Fri Feb 28 18:37:51 1992
+--- server/dix/window.c	Mon Feb 24 13:10:24 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.81 92/01/09 19:32:06 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.84 92/02/13 21:24:16 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+***************
+*** 57,79 ****
+  static unsigned char _back_lsb[4] = {0x88, 0x22, 0x44, 0x11};
+  static unsigned char _back_msb[4] = {0x11, 0x44, 0x22, 0x88};
+  
+- typedef struct _ScreenSaverStuff {
+-     WindowPtr pWindow;
+-     XID       wid;
+-     BYTE      blanked;
+- } ScreenSaverStuffRec;
+- 
+- #define SCREEN_IS_BLANKED   0
+- #define SCREEN_ISNT_SAVED   1
+- #define SCREEN_IS_TILED     2
+- #define SCREEN_IS_BLACK	    3
+- 
+- #define HasSaverWindow(i)   (savedScreenInfo[i].pWindow != NullWindow)
+- 
+- extern int ScreenSaverBlanking, ScreenSaverAllowExposures;
+  int screenIsSaved = SCREEN_SAVER_OFF;
+  
+! static ScreenSaverStuffRec savedScreenInfo[MAXSCREENS];
+  
+  extern WindowPtr *WindowTable;
+  extern void (* ReplySwapVector[256]) ();
+--- 57,65 ----
+  static unsigned char _back_lsb[4] = {0x88, 0x22, 0x44, 0x11};
+  static unsigned char _back_msb[4] = {0x11, 0x44, 0x22, 0x88};
+  
+  int screenIsSaved = SCREEN_SAVER_OFF;
+  
+! ScreenSaverStuffRec savedScreenInfo[MAXSCREENS];
+  
+  extern WindowPtr *WindowTable;
+  extern void (* ReplySwapVector[256]) ();
+***************
+*** 558,564 ****
+      ScreenPtr pScreen = pWin->drawable.pScreen;
+      GCPtr pGC;
+      unsigned char back[128];
+!     int len = PixmapBytePad(4, 1);
+      register unsigned char *from, *to;
+      register int i, j;
+  
+--- 544,550 ----
+      ScreenPtr pScreen = pWin->drawable.pScreen;
+      GCPtr pGC;
+      unsigned char back[128];
+!     int len = BitmapBytePad(4);
+      register unsigned char *from, *to;
+      register int i, j;
+  
+***************
+*** 646,651 ****
+--- 632,638 ----
+  
+      savedScreenInfo[pScreen->myNum].pWindow = NULL;
+      savedScreenInfo[pScreen->myNum].wid = FakeClientID(0);
++     savedScreenInfo[pScreen->myNum].ExternalScreenSaver = NULL;
+      screenIsSaved = SCREEN_SAVER_OFF;
+  
+      WindowTable[pScreen->myNum] = pWin;
+***************
+*** 3981,3986 ****
+--- 3968,3974 ----
+  {
+      int i;
+      int what;
++     int type;
+  
+      if (on == SCREEN_SAVER_FORCER)
+      {
+***************
+*** 3987,4006 ****
+          if (mode == ScreenSaverReset)
+              what = SCREEN_SAVER_OFF;
+          else
+!            what = SCREEN_SAVER_ON;
+! 	if (what == screenIsSaved)
+!             return ;
+      }
+      else
+          what = on;
+      for (i = 0; i < screenInfo.numScreens; i++)
+      {
+          if (on == SCREEN_SAVER_FORCER)
+-         {
+             (* screenInfo.screens[i]->SaveScreen) (screenInfo.screens[i], on);
+!         }
+!         if (what == SCREEN_SAVER_OFF)
+!         {
+  	    if (savedScreenInfo[i].blanked == SCREEN_IS_BLANKED)
+  	    {
+  	       (* screenInfo.screens[i]->SaveScreen) (screenInfo.screens[i],
+--- 3975,4004 ----
+          if (mode == ScreenSaverReset)
+              what = SCREEN_SAVER_OFF;
+          else
+! 	    what = SCREEN_SAVER_ON;
+! 	type = what;
+      }
+      else
++     {
+          what = on;
++ 	type = what;
++ 	if (what == screenIsSaved)
++ 	    type = SCREEN_SAVER_CYCLE;
++     }
+      for (i = 0; i < screenInfo.numScreens; i++)
+      {
+          if (on == SCREEN_SAVER_FORCER)
+             (* screenInfo.screens[i]->SaveScreen) (screenInfo.screens[i], on);
+! 	if (savedScreenInfo[i].ExternalScreenSaver) 
+! 	{
+! 	    if ((*savedScreenInfo[i].ExternalScreenSaver) 
+! 		(screenInfo.screens[i], type, on == SCREEN_SAVER_FORCER))
+! 		continue;
+! 	}
+! 	if (type == screenIsSaved)
+! 	    continue;
+! 	switch (type) {
+! 	case SCREEN_SAVER_OFF:
+  	    if (savedScreenInfo[i].blanked == SCREEN_IS_BLANKED)
+  	    {
+  	       (* screenInfo.screens[i]->SaveScreen) (screenInfo.screens[i],
+***************
+*** 4011,4046 ****
+                  savedScreenInfo[i].pWindow = NullWindow;
+      	        FreeResource(savedScreenInfo[i].wid, RT_NONE);
+  	    }
+! 	    continue;
+!         }
+!         else if (what == SCREEN_SAVER_ON)
+!         {
+!             if (screenIsSaved == SCREEN_SAVER_ON)  /* rotate pattern */
+!             {
+! 		if (savedScreenInfo[i].blanked == SCREEN_IS_TILED)
+! 	        {
+! 		    WindowPtr pWin = savedScreenInfo[i].pWindow;
+! 		    /* make it look like screen saver is off, so that
+! 		     * NotClippedByChildren will compute a clip list
+! 		     * for the root window, so miPaintWindow works
+! 		     */
+! 		    screenIsSaved = SCREEN_SAVER_OFF;
+  #ifndef NOLOGOHACK
+! 		    if (logoScreenSaver)
+! 			(*pWin->drawable.pScreen->ClearToBackground)(pWin, 0, 0, 0, 0, FALSE);
+  #endif
+! 	            MoveWindow(pWin,
+! 			       (short)(-(rand() % RANDOM_WIDTH)),
+! 			       (short)(-(rand() % RANDOM_WIDTH)),
+! 		               pWin->nextSib, VTMove);
+  #ifndef NOLOGOHACK
+! 		    if (logoScreenSaver)
+! 			DrawLogo(pWin);
+  #endif
+! 		    screenIsSaved = SCREEN_SAVER_ON;
+! 		}
+! 		continue;
+  	    }
+              if (ScreenSaverBlanking != DontPreferBlanking)
+  	    {
+      	    	if ((* screenInfo.screens[i]->SaveScreen)
+--- 4009,4040 ----
+                  savedScreenInfo[i].pWindow = NullWindow;
+      	        FreeResource(savedScreenInfo[i].wid, RT_NONE);
+  	    }
+! 	    break;
+! 	case SCREEN_SAVER_CYCLE:
+! 	    if (savedScreenInfo[i].blanked == SCREEN_IS_TILED)
+! 	    {
+! 		WindowPtr pWin = savedScreenInfo[i].pWindow;
+! 		/* make it look like screen saver is off, so that
+! 		 * NotClippedByChildren will compute a clip list
+! 		 * for the root window, so miPaintWindow works
+! 		 */
+! 		screenIsSaved = SCREEN_SAVER_OFF;
+  #ifndef NOLOGOHACK
+! 		if (logoScreenSaver)
+! 		    (*pWin->drawable.pScreen->ClearToBackground)(pWin, 0, 0, 0, 0, FALSE);
+  #endif
+! 		MoveWindow(pWin,
+! 			   (short)(-(rand() % RANDOM_WIDTH)),
+! 			   (short)(-(rand() % RANDOM_WIDTH)),
+! 			   pWin->nextSib, VTMove);
+  #ifndef NOLOGOHACK
+! 		if (logoScreenSaver)
+! 		    DrawLogo(pWin);
+  #endif
+! 		screenIsSaved = SCREEN_SAVER_ON;
+  	    }
++ 	    break;
++ 	case SCREEN_SAVER_ON:
+              if (ScreenSaverBlanking != DontPreferBlanking)
+  	    {
+      	    	if ((* screenInfo.screens[i]->SaveScreen)
+***************
+*** 4063,4068 ****
+--- 4057,4063 ----
+  	    }
+              else
+  	        savedScreenInfo[i].blanked = SCREEN_ISNT_SAVED;
++ 	    break;
+  	}
+      }
+      screenIsSaved = what;
+***************
+*** 4117,4124 ****
+      cm.height=16;
+      cm.xhot=8;
+      cm.yhot=8;
+!     srcbits = (unsigned char *)xalloc( PixmapBytePad(32, 1)*16);
+!     mskbits = (unsigned char *)xalloc( PixmapBytePad(32, 1)*16);
+      if (!srcbits || !mskbits)
+      {
+  	xfree(srcbits);
+--- 4112,4119 ----
+      cm.height=16;
+      cm.xhot=8;
+      cm.yhot=8;
+!     srcbits = (unsigned char *)xalloc( BitmapBytePad(32)*16);
+!     mskbits = (unsigned char *)xalloc( BitmapBytePad(32)*16);
+      if (!srcbits || !mskbits)
+      {
+  	xfree(srcbits);
+***************
+*** 4127,4133 ****
+      }
+      else
+      {
+! 	for (j=0; j<PixmapBytePad(32, 1)*16; j++)
+  	    srcbits[j] = mskbits[j] = 0x0;
+  	cursor = AllocCursor(srcbits, mskbits, &cm, 0, 0, 0, 0, 0, 0);
+  	if (cursor)
+--- 4122,4128 ----
+      }
+      else
+      {
+! 	for (j=0; j<BitmapBytePad(32)*16; j++)
+  	    srcbits[j] = mskbits[j] = 0x0;
+  	cursor = AllocCursor(srcbits, mskbits, &cm, 0, 0, 0, 0, 0, 0);
+  	if (cursor)
+***************
+*** 4168,4179 ****
+  	return FALSE;
+  
+      if (mask & CWBackPixmap)
+!     {
+! 	pWin->backgroundState = BackgroundPixmap;
+! 	pWin->background.pixmap = pWin->parent->background.pixmap;
+! 	pWin->background.pixmap->refcnt++;
+! 	(*pWin->drawable.pScreen->ChangeWindowAttributes)(pWin, CWBackPixmap);
+!     }
+  
+      MapWindow(pWin, serverClient);
+  #ifndef NOLOGOHACK
+--- 4163,4169 ----
+  	return FALSE;
+  
+      if (mask & CWBackPixmap)
+! 	MakeRootTile (pWin);
+  
+      MapWindow(pWin, serverClient);
+  #ifndef NOLOGOHACK
+*** /tmp/da2347	Fri Feb 28 18:38:46 1992
+--- server/include/os.h	Thu Feb 13 15:57:47 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: os.h,v 1.44 91/07/18 23:01:12 keith Exp $ */
+  
+  #ifndef OS_H
+  #define OS_H
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: os.h,v 1.46 92/02/13 15:57:26 keith Exp $ */
+  
+  #ifndef OS_H
+  #define OS_H
+***************
+*** 37,42 ****
+--- 37,43 ----
+  #define SCREEN_SAVER_ON   0
+  #define SCREEN_SAVER_OFF  1
+  #define SCREEN_SAVER_FORCER 2
++ #define SCREEN_SAVER_CYCLE  3
+  
+  #ifndef MAX_REQUEST_SIZE
+  #define MAX_REQUEST_SIZE 65535
+*** /tmp/da2370	Fri Feb 28 18:38:54 1992
+--- server/include/windowstr.h	Thu Feb 13 15:54:29 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: windowstr.h,v 5.13 89/10/04 10:27:15 rws Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: windowstr.h,v 5.14 92/02/13 15:54:18 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 170,174 ****
+  extern RegionPtr NotClippedByChildren();
+  extern void SendVisibilityNotify();
+  
+! #endif /* WINDOWSTRUCT_H */
+  
+--- 170,192 ----
+  extern RegionPtr NotClippedByChildren();
+  extern void SendVisibilityNotify();
+  
+! typedef struct _ScreenSaverStuff {
+!     WindowPtr pWindow;
+!     XID       wid;
+!     char      blanked;
+!     Bool      (*ExternalScreenSaver)();	
+! } ScreenSaverStuffRec, *ScreenSaverStuffPtr;
+  
++ #define SCREEN_IS_BLANKED   0
++ #define SCREEN_ISNT_SAVED   1
++ #define SCREEN_IS_TILED     2
++ #define SCREEN_IS_BLACK	    3
++ 
++ #define HasSaverWindow(i)   (savedScreenInfo[i].pWindow != NullWindow)
++ 
++ extern int ScreenSaverBlanking, ScreenSaverAllowExposures;
++ extern int screenIsSaved;
++ 
++ extern ScreenSaverStuffRec savedScreenInfo[MAXSCREENS];
++ 
++ #endif /* WINDOWSTRUCT_H */
+*** /tmp/da2579	Fri Feb 28 18:42:09 1992
+--- server/os/connection.c	Wed Feb 12 19:15:45 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.142 91/12/17 21:21:11 rws Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.143 92/02/12 19:15:31 keith Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+***************
+*** 135,141 ****
+  static int SavedAllClients[mskcnt];
+  static int SavedAllSockets[mskcnt];
+  static int SavedClientsWithInput[mskcnt];
+! static int GrabInProgress = 0;
+  
+  int ConnectionTranslation[MAXSOCKS];
+  extern ClientPtr NextAvailableClient();
+--- 135,141 ----
+  static int SavedAllClients[mskcnt];
+  static int SavedAllSockets[mskcnt];
+  static int SavedClientsWithInput[mskcnt];
+! int GrabInProgress = 0;
+  
+  int ConnectionTranslation[MAXSOCKS];
+  extern ClientPtr NextAvailableClient();

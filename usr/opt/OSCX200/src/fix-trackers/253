@@ -1,0 +1,190 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204151953.AA26396@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2479) close XBUG #4762, #4272, #4410: Speedo fails at tiny sizes, open font err handling
+Date: Wed, 15 Apr 92 15:53:37 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: Speedo generation fails at tiny sizes
+        ### bug number:   4762
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     see also #4272 and #4410
+        ###               also fixes bugs in the error handling of
+        ###               load_sp_font()/open_sp_font().
+
+        Subject: Speedo: selecting small scaled font freezes X server
+        ### bug number:   4272
+        ### area:         fontlib
+        ### severity:     low
+
+        Subject: Speedo: fs drops core when scaling Speedo to pxlsz 1
+        ### bug number:   4410
+        ### area:         fontlib
+        ### severity:     low
+
+*** /tmp/da26285	Wed Apr 15 15:48:04 1992
+--- fonts/lib/font/Speedo/spfont.c	Wed Apr 15 14:38:23 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfont.c,v 1.14 92/03/25 18:45:48 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfont.c,v 1.15 92/04/15 14:37:12 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 22,30 ****
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   *
+   * Author: Dave Lemke, Network Computing Devices Inc
+-  *
+-  * $NCDId: @(#)spfont.c,v 4.9 1991/07/02 17:01:30 lemke Exp $
+-  *
+   */
+  
+  /*
+--- 22,27 ----
+***************
+*** 652,662 ****
+--- 649,663 ----
+      spf->entry = entry;
+      spmf->refcount++;
+      sp_reset_master(spmf);
++     /* now we've done enough that if we bail out we must call close_sp_font */
+  
+      /* tear apart name to get sizes */
+      strcpy(tmpname, fontname);
+      if (!FontParseXLFDName(tmpname, &vals, FONT_XLFD_REPLACE_NONE))
++     {
++ 	close_sp_font(spf);
+  	return BadFontName;
++     }
+  
+      fixup_vals(&vals);
+      if (vals.point > 0)
+***************
+*** 684,699 ****
+      specs.flags = MODE_SCREEN;
+      specs.out_info = NULL;
+  
+      /* clobber global state to avoid wrecking future obliqued fonts */
+      bzero ((char *) &sp_globals, sizeof(sp_globals));
+  
+      if (!sp_set_specs(&specs))
+  	return BadFontName;
+  
+      spf->specs = specs;
+-     *spfont = spf;
+      spf->master = spmf;
+  
+      return Successful;
+  }
+  
+--- 685,716 ----
+      specs.flags = MODE_SCREEN;
+      specs.out_info = NULL;
+  
++     /* When Speedo tries to generate a very small font bitmap, it
++        often crashes or goes into an infinite loop.
++        Don't know why this is so, but until we can fix it properly,
++        return BadFontName for anything smaller than 4 pixels.
++        */
++ #define TINY_FACTOR (4 << 16)
++     /* XXX may have to do more tweaking for ROTATED_TEXT */
++     if (specs.xxmult < TINY_FACTOR  ||  specs.yymult < TINY_FACTOR)
++     {
++ 	close_sp_font(spf);
++ 	return BadFontName;
++     }
++ 
+      /* clobber global state to avoid wrecking future obliqued fonts */
+      bzero ((char *) &sp_globals, sizeof(sp_globals));
+  
+      if (!sp_set_specs(&specs))
++     {
++ 	close_sp_font(spf);
+  	return BadFontName;
++     }
+  
+      spf->specs = specs;
+      spf->master = spmf;
+  
++     *spfont = spf;
+      return Successful;
+  }
+  
+***************
+*** 713,718 ****
+--- 730,738 ----
+      int         ret;
+  
+      ret = open_sp_font(fontname, filename, entry, format, fmask, flags, &spf);
++ 
++     if (ret != Successful)
++ 	return ret;
+  
+      spmf = spf->master;
+      sp_reset_master(spmf);
+*** /tmp/da26304	Wed Apr 15 15:48:06 1992
+--- fonts/lib/font/Speedo/spfuncs.c	Wed Apr 15 14:37:08 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfuncs.c,v 1.6 92/04/09 18:13:45 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfuncs.c,v 1.7 92/04/15 14:35:48 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 22,30 ****
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   *
+   * Author: Dave Lemke, Network Computing Devices, Inc
+-  *
+-  * $NCDId: @(#)spfuncs.c,v 4.8 1991/07/02 17:01:44 lemke Exp $
+-  *
+   */
+  
+  #include	<X11/Xos.h>
+--- 22,27 ----
+***************
+*** 72,79 ****
+  
+      err = open_sp_font(fontname, filename, entry,
+  	       (fsBitmapFormat) 0, (fsBitmapFormatMask) 0, (unsigned long) 0,
+! 		       spfont);
+!     spf = *spfont;
+  
+      if (err != Successful)
+  	return err;
+--- 69,75 ----
+  
+      err = open_sp_font(fontname, filename, entry,
+  	       (fsBitmapFormat) 0, (fsBitmapFormatMask) 0, (unsigned long) 0,
+! 		       &spf);
+  
+      if (err != Successful)
+  	return err;
+***************
+*** 89,94 ****
+--- 85,92 ----
+  
+      /* compute remaining accelerators */
+      FontComputeInfoAccelerators (pinfo);
++ 
++     *spfont = spf;
+  
+      return Successful;
+  }

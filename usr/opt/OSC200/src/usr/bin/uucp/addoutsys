@@ -1,0 +1,1139 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#	addoutsys
+#
+#	*****************************************************************
+#	*                                                               *
+#	*    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+#	*                                                               *
+#	*   All Rights Reserved.  Unpublished rights  reserved  under   *
+#	*   the copyright laws of the United States.                    *
+#	*                                                               *
+#	*   The software contained on this media  is  proprietary  to   *
+#	*   and  embodies  the  confidential  technology  of  Digital   *
+#	*   Equipment Corporation.  Possession, use,  duplication  or   *
+#	*   dissemination of the software and media is authorized only  *
+#	*   pursuant to a valid written license from Digital Equipment  *
+#	*   Corporation.                                                *
+#	*                                                               *
+#	*   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+#	*   by the U.S. Government is subject to restrictions  as  set  *
+#	*   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+#	*   or  in  FAR 52.227-19, as applicable.                       *
+#	*                                                               *
+#	*****************************************************************
+#
+
+STDSIGS="1 2 3 15"
+trap '' $STDSIGS  # till we setup fault handler
+BC='\c'
+
+
+#DEBUG=y ; export DEBUG
+case "$DEBUG" in
+y)
+	MYROOT="/usr/staff/xxx"; UULIB=$MYROOT
+	UUHOME=$MYROOT/spool/uucppublic ; UUSPOOL=$MYROOT/spool/uucp
+	NULL=$MYROOT/dev/null
+	;;
+*)
+	UULIB=/usr/lib/uucp ; UUHOME=/usr/spool/uucppublic
+	UUSPOOL=/usr/spool/uucp ; NULL=/dev/null
+	;;
+esac
+MYNAME=$UULIB/addoutsys
+ODEVICES=$UULIB/Devices
+OSYSTEMS=$UULIB/Systems
+ODCODES=$UULIB/Dialcodes
+
+PATH="$UULIB:/bin:/etc:/usr/bin:";export PATH
+HOSTNAME=`hostname`
+UNAME=`uuname -l`
+readonly UULIB UUHOME UUSPOOL PATH
+
+MSG_SKIPPED="
+System skipped...
+"
+MSG_ALREADYEXISTS="
+This system is already in the SYSTEMS file.  Do you wish to:
+
+	1.	Skip this system and continue on to another.
+	2.	Exit. "
+
+## Fault routines ##
+REPEATORDIE='
+	echo " 
+Interrupt !!!  "$BC
+	while :
+	do
+echo "Enter \"q\" to quit [q]: "$BC
+	read buff
+	case "$buff" in
+	q|"")
+		exit 5
+		;;
+	esac
+	done
+'
+IGNORE=':'
+# Setup fault handler
+ONINTR=$REPEATORDIE
+trap 'eval "$ONINTR"' $STDSIGS
+: ${ADDEDSYSTEM=""}
+: ${ne=ne}  ${a=a}  # plays tricks with the next sentence
+export ne a ADDEDSYSTEM
+
+echo
+echo "******************************************************"
+echo
+
+while :
+do
+# Needed for checking if the Devices file has any entries or not.
+NO_MODEM="no"
+NO_NETWORK="no"
+NO_DIRECT="no"
+SKIP="n" DOIT= PRE_PHONE= ENTRY_PHONE= ENTRY_DCODE= PHONE=
+EXPECT_SEND= 
+NEW_CASE=${NEW_CASE:=no}
+LINK=${LINK:=no}
+LINK_TCP=${LINK_TCP:=no}
+OUT=${OUT:=yes}
+ONLY_TCP=${ONLY_TCP:=no}
+GOOUT="no"	
+
+# See what speeds are available
+SPEEDS=`awk '$1 == "ACU" {print $4}' $ODEVICES 2>$NULL` || {
+	echo "$0: Can't open $ODEVICES" ; exit 2
+}
+
+case "$SPEEDS" in
+"")	NO_MODEM="yes"
+	;;
+esac
+
+if [ $NO_MODEM = "no" ]
+then
+	MODEM_NAME=`awk '$1 == "ACU" {print $5}' $ODEVICES 2>$NULL` 
+fi
+
+# See if NETWORK is available(Checking for TCP) 
+	SPNETWK=`awk '$1 == "TCP" {print $4}' $ODEVICES 2>$NULL` || {
+	echo "$0: Can't open $ODEVICES" ; exit 2
+	}
+	case "$SPNETWK" in
+	"")	NO_NETWORK="yes"
+		;;
+	esac
+
+# See if Direct is available
+	SPDIRWK=`awk '$1 == "Direct" {print $4}' $ODEVICES 2>$NULL` || {
+	echo "$0: Can't open $ODEVICES" ; exit 2
+	}
+	case "$SPDIRWK" in
+	"")	NO_DIRECT="yes"
+		;;
+	esac
+
+# *****************************************************************
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "yes" ] && [ $NO_DIRECT = "yes" ]
+then
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have only modem(s) configured for use with uucp."
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	echo "The modem(s) configured is(are): "
+	echo $MODEM_NAME
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	echo
+	LINK="MODEM"
+fi
+
+if [ $NO_MODEM = "yes" ] && [ $NO_NETWORK = "no" ] && [ $NO_DIRECT = "yes" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have only Network(TCP) configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	LINK="TCP"
+	ONLY_TCP="yes"
+fi
+
+if [ $NO_MODEM = "yes" ] && [ $NO_NETWORK = "yes" ] && [ $NO_DIRECT = "no" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have only Direct line configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	NEW_CASE="Direct"
+fi
+
+
+if [ $NO_MODEM = "yes" ] && [ $NO_NETWORK = "yes" ] && [ $NO_DIRECT = "yes" ]
+then
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have no modem(s) ,Network(TCP) and Direct line(s) configured for use with uucp. "
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo 
+	echo  "CONFIGURE HARDWIRED CONNECTIONS FIRST.... "
+	echo 
+	exit 1
+fi	
+
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "no" ] && [ $NO_DIRECT = "no" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have modem(s), direct line(s) and TCP configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	echo "The modem(s) configured is(are): "
+	echo $MODEM_NAME
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+fi
+
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "yes" ] && [ $NO_DIRECT = "no" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have both modem(s) and direct line(s) configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	echo "The modem(s) configured is(are): "
+	echo $MODEM_NAME
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	LINK="MODEM_Direct"
+fi
+
+if [ $NO_MODEM = "yes" ] && [ $NO_NETWORK = "no" ] && [ $NO_DIRECT = "no" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have both direct line(s) and TCP configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	LINK="TCP_Direct"
+fi
+
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "no" ] && [ $NO_DIRECT = "yes" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "You have both modem(s) and TCP configured for use with uucp."
+	echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	echo "The modem(s) configured is(are): "
+	echo $MODEM_NAME
+	echo "+++++++++++++++++++++++++++++++++++++++++"
+	LINK="MODEM_TCP"
+fi
+# *****************************************************************
+	echo
+	echo
+	echo  "------------------------------"
+	echo  "OUTGOING SYSTEMS CONFIGURATION"
+	echo  "------------------------------"
+	while :
+	do
+	echo  "I. Enter the name of a remote system,
+
+press RETURN if none: "$BC
+	read RSYSTEM
+		case $RSYSTEM in
+		"")	echo
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			echo "End of Outgoing Systems Configuration"
+			echo "++++++++++++++++++++++++++++++++++++++++"
+			exit 1
+		esac
+		numchars=`echo "$RSYSTEM"|wc -c`
+		set - $numchars; numchars=$1
+		echo
+		case "$numchars" in
+		[2-8])	break #ok
+			;;
+		9)	break
+			;;
+		10)	break
+			;;
+		11)	break
+			;;
+		12)	break
+			;;
+		13)	break
+			;;
+		14)	break
+			;;
+		15)	break
+			;;
+		*)
+			echo "
+The remote system name must not be greater than fourteen characters.
+"
+			;;
+		esac
+	done
+# *****************************************************************
+
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "no" ] && [ $NO_DIRECT = "no" ]
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo 
+	echo  "What is the mode of the connection?"
+	echo 
+	echo  "The choices are: "
+	echo 
+	echo  "1. MODEM "
+	echo 
+	echo  "2. TCP "
+	echo  
+	echo  "3. Direct "
+	echo  "
+Please enter the number of your selection (1/2/3):  "$BC
+	read VAR
+		case "$VAR" in
+		1) LINK="MODEM"
+		   break
+		   ;;
+		2) LINK="TCP"
+		   while :
+		   do		
+		   echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		   echo  "What is the TCP/IP conversation protocol ?"
+		   echo 
+		   echo  "The four choices are:"
+		   echo 
+ 		   echo  "1. g protocol: This is the default and provides error checking."
+		   echo 
+	 	   echo  "2. t protocol: This presumes an error-free channel and thus it is not reliablefor use with modem connections"
+		   echo 
+		   echo  "3. e protocol: This is used to communicate with sites running both OSF/1 and non OSF/1 versions of uucp."
+		   echo 
+		   echo  "4. f protocol:"
+		   echo 
+		   echo  "Enter your choice number (1/2/3/4) [1]: " $BC
+		   read ANS
+                   case "$ANS" in
+		   1|"") LINK_TCP="TCP"
+                      break
+                      ;;
+                   2) LINK_TCP="TCP,t"
+                      break
+                      ;;
+                   3) LINK_TCP="TCP,e"
+                      break
+                      ;;
+                   4) LINK_TCP="TCP,f"
+                      break
+                      ;;
+		   *) continue
+			;;
+		   esac
+		   done
+		   break
+		   ;;
+		3) NEW_CASE="Direct"
+			break;
+			;;
+		*) continue
+		   ;;
+		esac
+	done
+# *****************************************************************
+else
+if [ $NO_MODEM = "no" ] && [ $NO_NETWORK = "no" ] 
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo 
+	echo  "What is the mode of the connection?"
+	echo 
+	echo  "The choices are: "
+	echo 
+	echo  "1. MODEM "
+	echo 
+	echo  "2. TCP "
+	echo  "
+Please enter the number of your selection (1/2):  "$BC
+	read VAR
+		case "$VAR" in
+		1) LINK="MODEM"
+		   break
+		   ;;
+		2) LINK="TCP"
+		   while :
+		   do		
+		   echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		   echo  "What is the TCP/IP conversation protocol ?"
+		   echo 
+		   echo  "The four choices are:"
+		   echo 
+ 		   echo  "1. g protocol: This is the default and provides error checking."
+		   echo 
+	 	   echo  "2. t protocol: This presumes an error-free channel and thus it is not reliablefor use with modem connections"
+		   echo 
+		   echo  "3. e protocol: This is used to communicate with sites running both OSF/1 and non OSF/1 versions of uucp."
+		   echo 
+		   echo  "4. f protocol:"
+		   echo 
+		   echo  "Enter your choice number (1/2/3/4) [1]: " $BC
+		   read ANS
+                   case "$ANS" in
+		   1|"") LINK_TCP="TCP"
+                      break
+                      ;;
+                   2) LINK_TCP="TCP,t"
+                      break
+                      ;;
+                   3) LINK_TCP="TCP,e"
+                      break
+                      ;;
+                   4) LINK_TCP="TCP,f"
+                      break
+                      ;;
+		   *) continue
+			;;
+		   esac
+		   done
+		   break
+		   ;;
+		*) continue
+		   ;;
+		esac
+	done
+#**************************************************************************
+else
+if [ $NO_DIRECT = "no" ] && [ $NO_NETWORK = "no" ] 
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo 
+	echo  "What is the mode of the connection?"
+	echo 
+	echo  "The choices are: "
+	echo 
+	echo  "1. DIRECT "
+	echo 
+	echo  "2. TCP "
+	echo  "
+Please enter the number of your selection (1/2):  "$BC
+	read VAR
+		case "$VAR" in
+		1) NEW_CASE="Direct"
+		   break
+			;;
+		2) LINK="TCP"
+		   while :
+		   do		
+		   echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		   echo  "What is the TCP/IP conversation protocol ?"
+		   echo 
+		   echo  "The four choices are:"
+		   echo 
+ 		   echo  "1. g protocol: This is the default and provides error checking."
+		   echo 
+	 	   echo  "2. t protocol: This presumes an error-free channel and thus it is not reliablefor use with modem connections"
+		   echo 
+		   echo  "3. e protocol: This is used to communicate with sites running both OSF/1 and non OSF/1 versions of uucp."
+		   echo 
+		   echo  "4. f protocol:"
+		   echo 
+		   echo  "Enter your choice number (1/2/3/4) [1]: " $BC
+		   read ANS
+                   case "$ANS" in
+		   1|"") LINK_TCP="TCP"
+                      break
+                      ;;
+                   2) LINK_TCP="TCP,t"
+                      break
+                      ;;
+                   3) LINK_TCP="TCP,e"
+                      break
+                      ;;
+                   4) LINK_TCP="TCP,f"
+                      break
+                      ;;
+		   *) continue
+			;;
+		   esac
+		   done
+		   break
+		   ;;
+		*) continue
+		   ;;
+		esac
+	done
+#*************************************************************************
+else
+if [ $NO_DIRECT = "no" ] && [ $NO_MODEM = "no" ] 
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo 
+	echo  "What is the mode of the connection?"
+	echo 
+	echo  "The choices are: "
+	echo 
+	echo  "1. DIRECT "
+	echo 
+	echo  "2. MODEM "
+	echo  "
+Please enter the number of your selection (1/2):  "$BC
+	read VAR
+		case "$VAR" in
+		1) NEW_CASE="Direct"
+		   break
+			;;
+		2) LINK="MODEM"
+		   break
+			;;
+		*) continue
+		   ;;
+		esac
+	done
+fi
+fi
+fi
+fi
+#*************************************************************************
+if [ $ONLY_TCP = "yes" ]
+then
+		 while :
+		   do		
+		   echo  "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		   echo  "What is the TCP/IP conversation protocol ?"
+		   echo 
+		   echo  "The four choices are:"
+		   echo 
+ 		   echo  "1. g protocol: This is the default and provides error checking."
+		   echo 
+	 	   echo  "2. t protocol: This presumes an error-free channel and thus it is not reliablefor use with modem connections"
+		   echo 
+		   echo  "3. e protocol: This is used to communicate with sites running both OSF/1 and non OSF/1 versions of uucp."
+		   echo 
+		   echo  "4. f protocol:"
+		   echo 
+		   echo  "Enter your choice number (1/2/3/4) [1]: " $BC
+		   read ANS
+                   case "$ANS" in
+		   1|"") LINK_TCP="TCP"
+                      break
+                      ;;
+                   2) LINK_TCP="TCP,t"
+                      break
+                      ;;
+                   3) LINK_TCP="TCP,e"
+                      break
+                      ;;
+                   4) LINK_TCP="TCP,f"
+                      break
+                      ;;
+		   *) continue
+			;;
+		   esac
+		done
+fi
+
+#***************************************************************************
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo "
+Next you must enter the times when your system is ALLOWED to call $RSYSTEM.
+The four selections are:
+
+	1   Any time of any day
+	2   Evenings (Mon-Fri 5pm - 8am, Sat & Sun all day )
+	3   Nights   (Mon-Fri 11pm - 8am,  Sat all day  &  Sun until 5pm)
+	4   Never"
+	# This next part doesn't cause the remote system to
+	#  be polled. It only sets up the times uucp is ALLOWED
+	#  to call the remote system. 
+	while :
+	do
+		echo  "
+Please enter the number of your selection (1/2/3/4) [1]: "$BC
+
+		read JUNK
+		case "$JUNK" in
+		1|"")	TIME=Any 
+			TIMEMSG="Any time of any day"
+			;;
+		2)	TIME="Sa|Su|Wk1705-2359|Wk0000-0755"
+		      	TIMEMSG="Evenings (Mon-Fri 5pm - 8am, Sat & Sun all day )"
+			;;
+		3)	TIME="Sa|Su0000-1655|Wk2305-2359|Wk0000-0755"
+			TIMEMSG="Nights   (Mon-Fri 11pm - 8am,  
+				 Sat all day  &  Sun until 5pm)"
+			;;
+		4)	TIME=Never
+			TIMEMSG="Never"
+			;;
+		*)	
+			continue
+			;;
+		esac
+		break
+	done	# while :
+# *****************************************************************
+
+# Setting up the CALLER field"
+if [ $LINK = "MODEM" ]
+then
+	CALLER="ACU"
+else
+if [ $LINK = "TCP" ]
+then
+	CALLER="$LINK_TCP"
+else
+if [ $NEW_CASE = "Direct" ]
+then
+	CALLER="$RSYSTEM"
+fi
+fi
+fi
+# *****************************************************************
+# Get the BAUD RATE only for MODEM config.
+if [ $LINK = "TCP" ]
+then
+	CLASS="-"
+else
+if [ $LINK = "MODEM" ]
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "Select the option for the BAUD RATE(transmission speed)"
+	echo  "
+
+There are two options:
+
+	1. Select a BAUD RATE.
+
+	2. Select this option if the device can be used at any speed. 
+"
+			echo  "
+Please enter the number of your selection (1/2) [2]: "$BC
+
+		read CLASS_OPT
+		case "$CLASS_OPT" in
+		1)	while :
+			do
+				echo
+				echo "Enter the baud rate:" $BC
+				read CLASS
+				if [ "$CLASS" != "" ]
+				then
+					echo $SPEEDS | grep -ws $CLASS > $NULL
+					if [ $? != 0 ]
+					then
+						echo "-------------------------------------------"
+						echo "This baud rate is not acceptable."
+						echo
+						echo "Enter the baud rate from the following list: "
+						echo
+						echo "The available baud rate is(are): " $SPEEDS
+						echo "------------------------------------------"
+					else
+						break
+					fi
+				fi
+			done
+			;;
+		2|"") CLASS="Any"
+			;;
+		*) continue
+			;;
+		esac
+	break
+	done
+else
+if [ $NEW_CASE = "Direct" ]
+then
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "Enter the BAUD RATE(transmission speed):" $BC
+	read CLASS
+	if [ "$CLASS" != "" ]
+	then
+
+# See what speed is available for Direct line
+DIR_SPEEDS=`awk '$1 == "Direct" {print $4}' $ODEVICES 2>$NULL` || {
+	echo "$0: Can't open $ODEVICES" ; exit 2
+}
+		echo $DIR_SPEEDS | grep -ws $CLASS > $NULL
+		if [ $? != 0 ]
+		then
+			echo "-------------------------------------------"
+			echo "This baud rate is not acceptable."
+			echo
+			echo "Enter the baud rate from the following: "
+			echo
+			echo "The available baud rate is: " $DIR_SPEEDS
+			echo "------------------------------------------"
+		else
+			break
+		fi
+	fi
+	done
+fi # direct
+fi #modem
+fi #tcp
+# *****************************************************************
+	# Get the phone for MODEM #.
+if [ $LINK = "TCP" ] || [ $NEW_CASE = "Direct" ]
+then
+	PHONE_NUM="-"
+else
+	while : # eternally
+	do
+		echo 
+		echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++"
+		echo  "Enter the phone number for system \"$RSYSTEM\","
+		echo
+		echo  "You have two options:
+
+	1. The complete telephone number.
+
+	2. A dialing prefix followed by the rest of the telephone number.
+"
+			echo  "
+Please enter the number of your selection (1/2) [1]: "$BC
+
+		read PHONE
+		case "$PHONE" in
+		1|"")	while :
+			do
+			echo "--------------------------------------------------------"
+			echo "Enter the phone number, Please include the long distance access code, area, orcountry codes,"
+			echo "(for example type 161712345678) :" $BC
+			read PHONE_NUM
+			if [ "$PHONE_NUM" != "" ]
+			then
+			set - $PHONE_NUM; PHONE_NUM=$1 
+			break
+			else
+			echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+			echo "YOU CANNOT LEAVE THE ENTRY BLANK, PLEASE TRY AGAIN"
+			fi
+			done
+			;;
+		2)	while :
+			do
+		while :
+			do
+			echo "-------------------------------------------------------------"
+			echo "Enter the prefix(alphabetic) for the Dialcodes file."
+			echo "for example the entry in Dialcodes file looks as follows:"
+			echo "boston 9=16171234 "
+			echo "where \"boston\" stands for 9=16171234 and \"=\" stands for"
+			echo "\"wait for the dial tone.\" " 
+			echo "Please enter the prefix for the Dialcodes file:" $BC
+			read PREFIX
+			numchars=`echo "$PREFIX"|wc -c`
+			set - $numchars; numchars=$1
+			case "$numchars" in
+			"1")	continue
+				;;
+			[2-9])	break #ok
+				;;
+			*)
+			echo "
+The alphabetic prefix must not be greater than eight characters.
+"
+			;;
+			esac
+			done
+			echo
+			echo "----------------------------------------------------------------------"
+			echo "What telephone number does the prefix stand for ?"
+			echo "Please include the long distance access code, area, or country codes,"
+			echo "(for example type 9=16171234) : " $BC
+			read PREFIX_INFO
+			set - $PREFIX_INFO
+			echo
+			echo "---------------------------------------------------------------"
+			echo "Enter the rest of the phone number (for example type 5678) : " $BC
+			read PHONE_NUM
+			if [ "$PREFIX" != "" -a "$PREFIX_INFO" != "" -a "$PHONE_NUM" != "" ]
+			then
+			set - $PHONE_NUM;  PHONE_NUM=$1
+			break
+			else
+			echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+			echo "YOU CANNOT LEAVE THE ENTRIES BLANK, PLEASE TRY AGAIN"
+			fi
+			done
+			;;
+		*)	continue
+			;;
+		esac
+		break
+	done
+fi
+# *****************************************************************
+
+	# Get login name for your connection on remote system
+	DEF_LOGIN=U$UNAME 
+	while :
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		echo  "
+Enter your uucp login name on system \"$RSYSTEM\" [$DEF_LOGIN]: "$BC
+		read LOGIN
+		case $LOGIN in "") LOGIN=$DEF_LOGIN ;; esac
+		numchars=`echo "$LOGIN"|wc -c`
+		set - $numchars; numchars=$1
+		case "$numchars" in
+		"1")	# NULL
+			continue
+			;;
+		[2-9])	break #ok
+			;;
+		*)
+			echo "
+The login name must not be greater than eight characters.
+"
+			;;
+		esac
+	done
+# *****************************************************************
+
+	# Get password for your connection on remote system
+	while : # true
+	do
+	echo 
+	echo  "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		echo  "
+Enter the password for login \"$LOGIN\" on system \"$RSYSTEM\": "$BC
+		read PASSWORD
+		case "$PASSWORD" in
+		"")	
+			continue
+			;;
+		esac
+		break
+	done
+# *****************************************************************
+	MSG_VERIFY="
+Name of remote system: $RSYSTEM
+Time allowed to call: $TIMEMSG
+Link type: $CALLER
+Line speed: $CLASS
+Phone number: $PHONE_NUM
+Login name on remote system: $LOGIN
+Password on remote system: $PASSWORD
+"
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        echo "
+The following is a summary of your responses for system \"$RSYSTEM\". "
+	echo "$MSG_VERIFY"
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+# *****************************************************************
+	while :
+	do
+		DOIT=
+		echo "
+Please verify the above information and choose one of the following:
+
+	1    Add the system
+	2    Skip the system
+	3    Redisplay the summary and repeat this prompt
+"
+echo  "Please enter your selection (1/2/3) [1]: "$BC
+		read BUFF
+		case "$BUFF" in
+		1|"") DOIT="y"
+			SKIP="n"
+			break
+			;;
+		"2")	echo "$MSG_SKIPPED"
+			SKIP="y"
+			DOIT="n"
+			break
+			;;
+		"3")	echo
+			echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        		echo "
+The following is a summary of your responses for system \"$RSYSTEM\". "
+			echo "$MSG_VERIFY"
+			echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+			echo
+			continue
+			;;
+		*)	echo " "
+			continue
+			;;
+		esac
+	done
+# *****************************************************************
+
+# redefine some strings
+MSG_ADDED="
+System \"$RSYSTEM\" added for outgoing connections in the SYSTEMS FILE.
+"
+#*******************************************************************
+# give the expect-send menu:
+if [ "$DOIT" = "y" -a "$SKIP" = "n" ]
+then
+	while :
+	do
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo
+	echo  "Select the "expect-send" strings of the chat script: "
+	echo
+	echo  "There are three choices: "
+	echo 
+	echo  "1. Send a series of carriage returns before expecting any characters from the"
+	echo  "remote system. This is appropriate if the remote system must read characters before sending a login string."
+	echo
+	echo  "2. Specify no "expect-send" strings."
+	echo 
+	echo  "3. Be prompted to enter "expect-send" strings."
+	echo
+	echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+	echo  "
+Please enter the number of your selection (1/2/3) [1]:  "$BC
+	read EXPECT
+		case "$EXPECT" in
+		1|"")	EXPECT_SEND="\"\" \\\r\\d\\\r\\d\\\r\\d\\\r"
+ENTRY="$RSYSTEM $TIME $CALLER $CLASS $PHONE_NUM \"\" \\\r\\d\\\r\\d\\\r\\d\\\r login:--login: $LOGIN word: $PASSWORD"
+			break
+			;;
+		2) EXPECT_SEND=
+ENTRY="$RSYSTEM $TIME $CALLER $CLASS $PHONE_NUM login:--login: $LOGIN word: $PASSWORD"
+			break
+			;;
+		3)	while :
+			do
+echo "------------------------------------------------------------------"
+echo "	String		Explanation					"
+echo "------------------------------------------------------------------"
+echo "	\'N'		Null character"		
+echo "	\'b'		Backspace character"	
+echo "	\'c'		If at the end of a field, supress the new line that"
+echo "			normally follows the characters in a send field."
+echo "			Otherwise, ignore this string."
+echo "	\'d'		Delay 2 seconds before sending or reading more"
+echo "			characters."
+echo "	\'p'		Pause for approximately 1/4 to 1/2 second."
+echo "	\'E'		Turn on the echo check (useful in the Dialers file)."
+echo "	\'e'		Turn off the echo check (useful in theDialers file)."
+echo "	\'K'		Send a \"Break\" character. This is the same as"
+echo "			entering \"BREAK\"."
+echo "	\'n'		Newline character."
+echo "	\'r'		Carriage return."
+echo "	\'s'		Space character."
+echo "	\'t'		Tab Character."
+echo "	 e 		Backslash character."
+echo "	EOT 		EOT character.When you enter this string, the system"
+echo "			sends two EOT newline characters."
+echo "	BREAK 		BREAK character."
+echo "	ddd		Collapse the octal digits (ddd) into a single"
+echo "			character and send that character."
+echo "------------------------------------------------------------------"
+			echo  "Enter the expect-send string, leave space  between expect and send string"
+			echo  "For example; to get carriage return"
+			echo  "character, type two backslashes and r in single quotes"
+			echo  "and similarly for all the other backslash characters."
+			echo  "Enter the string from the above table: " $BC
+			read EXPECT_SEND
+			if [ "$EXPECT_SEND" != "" ]
+			then
+			while :
+			do
+			echo "*******************************************************"
+			echo "This is what you have typed for expect-send string: $EXPECT_SEND"
+			echo "Please enter (yes/no) if correct: [yes]" $BC
+			read SEND
+			case "$SEND" in
+			yes|y|"") OUT="yes"
+					break
+					;;
+			no|n)	OUT="no"
+				break
+				 ;;
+			*)	OUT="no"
+				continue
+				;;	
+			esac
+			done
+			fi
+			if [ "$OUT" = "yes" ] 
+			then
+			break
+			fi
+			done
+ENTRY="$RSYSTEM $TIME $CALLER $CLASS $PHONE_NUM $EXPECT_SEND login:--login: $LOGIN word: $PASSWORD"
+			break
+			;;
+		*)	continue
+			;;
+	esac
+	done
+fi # DOIT =y and SKIP =n
+
+#**************************************************************************
+
+EDSTRING=\
+"H
+/$RSYSTEM/
+c
+$ENTRY
+.
+w
+q
+"
+# *****************************************************************
+# Find if the string exists in the file
+case "$SKIP" in
+n)	grep "^$ENTRY" $OSYSTEMS > $NULL
+	if [ $? = 0 ]
+	then
+		echo
+		echo "$MSG_ALREADYEXISTS"
+		while : # prompt
+		do
+			echo  "
+Please enter the number of your selection (1/2) [1]: "$BC
+			read JUNK
+			case "$JUNK" in
+			1|"")	echo "$MSG_SKIPPED"
+				SKIP="y"
+				DOIT="n"
+				GOOUT="no"
+				break
+				;;
+			2)	GOOUT="yes"
+				break
+				;;
+			*)	continue
+				;;
+			esac
+		done   # prompt
+	fi
+	;;
+y)	continue
+	;;
+*)	continue
+	;;
+esac
+#-------------------------------------------------------------------------
+	# Append (modify) entry to the $OSYSTEMS file.
+	case "$DOIT" in
+	y) 	
+		trap '' $STDSIGS  # We're committed
+		if [ "$LINK" = "MODEM" ]
+		then
+			case "$PHONE" in
+			1|"") ENTRY_PHONE="$RSYSTEM		$PHONE_NUM"
+			;;
+			2) PRE_PHONE="$PREFIX_INFO$PHONE_NUM"
+			ENTRY_PHONE="$RSYSTEM		$PRE_PHONE"
+# Enter this prefix in Dialcodes file if not exists.
+			ENTRY_DCODE="$PREFIX $PREFIX_INFO"
+			grep "^$ENTRY_DCODE" $ODCODES > $NULL
+			if [ $? != 0 ]
+			then
+				echo "-----------------------------------------------"
+				echo "Updated the \"$ODCODES\" file"
+				echo "$ENTRY_DCODE" >> $ODCODES
+			else
+				echo
+				echo "The \"$ENTRY_DCODE\" entry already exists in the \"$ODCODES\" file."
+			fi
+			;;		
+			*) ENTRY_PHONE=""
+			;;
+			esac
+		fi # LINK=MODEM
+		ADDEDSYSTEM=y
+		echo "$ENTRY" >> $OSYSTEMS
+		echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		echo "$MSG_ADDED"
+		echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+		;;
+	n)	continue
+		;;
+	*)	continue
+		;;
+	esac
+		trap 'eval "$ONINTR"' $STDSIGS
+
+if [ "$GOOUT" = "yes" ]
+then
+	echo
+	echo "++++++++++++++++++++++++++++++++++++++++"
+	echo "End of Outgoing Systems Configuration"
+	echo "++++++++++++++++++++++++++++++++++++++++"
+	exit 1
+fi	
+
+# *****************************************************************
+
+# Make sure sendmail knows about new systems.
+case "$ADDEDSYSTEM" in "y")
+	case "$DEBUG" in "y") echo " - sendmail restart" ;; esac
+	set `who -r`
+	if [ $9 = "S" ]; then
+		echo "sendmail restarted ....Please Wait..."
+		/sbin/init.d/sendmail restart 2>&1 > /dev/null
+	else
+		echo "sendmail restarted ....Please Wait..."
+		/sbin/init.d/sendmail restart 2>&1 > /dev/null
+		(cd /usr/spool/mqueue; rm -f lf*)
+		/usr/sbin/sendmail -bz
+		/usr/sbin/sendmail -bi 2>&1 > /dev/null
+		/usr/sbin/sendmail -bd -q15m -om &
+	fi
+	
+esac
+done	# while :
+exit 0

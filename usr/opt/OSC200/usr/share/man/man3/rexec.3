@@ -1,0 +1,188 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rexec.3,v $ $Revision: 3.2.5.4 $ (DEC) $Date: 1994/01/20 02:06:19 $
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.TH rexec 3
+.SH NAME
+.PP
+\*Lrexec\*O, \*Lrexec_r\*O \- Allow command execution on a remote host
+.SH LIBRARY
+.PP
+Standard C Library \*L(libc.a)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <netdb.h>
+.sp .4v
+\*Lint rexec\*O(\*L
+.nL
+	\*Lchar **\*Vhost\*L,
+.nL
+	\*Lint \*Vport\*L,
+.nL
+	char *\*Vuser\*L,
+.nL
+	char *\*Vpasswd\*L,
+.nL
+	char *\*Vcommand\*L,
+.nL
+	\*Lint *\*Verr_file_desc\*L);
+.nL
+\*Lint rexec_r\*O(\*L
+.nL
+	\*Lchar **\*Vhost\*L,
+.nL
+	\*Lint \*Vport\*L,
+.nL
+	char *\*Vuser\*L,
+.nL
+	char *\*Vpasswd\*L,
+.nL
+	char *\*Vcommand\*L,
+.nL
+	\*Lint *\*Verr_file_desc\*L,
+.nL
+	\*Lstruct hostent_data \*V*host_data\*O);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vhost"
+\*OContains
+the name of a remote host that is listed in the \*L/etc/hosts\*O
+file or \*L/etc/resolv.conf
+\*Ofile.  If the name of the host is not found in either file,
+the \*Lrexec(\|)\*O fails.
+.LI "\*Vport"
+\*OSpecifies
+the \*Owell-known Internet
+port to use for the connection.  A pointer to the structure that contains
+the necessary port can be obtained by issuing the following library
+call:
+.oS
+getservbyname("exec", "tcp")
+.oE
+.LI "\*Vuser\*O"
+\*OPoints to a user ID that is valid on the host.
+.LI "\*Vpasswd"
+\*OPoints to the password of the specified user ID on the host.
+.LI "\*Vcommand"
+\*OPoints to
+the name of the command to be executed at the remote host.
+.LI "\*Verr_file_desc"
+\*OSpecifies the file to which standard error from the remote command
+is sent.
+.sp
+If the \*Verr_file_desc\*O parameter is 0 (zero),
+the standard error of the remote command is the same
+as standard output.  No provision is made for sending arbitrary
+signals to the remote process.  In this case, however, it may be possible
+to send \*Oout-of-band data to the
+remote command.
+.sp
+If the \*Verr_file_desc\*O parameter is nonzero, an auxiliary channel to a control process is set
+up, and a descriptor for it is placed in the \*Verr_file_desc \*Oparameter.
+The control process provides diagnostic output from the remote
+command on this channel and also accepts bytes as signal numbers to
+be forwarded to the process group of the command.  This diagnostic
+information does not include remote authorization failure, since this
+connection is set up after authorization has been verified.
+.LI "\*Vhost_data\*O"
+Per-thread data for reentrant version.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "rexec function"
+.iX "remote host" "executing commands on"
+.iX "commands" "executing on remote host"
+.iX "executing commands on remote host"
+The \*Lrexec(\|)\*O (remote execution) function allows the calling
+process to execute commands on a remote host.
+.PP
+If the \*Lrexec(\|)\*O connection succeeds, a socket in the Internet
+domain of type
+\*LSOCK_STREAM\*O is returned
+to the calling process and is given to the remote command as standard
+input and standard output.
+.PP
+The
+\*Vuser\*O
+and
+\*Vpasswd\*O
+parameters specify a valid user ID and the associated
+password for that user on the remote host.
+If the \*Vuser\*O and
+\*Vpasswd\*O
+parameters are not supplied, the \*Lrexec(\|)\*O function takes the
+following actions until finding a user ID and password to send to
+the remote host:
+.AL
+.LI
+\*OIt searches the current environment for the user ID and password
+on the remote host.
+.LI
+\*OIt searches the user's home directory for a file called \*L$HOME/.netrc\*O
+that contains
+a user ID and password.
+.LI
+\*OIt prompts the user for a user ID and password.
+.LE
+.PP
+Note that action 3 does not apply when using
+\*Lrexec_r(\|)\*O.
+.PP
+The \*Lrexec_r(\|)\*O function is the reentrant version of
+\*Lrexec(\|)\*O.  The \*Lnetdb.h\*O header file defines the
+\*Lhostent_data\*O structures.
+.SH RETURN VALUES
+.PP
+Upon successful completion, the system returns a socket
+descriptor
+to the remote command.
+\*OOtherwise, a value of
+-1 is returned, indicating that the specified hostname does not
+exist.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/hosts"
+\*OContains
+hostnames and their addresses for hosts in a network.  This file
+is used to resolve a hostname into an Internet address.
+.LI "\*L/etc/resolv.conf"
+\*OContains the name server and domain
+name.
+.LI "\*L$HOME/.netrc"
+\*OContains
+automatic login information.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgetservbyname\*O(3),
+\*Lrcmd\*O(3),
+\*Lrresvport\*O(3),
+\*Lruserok\*O(3).
+.PP
+Commands:
+\*Lrexecd\*O(8).
+.iX "rexec function"
+.EQ
+delim off
+.EN

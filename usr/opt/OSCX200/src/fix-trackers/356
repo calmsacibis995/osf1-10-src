@@ -1,0 +1,229 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9206022345.AA06895@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2584) close XBUG #5310, #5311: PEX bugs:  ParaSurf characteristics and  GET_INQ_STORAGE macro
+Date: Tue, 02 Jun 92 19:45:03 EDT
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX BUG: ParaSurf characteristics stuff broken in miInquire.c and swap
+        ### bug number:   5310
+        ### area:         pex
+        ### severity:     medium
+        ### comments:     
+
+
+        Subject: PEX BUG: GET_INQ_STORAGE macro in miInquire.c does wrong thing
+        ### bug number:   5311
+        ### area:         pex
+        ### severity:     medium
+        ### comments:     
+
+
+*** /tmp/da6721	Tue Jun  2 19:42:02 1992
+--- extensions/server/PEX/ddpex/mi/level2/miInquire.c	Tue Jun  2 19:40:52 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: miInquire.c,v 5.3 91/12/26 18:00:51 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: miInquire.c,v 5.4 92/06/02 19:40:07 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 63,70 ****
+  #define LEN_WO_HEADER(OCtype) (pPEXOC->length * sizeof(CARD32) - sizeof(OCtype))
+  
+  #define GET_INQ_STORAGE(PEX_ST, PEX_TYPE, DD_ST, DD_TYPE) \
+!     if (PU_BUF_TOO_SMALL( pBuf, pExecuteOC->element.pexOClength)) { \
+! 	if ((puBuffRealloc(pBuf, pExecuteOC->element.pexOClength)) != Success) {\
+  	    return (BadAlloc); } } \
+      *ppPEXOC = (pexElementInfo *)(pBuf->pBuf); \
+      (*ppPEXOC)->elementType = pExecuteOC->element.elementType; \
+--- 63,70 ----
+  #define LEN_WO_HEADER(OCtype) (pPEXOC->length * sizeof(CARD32) - sizeof(OCtype))
+  
+  #define GET_INQ_STORAGE(PEX_ST, PEX_TYPE, DD_ST, DD_TYPE) \
+!     if (PU_BUF_TOO_SMALL( pBuf, (pExecuteOC->element.pexOClength)<<2)) { \
+!        if ((puBuffRealloc(pBuf, (pExecuteOC->element.pexOClength)<<2)) != Success) {\
+  	    return (BadAlloc); } } \
+      *ppPEXOC = (pexElementInfo *)(pBuf->pBuf); \
+      (*ppPEXOC)->elementType = pExecuteOC->element.elementType; \
+***************
+*** 1229,1239 ****
+  	case PEXPSCIsoCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_CARD16(ddPSC->data.pIsoCurves, ptr);
+  	    SKIP_PADDING(ptr,2);
+! 	    EXTRACT_CARD16(ddPSC->data.pIsoCurves->numUcurves, ptr);
+! 	    EXTRACT_CARD16(ddPSC->data.pIsoCurves->numVcurves, ptr);
+  	    break;
+  	}
+  
+--- 1229,1241 ----
+  	case PEXPSCIsoCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
++             pPSC->characteristics = ddPSC->type; 
++             pPSC->length = 4 * sizeof(CARD16); 
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_CARD16(ddPSC->data.pIsoCurves->placementType, ptr);
+  	    SKIP_PADDING(ptr,2);
+! 	    PACK_CARD16(ddPSC->data.pIsoCurves->numUcurves, ptr);
+! 	    PACK_CARD16(ddPSC->data.pIsoCurves->numVcurves, ptr);
+  	    break;
+  	}
+  
+***************
+*** 1240,1247 ****
+  	case PEXPSCMcLevelCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_STRUCT(ddPSC_LevelCurves,ddPSC->data.pMcLevelCurves, ptr);
+  	    break;
+  	}
+  
+--- 1242,1259 ----
+  	case PEXPSCMcLevelCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
++             pPSC->characteristics = ddPSC->type; 
++             pPSC->length = sizeof(pexCoord3D) + sizeof(pexVector3D) +
++ 			   (2 *sizeof(CARD16)) + (sizeof(PEXFLOAT)* 
++ 			   ddPSC->data.pMcLevelCurves->numberIntersections); 
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_STRUCT(pexCoord3D, &(ddPSC->data.pMcLevelCurves->origin),ptr);
+! 	    PACK_STRUCT(pexVector3D, &(ddPSC->data.pMcLevelCurves->direction),ptr);
+! 	    PACK_CARD16(ddPSC->data.pMcLevelCurves->numberIntersections, ptr);
+! 	    SKIP_PADDING(ptr,2);
+! 	    PACK_LISTOF_STRUCT(ddPSC->data.pMcLevelCurves->numberIntersections,
+! 				PEXFLOAT, ddPSC->data.pMcLevelCurves->pPoints,
+! 				ptr);
+  	    break;
+  	}
+  
+***************
+*** 1248,1255 ****
+  	case PEXPSCWcLevelCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_STRUCT(ddPSC_LevelCurves,ddPSC->data.pWcLevelCurves, ptr);
+  	    break;
+  	}
+      }
+--- 1260,1277 ----
+  	case PEXPSCWcLevelCurves: {
+  	    GET_INQ_STORAGE(	pPSC, pexParaSurfCharacteristics, ddPSC,
+  				miPSurfaceCharsStruct);
++             pPSC->characteristics = ddPSC->type; 
++             pPSC->length = sizeof(pexCoord3D) + sizeof(pexVector3D) +
++ 			   (2 *sizeof(CARD16)) + (sizeof(PEXFLOAT)* 
++ 			   ddPSC->data.pWcLevelCurves->numberIntersections); 
+  	    ptr = (ddPointer)(pPSC+1);
+! 	    PACK_STRUCT(pexCoord3D, &(ddPSC->data.pWcLevelCurves->origin),ptr);
+! 	    PACK_STRUCT(pexVector3D, &(ddPSC->data.pWcLevelCurves->direction),ptr);
+! 	    PACK_CARD16(ddPSC->data.pWcLevelCurves->numberIntersections, ptr);
+! 	    SKIP_PADDING(ptr,2);
+! 	    PACK_LISTOF_STRUCT(ddPSC->data.pWcLevelCurves->numberIntersections,
+! 				PEXFLOAT, ddPSC->data.pWcLevelCurves->pPoints,
+! 				ptr);
+  	    break;
+  	}
+      }
+*** /tmp/da6758	Tue Jun  2 19:42:22 1992
+--- extensions/server/PEX/dipex/swap/uOCprim.c	Tue Jun  2 19:41:34 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: uOCprim.c,v 5.6 92/03/04 14:18:45 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: uOCprim.c,v 5.7 92/06/02 19:41:24 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 747,758 ****
+  	case PEXPSCMcLevelCurves:
+  	case PEXPSCWcLevelCurves: {
+  	    pexPSC_LevelCurves *ptr = (pexPSC_LevelCurves *)(strmPtr+1);
+! 	    pexCoord3D *pc = (pexCoord3D *)(ptr+1);
+  	    CARD16 i;
+  	    SWAP_COORD3D (ptr->origin);
+  	    SWAP_VECTOR3D (ptr->direction);
+  	    for (i=0; i<ptr->numberIntersections; i++, pc++) {
+! 		SWAP_COORD3D(*pc);
+  	    }
+  	    SWAP_CARD16 (ptr->numberIntersections);
+  	    break;
+--- 747,758 ----
+  	case PEXPSCMcLevelCurves:
+  	case PEXPSCWcLevelCurves: {
+  	    pexPSC_LevelCurves *ptr = (pexPSC_LevelCurves *)(strmPtr+1);
+! 	    PEXFLOAT *pc = (PEXFLOAT *)(ptr+1);
+  	    CARD16 i;
+  	    SWAP_COORD3D (ptr->origin);
+  	    SWAP_VECTOR3D (ptr->direction);
+  	    for (i=0; i<ptr->numberIntersections; i++, pc++) {
+! 		SWAP_FLOAT(*pc);
+  	    }
+  	    SWAP_CARD16 (ptr->numberIntersections);
+  	    break;
+*** /tmp/da6791	Tue Jun  2 19:42:27 1992
+--- extensions/server/PEX/dipex/swap/cOCprim.c	Tue Jun  2 19:41:17 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cOCprim.c,v 5.6 92/03/04 14:19:04 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: cOCprim.c,v 5.7 92/06/02 19:41:04 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 753,765 ****
+  	case PEXPSCMcLevelCurves:
+  	case PEXPSCWcLevelCurves: {
+  	    pexPSC_LevelCurves *ptr = (pexPSC_LevelCurves *)(strmPtr+1);
+! 	    pexCoord3D *pc = (pexCoord3D *)(ptr+1);
+  	    CARD16 i;
+  	    SWAP_COORD3D (ptr->origin);
+  	    SWAP_VECTOR3D (ptr->direction);
+  	    SWAP_CARD16 (ptr->numberIntersections);
+  	    for (i=0; i<ptr->numberIntersections; i++, pc++) {
+! 		SWAP_COORD3D(*pc);
+  	    }
+  	    break;
+  	}
+--- 753,765 ----
+  	case PEXPSCMcLevelCurves:
+  	case PEXPSCWcLevelCurves: {
+  	    pexPSC_LevelCurves *ptr = (pexPSC_LevelCurves *)(strmPtr+1);
+! 	    PEXFLOAT *pc = (PEXFLOAT *)(ptr+1);
+  	    CARD16 i;
+  	    SWAP_COORD3D (ptr->origin);
+  	    SWAP_VECTOR3D (ptr->direction);
+  	    SWAP_CARD16 (ptr->numberIntersections);
+  	    for (i=0; i<ptr->numberIntersections; i++, pc++) {
+! 		SWAP_FLOAT(*pc);
+  	    }
+  	    break;
+  	}
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

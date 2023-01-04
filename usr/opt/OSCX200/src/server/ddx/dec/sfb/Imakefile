@@ -1,0 +1,391 @@
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+
+#include <Server.tmpl>
+
+SHOBJS = $(EXTENSIONSRC)/server/draw/generic/libdrawgeneric.a
+
+/*#define SOFTWARE_MODEL*/
+#ifdef SOFTWARE_MODEL
+MODEL_FLAG = -DSOFTWARE_MODEL
+MODELSRCS = batch.c vram.c 
+MODELOBJS = batch.o vram.o
+MDELLIBS = libSim.a
+#endif
+
+#ifdef MipsArchitecture
+#define MIPSASM
+#endif
+
+#ifdef MIPSASM
+# ifdef FASTCPU
+ASMSRCS = sfbsline.s sfbteglyph.s
+sfbteglyph.s: sfbteglyph_mips.s
+	$(LN) sfbteglyph_mips.s sfbteglyph.s
+# else
+ASMSRCS = sfbsline.s
+# endif
+sfbsline.s: sfbsline_mips.s
+	$(LN) sfbsline_mips.s sfbsline.s
+#else
+ASMSRCS = 
+#endif
+
+#ifdef FASTCPU
+TEOBJS = sfbtesplat8.o sfbtesplat16.o sfbtesplat32.o \
+	 sfbteimage8.o sfbteimage16.o sfbteimage32.o
+#else
+TEOBJS = sfbtesplat6.o sfbtesplat8.o sfbtesplat12.o sfbtesplat16.o \
+	 sfbtesplat32.o \
+	 sfbteimage6.o sfbteimage8.o sfbteimage12.o sfbteimage16.o \
+	 sfbteimage32.o
+#endif
+
+
+SRCS =  sfb.c sfbgensfb.c \
+	sfbarc1.c sfbarc1bits.c sfbgenarc1bits.c \
+	sfbbitblt.c \
+	sfbblt.c \
+	sfbbstore.c \
+	sfbcirclebits.c sfbgencirclebits.c \
+	sfbdivtable.c sfbgendivtable.c \
+	sfbfillarc.c \
+	sfbfillrct.c \
+	sfbgc.c \
+	sfbgetsp.c \
+	sfbglyph.c \
+	sfbline.c \
+	sfbpixmap.c \
+	sfbplane.c \
+	sfbplygblt.c \
+	sfbpntarea.c \
+	sfbpntwin.c \
+	sfbpoly.c \
+	sfbpolypnt.c \
+	sfbscrinit.c \
+	sfbsline.c \
+	sfbteglyph.c \
+	sfbteplygblt.c \
+	sfbwideline.c \
+	sfbwindow.c \
+	sfbzerarc.c \
+	${ASMSRCS} \
+	${MODELSRCS}
+
+OBJS =  sfb.o \
+	sfbarc1.o \
+	sfbbitblt.o \
+	sfbbltcopy.o sfbbltcopyx.o sfbbltxor.o sfbbltgen.o \
+	sfbbstore.o \
+	sfbcirclebits.o \
+	sfbdivtable.o \
+	sfbfillarc.o \
+	sfbfillrct.o \
+	sfbgc.o \
+	sfbgetsp.o \
+	sfbglyph.o \
+	sfbline.o sfbsegment.o \
+	sfbpixmap.o \
+	sfbplane.o \
+	sfbplygblt.o sfbimggblt.o \
+	sfbpntarea.o sfbpntareats.o sfbpntareaos.o \
+	sfbpntwin.o \
+	sfbpoly.o \
+	sfbpolypnt.o \
+	sfbscrinit.o \
+	sfbsline.o sfbssegment.o \
+	$(TEOBJS) \
+	sfbteplygblt.o sfbteimggblt.o \
+	sfbwideline.o \
+	sfbwindow.o \
+	sfbzerarc.o \
+	${MODELOBJS}
+
+/*STD_DEFINES = ServerDefines $(MODEL_FLAG) */
+   INCLUDES = -I. -I../../../include -I$(INCLUDESRC) -I../cfb \
+               -I../../mfb -I../../cfb \
+              -I$(FONTSRC)/include -I../../mi -I../ws
+   LINTLIBS = ../../../dix/llib-ldix.ln \
+	      ../../../os/4.2bsd/llib-los.ln \
+	     ../../mfb/llib-lmfb.ln ../../mi/llib-lmi.ln
+
+#if SharedServerLibs
+DECCFBDIR=../cfb
+DECCFBLIB=../cfb/libcfb.a
+#endif
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(_dec_sfb,$(OBJS))
+LintLibraryTarget(_dec_sfb,$(SRCS))
+
+#if SharedServerLibs
+SharedLibraryTarget(_dec_sfb,.,$(OBJS) $(DECCFBLIB) $(SHOBJS))
+InstallSharedLibrary(_dec_sfb,.,$(INSTALLSERVERLIBSDIR))
+#endif
+
+NormalLintTarget($(SRCS))
+
+depend:: sfbdivtable.c sfb.c sfbcirclebits.c
+DependTarget()
+
+
+clean::
+	$(RM) sfbgensfb sfb.c sfbgendivtable sfbdivtable.c \
+		sfbgencirclebits sfbcirclebits.c
+
+sfbgensfb: sfb.h sfbparams.h sfbgensfb.c
+	$(RM) $@
+	$(LOCCC) -o sfbgensfb $(LOCCFLAGS) sfbgensfb.c
+
+sfb.c:	sfbgensfb
+	$(RM) $@
+	./sfbgensfb > sfb.c
+
+/* Note: sfbgenarc1bits is not part of a normal build.  You need to make the
+   file once, running on a machine with a good X server, and that's all.  I've
+   included this merely so that if I want to change to 64 bits or so in the
+   future, I've got all the code I need available right here. */
+
+sfbgenarc1bits: sfbgenarc1bits.c
+	$(RM) $@
+	$(LOCCC) -o sfbgenarc1bits $(LOCCFLAGS) sfbgenarc1bits.c -lX11
+
+sfbarc1bits.c:
+	$(RM) $@
+	./sfbgenarc1bits > sfbarc1bits.c
+
+sfbgencirclebits: sfb.h sfbparams.h sfbcirclebits.h sfbgencirclebits.c
+	$(RM) $@
+	$(LOCCC) -o sfbgencirclebits $(LOCCFLAGS) sfbgencirclebits.c
+
+sfbcirclebits.c: sfbgencirclebits
+	$(RM) $@
+	./sfbgencirclebits > sfbcirclebits.c
+
+sfbgendivtable: sfb.h sfbparams.h sfbdivtable.h sfbgendivtable.c
+	$(RM) $@
+	$(LOCCC) -o sfbgendivtable $(LOCCFLAGS) sfbgendivtable.c
+
+sfbdivtable.c:	sfbgendivtable
+	$(RM) $@
+	./sfbgendivtable > sfbdivtable.c
+
+sfbblt.o:
+	$(RM) $@; touch $@
+
+ObjectFromSpecialSource(sfbbltcopy,sfbblt, \
+		-DSFBBITBLTSCRMEM=sfbBitbltScrMemCopy \
+		-DCFBBITBLT=cfbDoBitbltCopy -DCFBCOPY=DCCOPY \
+	        -DCOMPILEEVERYTHING)
+ObjectFromSpecialSource(sfbbltcopyx,sfbblt, \
+		-DSFBBITBLTSCRMEM=sfbBitbltScrMemCopySPM \
+		-DCFBBITBLT=cfbDoBitbltGeneral -DCFBCOPY=DCCOPYSPM)
+ObjectFromSpecialSource(sfbbltxor,sfbblt, \
+		-DSFBBITBLTSCRMEM=sfbBitbltScrMemXor \
+		-DCFBBITBLT=cfbDoBitbltXor -DCFBCOPY=DCXOR)
+ObjectFromSpecialSource(sfbbltgen,sfbblt, \
+		-DSFBBITBLTSCRMEM=sfbBitbltScrMemGeneral \
+		-DCFBBITBLT=cfbDoBitbltGeneral -DCFBCOPY=DCGENERAL)
+
+sfbpntarea.o:	sfbpntarea.c
+	$(RM) $@
+	$(CC) -DCOMPILEEVERYTHING -DDOTILE \
+		-DSFBTILESTIPPLEAREAWORD=sfbTileFillAreaWord \
+		-DSFBTILESTIPPLEAREAWORD2=sfbTileFillAreaWord2 \
+		-DSFBTILESTIPPLESPANWORD=sfbTileFillSpansWord \
+		-c $(CFLAGS) sfbpntarea.c
+
+ObjectFromSpecialSource(sfbpntareats, sfbpntarea, \
+		-DDOTRANSPARENTSTIPPLE \
+		-DSFBTILESTIPPLEAREAWORD=sfbTSFillAreaWord \
+		-DSFBTILESTIPPLEAREAWORD2=sfbTSFillAreaWord2 \
+		-DSFBTILESTIPPLESPANWORD=sfbTSFillSpansWord \
+		-DSFBSTIPPLEAREA=sfbTSFillArea \
+		-DSFBSTIPPLESPAN=sfbTSFillSpans)
+ObjectFromSpecialSource(sfbpntareaos,sfbpntarea, \
+		-DDOOPAQUESTIPPLE \
+		-DSFBTILESTIPPLEAREAWORD=sfbOSFillAreaWord \
+		-DSFBTILESTIPPLEAREAWORD2=sfbOSFillAreaWord2 \
+		-DSFBTILESTIPPLESPANWORD=sfbOSFillSpansWord \
+		-DSFBSTIPPLEAREA=sfbOSFillArea \
+		-DSFBSTIPPLESPAN=sfbOSFillSpans)
+sfbteglyph.o:
+	$(RM) $@; touch $@
+
+#ifdef FASTCPU
+#ifdef MipsArchitecture
+#define MIPSASM
+#endif
+#ifdef MIPSASM
+sfbtesplat8.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbtesplat8.s
+	$(LN) sfbteglyph.s sfbtesplat8.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTESplatGlyphs8 -DGLYPHWIDTH=8 -c -O \
+		sfbtesplat8.s
+CLEAN::
+	$(RM) sfbtesplat8.s
+
+sfbtesplat16.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbtesplat16.s
+	$(LN) sfbteglyph.s sfbtesplat16.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTESplatGlyphs16 -DGLYPHWIDTH=16 -c -O \
+		sfbtesplat16.s
+CLEAN::
+	$(RM) sfbtesplat16.s
+
+sfbtesplat32.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbtesplat32.s
+	$(LN) sfbteglyph.s sfbtesplat32.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTESplatGlyphs32 -DGLYPHWIDTH=32 -c -O \
+		sfbtesplat32.s
+CLEAN::
+	$(RM) sfbtesplat32.s
+
+#else
+
+ObjectFromSpecialSource(sfbtesplat8, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs8 -DGLYPHWIDTH=8)
+ObjectFromSpecialSource(sfbtesplat16, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs16 -DGLYPHWIDTH=16)
+ObjectFromSpecialSource(sfbtesplat32, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs32 -DGLYPHWIDTH=32)
+#endif
+#undef MIPSASM
+
+#else /* Not a fast CPU */
+ObjectFromSpecialSource(sfbtesplat6, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs6 -DGLYPHWIDTH=6 \
+		-DNGLYPHS=4)
+ObjectFromSpecialSource(sfbtesplat8, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs8 -DGLYPHWIDTH=8 \
+		-DNGLYPHS=3)
+ObjectFromSpecialSource(sfbtesplat12, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs12 -DGLYPHWIDTH=12 \
+		-DNGLYPHS=2)
+ObjectFromSpecialSource(sfbtesplat16, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs16 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=1)
+ObjectFromSpecialSource(sfbtesplat32, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTESplatGlyphs32 -DGLYPHWIDTH=32 \
+		-DNGLYPHS=1)
+#endif /* Fast vs slow CPU */
+
+
+sfbplygblt.o: sfbplygblt.c
+	$(RM) $@
+	$(CC) -DSFBPOLYGLYPHBLT=sfbPolyGlyphBlt $(CFLAGS) -c sfbplygblt.c
+
+ObjectFromSpecialSource(sfbimggblt, sfbplygblt, \
+		-DSFBIMAGETEXT -DSFBPOLYGLYPHBLT=sfbImageGlyphBlt)
+sfbteplygblt.o: sfbteplygblt.c
+	$(RM) $@
+	$(CC) -DSFBTEPOLYGLYPHBLT=sfbTEPolyGlyphBlt $(CFLAGS) -c sfbteplygblt.c
+
+ObjectFromSpecialSource(sfbteimggblt, sfbteplygblt, \
+		-DSFBIMAGETEXT -DSFBTEPOLYGLYPHBLT=sfbTEImageGlyphBlt)
+
+#ifdef FASTCPU
+#ifdef MIPSASM
+sfbteimage8.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbteimage8.s
+	$(LN) sfbteglyph.s sfbteimage8.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTEImageGlyphs8 -DGLYPHWIDTH=8 \
+		-DSFBIMAGETEXT -c -O sfbteimage8.s
+CLEAN::
+	$(RM) sfbteimage8.s
+
+sfbteimage16.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbteimage16.s
+	$(LN) sfbteglyph.s sfbteimage16.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTEImageGlyphs16 -DGLYPHWIDTH=16 \
+		-DSFBIMAGETEXT -c -O sfbteimage16.s
+CLEAN::
+	$(RM) sfbteimage16.s
+
+sfbteimage32.o: sfbteglyph.s sfbteglyph.o
+	$(RM) $@ sfbteimage32.s
+	$(LN) sfbteglyph.s sfbteimage32.s
+	$(CC) -DSFBTESPLATGLYPHS=sfbTEImageGlyphs32 -DGLYPHWIDTH=32 \
+		-DSFBIMAGETEXT -c -O sfbteimage32.s
+CLEAN::
+	$(RM) sfbteimage32.s
+
+#else
+
+ObjectFromSpecialSource(sfbteimage8, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs8 -DGLYPHWIDTH=8 \
+		-DSFBIMAGETEXT)
+ObjectFromSpecialSource(sfbteimage16, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs16 -DGLYPHWIDTH=16 \
+		-DSFBIMAGETEXT)
+ObjectFromSpecialSource(sfbteimage32, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs32 -DGLYPHWIDTH=32 \
+		-DSFBIMAGETEXT)
+#endif
+
+#else /* Not a fast CPU */
+ObjectFromSpecialSource(sfbteimage6, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs6 -DGLYPHWIDTH=6 \
+		-DSFBIMAGETEXT -DNGLYPHS=4)
+ObjectFromSpecialSource(sfbteimage8, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs8 -DGLYPHWIDTH=8 \
+		-DSFBIMAGETEXT -DNGLYPHS=3)
+ObjectFromSpecialSource(sfbteimage12, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs12 -DGLYPHWIDTH=12 \
+		-DSFBIMAGETEXT -DNGLYPHS=2)
+ObjectFromSpecialSource(sfbteimage16, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs16 -DGLYPHWIDTH=16 \
+		-DSFBIMAGETEXT -DNGLYPHS=1)
+ObjectFromSpecialSource(sfbteimage32, sfbteglyph, \
+		-DSFBTESPLATGLYPHS=sfbTEImageGlyphs32 -DGLYPHWIDTH=32 \
+		-DSFBIMAGETEXT -DNGLYPHS=1)
+#endif
+
+cfbpntarea.o:
+	$(RM) $@; touch $@
+
+#ifdef MipsArchitecture
+#define MIPSASM
+#endif
+#ifdef MIPSASM
+sfbsline.o: sfbsline.s
+	$(RM) $@
+	$(CC) -DSFBLINES1=sfbLineS1 -O -c sfbsline.s
+#endif
+
+ObjectFromSpecialSource(sfbsegment, sfbline, \
+		-DSEGMENTS)
+
+#ifdef MIPSASM
+sfbssegment.o: sfbsline.s sfbsline.o
+	$(RM) $@ sfbssegment.s
+	$(LN) sfbsline.s sfbssegment.s
+	$(CC) -DSFBLINES1=sfbSegS1 -DSEGMENTS -c -O sfbssegment.s
+CLEAN::
+	$(RM) sfbssegment.s
+#else
+ObjectFromSpecialSource(sfbssegment, sfbsline, \
+		-DSEGMENTS)
+#endif

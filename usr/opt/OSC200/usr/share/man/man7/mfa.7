@@ -1,0 +1,204 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: mfa.7,v $ $Revision: 1.1.4.3 $ (DEC) $Date: 1993/08/27 18:24:01 $
+.\"
+.TH mfa 7
+.PP
+.SH NAME
+.PP
+\*Lmfa\*O - DEMFA FDDI Network Interface
+.SH SYNOPSIS
+.PP
+.iX "FDDI interface" "DEMFA"
+.iX "DEMFA FDDI network interface"
+.sS
+\*Ldevice mfa0 at xmi? vector mfaintr\*O
+.sE
+.SH DESCRIPTION
+.PP
+The \*Lmfa\*O interface is a high speed XMI adapter to a 100 Mbit/second
+Fiber Distributed Data Interface (FDDI) timed token ring network
+adapter.  The \*Lmfa\*O interface allows the host system to be an FDDI single
+attachment station.
+.PP
+The host's Internet address is specified at boot time with an SIOCSIFADDR
+ioctl.  The \*Lmfa\*O interface employs the address resolution protocol
+described in \*Larp\*O(7) to map dynamically between Internet and FDDI
+addresses on the local network.
+.PP
+The maximum frame size for the \*Lmfa\*O interface is 4500 bytes, which is
+substantially larger that the 1500 bytes maximum packet size of the Ethernet
+interfaces. The \*Lmfa\*O interface does not support the BSD trailer
+encapsulation, which is specific to the VAX architecture.
+.PP
+The SIOCRPHYSADDR ioctl can be used to read the physical address of the
+DEMFA adapter. The physical address of the DEMFA adapter can be
+changed by use of the SIOCSPHYSADDR ioctl.
+.PP
+The SIOCADDMULTI and SIOCDELMULTI ioctls can be used to add or delete
+multicast addresses. The DEMFA supports up to 15 multicast addresses.
+.PP
+The SIOCRDCTRS ioctl can be used to read the FDDI driver counters.  The
+DEMFA adapter status and characteristics can also be read through this
+ioctl by providing a FDDISTATUS flag . The argument to this ioctl is a
+pointer to a counter or status structure, \*Lctrreq\*O, found in
+\*L<net/if.h>\*O.
+.PP
+The SIOCENABLBACK and SIOCDISABLBACK ioctls can be used to enable and
+disable the interface loopback mode, respectively.
+.PP
+The SIOCIFRESET ioctl can be used to reset the adapter.
+.SH EXAMPLES
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"mfa0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"mfa0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+Diagnostic error messages contain information provided by the \*Lmfa\*O
+driver. For example:
+.oS
+mfa%d: port self test failed (%s)
+.oE
+.PP
+The DEMFA adapter did not pass the power-up selftest during autoconfiguration.
+.oS
+mfa%d: failed to allocate resources (%s)
+.oE
+.PP
+The DEMFA is unable to allocate system memory or cluster mbufs for
+device initialization.
+.oS
+mfa%d: port init (%s) failed
+.oE
+.PP
+The DEMFA cannot transition to the initialized state.
+.oS
+mfa%d: stray interrupt
+.oE
+.PP
+An interrupt has been received with no packets found.
+.oS
+mfa%d: command (type = %d) timed out
+.oE
+.PP
+An internal command to the device has failed to complete on time.
+.oS
+mfa%d: command (type = %d) failed, error code: 0x%x
+.oE
+.PP
+An internal command to the device has returned an error.
+.oS
+mfa%d: Unsolicited Event: #%d (unknown)
+.oE
+.PP
+The DEMFA has received an unknown type of unsolicited interrupt about the
+FDDI ring state.
+.oS
+mfa%d: Unsolicited Event: %s (state is %d)
+.oE
+.PP
+The DEMFA has received an unsolicited interrupt, the FDDI ring state has
+been changed.
+.oS
+mfa%d: Can't transition to Uninitialized State
+.oE
+.PP
+The DEMFA was unable to change FDDI characteristics and restart.
+.oS
+mfa%d: multicast list full
+.oE
+.PP
+An attempt was made to add more than 15 multicast addresses to the device.
+.oS
+mfa%d: port reset failed (%s)
+.oE
+.PP
+The DEMFA has failed internal self test during a reset operation.
+.oS
+mfa%d: port init failed (%s)
+.oE
+.PP
+The DEMFA has failed to re-initialize after a reset operation.
+.oS
+mfa%d: port halted (%s)
+.oE
+.PP
+The DEMFA has encountered a hard error which should cause the device to
+reset.
+.SH RELATED INFORMATION
+.PP
+\*Lfddi_config\*O(1), \*Lnetstat\*O(1), \*Larp\*O(7), \*Linet\*O(7), \*Lintro\*O(7)
+.EQ
+delim off
+.EN

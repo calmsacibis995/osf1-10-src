@@ -1,0 +1,190 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: pthread_create.3,v $ $Revision: 3.3.4.2 $ (DEC) $Date: 1994/01/13 15:18:40 $
+.\" 
+...\" Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED.
+.wH "<routine_section>"
+.TH pthread_create 3
+.SH NAME
+\*Lpthread_create\*O \- Creates a thread object and thread.
+.SH SYNOPSIS
+.iX "Thread" "creating"
+.iX "Creating a thread"
+.iX "Thread" "events that cause termination"
+.iX "Thread" "normal termination"
+.iX "Thread" "error termination"
+.iX "Termination of a thread" "events that cause"
+.iX "Termination of a thread" "normal"
+.iX "Termination of a thread" "error"
+.iX "Normal termination of a thread"
+.iX "Error termination of a thread"
+.PP
+.sS
+\*L#include <pthread.h>
+.fS "int pthread_create"
+.dS "pthread_t"
+\*V*thread\*L
+.dE
+.dS "pthread_attr_t"
+\*Vattr\*L
+.dE
+.dS "pthread_startroutine_t"
+\*Vstart_routine\*L
+.dE
+.dS "pthread_addr_t"
+\*Varg\*O
+.dE
+.fE
+.sE
+.PP
+.wH "<endformat>"
+.SH PARAMETERS
+.PP
+.VL 8m
+.LI "\*Vthread\*O"
+Thread object created.
+.LI "\*Vattr\*O"
+Thread attributes object that defines the characteristics of the thread
+being cr
+eated. If you specify \*Lpthread_attr_default\*O, default attributes are
+used.
+.LI "\*Vstart_routine\*O"
+Function executed as the new thread's start routine.
+.LI "\*Varg\*O"
+Address value copied and passed to the thread's start routine.
+.LE
+.\" \&.wH "<endparameters>"
+.SH DESCRIPTION
+.PP
+This routine creates a thread object and a thread. A \*Lthread\*O is a .gL "thread" single, sequential flow of control within a program. It is the active execution of a designated routine, including any nested routine invocations.  A thread object defines and controls the executing thread.
+.PP
+Calling this routine sets into motion the following actions:
+.ML
+.LI
+An internal thread object is created to describe the thread.
+.LI
+The associated executable thread is created with attributes specified by the \*Vattr\*O parameter (or with default attributes if \*Lpthread_attr_default\*O is specified).
+.ne 20
+.LI
+The \*Vthread\*O parameter receives the new thread.
+.LI
+The \*Vstart_routine\*O function is called when this routine
+successfully completes.
+.LE
+.PP
+The thread is created in the ready state and therefore might immediately
+begin executing the function specified by the \*Vstart_routine\*O
+parameter.
+The newly created thread will begin running before \*Lpthread_create\*O
+completes if the new thread follows the \*LSCHED_RR\*O or
+\*LSCHED_FIFO\*O scheduling
+policy or has a priority higher than the creating thread, or both.
+Otherwise, the new thread begins running at its turn, which with sufficient
+processors might also be before \*Lpthread_create\*O returns.
+.PP
+The \*Vstart_routine\*O is passed a copy of the \*Varg\*O
+parameter. The value of the \*Varg\*O parameter is unspecified.
+.PP
+The thread object exists until the \*Lpthread_detach\*O routine is
+called or the thread terminates, whichever occurs last.
+.PP
+The synchronization between the caller of \*Lpthread_create\*O and the
+newly created thread is through the use of the \*Lpthread_join\*O
+routine
+(or any other mutexes or condition variables they agree to use).
+.PP
+A thread terminates when one of the following events occurs:
+.ML
+.LI
+The thread returns from its start routine.
+.LI
+The thread exits (within a routine) as the result of calling the
+\*Lpthread_exit\*O routine.
+.LI
+The thread is canceled.
+.LE
+.PP
+The following actions are performed when a thread terminates:
+.ML
+.LI
+If the thread terminates by returning from its start routine or calling
+\*Lpthread_exit\*O, the return value is copied into the thread object.
+If the start routine returns normally and the start routine is a procedure
+that does not return a value, then the result obtained by
+\*Lpthread_join\*O is unpredictable. If the thread has been canceled, a
+return value of \-1 is copied into the thread object. The return value can
+be retrieved by other threads by calling the \*Lpthread_join\*O
+routine.
+.LI
+Each per-thread context destructor is removed from the list of
+destructors for this thread and then is called. This step destroys all the
+per-thread context associated with the current thread.
+.LI
+Each cleanup handler that has been declared by
+\*Lpthread_cleanup_push\*O and not yet removed by
+\*Lpthread_cleanup_pop\*O is called. The most recently pushed handler
+is called first.
+.LI
+A flag is set in the thread object indicating that the thread has
+terminated. This flag must be set in order for callers of
+\*Lpthread_join\*O to return from the call.
+.LI
+A broadcast is made so that all threads currently waiting in a call to
+\*Lpthread_join\*O can return from the call.
+.LI
+The thread object is marked to indicate that it is no longer needed by
+the thread itself. A check is made to determine if the thread object is no
+longer needed by other threads, that is, if \*Lpthread_detach\*O has
+been called. If that routine has been called, then the thread object
+is deallocated.
+.LE
+.SH RETURN VALUES
+.PP
+If an error condition occurs, no thread is created, the
+contents of \*Vthread\*O are undefined, and this routine returns \-1
+and sets \*Eerrno\*O to the corresponding error value. Possible return
+values are as follows:
+.sp
+.TS
+center, tab(@);
+l l lw(3.0i).
+\*LReturn@Error@Description\*O
+_
+\00@@Successful completion.
+\&\-1@[\*LEAGAIN\*O]@T{
+The system lacks the necessary resources to create another thread.
+T}
+\&\-1@[\*LENOMEM\*O]@T{
+Insufficient memory exists to create the thread attributes object. This is not a temporary condition.
+T}
+.TE
+.cS
+.SH EXAMPLES
+.PP
+.oS
+int pthread_create (pthread_t *thread, pthread_attr_t attr,
+	pthread_startroutine_t start_routine, pthread_addr_t arg);
+.oE
+.cE
+.SH RELATED INFORMATION
+.PP
+\*Lpthread_attr_create\*O(3), \*Lpthread_cancel\*O(3),
+\*Lpthread_detach\*O(3), \*Lpthread_exit\*O(3), \*Lpthread_join\*O(3)
+.wH "<endroutine_section>"
+.EQ
+delim off
+.EN

@@ -1,0 +1,160 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: stl_scp.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/17 19:47:03 $
+.\" 
+.TH stl_scp 4
+.SH NAME
+.PP
+\*Lstl_scp\*O \- setld subset control program conventions
+.SH DESCRIPTION
+.PP
+.iX "kits" "subset compression flag file format"
+.iX "setld" "subset compression flag file format"
+Each software subset that is distributed for the
+\*Lsetld\*O(8)
+command can have an associated
+\*Vsubset control program\*O.
+These programs perform the application-specific management operations
+that configure the subset into the system.  Because subset control
+programs must be executed during
+installation to non-native file hierarchies, they must be written in an
+architecture-neutral language.  Because these programs may also be
+required to run while the system is in the single-user run state, the
+interpreter must not use shared libraries.  The use of
+\*L/sbin/sh\*O
+is strongly recommended.
+.PP
+As subsets are installed and deleted, they pass through several system
+management states.
+.PP
+Software is in the NEW state immediately after being extracted from the
+distribution media and verified.  Software in this state is exactly as
+it was prepared for distribution by the software vendor.
+.PP
+The subset control program is responsible for placing the software in
+the PROTOTYPE state at the request of
+\*Lsetld\*O.
+Software in this state is configured for use at a particular site.
+All of the software remains sharable but has undergone some level of
+customization.
+.PP
+Software becomes runnable on a particular system and ceases to be
+sharable after it has been placed in the CONFIGURED state by the
+subset control program, again at the request of
+\*Lsetld\*O.
+.PP
+Subset control programs are executed by
+\*Lsetld\*O
+to perform specific requested operations.  Before executing a subset
+control program,
+\*Lsetld\*O
+sets the environment variable
+\*LACT\*O
+to an action value.  The subset control program is expected to inspect
+this variable and any command-line arguments to determine which actions
+to perform.  The action values, the command-line arguments, and the
+behavior that
+\*Lsetld\*O
+expects are as follows:
+.TP 8
+C
+Configure subset
+.IP "" 8
+The first command-line argument is a configuration message for the
+subset.  The subset control program can interpret this message as it
+chooses.  There are two reserved subset messages:
+.RS 8
+.TP 9
+INSTALL
+Perform any management operations required to change the subset from
+the PROTOTYPE state to the CONFIGURED state.  Subset control programs
+called to perform this action must assume that the
+\*L/usr\*O
+file system is write locked and that the currently visible execution
+context (contents of
+\*L/dev/kmem\*O
+and so forth) is the same as that in which the application will
+execute.
+.TP 9
+DELETE
+Perform any management operations required to change the subset from
+the CONFIGURED state to the PROTOTYPE state.  The execution environment
+is identical to that for C, INSTALL
+.RE
+.TP 8
+M
+Menu Request
+.IP "" 8
+The first argument is one of
+\*L\-l\*O
+or
+\*L\-x\*O
+and specifies whether the user is installing or extracting software
+from the media.
+.IP "" 8
+Determine if the subset is suitable for presentation to the user in the
+subset selection menu.  If the subset is to be presented, the subset
+control program should return exit status 0.  If the subset is not to
+be presented, the subset control program should return a nonzero
+status.
+.TP 8
+PRE_D
+Prepare for Deletion
+.IP "" 8
+The subset is about to be deleted from the system.  Perform any
+management operations required to chang the subset from the PROTOTYPE
+state to the NEW state.  A nonzero return status can be returned to
+indicate that the subset should not be deleted.
+.TP 8
+PRE_L
+Prepare for Load
+.IP "" 8
+The subset is about to be loaded onto the system.  Verify that the
+system is ready for the subset to loaded from the installation media.
+A nonzero exit status can be returned to indicate that the subset
+should not be installed.
+.br
+.ne 9P
+.TP 8
+POST_D
+Post Deletion Cleanup
+.IP "" 8
+The subset control program should perform any management operations
+required to return the system to the state that it was in prior to
+installation of the subset.
+.TP 8
+POST_L
+Post Load Configuration
+.IP "" 8
+The subset has been loaded from the media and is on the system in the
+NEW state.  The subset control program must change the subset from the
+NEW state to  the PROTOTYPE state.
+.TP 8
+V
+Verify Subset
+.IP "" 8
+The subset control program should verify the integrity of the
+subset.  If the subset is provided with an Installation Verification
+Procedure (IVP) the subset control program should execute the IVP.
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lsetld\*O(8)
+.PP
+\*EProgramming Support Tools\*O
+.EQ
+delim off
+.EN

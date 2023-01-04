@@ -1,0 +1,376 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rpcgen.1,v $ $Revision: 3.3.2.5 $ (DEC) $Date: 1992/12/10 09:58:00 $
+.\"
+.\" @(#)rpcgen.1 1.1 88/05/08 4.0NFSSRC SMI
+.\" @(#) from SUN 1.12
+.TH rpcgen 1
+.SH NAME
+rpcgen \- an RPC protocol compiler
+.SH SYNOPSIS
+.PP
+.BI rpcgen " infile"
+.br
+.B rpcgen
+[
+.BI \-D name [= value ]
+] [
+.B \-I
+[
+.BI \-K " seconds"
+] ] [
+.B \-L
+] [
+.B \-T
+]
+\*Vinfile\*O
+.br
+.B rpcgen
+.BR \-c \|| \|\-h \|| \|\-l \||\f3\|\-m
+[
+.BI \-o " outfile"
+]
+[
+\*Vinfile\*O
+]
+.br
+.B rpcgen \-s
+\*Vtransport\*O
+[
+.BI \-o " outfile"
+]
+[
+\*Vinfile\*O
+]
+.br
+.SH DESCRIPTION
+.PP
+.\".IX "compilers" rpcgen" "\fLrpcgen\f1 \(em generate RPC protocols, C header files"
+.\".IX rpcgen "" "\fLrpcgen\f1 \(em generate RPC protocol, C header files, and server skeleton"
+.\".IX RPC "generate protocols \(em \fLrpcgen\f1"
+.iX "compilers" "rpcgen"
+.iX "rpcgen"
+.B rpcgen
+is a tool that generates C
+code to implement an
+.SM RPC
+protocol.  The input to
+.B rpcgen
+is the
+.SM ONC RPC
+(Remote Procedure Call) Language, which is similar to C.
+.\"Information about the syntax of the
+.\".SM ONC RPC
+.\"Language is available in the
+.\".RI ` rpcgen ' " Programming Guide"
+.\"in the \*VNETP\*O manual.
+.PP
+.B rpcgen
+is normally used as in the first synopsis where it takes an input file
+and generates four output files. If the
+\*Vinfile\*O
+is named
+.BR proto.x ,
+.B rpcgen
+will generate a header file in
+.BR proto.h ,
+.SM XDR
+routines in
+.BR proto_xdr.c ,
+server-side stubs in
+.BR proto_svc.c ,
+and client-side stubs in
+.BR proto_clnt.c .
+.PP
+The second synopsis provides special features which
+allow for the creation of more sophisticated
+.SM RPC
+servers.
+These features include support for
+.SM RPC
+dispatch tables,
+and user provided
+.BR #defines .
+The entries in the
+.SM ONC RPC
+dispatch table contain:
+.ML
+.LI
+pointers to the service routine corresponding
+to that procedure
+.LI
+a pointer to the input and output arguments
+.LI
+the size of these routines
+.LE
+.PP
+A server can use the dispatch table to check authorization
+and then to execute the service routine;
+a client library may use it to deal with the details
+of storage management and
+.SM XDR
+data conversion.
+.PP
+The other synopses are used when one wants to
+generate a particular output file.  Their
+usage is described in the
+.SM EXAMPLES
+section below.
+.PP
+The C-preprocessor, \*Lcpp\*O(1),
+is run on all input files before they are actually
+interpreted by
+.BR rpcgen ,
+so all the
+.B cpp
+directives are legal within an
+.B rpcgen
+input file.  For each type of output file,
+.B rpcgen
+defines a special
+.B cpp
+symbol for use by the
+.B rpcgen
+programmer:
+.VL
+.LI "RPC_HDR"
+Defined when compiling into header files
+.LI "RPC_XDR"
+Defined when compiling into
+.SM XDR
+routines
+.LI "RPC_SVC"
+Defined when compiling into server-side stubs
+.LI "RPC_CLNT"
+Defined when compiling into client-side stubs
+.LI "RPC_TBL"
+Defined when compiling into
+.SM RPC
+dispatch tables
+.LE
+.PP
+In addition, \*Lrpcgen\*O
+does a little preprocessing of its own.
+Any line beginning with
+.RB ` % '
+is passed directly into the output file, uninterpreted by
+.BR rpcgen .
+.PP
+You can customize some of your
+.SM XDR
+routines by leaving those data
+types undefined.  For every data type that is undefined,
+.B rpcgen
+will assume that there exists a routine with the name
+.B xdr_
+prepended to the name of the undefined type.
+.SH FLAGS
+.PP
+.VL
+.LI "\*L\-c\*O"
+Compiles into
+.SM XDR
+routines.
+.LI "\*L\-D\*O \*Vname\*O [= \*Vvalue\*O]"
+Defines a symbol
+.IR name .
+Equivalent to the
+.B #define
+directive in the source.
+If no \*Vvalue\*O is given, \*Vname\*O is defined as 1.
+This option may be called more than once.
+.LI "\*L\-h\*O"
+Compiles into
+.B C
+data-definitions (a header file)
+.LI "\*L\-I\*O"
+Compiles support for
+.BR inetd (8C)
+in the server side stubs.
+Such servers can be self started or can be started by
+.BR inetd .
+When the server is self-started, it backgrounds itself by default.
+A special define symbol
+.B RPC_SVC_FG
+can be used to run the server process in foreground, or alternately the
+user may just compile it without the
+.B \-I
+option.
+If there are no pending client requests, the
+.B inetd
+servers exit after 120 seconds (default).
+The default can be changed with the
+.B \-K
+option.
+All the error messages for
+.B inetd
+servers are always logged in with
+.BR syslog (3).
+.LI "\*L\-K\*O \*Vseconds\*O"
+If the server was started by
+.BR inetd ,
+specifies the time in seconds after which the server should exit if there is
+no further activity.
+This option is useful for customization.
+If
+\*Vseconds\*O
+is 0, the server exits after serving that given request.
+If
+\*Vseconds\*O
+is
+\-1, the server hangs around for ever after being started by
+.BR inetd .
+This option is valid only with the
+.B \-I
+option.
+.LI "\*L\-l\*O"
+Compiles into client-side stubs.
+.LI "\*L\-L\*O"
+When the servers are started in foreground, uses
+.B syslog(\|)
+to log the server errors instead of printing them on the standard error.
+.LI "\*L\-m\*O"
+Compiles into server-side stubs, but does not generate a \(lqmain\(rq routine.
+This option is useful for doing callback-routines and for people who
+need to write their own \(lqmain\(rq routine to do initialization.
+For
+.B inetd
+support, they should be compiled with the
+.B \-I
+option. In such cases, it defines 2 global variables:
+.B _rpcpmstart
+and
+.BR _rpcfdtype .
+The value of
+.B _rpcpmstart
+should be 1 or 0 depending upon whether it was started by
+.B inetd
+or not. The value of
+.B _rpcfdtype
+should be
+.B SOCK_STREAM
+or
+.B SOCK_DGRAM
+depending upon the type of the connection.
+.LI "\*L\-o\*O \*Voutfile\*O"
+Specifies the name of the output file.
+If none is specified, standard output is used
+(\*L\-c\*O, \*L\-h\*O, \*L\-l\*O, \*L\-m\*O, \*L\-s\*O,  and \*L\-t\*O modes
+only).
+.LI "\*L\-s\*O \*Vtransport\*O"
+Compiles into server-side stubs, using the given transport.  The
+supported transports
+are \*Ludp\*O and \*Ltcp\*O.
+This option may be invoked more than once
+to compile a server that serves multiple transports.
+For
+.B inetd
+support, they should be compiled with the
+.B \-I
+option.
+.B \-t
+Compile into
+.SM RPC
+dispatch table.
+.TP
+.B \-T
+Generate the code to support
+.SM RPC
+dispatch tables.
+.LE
+.PP
+The options
+.BR \-c ,
+.BR \-h ,
+.BR \-l ,
+.BR \-m ,
+.B \-s
+and
+.B \-t
+are used exclusively to generate a particular type of file, while the options
+.BR \-D ,
+.BR \-I ,
+.B \-L
+and
+.B \-T
+are global and can be used with the other options.
+.SH RESTRICTIONS
+.PP
+Nesting is not supported. However, structures can be declared at
+top-level, and their name used inside other structures in order to achieve
+the same effect.
+.PP
+Name clashes can occur when using program definitions, since the apparent
+scoping does not really apply. Most of these can be avoided by giving
+unique names for programs, versions, procedures and types.
+.SH EXAMPLES
+.PP
+.AL
+.LI
+The following example generates all the five files:
+.BR prot.h,
+.BR prot_clnt.c ,
+.BR prot_svc.c ,
+.B prot_xdr.c
+and
+.BR prot_tbl.i .
+The server error messages are logged, instead of being sent
+to the standard error.
+.iS
+rpcgen \-LT prot.x
+.iE
+.LI
+The following example generates
+.BR prot.h ,
+.BR prot_clnt.c ,
+.B prot_xdr.c
+and
+.BR prot_svc.c .
+.B prot_svc.c
+supports server invocation by
+.BR inetd .
+If the server is started by
+.BR inetd ,
+the server exits after 20 seconds of inactivity.
+.iS
+example% rpcgen \-I \-K 20 prot.x
+.iE
+.LI
+The following example sends the header file
+(with support for dispatch tables)
+on the standard output.
+.iS
+example% rpcgen \-hT prot.x
+.iE
+.LI
+The following example sends the server side stubs
+file for the transport
+.B tcp
+on the standard output.
+.iS
+example% rpcgen \-s tcp prot.x
+.iE
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lcpp\*O(1), \*Lrpc\*O(3), \*Linetd\*O(8)
+.\".PP
+.\".RI ` rpcgen ' " Programming Guide"
+.\"in \*VNETP\*O
+.EQ
+delim off
+.EN

@@ -1,0 +1,136 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.3 91/07/16 22:51:13 gildea Exp $
+#include <Server.tmpl>
+
+/* "@(#)Imakefile	3.1 88/09/22 09:29:19" */
+#define IHaveSubdirs
+#undef PassCDebugFlags
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)' 'CC=$(CC)' 'HCVERSION=$(HCVERSION)'
+
+#define	ListCreate(name)\
+SUBDIRS0= name @@\
+SUBOBJS0= name/name.o @@\
+DSUBOBJS0= name/name/**/_d.o @@\
+PSUBOBJS0= name/name/**/_p.o
+#define	ListCreateEmpty()\
+SUBDIRS0=  @@\
+SUBOBJS0=  @@\
+DSUBOBJS0=  @@\
+PSUBOBJS0= 
+#define	ListAdd(last,new,name)\
+SUBDIRS/**/new= $(SUBDIRS/**/last) name @@\
+SUBOBJS/**/new= $(SUBOBJS/**/last) name/name.o @@\
+DSUBOBJS/**/new= $(DSUBOBJS/**/last) name/name/**/_d.o @@\
+PSUBOBJS/**/new= $(PSUBOBJS/**/last) name/name/**/_p.o
+#define	ListAddEmpty(last,new)\
+SUBDIRS/**/new= $(SUBDIRS/**/last) @@\
+SUBOBJS/**/new= $(SUBOBJS/**/last) @@\
+DSUBOBJS/**/new= $(DSUBOBJS/**/last) @@\
+PSUBOBJS/**/new= $(PSUBOBJS/**/last)
+
+#if ibmInclude8514
+ListCreate(ibm8514)
+#else
+ListCreateEmpty()
+#endif
+#if ibmIncludeADAM
+ListCreate(adam)
+#else
+ListCreateEmpty()
+#endif
+#if ibmIncludeSKYWAY
+ListAdd(0,1,skyway)
+#else
+ListAddEmpty(0,1)
+#endif
+#if ibmIncludeCFBLANNO
+ListAdd(1,2,cfblanno)
+#else
+ListAddEmpty(1,2)
+#endif
+#if ibmIncludeMFBLANNO
+ListAdd(2,3,mfblanno)
+#else
+ListAddEmpty(2,3)
+#endif
+#if ibmIncludeGAI
+ListAdd(3,4,GAI)
+#else
+ListAddEmpty(3,4)
+#endif
+#if ibmIncludePED
+ListAdd(4,5,ped)
+#else
+ListAddEmpty(4,5)
+#endif
+#if ibmIncludeVGA
+ListAdd(5,6,vga)
+#else
+ListAddEmpty(5,6)
+#endif
+
+SUBDIRS= $(SUBDIRS6) common OPERATING_SYSTEM pgc /* ppc */
+/* common/ibmcomm.o is the seed for the link -- Don't put it below */
+SUBOBJS= $(SUBOBJS6) OPERATING_SYSTEM/OPERATING_SYSTEM.o pgc/pgc.o /*ppc/ppc.o*/
+DSUBOBJS= $(DSUBOBJS6) OPERATING_SYSTEM/OPERATING_SYSTEM/**/_d.o
+PSUBOBJS= $(PSUBOBJS6) OPERATING_SYSTEM/OPERATING_SYSTEM/**/_p.o
+
+all::	subdirs
+
+libibm.a: $(ICONFIGFILES)
+
+NormalLibraryTarget(ibm,$(SUBOBJS))
+#if ProfileServer
+NormalLibraryTarget(ibm_p,$(PSUBOBJS))
+#endif
+#if DebugServer
+NormalLibraryTarget(ibm_d,$(DSUBOBJS))
+#endif
+	
+NamedMakeSubdirs(subdirs,$(SUBDIRS))
+	
+#
+# before doing the depend, be sure that makedepend exists.
+#
+depend:: $(DEPEND)
+
+DependSubdirs($(SUBDIRS))
+
+#
+# we should be always using ANY tool available ( even lint ) !
+#
+MakeLintLibSubdirs($(SUBDIRS))
+LintSubdirs($(SUBDIRS))
+
+#
+# before making the makefiles, be sure that imake exists.
+#
+Makefiles:: $(IMAKE)
+
+$(IMAKE):
+	@echo "making $(IMAKESRC)"; \
+	cd $(IMAKESRC); $(MAKE)
+

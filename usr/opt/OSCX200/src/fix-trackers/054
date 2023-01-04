@@ -1,0 +1,164 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112182014.AA17597@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2276) close XBUG #4713: xterm: orphaned shells on AIX if connection lost
+Date: Wed, 18 Dec 91 15:14:48 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: xterm: orphaned shells on AIX if connection lost
+        ### bug number:   4713
+        ### area:         xterm
+        ### severity:     low
+        ### comments:     
+
+
+ATTN: AIX V3.1, SGI, SYSV/386, osf/1
+Solves orphaned shell problem and running out of ptys in AIX V3.1.
+Adds support for sgi ptys and some fixes to SYSV/386 pty code.  Renamed
+basename to base_name to avoid conflict with osf/1 basename in libc.
+
+-----------------------------------------------------------------------------
+
+*** /tmp/,RCSt1Cx4CjL	Wed Dec 18 14:49:28 1991
+--- clients/xterm/main.c	Wed Dec 18 14:49:27 1991
+***************
+*** 1,5 ****
+  #ifndef lint
+! static char *rid="$XConsortium: main.c,v 1.195 91/07/22 12:23:31 gildea Exp $";
+  #endif /* lint */
+  
+  /*
+--- 1,5 ----
+  #ifndef lint
+! static char *rid="$XConsortium: main.c,v 1.198 91/12/18 14:46:32 eswu Exp $";
+  #endif /* lint */
+  
+  /*
+***************
+*** 745,751 ****
+  	register TScreen *screen;
+  	register int i, pty;
+  	int Xsocket, mode;
+! 	char *basename();
+  	int xerror(), xioerror();
+  
+  	ProgramName = argv[0];
+--- 745,751 ----
+  	register TScreen *screen;
+  	register int i, pty;
+  	int Xsocket, mode;
+! 	char *base_name();
+  	int xerror(), xioerror();
+  
+  	ProgramName = argv[0];
+***************
+*** 1022,1028 ****
+  
+  	    if (!resource.title) {
+  		if (command_to_exec) {
+! 		    resource.title = basename (command_to_exec[0]);
+  		} /* else not reached */
+  	    }
+  
+--- 1022,1028 ----
+  
+  	    if (!resource.title) {
+  		if (command_to_exec) {
+! 		    resource.title = base_name (command_to_exec[0]);
+  		} /* else not reached */
+  	    }
+  
+***************
+*** 1092,1097 ****
+--- 1092,1115 ----
+  	}
+  	screen->inhibit = inhibit;
+  
++ #ifdef AIXV3
++ 	/* In AIXV3, xterms started from /dev/console have CLOCAL set.
++ 	 * This means we need to clear CLOCAL so that SIGHUP gets sent
++ 	 * to the slave-pty process when xterm exits. 
++ 	 */
++ 
++ 	{
++ 	    struct termio tio;
++ 
++ 	    if(ioctl(pty, TCGETA, &tio) == -1)
++ 		SysError(ERROR_TIOCGETP);
++ 
++ 	    tio.c_cflag &= ~(CLOCAL);
++ 
++ 	    if (ioctl (pty, TCSETA, &tio) == -1)
++ 		SysError(ERROR_TIOCSETP);
++ 	}
++ #endif
+  #ifdef USE_SYSV_TERMIO
+  	if (0 > (mode = fcntl(pty, F_GETFL, 0)))
+  		Error();
+***************
+*** 1125,1131 ****
+  	}
+  }
+  
+! char *basename(name)
+  char *name;
+  {
+  	register char *cp;
+--- 1143,1149 ----
+  	}
+  }
+  
+! char *base_name(name)
+  char *name;
+  {
+  	register char *cp;
+***************
+*** 1183,1188 ****
+--- 1201,1224 ----
+  #endif
+  	return 0;
+  #else /* ATT else */
++ #ifdef AIXV3
++ 	if ((*pty = open ("/dev/ptc", O_RDWR)) < 0) {
++ 	    return 1;
++ 	}
++ 	strcpy(ttydev, ttyname(*pty));
++ 	return 0;
++ #endif
++ #ifdef sgi
++ 	{
++ 	    char    *tty_name;
++ 
++ 	    tty_name = _getpty (pty, O_RDWR, 0622, 0);
++ 	    if (tty_name == 0)
++ 		return 1;
++ 	    strcpy (ttydev, tty_name);
++ 	    return 0;
++ 	}
++ #endif
+  #ifdef __convex__
+          {
+  	    char *pty_name, *getpty();
+***************
+*** 1201,1207 ****
+  #ifdef USE_GET_PSEUDOTTY
+  	return ((*pty = getpseudotty (&ttydev, &ptydev)) >= 0 ? 0 : 1);
+  #else
+! #if defined(sgi) || (defined(umips) && defined (SYSTYPE_SYSV))
+  	struct stat fstat_buf;
+  
+  	*pty = open ("/dev/ptc", O_RDWR);
+--- 1237,1243 ----
+  #ifdef USE_GET_PSEUDOTTY
+  	return ((*pty = getpseudotty (&ttydev, &ptydev)) >= 0 ? 0 : 1);
+  #else
+! #if (defined(umips) && defined (SYSTYPE_SYSV))
+  	struct stat fstat_buf;
+  
+  	*pty = open ("/dev/ptc", O_RDWR);

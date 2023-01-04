@@ -1,0 +1,187 @@
+.\"##
+.\" $XConsortium: p122,v 5.1 91/02/16 09:38:59 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.ds f \s-2INQUIRE DISPLAY SPACE SIZE\s+2
+.TH "INQUIRE DISPLAY SPACE SIZE" 3P "29 February 1991"
+.SH NAME
+INQUIRE DISPLAY SPACE SIZE\- inquire the display space size of a workstation type
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pinq_disp_space_size ( type, error_ind, size )
+Pint	type;	\fIworkstation type\fP
+Pint	*error_ind;	\fI\s-2OUT\s+2 error indicator\fP
+Pdisp_space_size	*size;	\fI\s-2OUT\s+2 display size\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2INQUIRE DISPLAY SPACE SIZE\s+2 returns the display space size 
+associated with the
+workstation type specified.
+The workstation type passed as an argument to this function can be either a
+generic type or a specific type, a specific type being one associated with
+an open workstation and obtained by a call to
+\s-2INQUIRE WORKSTATION CONNECTION AND TYPE\s+2.
+The information is retrieved from the workstation description table
+associated with the workstation type.
+.LP
+\s-2INQUIRE DISPLAY SPACE SIZE\s+2 returns only the \fIx\fP and \fIy\fP 
+components of the display space
+limits.  Use \s-2INQUIRE DISPLAY SPACE SIZE 3\s+2 to retrieve all three
+dimensions.
+.LP
+.SS C Input Parameters
+.IP \fItype\fP
+The workstation type, either generic or specific.
+.SS C Output Parameters
+.IP \fIerror_ind\fP
+The error indicator.  See the \fIExecution\fP section below for a
+description of its use.  See the \fIErrors\fP section below for the
+possible values it may return.
+.IP \fIsize\fP
+A pointer to a Pdisp_space_size structure in which to store the requested 
+information.
+Pdisp_space_size is defined in phigs.h as:
+.sp .2
+.ta .5i +1.0i +1.25i
+.nf
+typedef struct {
+.sp .2
+	Pdc_units	dc_units;	/* device coordinate units */
+	Pfloat_size	size_dc;	/* device volume in coordinate units */
+	Pint_size	size_raster;	/* addressable units */
+.sp .2
+} Pdisp_space_size;
+.fi
+.IP
+\fIdc_units\fP indicates the unit type, if any, of the device coordinate units.
+Pdc_units is defined in phigs.h as:
+.sp .2
+.nf
+typedef enum {
+.sp .2
+	\s-2PDC_METRES,
+	PDC_OTHER\s+2
+.sp .2
+} Pdc_units;
+.fi
+.IP
+\fIsize_dc\fP contains the upper limits of the device coordinate units.
+The lower limits are zero in all dimensions.  See the \fIExecution\fP
+section below for a description of the meaning of these values.
+Pfloat_size is defined in phigs.h as:
+.sp .2
+.ta .5i +1.0i +1.25i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	size_x;
+	Pfloat	size_y;
+.sp .2
+} Pfloat_size;
+.fi
+.IP
+\fIsize_raster\fP contains the number of addressable units corresponding to
+the device coordinate units.
+See the \fIExecution\fP section below for a description of the meaning of
+these values for each supported workstation type.
+Pint_size is defined in phigs.h as:
+.sp .2
+.ta .5i +1.0i +1.25i
+.nf
+typedef struct {
+.sp .2
+	Pint	size_x;
+	Pint	size_y;
+.sp .2
+} Pint_size;
+.fi
+.SS Execution
+\s-2INQUIRE DISPLAY SPACE SIZE\s+2 retrieves the device coordinate space 
+limits and the number of addressable
+units of a workstation type.  The device coordinate space limits correspond
+to the maximum device coordinate \s-2(DC)\s+2 values of a workstation.
+\s-2DC\s+2 is the conceptual coordinate system of the display device and 
+is the
+coordinate system used by the application to specify the workstation viewport
+and input device echo areas.  The lower limits of \s-2DC\s+2 are always 
+zero in all three dimensions.
+.LP
+The \s-2DC\s+2 limits and addressable units are specified in the 
+workstation description table associated with a workstation type.
+They can be different in all three dimensions.
+The DC limits are set to the size of the workstation's X window when the
+workstation is opened.
+When the window is resized the DC limits change to the new size of the
+window.
+Subsequent calls to \s-2INQUIRE DISPLAY SPACE SIZE\s+2 will reflect this 
+change by returning the limits in effect at the time of the function call.
+See the \s-2PHIGS_DC_MODEL\s+2 attribute description in
+\s-2WORKSTATION TYPE SET\s+2 for a description of how to change this
+behavior so that DC limits do not change with the window size.
+.LP
+If the type specified is a generic x_tool workstation type (in other words, 
+one not associated with an open workstation), then the display space size
+corresponds to the size of the window that \fIwould be\fP used if a
+workstation were opened with that type.
+.IP
+If the type specified is a generic x_drawable workstation type, then
+error 51 will be returned in the error indicator, indicating that the
+information  is unavailable for such a workstation type and a specific
+workstation type is required.
+.LP
+If an error is detected by this function the \fIerror indicator\fP will
+indicate the error number of the error detected and no other output data
+will be returned.  If no error is detected, the \fIerror indicator\fP will
+be set to zero and the inquired information will be available in the output
+parameters.  Since this is an inquiry function, \s-2ERROR HANDLING\s+2 is not
+invoked when an error is detected by this function.
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state (\s-2PHOP, *, *, *\s+2)
+.IP 051
+Ignoring function, this information is not yet available
+for this workstation type; open a workstation of this type
+and use the specific workstation type
+.IP 052
+Ignoring function, workstation type not recognized by the implementation
+.IP 057
+Ignoring function, specified workstation is of category \s-2MI\s+2
+.IP 062
+Ignoring function, this information is not available for this
+\s-2MO\s+2 workstation type
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INQUIRE WORKSTATION CONNECTION AND TYPE (3P)"
+.SM "WORKSTATION TYPE SET (3P)"
+.SM "INQUIRE DISPLAY SPACE SIZE 3 (3P)"
+.fi

@@ -1,0 +1,226 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: lockf.3,v $ $Revision: 3.2.8.4 $ (DEC) $Date: 1993/12/21 15:57:07 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+...\"
+...\"
+.TH lockf 3
+.SH NAME
+\*Llockf\*O -  Controls open file descriptors
+.SH SYNOPSIS
+.PP
+.iX "lockf function"
+.sS
+\*L#include <fcntl.h>
+.\" Begin Digital-specific information CORRECTION
+.\" This include line was added per OSF_QAR 02886.
+.sp
+#include <unistd.h>
+.\" End Digital-specific information CORRECTION
+.sp
+\*Lint lockf\*O(\*L
+.nL
+	\*Lint \*Vfiledes\*L,
+.nL
+	int \*Vrequest\*L,
+.nL
+	off_t \*Vsize \*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfiledes\*O"
+Specifies the file to which
+the lock is to be applied or removed.
+The file descriptor is returned by a successful\*L
+open(\|)\*O or \*Lfcntl(\|)\*O function.
+.LI "\*Vrequest"
+\*OSpecifies one of the following constants for the \*Llockf(\|)\*O function:
+.VL
+.LI "F_ULOCK"
+Unlocks a previously locked region in the file.
+.LI "F_LOCK"
+Locks the region for exclusive use. This
+request causes the calling process to sleep if the region overlaps
+a locked region, and to resume when it is granted the lock.
+.LI "F_TLOCK"
+Same as F_LOCK, except that the request returns an error if the region
+overlaps a locked region.
+.LI "F_TEST"
+Tests to see if another process has already
+locked a region. The \*Llockf(\|)\*O function returns 0 (zero) if the region
+is unlocked. If the region is locked, then -1 is returned and
+\*Lerrno\*O is set to [EACCES].
+.LE
+.LI "\*Vsize"
+\*OThe number of bytes to be locked or unlocked for the
+\*Llockf(\|)\*O function. The region starts at the current location in
+the open file
+and extends forward if \*Vsize\*O is positive and backward if\*V
+size\*O is negative. If the \*Vsize\*O parameter is 0 (zero),  the region
+starts at the current location and extends forward to the maximum
+possible file size, including the unallocated space after the end
+of the file.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "file" "locking"
+.iX "locks" "on sections of an open file"
+.iX "locks" "enforced versus arbitrary"
+.iX "locks" "read versus write"
+.iX "file" "controlling locking on file sections"
+The \*Llockf(\|)\*O function locks and unlocks sections
+of an open file.  Unlike the \*Lfcntl(\|)\*O
+function, however, its interface is limited to setting only
+write (exclusive) locks.
+.PP
+Although the \*Llockf(\|)\*O and \*Lfcntl(\|)\*O
+functions are different, the implementations are fully integrated.
+Therefore, locks obtained from one function are honored and enforced
+by the other lock function.
+.PP
+Each lock is either an \*Eenforced lock\*O or an \*Eadvisory
+lock\*O, and must also be either a \*Eread lock or a \*Ewrite
+lock\*O.
+.PP
+Locks on a file are advisory or enforced depending on the mode of the
+file (see the \*Lchmod(\|)\*O function.)
+A given file can have advisory or enforced
+locks, but not both.  See the \*Lsys/mode.h\*O header file
+for a description of file attributes.
+.PP
+When a process holds an enforced exclusive lock on a section of a file,
+no other process can access that section of the file with the\*L
+read(\|)\*O or \*Lwrite(\|)\*O functions. In addition, the \*Lopen(\|)\*O,
+\*Ltruncate(\|)\*O,
+and \*Lftruncate(\|)\*O functions cannot truncate
+the locked section of the file.  If another process
+attempts to read or modify the locked section of the file, it sleeps
+until the section is unlocked or returns with an error indication.
+.PP
+The file descriptor on which an exclusive lock is being placed must
+have been opened with write access.
+.PP
+Some general rules about file locking include the following:
+.ML
+.LI
+Changing or unlocking part of a file in the middle of a locked
+section leaves two smaller sections locked at each end of the originally
+locked section.
+.LI
+All locks associated with a file for a given process are removed
+when the process closes \*Vany\*O file descriptor for that
+file.
+.LI
+Locks are not inherited by a child process after running a
+\*Lfork(\|)\*O function.
+.LE
+.PP
+Locks can start and extend beyond the current end of a file, but
+cannot be negative relative to the beginning of the file. A lock can
+be set to extend to the end of the file by
+setting the \*Ll_len\*O field to 0 (zero). If a lock is specified with
+the \*Ll_start\*O field set to 0 and
+the \*Ll_whence\*O field set to SEEK_SET, the whole file is locked.
+.PP
+Advisory file region locking is supported over NFS,
+provided the locking daemon (\*Lrpc.lockd\*O)
+and status monitor daemon (\*Lrpc.statd\*O) are running.
+.SH NOTES
+.PP
+Buffered I/O does not work properly when used
+with file locking. Do not use the standard I/O package
+routines on files that will be locked.
+.PP
+Deadlocks due to file locks in a distributed
+system are not always detected. When such deadlocks are possible,
+the programs requesting the locks should set time-out timers.
+.SH RETURN VALUES
+.PP
+Upon successful completion, a value of 0 (zero) is returned. Otherwise,
+a value of -1 is returned and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the \*Llockf(\|)\*O function fails, \*Lerrno\*O
+may be set to one of the following values:
+.VL 1i
+.\" Begin Digital-specific information CORRECTION
+.\" Changed [EACESS] to [EACCES] per OSF_QAR 02886.
+.\" Added F_TLOCK per Diane Lebel - BAC
+.LI "[EACCES]"
+The file region is locked and F_TEST was specified; or the file region is
+locked and F_TLOCK was specified.
+.\" End Digital-specific information CORRECTION
+.\" Begin Digital-specific information CORRECTION
+.LI "[EBADF]"
+The \*Vfiledes\*O parameter is not a valid open file descriptor;
+.\" changed per Diane Lebel - BAC
+or the \*Vrequest\*O parameter is F_LOCK or F_TLOCK
+.\"is F_SETLK or F_SETLKW, the type of lock (\*Ll_type\*O)
+.\"is a shared lock (F_RDLCK)
+.\"and \*Vfiledes\*O is not a valid file descriptor open for reading; or
+.\"the type of lock (\*Ll_type\*O)
+.\"is an exclusive lock (F_WRLCK)
+and \*Vfiledes\*O is not a valid file descriptor open for writing.
+.\" End Digital-specific information CORRECTION
+.LI "[EDEADLK]"
+The lock is blocked by some lock from another
+process.  Putting the calling process to sleep while waiting for that
+lock to become free would cause a deadlock.
+.LI "[EINTR]"
+The \*Vrequest\*O parameter is F_TLOCK and the \*Llockf(\|)\*O
+function was interrupted by a signal which was caught.
+.LI "[EINVAL]"
+The \*Vrequest\*O parameter is not valid.
+.\" Begin Digital-specific information CORRECTION
+.\" Added per QAR 13824
+.LI "[ENOLCK]"
+The \*Vrequest\*O parameter is F_LOCK or F_TLOCK and satisfying the lock or
+unlock request would exceed the configurable system limit of
+NLOCK_RECORD.
+.IP
+If using NFS, the server is out of resources or the file handle is stale.
+.\" End Digital-specific information CORRECTION
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lchmod\*O(2),
+\*Lclose\*O(2),
+\*Lexec\*O(2),
+\*Lfcntl\*O(2),
+\*Lflock\*O(2),
+\*Lfork\*O(2),
+\*Lopen\*O(2),
+\*Lread\*O(2),
+\*Lwrite\*O(2)
+.PP
+Commands:
+.\"Begin Digital correction.
+.\"changed rpc.lock(8) to rpc.lockd(8).
+.\"changed rpc.stad(8) to rpc.statd(8).
+\*Lrpc.lockd\*O(8),
+\*Lrpc.statd\*O(8)
+.\"End Digital correction.
+.iX "lockf function"
+.EQ
+delim off
+.EN

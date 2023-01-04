@@ -1,0 +1,228 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" 
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: zic.8,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1992/12/24 00:58:38 $
+.\"
+.TH zic 8
+.SH NAME
+\*Lzic\*O \- time zone compiler
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/bin/zic\*O [ \*L\-d\*O \*Vdirectory\*O ] [ \*L\-l\*O \*Vlocaltime\*O ] [
+\*L\-v\*O ] [ \*Vfilename\*O ... ]
+.sE
+.SH DESCRIPTION
+.PP
+.iX "zic"
+.iX "timezone compiler"
+The \*Lzic\*O compiler reads text from the file(s) named on the command line
+and creates the time conversion information files specified in this input.
+If a \*Lfilename\*O is \*L\-\*O, the standard input is read.
+.PP
+Input lines are made up of fields.
+Fields are separated from one another by any
+number of white space characters.
+Leading and trailing white space on input lines is ignored.
+An unquoted number sign (#) in the input introduces
+a comment which extends
+to the end of the line the sharp character appears on.
+White space characters and sharp characters may
+be enclosed in double quotation marks (" ")
+if they are to be used as part of a field.
+Any line that is blank (after comment stripping) is ignored.
+Non-blank lines are expected to be of one of three types:
+rule lines, zone lines, and link lines.
+.PP
+A rule line has the form:
+.PP
+.iS
+Rule  NAME  FROM  TO TYPE IN ON      AT    SAVE LETTER/S
+.iE
+.PP
+For example:
+.PP
+.iS
+Rule  USA   1969  1973 \- Apr lastSun 2:00  1:00 D
+.iE
+.PP
+The fields that make up a rule line are:
+.VL 4m
+.LI "NAME"
+Gives the (arbitrary) name of the set of rules this rule is part of.
+.LI "FROM"
+Gives the first year in which the rule applies.  The word minimum
+(or an abbreviation) means the minimum year with a representable time value.
+The word maximum (or an abbreviation) means the maximum year with a
+representable time value.
+.LI "TO"
+Gives the final year in which the rule applies.  In addition to
+minimum and maximum (as above), the word only (or an abbreviation)
+may be used to repeat the value of the FROM field.
+.LI "TYPE"
+Gives the type of year in which the rule applies.  If TYPE is \*L\-\*O
+then the rule applies in all years between FROM and TO inclusive;
+if TYPE is `uspres', the rule applies in U.S. Presidential election years;
+if TYPE is `nonpres', the rule applies in years other than U.S.
+Presidential election years.
+If TYPE is something else, then \*Lzic\*O executes the following command
+to check the type of a year:
+.sp
+.sS
+\*Lyearistype\*O \*Vyear type\*O
+.sE
+.sp
+An exit status of zero is taken to mean that the year is of the given type;
+an exit status of one is taken to mean that the year is not of the given type.
+.LI "IN"
+Names the month in which the rule takes effect.
+Month names may be abbreviated.
+.LI "ON"
+Gives the day on which the rule takes effect.
+Recognized forms include:
+.sp
+.oS
+  5 the fifth of the month
+  lastSun the last Sunday in the month
+  lastMon the last Monday in the month
+  Sun>=8 first Sunday on or after the eighth
+  Sun<=25 last Sunday on or before the 25th
+.oE
+.sp
+Names of days of the week may be abbreviated or spelled out in full.
+Note that there must be no spaces within the ON field.
+.LI "AT"
+Gives the time of day at which the rule takes effect.
+Recognized forms include:
+.sp
+.oS
+  2 time in hours
+  2:00 time in hours and minutes
+  15:00 24-hour format time (for times after noon)
+  1:28:14 time in hours, minutes, and seconds
+.oE
+.sp
+Any of these forms may be followed by the letter \*Lw\*O
+if the given time is local `wall clock' time or the letter \*Ls\*O
+if the given time is local `standard' time; in the absence of either
+the letter \*Lw\*O or the letter \*Ls\*O, `wall clock' time is assumed.
+.LI "SAVE"
+Gives the amount of time to be added to local standard time when
+the rule is in effect.  This field has the same format as the
+AT field (although, of course, the letter \*Lw\*O and \*Lw\*O
+suffixes are not used).
+.LI "LETTER/S"
+Gives the `variable part' (for example, the `S' or `D' in `EST'
+or `EDT') of time zone abbreviations to be used when this rule is in effect.
+If this field is \*L\-\*O, the variable part is null.
+.LE
+.PP
+A zone line has the form:
+.sp
+.iS
+"Zone NAME             GMTOFF  RULES/SAVE FORMAT UNTIL]"
+.iE
+.sp
+For example:
+.sp
+.iS
+Zone  Australia/South\-west 9:30   Aus      CST   1987 Mar 15 2:00
+.iE
+.sp
+The fields that make up a zone line are:
+.VL 4m
+.LI "NAME"
+The name of the time zone.  This is the name used in creating the
+time conversion information file for the zone.
+.LI "GMTOFF"
+The amount of time to add to GMT to get standard time in this zone.
+This field has the same format as the AT and SAVE fields of rule lines;
+begin the field with a minus sign if time must be subtracted from GMT.
+.LI "RULES/SAVE"
+The name of the rule(s) that apply in the time zone or,
+alternately, an amount of time to add to local standard time.
+If this field is \*L\-\*O,
+standard time always applies in the time zone.
+.LI "FORMAT"
+The format for time zone abbreviations in this time zone.
+The pair of characters \*L%s\*O
+is used to show where the variable part of the time zone abbreviation goes.
+.LI "UNTIL"
+The time at which the GMT offset or the rule(s) change for a location.
+It is specified as a year, a month, a day, and a time of day.
+If this is specified, the time zone information is generated from
+the given GMT offset and rule change until the time specified.
+.IP
+The next line must be a
+`continuation' line; this has the same form as a zone line except that the
+string `Zone' and the name are omitted, as the continuation line will
+place information starting at the time specified as the UNTIL
+field in the previous line in the file used by the previous line.
+Continuation lines may contain an UNTIL
+field, just as zone lines do, indicating that the next line is a further
+continuation.
+.LE
+.PP
+A link line has the form:
+.sp
+.iS
+"Link   LINK-FROM    LINK-TO"
+.iE
+.sp
+For example:
+.sp
+.iS
+ Link   US/Eastern   EST5EDT
+.iE
+.sp
+The LINK-FROM field should appear as the NAME field in some zone line;
+the LINK-TO field is used as an alternate name for that zone.
+.PP
+Except for continuation lines, lines may appear in any order in the input.
+.PP
+NOTE:  For areas with more than two types of local time,
+you may need to use local standard time in the AT
+field of the earliest transition time's rule to ensure that
+the earliest transition time recorded in the compiled file is correct.
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L\-d \*Vdirectory\*O"
+Create time conversion information files in the named \*Vdirectory\*O
+rather than in the standard directory named below.
+.LI "\*L\-l \*Vtimezone\*O"
+Use the given time zone as local time.  The \*Lzic\*O
+compiler will act as if the file contained a link line of the form:
+.sp
+.sS
+\*Llink \*Vtimezone localtime\*O
+.sE
+.LI "\*L\-v\*O"
+Complain if a year that appears in a data file is outside the range
+of years representable by \*Ltime\*O values.
+.LE
+.SH FILES
+.PP
+.VL 10m
+.LI "\*L/etc/zoneinfo\*O"
+Standard directory used for created files
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lctime\*O(3), \*Ltzfile\*O(5), \*Lzdump\*O(8)
+.EQ
+delim off
+.EN

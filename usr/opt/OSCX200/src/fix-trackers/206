@@ -1,0 +1,1113 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203312245.AA25659@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2431) Close XBUG #4206, #4981, #4983, #4995, #5007, #5062
+Date: Tue, 31 Mar 92 17:45:18 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+From: Dave Lemke <lemke@ncd.com>
+Subject: fontlib: old debug code left in fontlib
+
+### bug number:   4206
+### area:         fontlib
+### severity:     low
+### comments:     
+
+From: Nathan K. Meyers <nathanm@hp-pcd.cv.hp.com>
+Subject: fontlib: BufFileRead() returns incorrect count on EOF
+
+### bug number:   4981
+### area:         fontlib
+### severity:     low
+### comments:     
+
+From: mikew@kpc.com
+Subject: fontlib: mkfotndir fials when reading snf files
+
+### bug number:   4983
+### area:         fontlib
+### severity:     low
+### comments:     
+
+From: chowell@chum.wv.tek.com
+Subject: fontlib: Cannot read in '.snf' fonts (BadFontName Error)
+
+### bug number:   4995
+### area:         fontlib
+### severity:     low
+### comments:     
+
+From: johnbob@innerdoor.austin.ibm.com (John Harvey)
+Subject: fontlib: malloc bug in fonts/lib/font/util/fsfuncs.c
+
+### bug number:   5007
+### area:         fontlib
+### severity:     low
+### comments:     
+
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Subject: fontlib: memory leaks in fc, Speedo, pcf, bdf and Type1 renderers
+
+### bug number:   5062
+### area:         fontlib
+### severity:     low
+### comments:     
+
+*** /tmp/da2871	Tue Mar 31 16:30:37 1992
+--- fonts/lib/font/Speedo/spfile.c	Wed Mar 25 18:45:47 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfile.c,v 1.4 91/07/15 18:16:46 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfile.c,v 1.5 92/03/25 18:45:45 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 265,270 ****
+--- 265,271 ----
+  	return;
+      if (spmf->state & MasterFileOpen)
+  	fclose(spmf->fp);
++     spmf->entry->u.scalable.extra->private = (pointer) 0;
+      xfree(spmf->fname);
+      xfree(spmf->f_buffer);
+      xfree(spmf->c_buffer);
+*** /tmp/da2893	Tue Mar 31 16:30:46 1992
+--- fonts/lib/font/Speedo/spfont.c	Wed Mar 25 18:45:51 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spfont.c,v 1.13 91/09/16 11:42:28 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spfont.c,v 1.14 92/03/25 18:45:48 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 626,632 ****
+  {
+      SpeedoFontPtr spf;
+      SpeedoMasterFontPtr spmf;
+-     FontPtr     mpfont;
+      int         ret;
+      char        tmpname[MAXFONTNAMELEN];
+      specs_t     specs;
+--- 626,631 ----
+***************
+*** 633,660 ****
+      FontScalableRec vals;
+      double      pointsize;
+  
+!     /* make a master if we don't have one */
+!     if (entry) {
+! 	mpfont = (FontPtr) entry->u.scalable.extra->private;
+! 	if (!mpfont) {
+! 	    mpfont = (FontPtr) xalloc(sizeof(FontRec));
+! 	    if (!mpfont)
+! 		return AllocError;
+! 	    flags |= FontLoadBitmaps;	/* make sure a master is all there */
+! 	    ret = load_sp_font(entry->name.name, filename, (FontEntryPtr) 0,
+! 			       format, fmask, mpfont, flags);
+! 	    if (ret != Successful) {
+! 		xfree(mpfont);
+! 		return ret;
+! 	    }
+! 	    entry->u.scalable.extra->private = (pointer) mpfont;
+! 	}
+! 	spf = (SpeedoFontPtr) mpfont->fontPrivate;
+! 	spmf = spf->master;
+!     } else {
+  	ret = open_master(filename, &spmf);
+  	if (ret != Successful)
+  	    return ret;
+      }
+  
+      spf = (SpeedoFontPtr) xalloc(sizeof(SpeedoFontRec));
+--- 632,646 ----
+      FontScalableRec vals;
+      double      pointsize;
+  
+!     /* find a master (create it if necessary) */
+!     spmf = (SpeedoMasterFontPtr) entry->u.scalable.extra->private;
+!     if (!spmf)
+!     {
+  	ret = open_master(filename, &spmf);
+  	if (ret != Successful)
+  	    return ret;
++ 	entry->u.scalable.extra->private = (pointer) spmf;
++ 	spmf->entry = entry;
+      }
+  
+      spf = (SpeedoFontPtr) xalloc(sizeof(SpeedoFontRec));
+***************
+*** 663,668 ****
+--- 649,655 ----
+      bzero((char *) spf, sizeof(SpeedoFontRec));
+  
+      spf->master = spmf;
++     spf->entry = entry;
+      spmf->refcount++;
+      sp_reset_master(spmf);
+  
+***************
+*** 697,708 ****
+      specs.flags = MODE_SCREEN;
+      specs.out_info = NULL;
+  
+      if (!sp_set_specs(&specs))
+  	return BadFontName;
+  
+      spf->specs = specs;
+- 
+      *spfont = spf;
+  
+      return Successful;
+  }
+--- 684,698 ----
+      specs.flags = MODE_SCREEN;
+      specs.out_info = NULL;
+  
++     /* clobber global state to avoid wrecking future obliqued fonts */
++     bzero ((char *) &sp_globals, sizeof(sp_globals));
++ 
+      if (!sp_set_specs(&specs))
+  	return BadFontName;
+  
+      spf->specs = specs;
+      *spfont = spf;
++     spf->master = spmf;
+  
+      return Successful;
+  }
+***************
+*** 768,773 ****
+--- 758,764 ----
+      pfont->maxPrivate = -1;
+      pfont->devPrivates = (pointer *) 0;
+  
++     /* have to hold on to master for min/max id */
+      close_master_file(spmf);
+  
+      return ret;
+***************
+*** 794,800 ****
+  
+      if (ret == Successful)
+  	*ppfont = pfont;
+! 
+      return ret;
+  }
+  
+--- 785,793 ----
+  
+      if (ret == Successful)
+  	*ppfont = pfont;
+!     else
+! 	xfree (pfont);
+!     
+      return ret;
+  }
+  
+***************
+*** 805,817 ****
+      SpeedoMasterFontPtr spmf;
+  
+      spmf = spf->master;
+!     if (--spmf->refcount == 0) {
+! 	if (spmf->state & MasterFileOpen) {
+! 	    (void) fclose(spmf->fp);
+! 	    xfree(spmf->f_buffer);
+! 	    xfree(spmf->c_buffer);
+! 	}
+!     }
+      xfree(spf->encoding);
+      xfree(spf->bitmaps);
+      xfree(spf);
+--- 798,806 ----
+      SpeedoMasterFontPtr spmf;
+  
+      spmf = spf->master;
+!     --spmf->refcount;
+!     if (spmf->refcount == 0)
+! 	close_master_font (spmf);
+      xfree(spf->encoding);
+      xfree(spf->bitmaps);
+      xfree(spf);
+*** /tmp/da2978	Tue Mar 31 16:31:22 1992
+--- fonts/lib/font/Speedo/spint.h	Wed Mar 25 18:45:54 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spint.h,v 1.4 91/07/16 20:20:32 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spint.h,v 1.5 92/03/25 18:45:51 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 52,57 ****
+--- 52,58 ----
+  #define	MasterFileOpen	0x1
+  
+  typedef struct _sp_master {
++     FontEntryPtr    entry;	/* back pointer */
+      FILE       *fp;
+      char       *fname;
+      ufix8      *f_buffer;
+***************
+*** 98,103 ****
+--- 99,106 ----
+  typedef struct _sp_font {
+      struct _sp_master *master;
+      specs_t     specs;
++ 
++     FontEntryPtr    entry;
+  
+      FontScalableRec vals;
+  
+*** /tmp/da4114	Tue Mar 31 16:39:29 1992
+--- fonts/lib/font/bitmap/bdfread.c	Thu Mar 26 17:42:08 1992
+***************
+*** 22,28 ****
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfread.c,v 1.9 91/09/07 11:59:15 keith Exp $ */
+  
+  #include <ctype.h>
+  #include "fontfilest.h"
+--- 22,28 ----
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfread.c,v 1.11 92/03/26 17:39:40 gildea Exp $ */
+  
+  #include <ctype.h>
+  #include "fontfilest.h"
+***************
+*** 208,215 ****
+                  ndx,
+                  nchars,
+                  nignored;
+!     int         char_row,
+!                 char_col;
+      int         numEncodedGlyphs = 0;
+      CharInfoPtr *bdfEncoding[256];
+      BitmapFontPtr  bitmapFont;
+--- 208,214 ----
+                  ndx,
+                  nchars,
+                  nignored;
+!     unsigned int char_row, char_col;
+      int         numEncodedGlyphs = 0;
+      CharInfoPtr *bdfEncoding[256];
+      BitmapFontPtr  bitmapFont;
+***************
+*** 225,232 ****
+  	bitmapsSizes = bitmapExtra->bitmapsSizes;
+  	for (i = 0; i < GLYPHPADOPTIONS; i++)
+  	    bitmapsSizes[i] = 0;
+- 	bitmapExtra->glyphNames = 0;
+- 	bitmapExtra->sWidths = 0;
+      } else
+  	bitmapsSizes = NULL;
+  
+--- 224,229 ----
+***************
+*** 474,487 ****
+      for (i = 0; i < 256; i++)
+  	if (bdfEncoding[i])
+  	    xfree(bdfEncoding[i]);
+!     for (i = 0; i < ndx; i++)
+! 	if (bitmapFont->metrics[i].bits)
+! 	    xfree(bitmapFont->metrics[i].bits);
+!     xfree(bitmapFont->metrics);
+!     if (bitmapExtra) {
+! 	xfree(bitmapExtra->glyphNames);
+! 	xfree(bitmapExtra->sWidths);
+!     }
+      return (FALSE);
+  }
+  
+--- 471,477 ----
+      for (i = 0; i < 256; i++)
+  	if (bdfEncoding[i])
+  	    xfree(bdfEncoding[i]);
+!     /* bdfFreeFontBits will clean up the rest */
+      return (FALSE);
+  }
+  
+***************
+*** 601,606 ****
+--- 591,598 ----
+  		stringProps[nextProp] = TRUE;
+  		props[nextProp].value =
+  		    bdfGetPropertyValue(line + strlen(namebuf) + 1);
++ 		if (!props[nextProp].value)
++ 		    goto BAILOUT;
+  		break;
+  	    } else if (bdfIsInteger(secondbuf)) {
+  		stringProps[nextProp] = FALSE;
+***************
+*** 620,625 ****
+--- 612,619 ----
+  		stringProps[nextProp] = TRUE;
+  		props[nextProp].value =
+  		    bdfGetPropertyValue(line + strlen(namebuf) + 1);
++ 		if (!props[nextProp].value)
++ 		    goto BAILOUT;
+  		break;
+  	    } else {
+  		bdfError("invalid '%s' parameter value\n", namebuf);
+***************
+*** 756,761 ****
+--- 750,757 ----
+      bitmapFont->encoding = 0;
+      bitmapFont->pDefault = NULL;
+      bitmapFont->bitmapExtra = (BitmapExtraPtr) xalloc(sizeof(BitmapExtraRec));
++     bitmapFont->bitmapExtra->glyphNames = 0;
++     bitmapFont->bitmapExtra->sWidths = 0;
+  
+      if (!bdfReadProperties(file, pFont, &state))
+  	goto BAILOUT;
+***************
+*** 764,772 ****
+  	goto BAILOUT;
+  
+      if (state.haveDefaultCh) {
+! 	int         r,
+! 	            c,
+! 	            cols;
+  
+  	r = pFont->info.defaultCh >> 8;
+  	c = pFont->info.defaultCh & 0xFF;
+--- 760,766 ----
+  	goto BAILOUT;
+  
+      if (state.haveDefaultCh) {
+! 	unsigned int r, c, cols;
+  
+  	r = pFont->info.defaultCh >> 8;
+  	c = pFont->info.defaultCh & 0xFF;
+***************
+*** 830,843 ****
+--- 824,845 ----
+      FontPtr pFont;
+  {
+      BitmapFontPtr  bitmapFont;
++     BitmapExtraPtr bitmapExtra;
+      int         i;
+  
+      bitmapFont = (BitmapFontPtr) pFont->fontPrivate;
++     bitmapExtra = (BitmapExtraPtr) bitmapFont->bitmapExtra;
+      xfree(bitmapFont->ink_metrics);
+      xfree(bitmapFont->encoding);
+      for (i = 0; i < bitmapFont->num_chars; i++)
+  	xfree(bitmapFont->metrics[i].bits);
+      xfree(bitmapFont->metrics);
++     if (bitmapExtra)
++     {
++ 	xfree (bitmapExtra->glyphNames);
++ 	xfree (bitmapExtra->sWidths);
++ 	xfree (bitmapExtra);
++     }
+      xfree(pFont->info.props);
+      xfree(bitmapFont);
+  }
+*** /tmp/da4223	Tue Mar 31 16:40:15 1992
+--- fonts/lib/font/bitmap/bitscale.c	Fri Mar 20 14:34:08 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: bitscale.c,v 1.9 91/07/22 20:46:06 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: bitscale.c,v 1.10 92/03/20 14:34:06 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 241,253 ****
+  	    }
+  	}
+      }
+!     if (best_scaled)
+!     {
+! 	*best = best_scaled->vals;
+! 	*fpep = best_fpe;
+! 	*dxp = best_dx;
+! 	*dyp = best_dy;
+!     }
+      return best_scaled->bitmap;
+  }
+  
+--- 241,253 ----
+  	    }
+  	}
+      }
+!     if (!best_scaled)
+! 	return NULL;
+! 
+!     *best = best_scaled->vals;
+!     *fpep = best_fpe;
+!     *dxp = best_dx;
+!     *dyp = best_dy;
+      return best_scaled->bitmap;
+  }
+  
+***************
+*** 1045,1050 ****
+--- 1045,1052 ----
+  
+      propCount = ComputeScaledProperties (&scaleInfo, fontName->name, vals, dx, dy,
+  					&props, &isStringProp);
++     xfree (scaleInfo.isStringProp);
++     xfree (scaleInfo.props);
+      if (propCount && (!props || !isStringProp))
+  	return AllocError;
+  
+*** /tmp/da4266	Tue Mar 31 16:40:32 1992
+--- fonts/lib/font/bitmap/fsfuncs.c	Tue Feb 11 17:17:20 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fsfuncs.c,v 1.6 91/07/31 01:08:36 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: fsfuncs.c,v 1.7 92/02/11 17:15:24 eswu Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 84,90 ****
+      int         i,
+                  r,
+                  c;
+!     int         encoding;
+      BitmapFontPtr bitmapfont;
+      CharInfoPtr src;
+      int         firstCol = pfont->info.firstCol;
+--- 84,90 ----
+      int         i,
+                  r,
+                  c;
+!     FontEncoding  encoding;
+      BitmapFontPtr bitmapfont;
+      CharInfoPtr src;
+      int         firstCol = pfont->info.firstCol;
+*** /tmp/da4310	Tue Mar 31 16:40:51 1992
+--- fonts/lib/font/bitmap/pcfread.c	Fri Mar 20 15:03:55 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: pcfread.c,v 1.8 92/02/11 13:16:44 eswu Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: pcfread.c,v 1.9 92/03/20 14:34:37 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 169,175 ****
+      for (i = 0; i < ntables; i++)
+  	if (tables[i].type == type) {
+  	    if (position > tables[i].offset)
+! 		abort ();
+  	    if (!FontFileSkip(file, tables[i].offset - position))
+  		return FALSE;
+  	    position = tables[i].offset;
+--- 169,175 ----
+      for (i = 0; i < ntables; i++)
+  	if (tables[i].type == type) {
+  	    if (position > tables[i].offset)
+! 		return FALSE;
+  	    if (!FontFileSkip(file, tables[i].offset - position))
+  		return FALSE;
+  	    position = tables[i].offset;
+***************
+*** 594,599 ****
+--- 594,602 ----
+      int         nencoding;
+      Bool	hasBDFAccelerators;
+  
++     pFontInfo->isStringProp = NULL;
++     pFontInfo->props = NULL;
++ 
+      if (!(tables = pcfReadTOC(file, &ntables)))
+  	goto Bail;
+  
+***************
+*** 641,646 ****
+--- 644,651 ----
+      xfree(tables);
+      return Successful;
+  Bail:
++     xfree (pFontInfo->props);
++     xfree (pFontInfo->isStringProp);
+      xfree(tables);
+      return AllocError;
+  }
+*** /tmp/da4421	Tue Mar 31 16:41:37 1992
+--- fonts/lib/font/fc/fserve.c	Mon Mar 23 17:02:09 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fserve.c,v 1.15 92/01/30 16:21:40 eswu Exp $ */
+  /*
+   *
+   * Copyright 1990 Network Computing Devices
+--- 1,4 ----
+! /* $XConsortium: fserve.c,v 1.18 92/03/23 17:02:04 keith Exp $ */
+  /*
+   *
+   * Copyright 1990 Network Computing Devices
+***************
+*** 254,259 ****
+--- 254,281 ----
+      return err;
+  }
+  
++ /* 
++  * close font server and remove any state associated with
++  * this connection - this includes any client records.
++  */
++ 
++ static void
++ fs_close_conn(conn)
++     FSFpePtr	conn;
++ {
++     FSClientPtr	client, nclient;
++ 
++     (void) close(conn->fs_fd);
++ 
++     _fs_bit_clear(fs_fd_mask, conn->fs_fd);
++ 
++     for (client = conn->clients; client; client = nclient) 
++     {
++ 	nclient = client->next;
++ 	xfree (client);
++     }
++ }
++ 
+  /*
+   * the wakeup handlers have to be set when the FPE is open, and not
+   * removed until it is freed, in order to handle unexpected data, like
+***************
+*** 285,294 ****
+  	fpe->private = (pointer) conn;
+  	err = fs_send_init_packets(conn);
+  	if (err != Successful) {
+! 	    (void) close(conn->fs_fd);
+! 	    xfree(conn->servername);
+! 	    xfree(conn->alts);
+! 	    xfree(conn);
+  	    return err;
+  	}
+  	if (init_fs_handlers(fpe, fs_block_handler) != Successful)
+--- 307,316 ----
+  	fpe->private = (pointer) conn;
+  	err = fs_send_init_packets(conn);
+  	if (err != Successful) {
+! 	    fs_close_conn(conn);
+!     	    xfree(conn->servername);
+!     	    xfree(conn->alts);
+!     	    xfree(conn);
+  	    return err;
+  	}
+  	if (init_fs_handlers(fpe, fs_block_handler) != Successful)
+***************
+*** 335,341 ****
+      FSFpePtr    conn = (FSFpePtr) fpe->private;
+      FSFpePtr    recon,
+                 *prev;
+- 
+      prev = &awaiting_reconnect;
+      while (recon = *prev) {
+  	if (conn == recon) {
+--- 357,362 ----
+***************
+*** 345,355 ****
+  	prev = &recon->next_reconnect;
+      }
+  
+!     /* close font server */
+!     (void) close(conn->fs_fd);
+  
+!     _fs_bit_clear(fs_fd_mask, conn->fs_fd);
+!     remove_fs_handlers(fpe, fs_block_handler, !_fs_any_bit_set(fs_fd_mask));
+  
+      xfree(conn->alts);
+      xfree(conn->servername);
+--- 366,375 ----
+  	prev = &recon->next_reconnect;
+      }
+  
+!     fs_close_conn(conn);
+  
+!     remove_fs_handlers(fpe, fs_block_handler,
+! 		       !_fs_any_bit_set(fs_fd_mask) && !awaiting_reconnect);
+  
+      xfree(conn->alts);
+      xfree(conn->servername);
+***************
+*** 609,615 ****
+  	fs_free_font(bfont);
+  	return StillWorking;
+      }
+!     (void) fs_convert_props(&pi, po, pd, &bfont->pfont->info);
+      xfree(po);
+      xfree(pd);
+  
+--- 629,641 ----
+  	fs_free_font(bfont);
+  	return StillWorking;
+      }
+!     if (fs_convert_props(&pi, po, pd, &bfont->pfont->info) == -1)
+!     {
+!     	xfree(po);
+!     	xfree(pd);
+! 	(void) fs_cleanup_font(bfont);
+! 	return AllocError;
+!     }
+      xfree(po);
+      xfree(pd);
+  
+***************
+*** 932,939 ****
+      if (!conn->attemptReconnect)
+  	return;
+      conn->attemptReconnect = FALSE;
+!     _fs_bit_clear(fs_fd_mask, conn->fs_fd);
+!     close(conn->fs_fd);
+      conn->time_to_try = time((long *) 0) + FS_RECONNECT_WAIT;
+      conn->reconnect_delay = FS_RECONNECT_WAIT;
+      conn->fs_fd = -1;
+--- 958,964 ----
+      if (!conn->attemptReconnect)
+  	return;
+      conn->attemptReconnect = FALSE;
+!     fs_close_conn(conn);
+      conn->time_to_try = time((long *) 0) + FS_RECONNECT_WAIT;
+      conn->reconnect_delay = FS_RECONNECT_WAIT;
+      conn->fs_fd = -1;
+***************
+*** 1376,1381 ****
+--- 1401,1407 ----
+      blockedglyph = (FSBlockedGlyphPtr) blockrec->data;
+      blockedglyph->pfont = pfont;
+      blockedglyph->expected_range = range;
++     blockedglyph->done = FALSE;
+  
+      /* send the request */
+      req.reqType = FS_QueryXBitmaps8;
+***************
+*** 1497,1502 ****
+--- 1523,1529 ----
+      blockedextent->pfont = pfont;
+      blockedextent->expected_ranges = range;
+      blockedextent->nranges = nranges;
++     blockedextent->done = FALSE;
+  
+      /*
+       * see if the desired extents already exist, and return Successful if they
+***************
+*** 1629,1635 ****
+      FSBlockDataPtr blockrec;
+      FSBlockedBitmapPtr blockedbitmap;
+      int         res;
+!     fsQueryXBitmaps8Req req;
+      FSFontDataPtr fsd = (FSFontDataPtr) (pfont->fpePrivate);
+      FontPathElementPtr fpe = fsd->fpe;
+      FSFpePtr    conn = (FSFpePtr) fpe->private;
+--- 1656,1662 ----
+      FSBlockDataPtr blockrec;
+      FSBlockedBitmapPtr blockedbitmap;
+      int         res;
+!     fsQueryXBitmaps16Req req;
+      FSFontDataPtr fsd = (FSFontDataPtr) (pfont->fpePrivate);
+      FontPathElementPtr fpe = fsd->fpe;
+      FSFpePtr    conn = (FSFpePtr) fpe->private;
+***************
+*** 1642,1647 ****
+--- 1669,1675 ----
+      blockedbitmap->pfont = pfont;
+      blockedbitmap->expected_ranges = range;
+      blockedbitmap->nranges = nranges;
++     blockedbitmap->done = FALSE;
+  
+      /*
+       * see if the desired glyphs already exist, and return Successful if they
+***************
+*** 1652,1665 ****
+  	return Successful;
+  
+      /* send the request */
+!     req.reqType = FS_QueryXBitmaps8;
+      req.fid = ((FSFontDataPtr) pfont->fpePrivate)->fontid;
+      req.format = format;
+      req.range = TRUE;
+!     req.length = (sizeof(fsQueryXBitmaps8Req) + sizeof(fsRange) * nranges) >> 2;
+      req.num_ranges = nranges;
+!     _fs_add_req_log(conn, FS_QueryXBitmaps8);
+!     _fs_write(conn, (char *) &req, sizeof(fsQueryXBitmaps8Req));
+      _fs_write(conn, (char *) range, sizeof(fsRange) * nranges);
+  
+      return Suspended;
+--- 1680,1693 ----
+  	return Successful;
+  
+      /* send the request */
+!     req.reqType = FS_QueryXBitmaps16;
+      req.fid = ((FSFontDataPtr) pfont->fpePrivate)->fontid;
+      req.format = format;
+      req.range = TRUE;
+!     req.length = (sizeof(fsQueryXBitmaps16Req) + sizeof(fsRange) * nranges) >> 2;
+      req.num_ranges = nranges;
+!     _fs_add_req_log(conn, FS_QueryXBitmaps16);
+!     _fs_write(conn, (char *) &req, sizeof(fsQueryXBitmaps16Req));
+      _fs_write(conn, (char *) range, sizeof(fsRange) * nranges);
+  
+      return Suspended;
+***************
+*** 1854,1863 ****
+      pointer     pd;
+  
+      /* clean up anything from the last trip */
+!     if (binfo->pfi) {
+  	xfree(binfo->name);
+  	xfree(binfo->pfi->isStringProp);
+  	xfree(binfo->pfi->props);
+      }
+      /* get reply header */
+      bcopy((char *) &blockrec->header, (char *) &rep, sizeof(fsReplyHeader));
+--- 1882,1897 ----
+      pointer     pd;
+  
+      /* clean up anything from the last trip */
+!     if (binfo->name)
+!     {
+  	xfree(binfo->name);
++ 	binfo->name = NULL;
++     }
++     if (binfo->pfi) {
+  	xfree(binfo->pfi->isStringProp);
+  	xfree(binfo->pfi->props);
++ 	xfree(binfo->pfi);
++ 	binfo->pfi = NULL;
+      }
+      /* get reply header */
+      bcopy((char *) &blockrec->header, (char *) &rep, sizeof(fsReplyHeader));
+***************
+*** 1880,1885 ****
+--- 1914,1920 ----
+      if (!name || !binfo->pfi) {
+  	xfree(name);
+  	xfree(binfo->pfi);
++ 	binfo->pfi = NULL;
+  	_fs_drain_bytes(conn,
+  			rep.length - (sizeof(fsListFontsWithXInfoReply) -
+  				      sizeof(fsReplyHeader)));
+***************
+*** 1896,1901 ****
+--- 1931,1938 ----
+  	xfree(name);
+  	xfree(po);
+  	xfree(pd);
++ 	xfree (binfo->pfi);
++ 	binfo->pfi = NULL;
+  	binfo->errcode = AllocError;
+  	return AllocError;
+      }
+***************
+*** 1905,1913 ****
+  	xfree(name);
+  	xfree(po);
+  	xfree(pd);
+  	goto done;
+      }
+!     fs_convert_lfwi_reply(binfo->pfi, &rep, &pi, po, pd);
+      xfree(po);
+      xfree(pd);
+      binfo->name = name;
+--- 1942,1960 ----
+  	xfree(name);
+  	xfree(po);
+  	xfree(pd);
++ 	xfree (binfo->pfi);
++ 	binfo->pfi = NULL;
+  	goto done;
+      }
+!     if (fs_convert_lfwi_reply(binfo->pfi, &rep, &pi, po, pd) != Successful)
+!     {
+! 	xfree(name);
+! 	xfree(po);
+! 	xfree(pd);
+! 	xfree (binfo->pfi);
+! 	binfo->pfi = NULL;
+! 	goto done;
+!     }
+      xfree(po);
+      xfree(pd);
+      binfo->name = name;
+***************
+*** 2067,2076 ****
+  	return;
+      if (blockrec->type == FS_LIST_WITH_INFO)
+      {
+! 	FSBlockedListInfoPtr blockedinfo;
+! 	blockedinfo = (FSBlockedListInfoPtr) blockrec->data;
+! 	if (blockedinfo->status == FS_LFWI_REPLY)
+  	    _fs_set_bit(fs_fd_mask, conn->fs_fd);
+      }
+      /* replace the client pointers in this block rec with the chained one */
+      if (depending = blockrec->depending) {
+--- 2114,2135 ----
+  	return;
+      if (blockrec->type == FS_LIST_WITH_INFO)
+      {
+! 	FSBlockedListInfoPtr binfo;
+! 	binfo = (FSBlockedListInfoPtr) blockrec->data;
+! 	if (binfo->status == FS_LFWI_REPLY)
+  	    _fs_set_bit(fs_fd_mask, conn->fs_fd);
++     	if (binfo->name)
++ 	{
++ 	    xfree(binfo->name);
++ 	    binfo->name = NULL;
++ 	}
++     	if (binfo->pfi) 
++ 	{
++ 	    xfree(binfo->pfi->isStringProp);
++ 	    xfree(binfo->pfi->props);
++ 	    xfree(binfo->pfi);
++ 	    binfo->pfi = NULL;
++     	}
+      }
+      /* replace the client pointers in this block rec with the chained one */
+      if (depending = blockrec->depending) {
+*** /tmp/da4444	Tue Mar 31 16:41:47 1992
+--- fonts/lib/font/fc/fsconvert.c	Tue Mar 17 15:45:49 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fsconvert.c,v 1.7 91/07/16 20:17:05 keith Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+--- 1,4 ----
+! /* $XConsortium: fsconvert.c,v 1.8 92/03/17 15:45:47 keith Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+***************
+*** 112,117 ****
+--- 112,120 ----
+                  nprops;
+      char       *is_str;
+  
++ /* stolen from server/include/resource.h */
++ #define BAD_RESOURCE 0xe0000000
++ 
+      nprops = pfi->nprops = pi->num_offsets;
+  
+      dprop = (FontPropPtr) xalloc(sizeof(FontPropRec) * nprops);
+***************
+*** 133,138 ****
+--- 136,149 ----
+  	    *is_str = TRUE;
+  	    dprop->value = (INT32) MakeAtom(&pd[po->value.position],
+  					    po->value.length, 1);
++ 	    if (dprop->value == BAD_RESOURCE)
++ 	    {
++ 		xfree (pfi->props);
++ 		xfree (pfi->isStringProp);
++ 		pfi->props = 0;
++ 		pfi->isStringProp = 0;
++ 		return -1;
++ 	    }
+  	}
+      }
+  
+***************
+*** 150,156 ****
+      fsFontHeader *hdr = &fsrep->header;
+  
+      fs_convert_header(hdr, pfi);
+!     fs_convert_props(pi, po, pd, pfi);
+  
+      return Successful;
+  }
+--- 161,168 ----
+      fsFontHeader *hdr = &fsrep->header;
+  
+      fs_convert_header(hdr, pfi);
+!     if (fs_convert_props(pi, po, pd, pfi) == -1)
+! 	return AllocError;
+  
+      return Successful;
+  }
+*** /tmp/da4640	Tue Mar 31 16:43:10 1992
+--- fonts/lib/font/fontfile/fontdir.c	Fri Mar 20 15:55:41 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: fontdir.c,v 1.8 92/02/11 18:25:39 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: fontdir.c,v 1.9 92/03/20 15:53:29 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 138,144 ****
+  
+      /* can't add entries to a sorted table, pointers get broken! */
+      if (table->sorted)
+! 	abort ();
+      if (table->used == table->size) {
+  	newsize = table->size + 100;
+  	entry = (FontEntryPtr) xrealloc(table->entries,
+--- 138,144 ----
+  
+      /* can't add entries to a sorted table, pointers get broken! */
+      if (table->sorted)
+! 	return (FontEntryPtr) 0;    /* "cannot" happen */
+      if (table->used == table->size) {
+  	newsize = table->size + 100;
+  	entry = (FontEntryPtr) xrealloc(table->entries,
+*** /tmp/da4810	Tue Mar 31 16:44:24 1992
+--- fonts/lib/font/fontfile/bufio.c	Tue Feb 11 17:18:59 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: bufio.c,v 1.2 91/11/20 15:40:18 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: bufio.c,v 1.3 92/02/11 17:17:39 eswu Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 160,166 ****
+  	    break;
+  	*b++ = c;
+      }
+!     return n - cnt;
+  }
+  
+  BufFileWrite (f, b, n)
+--- 160,166 ----
+  	    break;
+  	*b++ = c;
+      }
+!     return n - cnt - 1;
+  }
+  
+  BufFileWrite (f, b, n)
+*** /tmp/da5226	Tue Mar 31 16:47:14 1992
+--- fonts/lib/font/util/fsfuncs.c	Tue Mar 17 20:33:57 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fsfuncs.c,v 1.1 91/10/18 11:23:03 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: fsfuncs.c,v 1.2 92/03/17 20:31:29 eswu Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 94,106 ****
+  	    {
+  		if (rp->min_char.low > rp->max_char.low)
+  		    return BadCharRange;
+! 		nchars += rp->max_char.low - rp->min_char.low;
+  	    }
+  	    else
+  	    {
+! 		nchars += lastRow - rp->min_char.low;
+  		nchars += (rp->max_char.high - rp->min_char.high - 1) * num_cols;
+! 		nchars += rp->max_char.low - firstRow;
+  	    }
+  	}
+      }
+--- 94,106 ----
+  	    {
+  		if (rp->min_char.low > rp->max_char.low)
+  		    return BadCharRange;
+! 		nchars += rp->max_char.low - rp->min_char.low + 1;
+  	    }
+  	    else
+  	    {
+! 		nchars += lastRow - rp->min_char.low + 1;
+  		nchars += (rp->max_char.high - rp->min_char.high - 1) * num_cols;
+! 		nchars += rp->max_char.low - firstRow + 1;
+  	    }
+  	}
+      }
+*** /tmp/da5248	Tue Mar 31 16:47:22 1992
+--- fonts/lib/font/util/patcache.c	Mon Mar 23 16:46:12 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: patcache.c,v 1.2 91/06/14 10:58:11 rws Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: patcache.c,v 1.3 92/03/23 16:46:12 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 63,73 ****
+      if (!cache)
+  	return 0;
+      for (i = 0; i < NENTRIES; i++)
+-     {
+- 	cache->entries[i].patlen = 0;
+  	cache->entries[i].pattern = 0;
+- 	cache->entries[i].pFont = 0;
+-     }
+      EmptyFontPatternCache (cache);
+      return cache;
+  }
+--- 63,69 ----
+***************
+*** 113,118 ****
+--- 109,117 ----
+  	cache->entries[i].next = &cache->entries[i+1];
+  	cache->entries[i].prev = 0;
+  	cache->entries[i].pFont = 0;
++ 	xfree (cache->entries[i].pattern);
++ 	cache->entries[i].pattern = 0;
++ 	cache->entries[i].patlen = 0;
+      }
+      cache->free = &cache->entries[0];
+      cache->entries[i].next = 0;

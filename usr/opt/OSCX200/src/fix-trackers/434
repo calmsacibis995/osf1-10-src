@@ -1,0 +1,78 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9209041859.AA02224@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2662) close XBUG #5470: Xt: _XtCreate may free args pointer too early
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 04 Sep 92 14:59:20 EDT
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: _XtCreate may free args pointer too early
+        ### bug number:   5470
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     when typed args are used with large constraint resource values
+        ### status:       fixed, Create.c 1.89
+
+*** /tmp/d12134	Fri Sep  4 14:58:00 1992
+--- lib/Xt/Create.c	Wed Aug 26 14:12:26 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Create.c,v 1.88 92/05/11 16:38:19 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Create.c,v 1.89 92/08/26 14:09:28 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 261,266 ****
+--- 261,277 ----
+      req_widget = (Widget) XtStackAlloc(wsize, widget_cache);
+      bcopy ((char *) widget, (char *) req_widget, (int) wsize);
+      CallInitialize (XtClass(widget), req_widget, widget, args, num_args);
++     if (parent_constraint_class != NULL) {
++ 	if (csize) {
++ 	    req_constraints = XtStackAlloc(csize, constraint_cache);
++ 	    bcopy(widget->core.constraints, (char*)req_constraints,(int)csize);
++ 	    req_widget->core.constraints = req_constraints;
++ 	} else req_widget->core.constraints = NULL;
++ 	CallConstraintInitialize(parent_constraint_class, req_widget, widget,
++ 				 args, num_args);
++ 	if (csize) XtStackFree(req_constraints, constraint_cache);
++     }
++     XtStackFree((XtPointer)req_widget, widget_cache);
+  
+      if (typed_args != NULL) {
+  	while (num_typed_args-- > 0) {
+***************
+*** 277,297 ****
+  	    }
+  	    typed_args++;
+  	}
+- 
+  	DEALLOCATE_LOCAL((char*)args);
+      }
+- 
+-     if (parent_constraint_class != NULL) {
+- 	if (csize) {
+- 	    req_constraints = XtStackAlloc(csize, constraint_cache);
+- 	    bcopy(widget->core.constraints, (char*)req_constraints,(int)csize);
+- 	    req_widget->core.constraints = req_constraints;
+- 	} else req_widget->core.constraints = NULL;
+- 	CallConstraintInitialize(parent_constraint_class, req_widget, widget,
+- 				 args, num_args);
+- 	if (csize) XtStackFree(req_constraints, constraint_cache);
+-     }
+-     XtStackFree((XtPointer)req_widget, widget_cache);
+      return (widget);
+  }
+  
+--- 288,295 ----

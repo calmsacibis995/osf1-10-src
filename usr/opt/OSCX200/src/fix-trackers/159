@@ -1,0 +1,266 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202281645.AA00839@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2382) close XBUG #4958, #4959: Xt: fails to parse productions with event count and detail, Xt: fails parsing translations with atom details on multiple displays
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 28 Feb 92 11:45:53 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: fails to parse productions with event count and detail
+        ### bug number:   4958
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     
+        ### status:       fixed, TMparse.c 1.125
+
+	Subject: Xt: fails parsing translations with atom details on multiple displays
+        ### bug number:   4959
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     the failure is while matching an incoming event
+        ### status:       fixed, TMstate.c 1.161 and TMparse.c 1.126
+
+
+*** /tmp/,RCSt1a00721	Fri Feb 28 11:13:24 1992
+--- lib/Xt/TMparse.c	Thu Feb 27 17:02:46 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMparse.c,v 1.124 92/02/24 17:44:56 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: TMparse.c,v 1.126 92/02/27 17:01:53 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 1014,1021 ****
+      EventPtr event;
+      Boolean* error;
+  {
+-     char atomName[1000], *start;
+- 
+      ScanWhitespace(str);
+  
+      if (*str == ',' || *str == ':') {
+--- 1014,1019 ----
+***************
+*** 1023,1028 ****
+--- 1021,1027 ----
+  	event->event.eventCode = 0L;
+          event->event.eventCodeMask = 0L;
+      } else {
++ 	char *start, atomName[1000];
+  	start = str;
+  	while (
+  		*str != ','
+***************
+*** 1039,1045 ****
+  	bcopy(start, atomName, str-start);
+  	atomName[str-start] = '\0';
+  	event->event.eventCode = XrmStringToQuark(atomName);
+- 	event->event.eventCodeMask = ~0L;
+  	event->event.matchEvent = _XtMatchAtom;
+      }
+      return str;
+--- 1038,1043 ----
+***************
+*** 1049,1060 ****
+      0, Button1Mask, Button2Mask, Button3Mask, Button4Mask, Button5Mask
+  };
+  
+! static String ParseEvent(str, event,error)
+      register String str;
+      EventPtr	event;
+      Boolean* error;
+  {
+      Cardinal	tmEvent;
+  
+      str = ParseModifiers(str, event,error);
+      if (*error) return str;
+--- 1047,1061 ----
+      0, Button1Mask, Button2Mask, Button3Mask, Button4Mask, Button5Mask
+  };
+  
+! static String ParseEvent(str, event, reps, plus, error)
+      register String str;
+      EventPtr	event;
++     int*	reps;
++     Boolean*	plus;
+      Boolean* error;
+  {
+      Cardinal	tmEvent;
++     static String ParseRepeat();
+  
+      str = ParseModifiers(str, event,error);
+      if (*error) return str;
+***************
+*** 1072,1077 ****
+--- 1073,1080 ----
+           return PanicModeRecovery(str);
+      }
+      else str++;
++     if (*str == '(')
++ 	str = ParseRepeat(str, reps, plus);
+      str = (*(events[tmEvent].parseDetail))(
+          str, events[tmEvent].closure, event,error);
+      if (*error) return str;
+***************
+*** 1423,1435 ****
+      }
+  }
+  
+! static String ParseRepeat(str, eventP, actionsP)
+      register String str;
+!     EventPtr *eventP;
+!     ActionPtr **actionsP;
+  {
+-     int reps;
+-     Boolean plus = FALSE;
+      String right_paren;
+  
+      /*** Parse the repetitions, for double click etc... ***/
+--- 1426,1436 ----
+      }
+  }
+  
+! static String ParseRepeat(str, reps, plus)
+      register String str;
+!     int	*reps;
+!     Boolean *plus;
+  {
+      String right_paren;
+  
+      /*** Parse the repetitions, for double click etc... ***/
+***************
+*** 1447,1453 ****
+  	if (len < sizeof repStr) {
+  	    bcopy(start, repStr, len);
+  	    repStr[len] = '\0';
+! 	    reps = StrToNum(repStr);
+  	} else {
+  	    Syntax ("Repeat count too large; ignored.", "");
+  	    return right_paren;
+--- 1448,1454 ----
+  	if (len < sizeof repStr) {
+  	    bcopy(start, repStr, len);
+  	    repStr[len] = '\0';
+! 	    *reps = StrToNum(repStr);
+  	} else {
+  	    Syntax ("Repeat count too large; ignored.", "");
+  	    return right_paren;
+***************
+*** 1458,1464 ****
+      }
+  
+      if (*str == '+') {
+! 	plus = TRUE;
+  	str++;
+      }
+      if (*str == ')')
+--- 1459,1465 ----
+      }
+  
+      if (*str == '+') {
+! 	*plus = TRUE;
+  	str++;
+      }
+      if (*str == ')')
+***************
+*** 1468,1475 ****
+  	return right_paren;
+      }
+  
+-     if (reps > 1 || plus) RepeatEvent(eventP, reps, plus, actionsP);
+- 
+      return str;
+  }
+  
+--- 1469,1474 ----
+***************
+*** 1525,1530 ****
+--- 1524,1532 ----
+               }
+               else str++;
+  	} else {
++ 	    int reps = 0;
++ 	    Boolean plus = False;
++ 
+              event = XtNew(EventRec);
+              event->event = nullEvent;
+              event->state = /* (StatePtr) -1 */ NULL;
+***************
+*** 1531,1541 ****
+              event->next = NULL;
+              event->actions = NULL;
+  
+! 	    str = ParseEvent(str, event,error);
+              if (*error) return str;
+  	    *nextEvent = event;
+  	    *actionsP = &event->actions;
+! 	    str = ParseRepeat(str, &event, actionsP);
+  	    nextEvent = &event->next;
+  	}
+  	ScanWhitespace(str);
+--- 1533,1544 ----
+              event->next = NULL;
+              event->actions = NULL;
+  
+! 	    str = ParseEvent(str, event, &reps, &plus, error);
+              if (*error) return str;
+  	    *nextEvent = event;
+  	    *actionsP = &event->actions;
+! 	    if (reps > 1 || plus)
+! 		RepeatEvent(&event, reps, plus, actionsP);
+  	    nextEvent = &event->next;
+  	}
+  	ScanWhitespace(str);
+*** /tmp/,RCSt1a00746	Fri Feb 28 11:13:30 1992
+--- lib/Xt/TMstate.c	Thu Feb 27 17:06:01 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMstate.c,v 1.160 92/02/24 17:47:10 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: TMstate.c,v 1.161 92/02/27 17:04:04 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+***************
+*** 397,410 ****
+      TMModifierMatch	modMatch;
+      TMEventPtr 		eventSeq;
+  {
+!     if (typeMatch->eventCodeMask) {	/* first time? */
+! 	typeMatch->eventCode = XInternAtom( eventSeq->xev->xany.display,
+! 				        XrmQuarkToString(typeMatch->eventCode),
+! 				        False
+! 				      );
+! 	typeMatch->eventCodeMask = 0L;
+!     }
+!     return (typeMatch->eventCode == eventSeq->event.eventCode);
+  }
+  
+  #define IsOn(vec,idx) ((vec)[(idx)>>3] & (1 << ((idx) & 7)))
+--- 397,408 ----
+      TMModifierMatch	modMatch;
+      TMEventPtr 		eventSeq;
+  {
+!     Atom	atom;
+! 
+!     atom = XInternAtom(eventSeq->xev->xany.display, 
+! 		       XrmQuarkToString(typeMatch->eventCode),
+! 		       False);
+!     return (atom == eventSeq->event.eventCode);
+  }
+  
+  #define IsOn(vec,idx) ((vec)[(idx)>>3] & (1 << ((idx) & 7)))

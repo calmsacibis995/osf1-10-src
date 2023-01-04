@@ -1,0 +1,229 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" This is the source file from himel for the manpage to document the routines
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" listed below. On sept 24, several routine names changed.
+.\" 
+.\" lib_add_pc_range   --   ?? there is routine in lesniak's list named
+.\" 			  lib_add_pc_range_table, whose name became
+.\" 			  exc_add_pc_range_table
+.\" 
+.\" lib_remove_pc_range -- ?? there is a routine in lesniak's list named
+.\" 			  lib_remove_pc_range_table, whose name became
+.\" 			  exc_remove_pc_range_table
+.\" 
+.\" RtlLookupFunctionTableAddress  -- exc_lookup_function_table_address
+.\" 
+.\" find_rpd               --      same name
+.\" 
+.\" RtlLookupFunctionEntry --  exc_lookup_function_entry
+.\" 
+.\" lib_add_gp_range       --  exc_add_gp_range
+.\" 
+.\" lib_remove_gp_range    --  exc_remove_gp_range
+.\" 
+.\" RtlLookupGp            --  exc_lookup_gp
+.\" 
+.\" 
+.TH exc_add_pc_range 3
+.PP
+.SH NAME
+\*Lexc_add_pc_range_table\*O, \*Lexc_remove_pc_range_table\*O, \*Lexc_lookup_function_table_address\*O, \*Lfind_rpd\*O, \*Lexc_lookup_function_entry\*O, \*Lexc_add_gp_range\*O, \*Lexc_remove_gp_range\*O, \*Lexc_lookup_gp\*O \- Routines to support mapping program counters to the data structures defined by the \*EDEC OSF/1 Calling Standard for AXP Systems\*O at runtime
+.SH LIBRARY
+.PP
+\*OException Handling Library (\*Llibexc.a\*O)
+.SH SYNOPSIS
+.PP
+.iX "exc_add_pc_range" "exception handling support routine"
+.sS
+\*L#include <excpt.h>
+.nL
+\*Lvoid exc_add_pc_range_table(
+.nL
+                PRUNTIME_FUNCTION   \*Vpbase\*L,
+.nL
+                pdsc_count          \*Vcount\*L);\*O
+.nL
+\*Lvoid exc_remove_pc_range_table(
+.nL
+                PRUNTIME_FUNCTION   \*Vpbase\*L);\*O
+.nL
+\*LPRUNTIME_FUNCTION exc_lookup_function_table_address(
+.nL
+                exc_address         \*Vpc\*L);\*O
+.nL
+\*LPRUNTIME_FUNCTION find_rpd(
+.nL
+                exc_address         \*Vpc\*L);\*O
+.nL
+\*LPRUNTIME_FUNCTION exc_lookup_function_entry(
+.nL
+                exc_address         \*Vpc\*L);\*O
+.nL
+\*Lvoid exc_add_gp_range(
+.nL
+                exc_address         \*Vbegin_address\*L,
+.nL
+                unsigned long       \*Vlength\*L,
+.nL
+                exc_address         \*Vgp\*L);\*O
+.nL
+\*Lvoid exc_remove_gp_range(
+.nL
+                exc_address         \*Vbegin_address\*L);\*O
+.nL
+\*Lexc_address exc_lookup_gp(
+.nL
+                exc_address         \*Vpc\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vpbase"
+\*OPointer to the base of a code range descriptor table.
+.LI "\*Vcount"
+\*ONumber of code range descriptors in the table pointed to by \*Vpbase\*O.
+.LI "\*Vpc"
+\*OAddress within a range of code for which the base of a code range descriptor
+table is to be returned.
+.LI "\*Vbegin_address"
+\*OFirst address for which the \*Vgp\*O argument applies.
+.LI "\*Vlength"
+\*ONumber of bytes from \*Vbegin_address\*O for which the \*Vgp\*O argument
+applies.
+.LI "\*Vgp"
+\*OAddress of the global pointer used to refer to the Global Offset Table and small
+data sections (see the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O and the
+\*EAssembly Language Programmer's Guide\*O).
+.LE
+.SH DESCRIPTION
+.PP
+The exception system needs to access procedure specific information
+at runtime in order to perform unwinds and call handlers. You find
+this information by mapping a PC to a procedure and its structures.
+.PP
+The \*LPRUNTIME_FUNCTION\*O typedef points to a code range descriptor
+(\*Lpdsc\*O(4)).
+A code range descriptor represents a range of addresses. In order
+to support very high levels of optimization, one procedure may
+be represented by many code range descriptors (but a code range
+descriptor belongs to only one procedure).
+.PP
+The code range
+descriptor provides the key to access all of the information
+the exception system requires about a procedure (although some
+of it may be available only indirectly through the code
+range descriptor).
+.PP
+The assembler automatically generates code range descriptors
+into the \*L\.pdata\*O section of a relocatable object file
+which the linker merges into a single code range descriptor table
+for each executable and shared object. The linker also generates
+code in the \*L\.init\*O and \*L\.fini\*O sections so that each executable
+and shared
+object will register (by calling \*Lexc_add_pc_range\*O)
+and deregister (by
+calling \*Lexc_remove_pc_range\*O)
+their code range descriptor tables
+at runtime with the exception system (if present).
+.PP
+You may need to call these routines manually if you are using the
+exception system and generate or load code yourself  without using
+standard
+DEC OSF/1
+system libraries and services.
+.PP
+The exception system maintains the list of registered code range
+descriptor tables. \*Lexc_lookup_function_table_address\*O
+returns a pointer the base of a code range descriptor table
+containing a range of code that contains the address supplied in the
+\*Vpc\*O argument.
+.\" commented out as per, what I think is himel's comment
+.\" This routine raises an \*LEXC_FUNCTION_ENTRY_NOT_FOUND\*O
+.\" internal exception if it does not find a table to return.
+This routine returns a NULL (zero-value) pointer if an entry for the
+\*Vpc\*O argument is not found.
+.PP
+\*Lexc_lookup_function_entry\*O and \*Lfind_rpd\*O
+return a \*LPRUNTIME_FUNCTION\*O
+for the address supplied by the \*Vpc\*O argument. These routines will
+raise a \*LEXC_FUNCTION_ENTRY_NOT_FOUND\*O internal exception if an entry
+for the PC is not found.
+.PP
+\*Lfind_rpd\*O is an old ULTRIX \*Llibexc\*O
+interface. It continues to work on
+DEC OSF/1 systems
+if its callers
+treat its return argument as an opaque pointer. If they explicitly access
+fields in the returned structure, they will encounter incompatibilities.
+.PP
+.\" following sentence commented out for eftu
+.\" The \*Lexc_lookup_function_entry\*O function is a NT runtime library interface.
+.PP
+The unwind functions typically call some of these functions to
+obtain enough information to virtually unwind procedure contexts.  One
+register, the global pointer (gp), cannot be restored from the information provided
+by these functions.
+The
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+requires that the gp register be reconstructed
+on return from a call by adding the return register (RA) value and
+a constant typically built into the code. This calculation can be moved
+or deleted as an optimization so the runtime could not use it to
+reconstruct the gp.
+.PP
+The gp is not in the code range or procedure
+descriptors (\*Lpdsc\*O(4)) because the same gp can be used for many routines
+and including the gp would waste space. Instead, the linker generates calls to
+\*Lexc_add_gp_range\*O in the \*L.init\*O section of an executable or shared
+object and \*Lexc_remove_gp_range\*O in the \*L.fini\*O
+section. Many executables have only one such call each in their
+\*L.init\*O and \*L.fini\*O sections.
+.PP
+\*Lexc_lookup_gp\*O returns a NULL (zero value) pointer if an entry
+for the \*Vpc\*O is not found.
+.\" I am also to check with Ron Brender (tle::brender) if above is true.
+.\" commented out as per himel's comments
+.\" the gp whose range includes the pc argument.
+.\" If a pc is not found the \*LEXC_GP_ENTRY_NOT_FOUND\*O exception is raised.
+.PP
+.SH FILES
+.PP
+\*L\/usr/ccs/lib/cmplrs/cc/libexc.a\*O - exception handling library
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/pdsc.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.PP
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lexception_intro\*O(3), \*Lexception_dispatcher\*O(3),
+\*Lsignal\*O(2), \*Lsigaction\*O(2), \*Lsetjmp\*O(3), \*Lexc_unwind\*O(3),
+\*L_\|_exc_last_chance\*O(3), \*Lieee\*O(3).
+.PP
+Files: \*Lexcpt\*O(4), \*Lc_excpt\*O(4), \*Lsignal\*O(4), \*Lpdsc\*O(4).
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.EQ
+delim off
+.EN

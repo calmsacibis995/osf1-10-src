@@ -1,0 +1,554 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204082044.AA00836@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2441) Close XBUG #4670, #5000: zero-length font patterns and leaks
+Date: Wed, 08 Apr 92 16:44:13 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Subject: server: ListFontsWithInfo on zero-length pattern yields BadAlloc
+
+### bug number:   4670
+### area:         server
+### severity:     medium
+### comments:     causes commercial Oracle product to fail
+
+From: Dave Lemke <lupine!lemke@uunet.uu.net>
+Subject: server: leak in window.c:SetShape()
+
+### bug number:   5000
+### area:         server
+### severity:     low
+### comments:     
+
+This closes all of the leaks I was able to find in DIX after running x11perf,
+the beta test suite and using the server in my usual way for more than a week.
+
+*** /tmp/da9696	Wed Apr  8 16:26:48 1992
+--- server/dix/dixfonts.c	Tue Mar 31 17:49:06 1992
+***************
+*** 22,28 ****
+  
+  ************************************************************************/
+  
+! /* $XConsortium: dixfonts.c,v 1.32 91/08/23 13:57:34 keith Exp $ */
+  
+  #define NEED_REPLIES
+  #include "X.h"
+--- 22,28 ----
+  
+  ************************************************************************/
+  
+! /* $XConsortium: dixfonts.c,v 1.34 92/03/31 17:48:46 keith Exp $ */
+  
+  #define NEED_REPLIES
+  #include "X.h"
+***************
+*** 532,537 ****
+--- 532,539 ----
+      }
+      /* try each fpe in turn, returning if one wants to be blocked */
+  
++     if (!c->patlen)
++ 	goto finish;
+      while (c->current_fpe < c->num_fpes && c->names->nnames <= c->max_names)
+      {
+  
+***************
+*** 556,561 ****
+--- 558,564 ----
+  	SendErrorToClient(client, X_ListFonts, 0, 0, FontToXError(err));
+  	goto bail;
+      }
++ finish:
+      names = c->names;
+      nnames = names->nnames;
+      client = c->client;
+***************
+*** 614,620 ****
+      if (!c)
+  	return 0;
+      c->pattern = (char *) xalloc(length);
+!     if (!c->pattern) {
+  	xfree(c);
+  	return 0;
+      }
+--- 617,623 ----
+      if (!c)
+  	return 0;
+      c->pattern = (char *) xalloc(length);
+!     if (!c->pattern && length) {
+  	xfree(c);
+  	return 0;
+      }
+***************
+*** 692,697 ****
+--- 695,702 ----
+  	goto bail;
+      }
+      client->pSwapReplyFunc = ReplySwapVector[X_ListFontsWithInfo];
++     if (!c->current.patlen)
++ 	goto finish;
+      while (c->current.current_fpe < c->num_fpes)
+      {
+  	fpe = c->fpe_list[c->current.current_fpe];
+***************
+*** 737,744 ****
+  	 */
+  	if (err == FontNameAlias)
+   	{
+! 	    if (!c->haveSaved)
+  		c->saved = c->current;
+  	    c->current.pattern = name;
+  	    c->current.patlen = namelen;
+  	    c->current.max_names = 1;
+--- 742,773 ----
+  	 */
+  	if (err == FontNameAlias)
+   	{
+! 	    /*
+! 	     * when an alias recurses, we need to give
+! 	     * the last FPE a chance to clean up; so we call
+! 	     * it again, and assume that the error returned
+! 	     * is BadFontName, indicating the alias resolution
+! 	     * is complete.
+! 	     */
+! 	    if (c->haveSaved)
+! 	    {
+! 		char	*tmpname;
+! 		int	tmpnamelen;
+! 		FontInfoPtr tmpFontInfo;
+! 
+! 	    	tmpname = 0;
+! 	    	tmpFontInfo = &fontInfo;
+! 	    	(void) (*fpe_functions[fpe->type].list_next_font_with_info)
+! 		    (client, fpe, &tmpname, &tmpnamelen, &tmpFontInfo,
+! 		     &numFonts, c->current.private);
+! 	    }
+! 	    else
+! 	    {
+  		c->saved = c->current;
++ 		c->haveSaved = TRUE;
++ 		c->savedNumFonts = numFonts;
++ 		c->savedName = (char *) pFontInfo;
++ 	    }
+  	    c->current.pattern = name;
+  	    c->current.patlen = namelen;
+  	    c->current.max_names = 1;
+***************
+*** 745,758 ****
+  	    c->current.current_fpe = 0;
+  	    c->current.private = 0;
+  	    c->current.list_started = FALSE;
+- 	    c->haveSaved = TRUE;
+- 	    c->savedNumFonts = numFonts;
+- 	    c->savedName = (char *) pFontInfo;
+  	}
+  	/*
+  	 * At the end of this FPE, step to the next.  If we've finished
+  	 * processing an alias, pop state back. If we've sent enough font
+! 	 * names, quit.
+  	 */
+  	else if (err == BadFontName)
+   	{
+--- 774,785 ----
+  	    c->current.current_fpe = 0;
+  	    c->current.private = 0;
+  	    c->current.list_started = FALSE;
+  	}
+  	/*
+  	 * At the end of this FPE, step to the next.  If we've finished
+  	 * processing an alias, pop state back. If we've sent enough font
+! 	 * names, quit.  Always wait for BadFontName to let the FPE
+! 	 * have a chance to clean up
+  	 */
+  	else if (err == BadFontName)
+   	{
+***************
+*** 827,836 ****
+  		xfree(fontInfo.isStringProp);
+  	    }
+  	    --c->current.max_names;
+- 	    if (c->current.max_names < 0)
+- 		break;
+  	}
+      }
+      length = sizeof(xListFontsWithInfoReply);
+      bzero((char *) &finalReply, sizeof(xListFontsWithInfoReply));
+      finalReply.type = X_Reply;
+--- 854,862 ----
+  		xfree(fontInfo.isStringProp);
+  	    }
+  	    --c->current.max_names;
+  	}
+      }
++ finish:
+      length = sizeof(xListFontsWithInfoReply);
+      bzero((char *) &finalReply, sizeof(xListFontsWithInfoReply));
+      finalReply.type = X_Reply;
+***************
+*** 843,848 ****
+--- 869,875 ----
+  	ClientWakeup(client);
+      for (i = 0; i < c->num_fpes; i++)
+  	FreeFPE(c->fpe_list[i], FALSE);
++     xfree(c->reply);
+      xfree(c->fpe_list);
+      xfree(c->current.pattern);
+      xfree(c);
+***************
+*** 862,868 ****
+  
+      if (!(c = (LFWIclosurePtr) xalloc(sizeof *c)))
+  	goto badAlloc;
+!     if (!(c->current.pattern = (char *) xalloc(length)))
+      {
+  	xfree(c);
+  	goto badAlloc;
+--- 889,895 ----
+  
+      if (!(c = (LFWIclosurePtr) xalloc(sizeof *c)))
+  	goto badAlloc;
+!     if (!(c->current.pattern = (char *) xalloc(length)) && length)
+      {
+  	xfree(c);
+  	goto badAlloc;
+*** /tmp/da9927	Wed Apr  8 16:28:26 1992
+--- server/dix/events.c	Mon Apr  6 18:02:17 1992
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.54 92/03/19 11:30:46 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.56 92/04/06 18:01:39 keith Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 114,119 ****
+--- 114,120 ----
+  static  struct {
+      CursorPtr	current;
+      BoxRec	hotLimits;	/* logical constraints of hot spot */
++     Bool	confined;	/* confined to screen */
+  #ifdef SHAPE
+      RegionPtr	hotShape;	/* additional logical shape constraint */
+  #endif
+***************
+*** 274,282 ****
+  #endif
+  
+  static void
+! CheckPhysLimits(cursor, generateEvents, pScreen)
+      CursorPtr cursor;
+      Bool generateEvents;
+      ScreenPtr pScreen;
+  {
+      HotSpot new;
+--- 275,284 ----
+  #endif
+  
+  static void
+! CheckPhysLimits(cursor, generateEvents, confineToScreen, pScreen)
+      CursorPtr cursor;
+      Bool generateEvents;
++     Bool confineToScreen;
+      ScreenPtr pScreen;
+  {
+      HotSpot new;
+***************
+*** 290,295 ****
+--- 292,298 ----
+  	pScreen = new.pScreen;
+      (*pScreen->CursorLimits) (pScreen, cursor, &sprite.hotLimits,
+  			      &sprite.physLimits);
++     sprite.confined = confineToScreen;
+      (* pScreen->ConstrainCursor)(pScreen, &sprite.physLimits);
+      if (new.x < sprite.physLimits.x1)
+  	new.x = sprite.physLimits.x1;
+***************
+*** 363,371 ****
+  }
+  
+  static void
+! ConfineCursorToWindow(pWin, generateEvents)
+      WindowPtr pWin;
+      Bool generateEvents;
+  {
+      ScreenPtr pScreen = pWin->drawable.pScreen;
+  
+--- 366,375 ----
+  }
+  
+  static void
+! ConfineCursorToWindow(pWin, generateEvents, confineToScreen)
+      WindowPtr pWin;
+      Bool generateEvents;
++     Bool confineToScreen;
+  {
+      ScreenPtr pScreen = pWin->drawable.pScreen;
+  
+***************
+*** 381,387 ****
+  	sprite.hotShape = wBoundingShape(pWin) ? &pWin->borderSize
+  					       : NullRegion;
+  #endif
+! 	CheckPhysLimits(sprite.current, generateEvents, pScreen);
+      }
+  }
+  
+--- 385,392 ----
+  	sprite.hotShape = wBoundingShape(pWin) ? &pWin->borderSize
+  					       : NullRegion;
+  #endif
+! 	CheckPhysLimits(sprite.current, generateEvents, confineToScreen,
+! 			pScreen);
+      }
+  }
+  
+***************
+*** 388,396 ****
+  Bool
+  PointerConfinedToScreen()
+  {
+!     register GrabPtr grab = inputInfo.pointer->grab;
+! 
+!     return (grab && grab->confineTo);
+  }
+  
+  static void
+--- 393,399 ----
+  Bool
+  PointerConfinedToScreen()
+  {
+!     return sprite.confined;
+  }
+  
+  static void
+***************
+*** 401,407 ****
+      {
+  	if ((sprite.current->bits->xhot != cursor->bits->xhot) ||
+  		(sprite.current->bits->yhot != cursor->bits->yhot))
+! 	    CheckPhysLimits(cursor, FALSE, (ScreenPtr)NULL);
+  	(*sprite.hotPhys.pScreen->DisplayCursor) (sprite.hotPhys.pScreen,
+  						  cursor);
+  	sprite.current = cursor;
+--- 404,411 ----
+      {
+  	if ((sprite.current->bits->xhot != cursor->bits->xhot) ||
+  		(sprite.current->bits->yhot != cursor->bits->yhot))
+! 	    CheckPhysLimits(cursor, FALSE, PointerConfinedToScreen(),
+! 			    (ScreenPtr)NULL);
+  	(*sprite.hotPhys.pScreen->DisplayCursor) (sprite.hotPhys.pScreen,
+  						  cursor);
+  	sprite.current = cursor;
+***************
+*** 652,662 ****
+      {
+  	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
+  	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
+! 	ConfineCursorToWindow(grab->confineTo, TRUE);
+      }
+      else
+  	ConfineCursorToWindow(WindowTable[sprite.hotPhys.pScreen->myNum],
+! 			      TRUE);
+      PostNewCursor();
+  }
+  
+--- 656,666 ----
+      {
+  	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
+  	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
+! 	ConfineCursorToWindow(grab->confineTo, TRUE, TRUE);
+      }
+      else
+  	ConfineCursorToWindow(WindowTable[sprite.hotPhys.pScreen->myNum],
+! 			      TRUE, FALSE);
+      PostNewCursor();
+  }
+  
+***************
+*** 710,716 ****
+      {
+  	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
+  	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
+! 	ConfineCursorToWindow(grab->confineTo, FALSE);
+      }
+      DoEnterLeaveEvents(oldWin, grab->window, NotifyGrab);
+      mouse->valuator->motionHintWindow = NullWindow;
+--- 714,720 ----
+      {
+  	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
+  	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
+! 	ConfineCursorToWindow(grab->confineTo, FALSE, TRUE);
+      }
+      DoEnterLeaveEvents(oldWin, grab->window, NotifyGrab);
+      mouse->valuator->motionHintWindow = NullWindow;
+***************
+*** 746,752 ****
+      }
+      DoEnterLeaveEvents(grab->window, sprite.win, NotifyUngrab);
+      if (grab->confineTo)
+! 	ConfineCursorToWindow(ROOT, FALSE);
+      PostNewCursor();
+      if (grab->cursor)
+  	FreeCursor(grab->cursor, (Cursor)0);
+--- 750,756 ----
+      }
+      DoEnterLeaveEvents(grab->window, sprite.win, NotifyUngrab);
+      if (grab->confineTo)
+! 	ConfineCursorToWindow(ROOT, FALSE, FALSE);
+      PostNewCursor();
+      if (grab->cursor)
+  	FreeCursor(grab->cursor, (Cursor)0);
+***************
+*** 1491,1496 ****
+--- 1495,1501 ----
+      ROOT = win;
+      (*pScreen->CursorLimits) (
+  	pScreen, sprite.current, &sprite.hotLimits, &sprite.physLimits);
++     sprite.confined = FALSE;
+      (*pScreen->ConstrainCursor) (pScreen, &sprite.physLimits);
+      (*pScreen->SetCursorPosition) (pScreen, sprite.hot.x, sprite.hot.y, FALSE);
+      (*pScreen->DisplayCursor) (pScreen, sprite.current);
+***************
+*** 1519,1525 ****
+      sprite.hotPhys.x = x;
+      sprite.hotPhys.y = y;
+      if (newScreen != sprite.hotPhys.pScreen)
+! 	ConfineCursorToWindow(WindowTable[newScreen->myNum], TRUE);
+  }
+  
+  int
+--- 1524,1530 ----
+      sprite.hotPhys.x = x;
+      sprite.hotPhys.y = y;
+      if (newScreen != sprite.hotPhys.pScreen)
+! 	ConfineCursorToWindow(WindowTable[newScreen->myNum], TRUE, FALSE);
+  }
+  
+  int
+***************
+*** 2620,2626 ****
+      DeviceIntPtr device = inputInfo.pointer;
+      GrabPtr grab;
+      WindowPtr pWin, confineTo;
+!     CursorPtr cursor;
+      REQUEST(xGrabPointerReq);
+      TimeStamp time;
+  
+--- 2625,2631 ----
+      DeviceIntPtr device = inputInfo.pointer;
+      GrabPtr grab;
+      WindowPtr pWin, confineTo;
+!     CursorPtr cursor, oldCursor;
+      REQUEST(xGrabPointerReq);
+      TimeStamp time;
+  
+***************
+*** 2694,2701 ****
+      {
+  	GrabRec tempGrab;
+  
+! 	if (grab && grab->confineTo && !confineTo)
+! 	    ConfineCursorToWindow(ROOT, FALSE);
+  	tempGrab.cursor = cursor;
+  	tempGrab.resource = client->clientAsMask;
+  	tempGrab.ownerEvents = stuff->ownerEvents;
+--- 2699,2711 ----
+      {
+  	GrabRec tempGrab;
+  
+! 	oldCursor = NullCursor;
+! 	if (grab)
+!  	{
+! 	    if (grab->confineTo && !confineTo)
+! 		ConfineCursorToWindow(ROOT, FALSE, FALSE);
+! 	    oldCursor = grab->cursor;
+! 	}
+  	tempGrab.cursor = cursor;
+  	tempGrab.resource = client->clientAsMask;
+  	tempGrab.ownerEvents = stuff->ownerEvents;
+***************
+*** 2706,2711 ****
+--- 2716,2723 ----
+  	tempGrab.pointerMode = stuff->pointerMode;
+  	tempGrab.device = device;
+  	(*device->ActivateGrab)(device, &tempGrab, time, FALSE);
++ 	if (oldCursor)
++ 	    FreeCursor (oldCursor, (Cursor)0);
+  	rep.status = GrabSuccess;
+      }
+      WriteReplyToClient(client, sizeof(xGrabPointerReply), &rep);
+***************
+*** 2958,2963 ****
+--- 2970,2976 ----
+      sprite.hotLimits.y1 = 0;
+      sprite.hotLimits.x2 = 0;
+      sprite.hotLimits.y2 = 0;
++     sprite.confined = FALSE;
+      syncEvents.replayDev = (DeviceIntPtr)NULL;
+      syncEvents.replayWin = NullWindow;
+      while (syncEvents.pending)
+***************
+*** 3377,3383 ****
+  			(&confineTo->borderSize))
+  	    (*inputInfo.pointer->DeactivateGrab)(inputInfo.pointer);
+  	else if ((pWin == confineTo) || IsParent(pWin, confineTo))
+! 	    ConfineCursorToWindow(confineTo, TRUE);
+      }
+  }
+  
+--- 3390,3396 ----
+  			(&confineTo->borderSize))
+  	    (*inputInfo.pointer->DeactivateGrab)(inputInfo.pointer);
+  	else if ((pWin == confineTo) || IsParent(pWin, confineTo))
+! 	    ConfineCursorToWindow(confineTo, TRUE, TRUE);
+      }
+  }
+  
+*** /tmp/da0158	Wed Apr  8 16:29:29 1992
+--- server/dix/window.c	Tue Mar 31 17:49:42 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.86 92/03/19 16:30:05 rws Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: window.c,v 5.87 92/03/31 17:49:24 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_REPLIES
+***************
+*** 3167,3172 ****
+--- 3167,3174 ----
+  	bsExposed = (* pScreen->TranslateBackingStore)
+  			     (pWin, 0, 0, pOldClip,
+   			      pWin->drawable.x, pWin->drawable.y);
++ 	if (WasViewable)
++ 	    (*pScreen->RegionDestroy) (pOldClip);
+      	if (bsExposed)
+      	{
+  	    RegionPtr	valExposed = NullRegion;

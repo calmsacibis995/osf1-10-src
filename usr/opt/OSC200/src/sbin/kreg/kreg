@@ -1,0 +1,297 @@
+#!/sbin/sh
+#set -x
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+#
+#
+# This script is intended to "register" a "kernel" module into a system wide
+# registration file as the product is loaded onto a system platform.  This
+# functionality will not be used by the base system software but is intended for
+# use by all third party device driver writers.
+#
+PATH=/sbin:/bin:/usr/bin:/lbin
+VENDOR=
+MODPATH=
+PRODUCT=
+PROG=${0}
+REGFILE=sys/conf/.product.list
+SMDB=usr/.smdb.
+SUBSET=
+TMPFILE=/usr/tmp/kreg$$
+USAGE="usage: ${PROG}"
+VERSION=
+LOCK=/usr/tmp/.klock
+STANZADB=/etc/sysconfigtab
+
+
+:	-Delete
+#		unregister a kernel subsystem
+#
+#	given:	${1} - ....
+#	does:	removes the subsystem from the registration file
+#	return:	
+
+Delete()
+{
+	# Take it out of the Registration file
+
+	MODPATH=`grep :${SUBSET}: ${REGFILE} | sed 's/:.*//'`
+	grep -v :${SUBSET}: ${REGFILE} > ${TMPFILE}
+	/bin/mv ${TMPFILE} ${REGFILE}
+
+	[ "$CONFIG" -a -f sys/conf/$CFGFILE.list ] &&
+	{
+		grep -v :${SUBSET}: sys/conf/$CFGFILE.list > ${TMPFILE}
+		/bin/mv ${TMPFILE} sys/conf/$CFGFILE.list
+	}	
+
+	Exit 0
+}
+
+
+
+Error()
+{
+	1>&2 echo ${*}
+}
+
+
+
+Exit()
+{
+	rm -f $LOCK
+	exit $1
+}
+
+
+
+:	-Install
+#		register a kernel subsystem
+#
+#	given:	${1} - ...
+#	does:	Load the registration file
+#	return:	
+
+Install()
+{
+	[ -f ${REGFILE} ] ||
+	{
+		# First time - create the file and load a header of comments
+		
+
+		cat  > ${REGFILE} <<!
+# Registration file which contains a one line entry for kernel layered products
+# The format of each line is as follows. Empty lines are ignored. Any line
+# with a '#' as the first character on the line is a comment. Other
+# entries have the following fields:
+#
+# Module Path:Subset ID:Date:Company:Product:Version
+#
+# .........................................................................
+!
+
+	}
+
+	DATE=`/bin/date +%y%m%d%H%M%S`
+
+	PREAMBLE=
+	grep -s :${SUBSET}: ${REGFILE} &&
+	{
+		echo "
+${VENDOR} ${PRODUCT} ${VERSION} not Registered: ${SUBSET} exists"
+		PREAMBLE="# Duplicate entry (?) "
+	}
+	ENTRY="$PREAMBLE$MODPATH:${SUBSET}:${DATE}:${VENDOR}:${PRODUCT}:${VERSION}"
+	echo "$ENTRY" >> $REGFILE
+
+	
+
+	[ "$CONFIG" -a -f sys/conf/$CFGFILE.list ] &&
+	{
+		echo "$ENTRY" >> sys/conf/$CFGFILE.list
+	}
+
+	Exit 0
+}
+
+
+
+:	-Main
+#		figure out the operation and call the appropriate routine
+#
+
+Main()
+{
+	trap "rm -f ${LOCK}" 0
+
+	[ -f "${LOCK}" ] &&
+	{
+		Error "LOCKED"
+		exit 2
+	}
+	> ${LOCK}
+	SetContext "${@}" ||
+	{
+		Error "${PROG}: argument error"
+		Exit 1
+	}
+	${OP}
+	S=${?}
+	rm ${LOCK}
+	Exit ${S}
+}
+
+
+
+:	-SetContext
+#		set up the strings needed
+#
+#	given:	arguments from the command line
+#	does:	sets a bunch of globals used by the other routines
+#	return:	0 if all is OK, 1 otherwise
+
+SetContext()
+{
+	OP=
+	while :
+	do
+		[ $# -eq 0 ] &&
+			break
+		case "${1}" in
+		-l)	[ "$OP" ] &&
+			{
+				Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+			}
+
+			OP=Install
+			VENDOR=${2};	SUBSET=${3};	MODPATH=${4}
+			case "+${VENDOR}+${SUBSET}+${MODPATH}+" in
+			*++*)	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			esac
+			case "$VENDOR" in
+			"")	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			-*)	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			esac
+			case "$SUBSET" in
+			"")	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			-*)	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			esac
+			case "$MODPATH" in
+			"")	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			-*)	Error "${USAGE} -l <Vendor> <Subset> <Path> [ -c Name ] "
+				return 1
+				;;
+			esac
+
+			shift 4
+			;;
+		-d)	[ "$OP" ] &&
+			{
+				Error "${USAGE} -d <Subset> [ -c Name ]"
+				return 1
+
+			}
+			OP=Delete
+			SUBSET=${2}
+			[ "${SUBSET}" ] || 
+			{
+				Error "${USAGE} -d <Subset> [ -c Name ]"
+				return 1
+			}
+			case "$SUBSET" in
+			"")	Error "${USAGE} -d <Subset> [ -c Name ]"
+				return 1
+				;;
+			-*)	Error "${USAGE} -d <Subset> [ -c Name ]"
+				return 1
+				;;
+			esac
+			shift 2
+			;;
+		-c)	CONFIG="CONFIG"
+			CFGFILE=$2
+			[ "$OP" ] ||
+			{
+				Error "$USAGE  -l <Vendor> <Subset> <Path> [ -c Name ] "
+				Error "$USAGE -d <Subset> [ -c <Name> ]"
+				return 1
+			}
+			case "$CFGFILE" in
+			"")	Error "-c: config file name required"
+				return 1
+				;;
+			-*)	Error "-c: config file name required"
+				return 1
+				;;
+			esac
+
+			shift 2
+			return 0
+			;;
+		*)	
+#[ "$OP" ] ||
+#			{
+			Error "$USAGE  -l <Vendor> <Subset> <Path> [ -c Name ] "
+			Error "$USAGE -d <Subset> [ -c <Name> ]"
+				return 1
+#			}
+			;;
+		esac
+	done
+	[ "$OP" ] ||
+	{
+		Error "$USAGE  -l <Vendor> <Subset> <Path> [ -c Name ]
+$USAGE -d <Subset> [ -c <Name> ]"
+
+		# set up subset description string and version info
+		grep -s ${MODPATH}: ${REGFILE} &&
+		{
+			Error "Directory ${MODPATH} is in use"
+			return 1
+		}
+		. ${SMDB}/${SUBSET}.ctrl
+		PRODUCT=${DESC}
+		VERSION=`expr ${SUBSET} : '.*\([0-9][0-9][0-9]\)'`
+		return 0
+	}
+}
+
+
+[ "${CHECK_SYNTAX}" ] || Main "${@}"
+

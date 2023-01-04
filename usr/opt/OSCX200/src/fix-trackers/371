@@ -1,0 +1,93 @@
+Path: news!nntpd.lkg.dec.com!nntpd2.cxo.dec.com!pa.dec.com!nobody
+Message-Id: <9206121502.AA10808@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2599) close XBUG #5221: xcutsel: can free buffer more than once
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 12 Jun 92 11:02:24 EDT
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: xcutsel: can free buffer more than once
+        ### bug number:   5221
+        ### area:         xclipboard
+        ### severity:     low
+        ### comments:     
+        ### status:       fixed, clients/xclipboard/xcutsel.c  1.16
+
+
+*** /tmp/,RCSt1a10743	Fri Jun 12 11:00:33 1992
+--- clients/xclipboard/xcutsel.c	Thu Jun 11 19:55:30 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: xcutsel.c,v 1.15 91/02/17 12:05:27 dave Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: xcutsel.c,v 1.16 92/06/11 19:52:53 converse Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 138,144 ****
+      }
+      if (*target == XA_STRING || *target == XA_TEXT(d)) {
+  	*type = XA_STRING;
+! 	*value = options.value;
+  	*length = options.length;
+  	*format = 8;
+  	return True;
+--- 138,145 ----
+      }
+      if (*target == XA_STRING || *target == XA_TEXT(d)) {
+  	*type = XA_STRING;
+! 	*value = XtMalloc((Cardinal) options.length);
+! 	bcopy(options.value, (char *) *value, options.length);
+  	*length = options.length;
+  	*format = 8;
+  	return True;
+***************
+*** 204,211 ****
+      Widget w;
+      Atom *selection;
+  {
+!     XtFree( options.value );
+!     options.value = NULL;
+      SetButton(&state, False);
+  }
+  
+--- 205,214 ----
+      Widget w;
+      Atom *selection;
+  {
+!     if (options.value) {
+! 	XFree( options.value );
+! 	options.value = NULL;
+!     }
+      SetButton(&state, False);
+  }
+  
+***************
+*** 239,245 ****
+      XtPointer closure;
+      XtPointer callData;		/* unused */
+  {
+!     XtFree( options.value );
+      options.value =
+  	XFetchBuffer(XtDisplay(w), &options.length, options.buffer);
+      if (options.value != NULL) {
+--- 242,248 ----
+      XtPointer closure;
+      XtPointer callData;		/* unused */
+  {
+!     if (options.value) XFree( options.value );
+      options.value =
+  	XFetchBuffer(XtDisplay(w), &options.length, options.buffer);
+      if (options.value != NULL) {

@@ -1,0 +1,140 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+/**/#
+/**/# @DEC_FREE_COPYRIGHT@
+/**/#
+/**/#
+/**/# HISTORY
+/**/#
+# BuildSystemHeader added automatically
+/**/# $Header: /alphabits/u3/x11/ode/rcs/x11/src/tools/wml/Imakefile,v 1.1.2.2 92/04/28 08:22:23 Dave_Hill Exp $
+SYSLIBS = $(XLIB)
+INCLUDES = -I. -I$(MTOOLKITSRC) -I$(TOP) -I$(LIBSRC) -I$(MWIDGETSRC) -I$(INCLUDESRC)
+DEFINES = MotifLibsDefines
+LOCAL_LIBRARIES = $(MRESOURCELIB) $(XMLIB) $(XMTOOLLIB) 
+ 
+SRCS1 =	wml.c		wmlouth.c	wmloutmm.c \
+	wmloutp1.c	wmlresolve.c	wmlsynbld.c	wmlutils.c \
+	wmlparse.c wmllex.c
+ 
+OBJS1 =	wml.o		wmloutkey.o	wmlouth.o	wmloutmm.o \
+	wmloutp1.o	wmlresolve.o	wmlsynbld.o	wmlutils.o 
+	
+ 
+SRCS2 = wmluiltok.l
+ 
+OBJS2 = wmlparse.o
+
+SRCS = $(SRCS1) $(SRCS2)
+ 
+TARGETS = UilConst.h	UilKeyTab.h	UilLexPars.c	UilLexPars.h \
+	UilSymArTa.h	UilSymArTy.h	UilSymCSet.h	UilSymCtl.h \
+	UilSymEnum.h	UilSymGen.h	UilSymNam.h	UilSymRArg.h \
+	UilSymReas.h	UilTokName.h	UilUrmClas.h
+ 
+TABLE = motif.wml
+WMDTABLE = motif.wmd
+DXMTABLE = dxm-motif.wml
+DXMWMDTABLE = dxm-motif.wmd
+
+INSTALLLIST = \
+	wml	UilDBDef.h	UilLexPars.h	dxm-motif.wml \
+	dxm-motif.wmd	motif.wml	motif.wmd	wmldbcreate.c \
+	uilwmdcreate	tokens.dat
+
+INSTALLDIR = /usr/examples
+WMLDIR = $(INSTALLDIR)/wml
+
+NormalLibraryObjectRule()
+
+WML = genpath -exec -tidy -obj -locate wml
+ 
+install:: all
+
+all:: copy libwml.a
+
+InstallMultiple($(INSTALLLIST),$(WMLDIR))
+
+libwml.a: $(OBJS2) $(OBJS1)
+	$(AR) libwml.a $(OBJS2) $(OBJS1)
+	$(RANLIB) libwml.a
+ 
+wml:	libwml.a
+	$(CC) $(CFLAGS) libwml.a -ll -o wml
+
+wmldbcreate: 
+	$(CC) $(CFLAGS) -c  wmldbcreate.c
+	$(CC) $(CFLAGS) wmldbcreate.o $(LOCAL_LIBRARIES) $(SYSLIBS) -o wmldbcreate
+
+wmllex.c: wmllex.l
+	$(LEX) wmllex.l
+	$(MV) lex.yy.c wmllex.c
+
+InstallNonExecFile(Imakefile.tkwml,$(WMLDIR)/Imakefile)
+InstallNonExecFile(Makefile.tkwml,$(WMLDIR)/Imakefile)
+
+wmlparse.c:: wmllex.c
+
+wmlparse.h wmlparse.c::	wmlparse.y 
+	$(YACC) -d $(YACCFLAGS) wmlparse.y
+	$(MV) y.tab.c wmlparse.c
+	$(MV) y.tab.h wmlparse.h
+ 
+wmluiltok:	wmluiltok.l
+	$(LEX) wmluiltok.l
+	$(CC) $(CFLAGS) lex.yy.c -ll -o wmluiltok
+
+wmltools:	wml wmluiltok
+
+runwml:	wmltools $(DXMTABLE)
+	$(YACC) -d $(YACCFLAGS) Uil.y
+	$(MV) y.tab.c UilLexPars.c
+	$(MV) y.tab.h UilLexPars.h
+	wmluiltok < `genpath -locate Uil.y` > tokens.dat
+	$(WML) $(TABLE)
+	$(RM) wmldbcreate
+	make wmldbcreate
+	wmldbcreate -o $(WMDTABLE)
+	$(WML) $(DXMTABLE)
+	$(RM) wmldbcreate
+	make wmldbcreate
+	wmldbcreate -o $(DXMWMDTABLE)
+
+copy: runwml
+	for i in $(TARGETS); do \
+	   cp -f `genpath -locate $$i` $(UILSRC); \
+	done
+	cp -f `genpath -locate UilDBDef.h` $(UILSRC)
+ 
+clean::
+	$(RM) $(TARGETS) $(WMDTABLE) lex.yy.c libwml.a wml *.mm *.sdml *.o \
+	wml.report wmlparse.c wmlparse.h wmluiltok wmllex.c $(DXMWMDTABLE)
+ 
+# the create of wmlparse.h is in a later step, but 
+# Depend Target thinks its needed first, throw away the errors, but
+# depend on its generating dependencies on it.
+
+DependTarget() 2>&1  | egrep -v "wmlparse.[ch]|wmllex.c"

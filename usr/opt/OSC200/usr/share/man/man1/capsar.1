@@ -1,0 +1,169 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: capsar.1,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1993/01/28 15:09:23 $
+.\"
+.TH capsar 1
+.SH NAME
+capsar \- prepares documents not in ASCII format for transport in the mail system
+.SH SYNOPSIS
+.PP
+.B capsar
+[-c]
+[-t]
+[-x[hTD]]
+[\f2file\fP]
+.SH DESCRIPTION
+.PP
+.iX "capsar utility"
+The \*Lcapsar\*O utility allows mail to support documents containing
+non-ASCII data, such as DDIF.
+Only the DDIF and DOTS data types are currently supported.
+DDIF is Digital's standard format for document
+interchange. DOTS is an encapsulation of the encoded
+interchange form of a number
+of related data objects into a single composite object.
+For more information, see \*LDDIF\*O(4) and \*LDOTS\*O(4).
+.PP
+The \*Lcapsar\*O utility prepares a DOTS file or a DDIF document for
+transport in the mail system by performing the following steps:
+.TP 6
+1)
+The DDIF document is converted to DOTS format.  As a DDIF
+document may contain more than one file, all files within the DDIF
+document are incorporated into one DOTS file which can be sent
+as one mail message.
+.TP
+2)
+Each DOTS file is then compressed and encoded
+using only printing ASCII characters.   This is because
+mail software only supports 7 bit mail.
+.TP
+3)
+The \*Lcapsar\*O routine encapsulates coded documents
+by adding leading and trailing lines, each
+surrounded by a <CR>.  The lines should begin with 2 or more dashes
+(\-) and some text that indicates the
+nature of the encapsulated message. The following is a typical encapsulated
+mail message:
+.oS
+To: anybody@anynode
+Cc:
+Subject: Another DDIF document
+
+ 
+-----------motd.ddif : DOTS.ctod.compress.uuencode message
+
+begin 0 motd.ddif
+M__]\@*" ,(" !BO.#P$# 8$* &UO=&0N9&1I9H0$)%546     "A@"B !@8K
+MS@\! P$''T1$248M96YC;V1E9"!R979I<V%B;&4@9&]C=6UE;G2@@/__?X"@
+M@( ! 8$! ((/1$1)1B1?4D5!1%]415A4HX#)% !$1$E&(%1E>'0@1G)O;G0@
+
+end
+
+-----------End of motd.ddif : DOTS.ctod.compress.uuencode message
+.oE
+The \*Lcapsar\*O command can also extract different parts of a mail message,
+namely, the header information, the text part of the message,
+and the DOTS file that was encapsulated as described above.
+.PP
+Extracting the DOTS file is done by
+parsing the mail message and detecting the leading and trailing
+encapsulation boundaries.  Decoding and uncompressing the data
+results in the original DOTS file.
+.PP
+The \*Lcapsar\*O utility is built into the MH message handler to provide DDIF mail
+support. It can, however, be used with the \*Lmailx\*O utility.
+.SH FLAGS
+.PP
+.TP 5
+.B \-c
+Causes \*Lcapsar\*O to create an encapsulated DOTS bodypart
+from \f2file\fP. The \f2file\fP must be a DOTS/DDIF type document.
+.TP
+.B \-t
+Causes \*Lcapsar\*O to write to the standard output the message type of
+\f2file\fP. Message type can be either text or DOTS.
+.TP
+.B \-xh
+Extracts the mail header lines from \f2file\fP.
+The header line
+must be at the beginning of the \f2file\fP and
+separated from the remaining
+text by a <CR> or <CRLF>.  Each header line is a string containing
+a header field name (for example, Subject),
+a colon (:), one or more spaces,
+and a field value.  Each header line may have embedded continuation
+sequences it (for example, LF followed by spaces or tabs).
+.TP
+.B \-xT
+Extracts all the text parts of the mail message
+in \f2file\fP
+to the standard output.
+.TP
+.B \-xD
+Extracts any DOTS bodyparts in \f2file\fP. The DOTS
+document is sent to the standard output.
+This is the reverse of the \f3\-c\fP option above.
+.IP
+The \f2file\fP must be specified for the \f3\-c\fP option.
+If \f2file\fP is not specified
+with the \f3\-x\fP or \f3\-t\fP option then the standard input is used.
+.SH EXAMPLES
+.PP
+The following are examples of how to use the \*Lcapsar\*O command:
+.PP
+Encapsulates a DDIF document
+.oS
+capsar \-c file.ddif | more
+.oE
+.PP
+Lists the header line from the mail message
+.oS
+capsar \-xh file.mail
+.oE
+.PP
+Extracts the encapsulated DOTS file from the file
+.oS
+capsar \-xD file > file.dots
+
+ or
+
+capsar \-xD file | dtoc
+.oE
+.PP
+In order to mail a DDIF/DOTS document you can use one of the following:
+.oS
+capsar \\-c file.ddif | mail \-s "subject" address
+
+capsar \-c file.ddif | mhmail \-subject "subject" address
+.oE
+.PP
+Use the second command if you are using RAND mh.
+.PP
+A DOTS file is extracted from dxmail first extracting the
+message into a file. The dxmail utility has an extract feature
+built in so \*L"capsar \-xD"\*O is not needed.
+.SH RELATED INFORMATION
+.PP
+\*Lcompress\*O(1), 
+.\" \*Lctod\*O(1), \*Ldtoc\*O(1), 
+\*Lmail\*O(1), \*Lmh\*O(1),
+\*Lmhmail\*O(1), \*Luuencode\*O(1), \*Lvdoc\*O(1), \*Lprompter\*O(1),
+.\" \*LDDIF\*O(4), \*LDOTS\*O(4)
+.EQ
+delim off
+.EN

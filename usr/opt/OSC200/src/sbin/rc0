@@ -1,0 +1,96 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+# Bring system to system state 0
+# This is a safe state to turn off power
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+stty sane 2> /dev/null
+echo "The system is coming down. Please wait..."
+
+ARGONE="$1"
+SPECIALPID=1
+#
+# Sync the disks
+#
+/sbin/sync
+#
+# Do any proceedures in /sbin/rc0.d
+#
+if [ -d /sbin/rc0.d ]; then
+        # Kill procedures
+        for f in /sbin/rc0.d/K*
+        do
+                if [ -s $f ]; then
+                        /sbin/sh $f stop
+                fi
+        done
+
+        # system cleanup functions ONLY (things that end fast)
+        for f in /sbin/rc0.d/S*
+        do
+                if [ -s $f ]; then
+                        /sbin/sh $f start
+                fi
+        done        
+fi
+
+trap "" 15
+kill -15 -1
+echo "\nHalting processes ..." > /dev/console
+sleep 3
+killall 9
+sleep 2
+sync;sync;sync
+/sbin/kill -USR1 $SPECIALPID
+/sbin/umount -a 2> /dev/null
+stty sane 2> /dev/null
+sync;sync
+#
+# Init single-user state if shutdown
+#
+if [ "$ARGONE" = shutdown ]; then
+        /sbin/init S
+else
+        echo "The system is down."
+        sync
+	/sbin/halt -q
+fi
+
+
+
+
+
+
+

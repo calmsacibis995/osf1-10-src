@@ -1,0 +1,303 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.TH getmsg 2
+.SH NAME
+.PP
+\*Lgetmsg\*O, \*Lgetpmsg\*O \- Receives the next message from a Stream
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <stropts.h>\*O
+.sp 0.4v
+\*Lint getmsg(
+.nL
+	int\*O \*Vfd\*L,
+.nL
+	struct strbuf *\*Vctlptr\*L,
+.nL
+	struct strbuf *\*Vdataptr\*L,
+.nL
+	long *\*Vflags\*L);
+.sp 0.4v
+int getpmsg(
+.nL
+	int\*O \*Vfd\*L,
+.nL
+	struct strbuf *\*Vctlptr\*L,
+.nL
+	struct strbuf *\*Vdataptr\*L,
+.nL
+	int *\*Vband\*L,
+.nL
+	long *\*Vflags\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfd\*O"
+Specifies a file descriptor that references an open Stream.
+.LI "\*Vctlptr\*O"
+Points to a \*Lstrbuf\*O structure that holds the
+control part of the message. This \*Lstrbuf\*O
+structure is described in the \*LDESCRIPTION\*O section.
+.LI "\*Vdataptr\*O"
+Points to a \*Lstrbuf\*O structure that holds the
+data part of the message. This \*Lstrbuf\*O
+structure is described in the \*LDESCRIPTION\*O section.
+.LI "\*Vband\*O"
+Points to an integer that indicates the priority band of the message
+that the user is able to retrieve.
+.LI "\*Vflags\*O"
+Points to an integer that indicates the type of message
+the user is able to retrieve.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "getmsg function"
+.iX "getpmsg function"
+.iX "receive next message from a Stream"
+.iX "Stream" "receive next message from a Stream"
+The \*Lgetmsg(\|)\*O and \*Lgetpmsg(\|)\*O functions retrieve the
+contents of messages.  These messages are located at the Stream head
+read queue associated with a STREAMS
+file.  Messages must contain a control part and/or a data part.  The
+control and data parts of the message are placed into separate user-specified
+buffers, pointed at by \*Vctlptr\*O and \*Vdataptr\*O respectively.
+The
+open Stream specifies the format and
+semantics of the message's control and data parts.  The
+\*Lgetpmsg(\|)\*O function provides better control over the
+priority of the messages received.
+Except where specified, all information about the \*Lgetmsg(\|)\*O
+function also applies to the \*Lgetpmsg(\|)\*O function.
+.ig ++
+The semantics of both the control and data parts
+of the message is defined by the STREAMS module that created the
+message.
+.++
+.PP
+The \*Vctlptr\*O and \*Vdataptr\*O parameters each point to a
+\*Lstrbuf\*O structure that contains three members.  This
+structure is defined in \*L<sys/stropts.h>\*O as:
+.iS
+struct strbuf {
+    int maxlen;	/* maximum buffer length */
+    int len;	/* length of data */
+    char *buf	/* ptr to buffer */
+};
+.iE
+The members are:
+.VL
+.LI "\*Lmaxlen\*O"
+Specifies the maximum
+number of bytes \*Lbuf\*O can hold.
+.LI "\*Lbuf\*O"
+Points to the
+buffer where the control or data information is to reside.
+.LI "\*Llen\*O"
+On return, contains the number of control or data information that has
+actually been received.  The \*Llen\*O parameter is set to 0 (zero) if
+there is a zero-length data or control part; otherwise, \*Llen\*O is
+set to -1 if
+no control or data information is contained in the message.
+.LE
+.PP
+The members of this structure are also affected by the following.
+.ML
+.LI
+If the \*Lmaxlen\*O field is set to 0 (zero), and the control or data
+part is of zero-length, that zero-length part is deleted
+from the read queue of the Stream head, and \*Llen\*O is set to 0
+(zero).
+.LI
+If the \*Lmaxlen\*O field is set to 0 (zero), and if the size of the
+control or data part is greater than 0 (zero), that part remains on
+the read queue and \*Llen\*O is set to 0 (zero).
+.LI
+If the \*Lmaxlen\*O
+field for either the \*Vctlptr\*O or \*Vdataptr\*O structure is less than the
+size of the control or
+data part of the message, \*Lmaxlen\*O bytes are retrieved and the
+rest of the message remains on the Stream head read
+queue.   A nonzero value is then returned.
+.LI
+If
+the \*Lmaxlen\*O
+member is -1, or
+if \*Vctlptr\*O or \*Vdataptr\*O parameter is a null pointer, the
+\*Lgetmsg(\|)\*O function does not process the control or the data
+part of the message.  The unprocessed part(s) then remains on the
+Stream head queue.
+.LI
+If \*Vctlptr\*O or
+\*Vdataptr\*O is not a null pointer, and if the read queue at the
+Stream head has no corresponding message control or data part,
+\*Llen\*O is set to -1.
+.LE
+.PP
+One of the major differences between the \*Lgetmsg(\|)\*O and
+\*Lgetpmsg(\|)\*O functions, in addition to the \*Vband\*O parameter,
+is how the \*Vflags\*O parameter is used to
+collect messages.  The \*Lgetmsg(\|)\*O function processes messages as
+follows:
+.ML
+.LI
+By default, the \*Lgetmsg(\|)\*O function processes
+the first message
+that is available on the Stream head queue.
+.LI
+If you set the \*Vflags\*O parameter to 0 (zero), any
+message will be retrieved.  On return, the integer
+pointed to by the \*Vflags\*O parameter will be set to \*LRS_HIPRI\*O if a
+high-priority message was retrieved; otherwise, a value of 0 (zero) is
+returned.
+.LI
+If you set the \*Vflags\*O parameter to \*LRS_HIPRI\*O,
+the \*Lgetmsg(\|)\*O function retrieves only the high-priority
+messages.
+The \*Lgetmsg(\|)\*O function then only processes the next message if it is
+a high-priority message.
+.LE
+.PP
+The \*Lgetpmsg(\|)\*O function \*Vflags\*O parameter points to a
+bitmask with the
+mutually-exclusive flags \*LMSG_HIPRI\*O, \*LMSG_BAND\*O, and
+\*LMSG_ANY\*O defined.  The \*Lgetpmsg(\|)\*O function processes
+messages as follows:
+.ML
+.LI
+By default, the \*Lgetpmsg(\|)\*O function
+processes the first available message on the Stream head read queue.
+.LI
+If you set the integer pointed at by the \*Vflags\*O parameter to
+\*LMSG_HIPRI\*O, and set the integer pointed to by the \*Vband\*O
+parameter to 0 (zero), the \*Lgetpmsg(\|)\*O function retrieves only
+high-priority messages.
+The \*Lgetpmsg(\|)\*O function then only processes the next
+message if it is a high-priority message.
+.LI
+If you set the
+integer pointed to by the \*Vflags\*O parameter to \*LMSG_BAND\*O, and
+set the integer
+pointed to by the \*Vband\*O parameter to the desired priority band,
+the \*Lgetpmsg(\|)\*O function retrieves a message from that
+band.  The \*Lgetpmsg(\|)\*O function then only processes the next
+message if it is in a high-priority
+message, or if its priority band is at least equal to the
+integer pointed to by \*Vband\*O.
+.LI
+If you set the integer pointed to by the \*Vflags\*O parameter to
+\*LMSG_ANY\*O, and set the integer pointed to by the \*Vband\*O
+parameter to 0 (zero), the \*Lgetpmsg(\|)\*O function retrieves only
+the first message off the queue.  When the \*Lgetpmsg(\|)\*O function
+returns, it then sets the \*Vflags\*O and \*Vband\*O parameters according
+to the type of message that was retrieved.  If the message was not a
+high-priority one, the integer pointed to by the \*Vflags\*O parameter
+is set to
+\*LMSG_BAND\*O and the integer pointed to by \*Vband\*O is set to the
+band of the message.
+If the message was a
+high-priority one, the
+integer pointed to by the \*Vflags\*O is set to \*LMSG_HIPRI\*O and
+the integer pointed to by \*Vband\*O will be set to 0 (zero).
+.LE
+.PP
+If the \*LO_NDELAY\*O or \*LO_NONBLOCK\*O flags are set and a message of
+the specified type is not present at the front of the read queue, the
+\*Lgetmsg(\|)\*O function fails.
+If the \*LO_NDELAY\*O or \*LO_NONBLOCK\*O flags are not set for
+the \*Lread(\|)\*O operation, the
+\*Lgetmsg(\|)\*O function blocks until a message
+is available at the front of the Stream head read queue.  This
+message's type is specified by \*Vflags\*O.
+.PP
+If the Stream from which the messages are being
+retrieved experiences a hangup, the \*Lgetmsg(\|)\*O function
+does not fail.  Instead, it will continues as usual until the read
+queue of the Stream
+head is empty.  Subsequent calls will return a value of 0 (zero) in
+the \*Llen\*O fields for the \*Vctlptr\*O and \*Vdataptr\*O structures.
+.sp
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lgetmsg(\|)\*O and \*Lgetmsg(\|)\*O
+functions return nonnegative values, as follows:
+.VL
+.LI "0 (zero)"
+Indicates that a full message was
+successfully read.
+.LI "\*LMORECTL\*O"
+Indicates that more control information
+is waiting for retrieval.
+.LI "\*LMOREDATA\*O"
+Indicates
+that more data is waiting for retrieval.
+.LI "\*LMORECTL\*O | \*LMOREDATA\*O"
+Indicates that both types of information remain.  Later calls to
+\*Lgetmsg(\|)\*O then retrieve the rest of the message.
+Note, however, that higher-priority messages, although they may arrive
+later on the
+queue, take a higher precedence.  In other words, if a message comes
+in later on the read queue, the next call to the \*Lgetmsg(\|)\*O
+function retrieves that
+higher-priority message first.  The rest of the earlier partial
+message is retrieved afterwards.
+.LE
+.PP
+Upon failure, the \*Lgetmsg(\|)\*O function returns a value of -1,
+and sets \*Lerrno\*O to indicate an error.
+.SH ERRORS
+.PP
+Both the \*Lgetmsg(\|)\*O and \*Lgetpmsg(\|)\*O functions fail if a
+STREAMS error message is delivered to the Stream head read queue
+before the call.  In this instance, the STREAMS error message
+contains the value of the returned error.
+.PP
+In addition, if any of the following conditions occurs, the \*Lgetmsg(\|)\*O
+function sets \*Lerrno\*O to the corresponding value:
+.VL
+.LI "[EAGAIN]"
+The \*LO_NDELAY\*O or \*LO_NONBLOCK\*O flag is set, and no messages
+are currently available.
+.LI "[EFAULT]"
+An illegal address has been specified in \*Vctlptr\*O or \*Vdataptr\*O.
+.LI "[EBADF]"
+The \*Vfd\*O parameter is not a valid file descriptor open for reading.
+.LI "[EBADMSG]"
+The message on the read queue is not a control or data message.
+.LI "[EINTR]"
+The \*Lgetmsg(\|)\*O or \*Lgetpmsg(\|)\*O function was interrupted by a
+signal that was caught.
+.LI "[EINVAL]"
+An illegal value was specified by the \*Vflags\*O parameter, or
+the Stream referenced by \*Vfd\*O is linked under a multiplexor.
+.LI "[ENOSTR]"
+A Stream is not associated with the \*Vfd\*O parameter.
+.LE
+.SH RELATED INFORMATION
+.PP
+Interfaces: \*Lstreamio\*O(7).
+.sp 0.4v
+Functions: \*Lpoll\*O(2), \*Lputmsg\*O(2), \*Lread\*O(2), \*Lwrite\*O(2).
+.EQ
+delim off
+.EN

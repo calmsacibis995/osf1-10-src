@@ -1,0 +1,1808 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! FILE:	ddif_app.uil
+!
+!
+! COPYRIGHT (C) 1988, 1992
+! DIGITAL EQUIPMENT CORPORATION, MAYNARD, MASSACHUSETTS 01754
+!
+! THIS SOFTWARE IS FURNISHED  UNDER A LICENSE FOR USE ONLY ON A SINGLE
+! COMPUTER  SYSTEM AND  MAY BE  COPIED ONLY WITH  THE INCLUSION OF THE
+! ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE, OR ANY OTHER COPIES THEREOF,
+! MAY NOT BE PROVIDED OR  OTHERWISE MADE AVAILABLE TO ANY OTHER PERSON
+! EXCEPT FOR USE ON SUCH SYSTEM AND TO ONE WHO AGREES TO THESE LICENSE
+! TERMS.  TITLE TO AND  OWNERSHIP OF THE  SOFTWARE  SHALL AT ALL TIMES
+! REMAIN IN DEC.
+!
+! THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE WITHOUT NOTICE
+! AND SHOULD  NOT BE CONSTRUED  AS A COMMITMENT  BY DIGITAL  EQUIPMENT
+! CORPORATION.
+!
+! DEC ASSUMES  NO  RESPONSIBILITY  FOR  THE USE OR  RELIABILITY OF ITS
+! SOFTWARE ON EQUIPMENT WHICH IS NOT SUPPLIED BY DEC.
+!
+!++
+! FACILITY:
+!	DVR: CDA (DDIF) VIEWER APPLICATION
+!
+! ABSTRACT:
+!	This is the uil file used to create the user interface
+!	for the cda viewer application. It does not contain any
+!	thing which needs to be translated; it includes the following
+!	files:
+!		dvrappcn.uil	contains all constant arguments
+!		dvrapptx.uil 	contains text strings to be translated
+!
+! ENVIRONMENT:
+!	UIL
+!
+! AUTHOR:	Dennis McEvoy		CREATION DATE:	    24-FEB-1988
+!		Stephen Munyan
+!
+! MODIFICATION HISTORY:
+!
+!	NAME		DATE		REASON
+!	----		----		------
+!       mac             13-Oct-1988     Change such text strings for UI cleanup;
+!					add create callback for close button
+!	dam		9-7-88		get literals from include file; clean up
+!	kmr		8-8-88		Make setup and file sel dialogs modeless
+!					so they don't grab XmNfocusCallback impolitely
+!	dam		11-jul-88	fix location of buttons in setup box
+!
+! V1 complete
+!
+!	dam		28-nov-88	add temporary changes for page
+!					structured UI for v2
+!
+!	dam		06-jan-89	remove obsoletes; add new ui
+!	dam		21-mar-89	move all constants to include file
+!					DvrAppl.uil
+!	dam		10-apr-89	add radio box for paper size units;
+!					modify to use one create_proc() with
+!					literals instead of multiple create procs
+!
+!	dam		02-may-89	split include file into two separates
+!
+!	dam		14-jun-89	use dialog box instead of
+!					XmForm for file-sel's
+!					child; no need to use attached, giving
+!					us problems on 100 dpi;
+!
+!	dam		25-jul-89	turn off insertion point in info popups
+!
+!	dam		26-jul-89	make message box modal
+!
+! V3 stream for Motif
+!
+!	sjm		02-Jul-90	Conversion to Motif
+!	sjm		02-Aug-90	Put gadgets back (They're fixed in BL5)
+!	sjm		05-Oct-90	Merge in Charlie Chan's CBR support
+!       rkn             07-Jan-91	Changed Diagnostic and Document info
+!					boxes to be XmFormDialog to take care
+!					of 100 DPI
+!     	rkn		09-Jan-91	Changed XmBulleinBoard, child of file
+!					selection box to be a XmForm widget.
+!	dam		04-jan-91	add help for dialog boxes without
+!	sjm		05-Feb-91	Added Mnemonics to the menu bar.
+!	sjm		05-Feb-91	Switched from XmDIALOG_APPLICATION_MODAL
+!					to XmDIALOG_FULL_APPLICATION_MODAL since
+!					the defintion seems to have changed from
+!					XUI to Motif.
+!	sjm		20-Feb-91	Changed to "On Version" and "On Window" in
+!	dam		11-mar-91	make paper size dialog cancel active
+!					on F11
+!	dam		11-mar-91	turn on traversal
+!       sjm             25-Mar-91       Changed from DXmHelp to DXmHelpDialog
+!                                       since DXmHelp is becoming obsolete in EFT2.
+!	sjm		 8-Apr-91	switch from widgets to gadgets where possible.
+!	dam		 9-Apr-91	fix diag/doc info popup forms
+!	sjm		 9-Apr-91	Added On Help pull down menu item.
+!	dam		23-May-91	change bulletin boards to forms to
+!					allow translation
+!	sjm		12-Jun-91	Added DXmNdelayPopupMenuRealization to improve
+!					startup performance.
+!	dam		06-aug-91	rename includes
+!	rkn		20-Jan-92	Implemented Hyperhelp with context 
+!					senstive help
+!
+!
+module dvr_appl
+	version = 'v3.0'
+	names   = case_sensitive
+
+	objects =
+	  {
+	    XmLabel 	   = gadget;
+	    XmPushButton   = gadget;
+	    XmSeparator    = gadget;
+	    XmToggleButton = gadget;
+	    XmCascadeButton= gadget;
+	  }
+
+
+include file 'XmAppl.uil';
+include file 'dvrappcn.uil';
+include file 'dvrapptx.uil';
+include file 'DXmXlatText.uil';
+include file 'DXmXlatArg.uil';
+
+
+value DXmNdelayPopupMenuRealization :
+	argument ('DXmdelayPopupMenuRealization', boolean);
+
+!*******************************************************************************
+!									       *
+!			     Procedure Declarations			       *
+!									       *
+!*******************************************************************************
+
+procedure
+	activate_proc ();
+	caution_cb_proc ();
+	close_proc ();
+	create_proc (integer);
+	diag_info_dismiss_proc();
+	diag_info_proc();
+	doc_info_dismiss_proc();
+	doc_info_proc();
+	DvrViewerCreate ();
+	exit_proc ();
+	file_sel_proc ();
+	format_list_click_proc ();
+	format_list_confirm_proc ();
+	help_proc ();
+	message_proc ();
+	new_file_proc ();
+	options_file_activate_proc ();
+	options_file_sel_proc ();
+	paper_size_cancel_proc ();
+	paper_size_ok_proc ();
+	paper_size_proc ();
+	size_list_click_proc  ();
+	unit_toggle_change_proc ();
+	help_activate_proc(integer);
+	help_system_proc(string);
+
+
+
+!*******************************************************************************
+!									       *
+!			     Value Literal Declarations			       *
+!	 								       *
+!*******************************************************************************
+
+
+
+
+object
+
+!*******************************************************************************
+!  Object:		dvr_main					       *
+!  Type:		XmMainWindow					       *
+!  Purpose:		house the menu bar and the viewer widget	       *
+!  Usage:		fetched as a child of the top level		       *
+!*******************************************************************************
+
+	dvr_main : XmMainWindow {
+	    arguments {
+	    	XmNtraversalOn = true;
+	    };
+	    controls {
+    		user_defined	viewer;
+    		XmMenuBar 	dvr_menu_bar;
+            };
+	};
+
+
+
+!*******************************************************************************
+!  Object:		viewer						       *
+!  Type:	 	user_defined					       *
+!  Purpose:		enable user to load a ddif file into this 	       *
+!			"cda viewer widget"; serves as work area for 	       *
+!			dvr_main.					       *
+!  Usage:		child of dvr_main				       *
+!*******************************************************************************
+
+    	viewer: user_defined procedure DvrViewerCreate {
+    	    arguments {
+	    	XmNtraversalOn = true;
+            };
+	    callbacks {
+	   	MrmNcreateCallback 	   = procedure create_proc (k_viewer);
+		reason('helpCallback')     = procedure help_proc();
+		reason('activateCallback') = procedure activate_proc();
+!
+! The following DEBUG script should be used in conjunction with the lines
+! that are commented out below in order to determine if the HOTSPOT support
+! for MEMEX is working properly.
+!
+! set module DVR$MAIN
+! set br activate_proc do (e dvr_reason->reason; go)
+!
+! The following lines should be commented out except during Memex testing.
+!
+!		reason('exposeCallback') = procedure activate_proc();
+!		reason('DVRbuttonsCallback') = procedure activate_proc();
+!		reason('DVRscrollBarCallback') = procedure activate_proc();
+!		reason('DVRmouseMotionCallback') = procedure activate_proc();
+!
+! End of the Memex testing lines.
+!
+	    };
+    	    controls{
+    	    };
+    	};
+
+!*******************************************************************************
+!  Object:		dvr_menu_bar					       *
+!  Type:		XmMenuBar					       *
+!  Purpose:		house the pulldown menu entries for the application    *
+!			on help, call help_proc				       *
+!  Usage:		child of dvr_main				       *
+!*******************************************************************************
+
+    dvr_menu_bar : XmMenuBar {
+	arguments {
+	    XmNorientation 	= XmHORIZONTAL;
+!	    XmNmenuHelpWidget 	= XmCascadeButton help_pd;
+	    XmNtraversalOn 	= true;
+	};
+	controls {
+	    XmCascadeButton file_pd;
+!	    XmCascadeButton help_pd;
+	};
+	    callbacks {
+		XmNhelpCallback    = procedure help_proc ();
+		MrmNcreateCallback = procedure create_proc(k_menu);
+	    };
+    };
+
+
+!*******************************************************************************
+!  Object:	    	horizontal_separator
+!  Type:	   	XmSeparator
+!  Purpose:		standard horizontal separator
+!  Usage:		pulldown menues
+!*******************************************************************************
+
+    horizontal_separator : XmSeparator {
+	arguments {
+	  XmNorientation = XmHORIZONTAL;
+    	};
+    };
+
+
+
+!*******************************************************************************
+!  Object:		file_pd						       *
+!  Type:		XmCascadeButton					       *
+!  Purpose:		house the file menu				       *
+!  Usage:		child of dvr_menu_bar				       *
+!*******************************************************************************
+
+    file_pd : XmCascadeButton {
+	arguments {
+	    XmNlabelString = dvr$file_label;
+	    XmNmnemonic	   = dvr$file_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	controls {
+	    XmPulldownMenu file_menu;
+    	};
+	callbacks {
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_file_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		file_menu					       *
+!  Type:		XmPulldownMenu					       *
+!  Purpose:		house the pushbuttons for the file menu		       *
+!  Usage:		child of file					       *
+!*******************************************************************************
+
+    file_menu : XmPulldownMenu {
+	arguments {
+	    XmNtraversalOn = true;
+	    DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton new_file;
+	    XmPushButton info_but;
+	    XmPushButton diag_but;
+	    XmSeparator  horizontal_separator;
+	    XmPushButton close_file;
+	    XmPushButton exit;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		new_file					       *
+!  Type: 	 	XmPushButton					       *
+!  Purpose:		on activate, call new_file_proc			       *
+!  Usage:		child of file_menu				       *
+!*******************************************************************************
+
+    new_file : XmPushButton {
+	arguments {
+       	    XmNlabelString = dvr$open_label;
+	    XmNmnemonic	   = dvr$open_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure new_file_proc ();
+	    MrmNcreateCallback  = procedure create_proc (k_new_file_pb);	! CBR Change - This line
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_open_view_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:	 	info_but					       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call doc_info_proc			       *
+!  Usage:		child of top level				       *
+!*******************************************************************************
+
+    info_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$doc_info_label;
+	    XmNmnemonic	   = dvr$doc_info_mnemonic;
+	    XmNsensitive   = false;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure doc_info_proc ();
+	    MrmNcreateCallback  = procedure create_proc (k_doc_info_pb);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_doc_info_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:	 	diag_but					       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call diag_info_proc		       *
+!  Usage:		child of top level				       *
+!*******************************************************************************
+
+    diag_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$diag_info_label;
+	    XmNmnemonic	   = dvr$diag_info_mnemonic;
+	    XmNsensitive   = false;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure diag_info_proc ();
+	    MrmNcreateCallback  = procedure create_proc (k_diag_info_pb);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_diag_info_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:	 	close_file					       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call close_proc			       *
+!  Usage:		child of top level				       *
+!*******************************************************************************
+
+    close_file : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$close_label;
+	    XmNmnemonic	   = dvr$close_mnemonic;
+	    XmNsensitive   = false;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_close_pb);
+	    XmNactivateCallback = procedure close_proc ();
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_close_file_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		exit						       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call exit_proc			       *
+!  Usage:		child of file menu				       *
+!*******************************************************************************
+
+    exit : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$quit_label;
+	    XmNmnemonic	   = dvr$quit_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure exit_proc ();
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_exit_1);
+	};
+    };
+
+
+
+!*******************************************************************************
+!  Object:		help_pd						       *
+!  Type:	 	XmCascadeButton					       *
+!  Purpose:		house the help menu				       *
+!  Usage:		child of dvr_menu_bar				       *
+!*******************************************************************************
+
+    help_pd : XmCascadeButton {
+	arguments {
+	    XmNlabelString = dvr$help_label;
+	    XmNmnemonic	   = dvr$help_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+ 	controls {
+	    XmPulldownMenu help_menu;
+    	};
+    };
+
+!*******************************************************************************
+!  Object:		help_menu					       *
+!  Type:		XmPulldownMenu					       *
+!  Purpose:		house the pushbuttons for the help menu		       *
+!  Usage:		child of help					       *
+!*******************************************************************************
+
+    help_menu : XmPulldownMenu {
+	arguments {
+	    XmNtraversalOn = true;
+	    DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton help_but;
+	    XmPushButton on_help_but;
+	    XmPushButton about_but;
+	};
+    };
+
+!*******************************************************************************
+!  Object:		hyper_help_pd						       *
+!  Type:	 	XmCascadeButton					       *
+!  Purpose:		house the help menu				       *
+!  Usage:		child of dvr_menu_bar				       *
+!*******************************************************************************
+
+   hyper_help_pd : XmCascadeButton {
+	arguments {
+	    XmNlabelString = dvr$help_label;
+	    XmNmnemonic	   = dvr$help_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+ 	controls {
+	    XmPulldownMenu hyper_help_menu;
+    	};
+	callbacks {
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_help_menu_1);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		hyper_help_menu					       *
+!  Type:		XmPulldownMenu					       *
+!  Purpose:		house the pushbuttons for the help menu		       *
+!  Usage:		child of help					       *
+!*******************************************************************************
+
+    hyper_help_menu : XmPulldownMenu {
+	arguments {
+	    XmNtraversalOn = true;
+	    DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton on_context_but;
+	    XmPushButton help_but;
+	    XmPushButton on_help_but;
+	    XmPushButton about_but;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		help_but					       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call help_proc			       *
+!  Usage:		child of help_menu				       *
+!*******************************************************************************
+
+    on_context_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$on_context_label;
+	    XmNmnemonic	   = dvr$on_context_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure help_activate_proc (k_help_context);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_help_oncontext);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		help_but					       *
+!  Type:		XmPushButton					       *
+!  Purpose:		on activate, call help_proc			       *
+!  Usage:		child of help_menu				       *
+!*******************************************************************************
+
+    help_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$on_window_label;
+	    XmNmnemonic	   = dvr$on_window_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure help_activate_proc (k_help_window);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_decbasics);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		on_help_but					       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:		on activate,				    	       *
+!  Usage:		child of help_menu				       *
+!*******************************************************************************
+
+    on_help_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$on_help_label;
+	    XmNmnemonic	   = dvr$on_help_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure help_activate_proc (k_help_help);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_overview);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		about_but					       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:		on activate, call about_proc 		    	       *
+!  Usage:		child of help_menu				       *
+!*******************************************************************************
+
+    about_but : XmPushButton {
+	arguments {
+	    XmNlabelString = dvr$on_version_label;
+	    XmNmnemonic	   = dvr$on_version_mnemonic;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure help_activate_proc (k_help_version);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_about);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		file_sel_box					       *
+!  Type:		XmFileSelectionDialog				       *
+!  Purpose:		allow user to choose a new file name		       *
+!  Usage:		fetched as a child of viewer when the user selects     *
+!			new from the file menu				       *
+!*******************************************************************************
+
+file_sel_box : XmFileSelectionDialog {
+	arguments {
+!	    XmNapplyLabelString		= FileSelectionApplyLabel;	! Label text was removed from BL5
+!	    XmNcancelLabelString	= FileSelectionCancelLabel;	! Label text was removed from BL5
+!	    XmNlabelString		= FileSelectionLabel;		! Not in Motif
+	    XmNdialogTitle		= dvr$open_title;
+	    XmNdialogStyle 		= XmDIALOG_MODELESS;
+	    XmNdefaultPosition 		= true;
+	    XmNlistVisibleItemCount 	= dvr$open_vis_items_cnt;
+   	    XmNfilterLabelString 	= dvr$open_filter_label;
+	    XmNdirMask 			= dvr$open_dir_mask;
+!	    XmNvalue 			= dvr$open_fil_sel_value;	! Not in Motif
+	    XmNselectionLabelString 	= dvr$open_fil_sel_label;
+	    XmNmarginWidth		= dvr$open_fil_sel_mwidth;
+	    XmNmarginHeight		= dvr$open_fil_sel_mheight;
+	    XmNtraversalOn 		= true;
+	};
+	callbacks {
+	    XmNokCallback	= procedure file_sel_proc ();		! Added for Motif since activate went away
+!	    XmNactivateCallback = procedure file_sel_proc ();
+	    XmNcancelCallback   = procedure file_sel_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_open_a_file);
+	};
+
+    	controls {
+	    XmForm file_format_at_box;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		file_format_at_box				       *
+!  Type:		XmForm           				       *
+!  Purpose:		hold children for file selection box		       *
+!  Usage:    		child of file_sel_box				       *
+!*******************************************************************************
+
+file_format_at_box : XmForm {
+	arguments {
+      	    XmNdefaultPosition 	= true;
+	    XmNborderWidth 	= dvr$format_at_box_bwid;
+	    XmNtraversalOn 	= true;
+	};
+    	controls {
+  	    XmLabel 		format_label;
+	    XmText		format_text_box;
+	    XmScrolledList    	format_list_box;
+	    XmPushButton 	options_file_button;
+	    XmPushButton	paper_size_button;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		format_label					       *
+!  Type:		XmLabel						       *
+!  Purpose:	  	Label the file-format text entry box		       *
+!  Usage:		child of file_format_at_box			       *
+!*******************************************************************************
+
+format_label : XmLabel {
+	arguments {
+	    XmNlabelString 	= dvr$format_label;
+! 	    XmNx 	   	= dvr$format_label_x;
+!	    XmNy	  	= dvr$format_label_y;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_FORM;
+ 	    XmNleftOffset 	= dvr$format_label_x;
+	    XmNtopOffset	= dvr$format_label_y;
+	};
+	callbacks {
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_open_file_for);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		format_text_box					       *
+!  Type:	  	XmText		   				       *
+!  Purpose:		provide space for user to enter file format type       *
+!  Usage:		child of file_format_at_box			       *
+!*******************************************************************************
+
+format_text_box : XmText {
+	arguments {
+!  	    XmNx 	    	= dvr$format_stext_x;
+!	    XmNy 	    	= dvr$format_stext_y;
+	    XmNeditable     	= true;
+	    XmNrows 	    	= dvr$format_stext_rows;
+	    XmNresizeHeight 	= false;
+	    XmNtopAttachment    = XmATTACH_WIDGET;
+	    XmNtopWidget        = XmLabel format_label;
+	    XmNleftAttachment   = XmATTACH_FORM;
+ 	    XmNleftOffset 	= dvr$format_stext_x;
+	    XmNtraversalOn 	= true;
+	};
+        callbacks {
+	    MrmNcreateCallback        = procedure create_proc (k_format_st);
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_open_file_for);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		format_list_box					       *
+!  Type:	  	XmScrolledList					       *
+!  Purpose:		list available converters on system		       *
+!  Usage:		child of file_format_at_box			       *
+!*******************************************************************************
+
+format_list_box : XmScrolledList {
+	arguments {
+!	    XmNx 		= dvr$format_lbox_x;
+!	    XmNy 		= dvr$format_lbox_y;
+	    XmNborderWidth 	= dvr$format_lbox_bwidth;
+	    XmNvisibleItemCount = dvr$format_lbox_v_cnt;
+	    XmNselectionPolicy	= XmSINGLE_SELECT;
+	    XmNtopAttachment    = XmATTACH_WIDGET;
+	    XmNtopWidget        = XmText format_text_box;
+	    XmNleftAttachment   = XmATTACH_FORM;
+ 	    XmNtopOffset 	= 7;
+ 	    XmNleftOffset 	= dvr$format_lbox_x;
+	    XmNtraversalOn 	= true;
+	};
+
+	callbacks {
+	    MrmNcreateCallback         = procedure create_proc (k_format_lb);
+	    XmNsingleSelectionCallback = procedure format_list_click_proc  ();
+	    XmNdefaultActionCallback   = procedure format_list_confirm_proc ();
+	    XmNhelpCallback    = procedure help_system_proc (dvr$help_open_file_fbox);
+
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		options_file_button 	 			       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:	  	allow user choose an options file		       *
+!  Usage:     		child of file_format_at_box			       *
+!*******************************************************************************
+
+    options_file_button : XmPushButton {
+	arguments {
+!	    XmNx 	   = dvr$op_button_x;
+!	    XmNy 	   = dvr$op_button_y;
+       	    XmNlabelString = dvr$op_button_label;
+	    XmNtopAttachment    = XmATTACH_OPPOSITE_WIDGET;
+	    XmNtopWidget        = XmScrolledList format_list_box;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget       = XmScrolledList format_list_box;
+ 	    XmNleftOffset 	= 7;
+	    XmNtraversalOn 	= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure options_file_activate_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_open_opt_but);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		paper_size_button				       *
+!  Type: 	 	XmPushButton					       *
+!  Purpose:		on activate, call paper_size_proc		       *
+!  Usage:		child of file_format_at_box			       *
+!*******************************************************************************
+
+    paper_size_button : XmPushButton {
+	arguments {
+!	    XmNx 	   = dvr$paper_size_x;
+!	    XmNy 	   = dvr$paper_size_y;
+       	    XmNlabelString = dvr$paper_size_label;
+	    XmNtopAttachment    = XmATTACH_WIDGET;
+	    XmNtopWidget        = XmPushButton options_file_button;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget       = XmScrolledList format_list_box;
+ 	    XmNtopOffset 	= 7;
+ 	    XmNleftOffset 	= 7;
+	    XmNtraversalOn 	= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure paper_size_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_open_disp_but);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		options_file_sel_box  				       *
+!  Type:		XmFileSelectionDialog				       *
+!  Purpose:		allow user to choose an options file		       *
+!  Usage:		pop-up dialog box				       *
+!*******************************************************************************
+
+options_file_sel_box : XmFileSelectionDialog {
+	arguments {
+!	    XmNapplyLabelString		= FileSelectionApplyLabel;	! Label text was removed from BL5
+!	    XmNcancelLabelString	= FileSelectionCancelLabel;	! Label text was removed from BL5
+!	    XmNlabelString		= FileSelectionLabel;		! Not in Motif
+	    XmNdialogTitle 		= dvr$op_file_sel_label;
+	    XmNdialogStyle 	 	= XmDIALOG_MODELESS;
+	    XmNdefaultPosition 	 	= true;
+	    XmNx 		 	= dvr$op_file_sel_x;
+	    XmNy 		 	= dvr$op_file_sel_y;
+	    XmNlistVisibleItemCount 	= dvr$op_file_sel_v_cnt;
+   	    XmNfilterLabelString 	= dvr$op_file_sel_fil_lbl;
+	    XmNdirMask 		 	= dvr$op_file_sel_d_mask;
+!	    XmNvalue 			= dvr$op_file_sel_value;	! Not in Motif
+	    XmNselectionLabelString 	= dvr$op_file_sel_label;
+	    XmNmarginWidth	 	= dvr$op_file_sel_mwidth;
+	    XmNmarginHeight	 	= dvr$op_file_sel_mheight;
+	    XmNtraversalOn 		= true;
+	};
+	callbacks {
+	    XmNokCallback	= procedure options_file_sel_proc ();		! Added for Motif since activate went away
+!	    XmNactivateCallback = procedure options_file_sel_proc ();
+	    XmNcancelCallback   = procedure options_file_sel_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_select_opt);
+	};
+
+    };
+
+
+!*******************************************************************************
+!  Object:		help_widget_box					       *
+!  Type:		DXmHelpDialog					       *
+!  Purpose:	  	display help info in a dialog box		       *
+!  Usage:		fetched as a child of viewer when user selects help    *
+! 			from menu bar.					       *
+!*******************************************************************************
+
+help_widget_box : DXmHelpDialog {
+	arguments {
+		arguments	 help_box_args;
+
+		DXmNapplicationName 	= dvr$help_appl_name;
+!		XmNdefaultPosition 	= true;				! Not in Motif
+		DXmNlibraryType 	= dvr$help_library_type;
+		DXmNlibrarySpec 	= dvr$help_library_spec;
+		DXmNoverviewTopic 	= dvr$help_overview_topic;
+!		XmNtitleString 		= dvr$help_title;		! Not in Motif
+	    	XmNtraversalOn 		= true;
+		};
+	};
+
+
+!*******************************************************************************
+!  Object:		diag_info_dialog_box				       *
+!  Type:		XmFormDialog     				       *
+!  Purpose:		display diagnostic info in a dialog box		       *
+!  Usage:	  	fetched as a child of viewer when user selects         *
+! 			"Diagnostic Info" from the file menu.		       *
+!*******************************************************************************
+
+
+diag_info_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogStyle 	= XmDIALOG_MODELESS;
+	    XmNdialogTitle 	= dvr$diag_info_title;		! was titleString
+	    XmNdefaultPosition 	= true;
+	    XmNmarginWidth	= dvr$diag_info_mwidth;
+	    XmNmarginHeight	= dvr$diag_info_mheight;
+	    XmNtraversalOn 	= true;
+	};
+	controls {
+	    XmPushButton 	diag_info_dismiss_button;
+	    XmScrolledText	diag_info_text_box;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_diag_info_disp);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		diag_info_text_box				       *
+!  Type:	  	XmScrolledText					       *
+!  Purpose:		display diagnostic info in a scrollable text widget    *
+!  Usage:		child of diag_info_dialog_box			       *
+!*******************************************************************************
+
+diag_info_text_box : XmScrolledText {
+	arguments {
+!	    XmNx 		= dvr$diag_info_txt_x;
+!	    XmNy 		= dvr$diag_info_txt_y;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget	= XmPushButton diag_info_dismiss_button;
+	    XmNscrollVertical 	= true;
+	    XmNrows 		= dvr$diag_info_txt_rows;
+	    XmNcolumns 		= dvr$diag_info_txt_cols;
+	    XmNwordWrap 	= true;
+	    XmNresizeWidth 	= false;
+	    XmNeditable 	= false;
+	    XmNcursorPositionVisible = false;
+	    XmNeditMode		= XmMULTI_LINE_EDIT;	! rows is ignored unless we set this field in Motif
+	    XmNtraversalOn 	= true;
+	};
+        callbacks {
+	    MrmNcreateCallback        = procedure create_proc (k_diag_info_st);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_diag_info_disp);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		diag_info_dismiss_button  			       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:	  	allow user dismiss the diagnostic info box	       *
+!  Usage:     		child of diag_info_dialog_box			       *
+!*******************************************************************************
+
+    diag_info_dismiss_button : XmPushButton {
+	arguments {
+!	    XmNx 	        = dvr$diag_info_dis_x;
+!	    XmNy 	        = dvr$diag_info_dis_y;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset 	= dvr$diag_info_dis_x;
+	    XmNbottomAttachment = XmATTACH_FORM;
+       	    XmNlabelString 	= dvr$diag_info_dis_label;
+	    XmNtraversalOn 	= true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure diag_info_dismiss_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_diag_dismiss);
+	};
+    };
+
+
+
+!*******************************************************************************
+!  Object:		doc_info_dialog_box				       *
+!  Type:		XmFormDialog	         			       *
+!  Purpose:		display document info in a dialog box		       *
+!  Usage:	  	fetched as a child of viewer when user selects         *
+! 			"Document Info" from the file menu.		       *
+!*******************************************************************************
+
+doc_info_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogStyle 	= XmDIALOG_MODELESS;
+	    XmNdialogTitle 	= dvr$doc_info_title;		! was titleString
+	    XmNdefaultPosition 	= true;
+	    XmNmarginWidth	= dvr$doc_info_mwidth;
+	    XmNmarginHeight	= dvr$doc_info_mheight;
+	    XmNtraversalOn 	= true;
+	};
+	controls {
+	    XmPushButton 	doc_info_dismiss_button;
+	    XmScrolledText	doc_info_text_box;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_doc_info_disp);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		doc_info_text_box				       *
+!  Type:	  	XmScrolledText					       *
+!  Purpose:		display document info in a scrollable text widget      *
+!  Usage:		child of doc_info_dialog_box			       *
+!*******************************************************************************
+
+doc_info_text_box : XmScrolledText {
+	arguments {
+!	    XmNx 		= dvr$doc_info_txt_x;
+!	    XmNy 		= dvr$doc_info_txt_y;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget     = XmPushButton doc_info_dismiss_button;
+	    XmNscrollVertical 	= true;
+	    XmNrows 		= dvr$doc_info_txt_rows;
+	    XmNcolumns 		= dvr$doc_info_txt_cols;
+	    XmNwordWrap 	= true;
+	    XmNresizeWidth 	= false;
+	    XmNeditable 	= false;
+	    XmNcursorPositionVisible = false;
+	    XmNeditMode		= XmMULTI_LINE_EDIT;	! rows is ignored unless we set this field in Motif
+	    XmNtraversalOn 	= true;
+	};
+        callbacks {
+	    MrmNcreateCallback        = procedure create_proc (k_doc_info_st);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_doc_info_disp);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		doc_info_dismiss_button  			       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:	  	allow user dismiss the document info box	       *
+!  Usage:     		child of doc_info_dialog_box			       *
+!*******************************************************************************
+
+    doc_info_dismiss_button : XmPushButton {
+	arguments {
+!	    XmNx 	   	= dvr$doc_info_dis_x;
+!	    XmNy 	   	= dvr$doc_info_dis_y;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset 	= dvr$doc_info_dis_x;
+	    XmNbottomAttachment = XmATTACH_FORM;
+       	    XmNlabelString      = dvr$doc_info_dis_label;
+	    XmNtraversalOn      = true;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure doc_info_dismiss_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_doc_dismiss);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		paper_size_ok_button				       *
+!  Type:	  	XmPushButton					       *
+!  Purpose:	  	allow user to ok paper-size options 		       *
+!  Usage:     		child of paper_size_dialog_box 			       *
+!*******************************************************************************
+
+    paper_size_ok_button : XmPushButton {
+	arguments {
+       	    XmNlabelString 	= dvr$ps_ok_label;
+	    XmNtraversalOn 	= true;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset 	= dvr$ps_ok_x;
+	    XmNbottomAttachment = XmATTACH_FORM;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_pap_ok_but);
+	    XmNactivateCallback = procedure paper_size_ok_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_ok_button);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		paper_size_dialog_box				       *
+!  Type:		XmBulletinBoardDialog				       *
+!  Purpose:		display paper_size info in a dialog box		       *
+!  Usage:	  	fetched as a child of viewer when user selects         *
+! 			paper_size push button in file selection box	       *
+!*******************************************************************************
+
+paper_size_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogStyle 	= XmDIALOG_MODELESS;
+	    XmNdialogTitle 	= dvr$ps_pop_up_title;		! was titleString
+	    XmNmarginWidth 	= dvr$ps_pop_up_mwidth;
+	    XmNmarginHeight 	= dvr$ps_pop_up_mheight;
+	    XmNdefaultPosition 	= true;
+	    XmNdefaultButton 	= XmPushButton paper_size_ok_button;
+	    XmNcancelButton     = XmPushButton paper_size_cancel_button;
+	    XmNtraversalOn 	= true;
+	};
+	controls {
+	    XmPushButton   	paper_size_ok_button;
+	    XmPushButton   	paper_size_cancel_button;
+	    XmForm	    	size_dialog_box;
+	    XmToggleButton 	reformat_toggle;
+	    XmForm		ps_op_dialog_box;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_paper_size);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		size_dialog_box					       *
+!  Type:	      	XmBulletinBoard					       *
+!  Purpose:		house the widgets for selecting which paper size       *
+!			to use 						       *
+!  Usage:	 	child of paper_size_dialog_box			       *
+!*******************************************************************************
+
+size_dialog_box : XmForm {
+	arguments {
+	    XmNmarginWidth 	= dvr$size_diag_mwidth;
+	    XmNmarginHeight 	= dvr$size_diag_mheight;
+	    XmNborderWidth	= dvr$size_diag_bwidth;
+	    XmNshadowType	= XmSHADOW_OUT;
+	    XmNshadowThickness	= dvr$size_diag_shadow;
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment    = XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNrightOffset	= dvr$size_diag_right_x;
+	};
+	controls {
+	    XmLabel	  	size_label;
+  	    XmLabel 		height_label;
+	    XmText 		height_text_box;
+  	    XmLabel 		width_label;
+	    XmText 		width_text_box;
+	    XmRadioBox  	size_units_radio_box;
+	    XmScrolledList    	size_list_box;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_paper_size);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		size_label					       *
+!  Type:		XmLabel						       *
+!  Purpose:	  	Label the paper size dialog box	 		       *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+size_label : XmLabel {
+	arguments {
+	    XmNlabelString 	= dvr$size_label;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNtopOffset	= dvr$size_label_y;
+	    XmNleftOffset	= dvr$size_label_x;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		width_label					       *
+!  Type:		XmLabel						       *
+!  Purpose:	  	Label the width text entry box 			       *
+!  Usage:		child of size_dialog_box    			       *
+!*******************************************************************************
+
+width_label : XmLabel {
+	arguments {
+	    XmNlabelString 	= dvr$width_label;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNtopOffset	= dvr$width_label_y;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel size_label;
+	    XmNleftOffset	= dvr$width_label_x;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_width);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		width_text_box					       *
+!  Type:	  	XmText						       *
+!  Purpose:		provide space for user to enter paper width	       *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+width_text_box : XmText {
+	arguments {
+	    XmNeditable 	= true;
+	    XmNrows 		= dvr$width_txt_rows;
+	    XmNcolumns 		= dvr$width_txt_cols;
+	    XmNmaxLength 	= dvr$width_txt_max_len;
+	    XmNresizeHeight 	= false;
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment	= XmATTACH_FORM;
+	    XmNtopOffset	= dvr$width_txt_y;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNrightOffset	= dvr$width_txt_right_x;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel width_label;
+	};
+        callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_size_width_st);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_width);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		height_label					       *
+!  Type:		XmLabel						       *
+!  Purpose:	  	Label the height text entry box	 		       *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+height_label : XmLabel {
+	arguments {
+	    XmNlabelString 	= dvr$height_label;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmText width_text_box;
+	    XmNtopOffset	= dvr$height_label_y;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel size_label;
+	    XmNleftOffset	= dvr$height_label_x;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_height);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		height_text_box					       *
+!  Type:	  	XmText						       *
+!  Purpose:		provide space for user to enter paper height   	       *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+height_text_box : XmText {
+	arguments {
+	    XmNeditable     	= true;
+	    XmNrows 	    	= dvr$height_txt_rows;
+	    XmNcolumns 	    	= dvr$height_txt_cols;
+	    XmNmaxLength    	= dvr$height_txt_max_len;
+	    XmNresizeHeight 	= false;
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmText width_text_box;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNrightOffset	= dvr$height_txt_right_x;
+	    XmNleftAttachment   = XmATTACH_WIDGET;
+	    XmNleftWidget	= XmLabel height_label;
+	};
+        callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_size_height_st);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_height);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		size_units_radio_box				       *
+!  Type:	  	XmRadioBox					       *
+!  Purpose:		select the current unit being used for paper width     *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+size_units_radio_box : XmRadioBox {
+	arguments {
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmText height_text_box;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNrightOffset	= dvr$units_radio_right_x;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset	= dvr$units_radio_bot_y;
+	};
+	controls {
+	    XmToggleButton char_button;
+	    XmToggleButton inches_button;
+	    XmToggleButton mm_button;
+	};
+    };
+
+!*******************************************************************************
+!  Object:		char_button					       *
+!  Type:	  	XmToggleButton					       *
+!  Purpose:	  	allow user to use characters for size units	       *
+!  Usage:     		child of size_units_radio_box  			       *
+!*******************************************************************************
+
+    char_button : XmToggleButton {
+	arguments {
+       	    XmNlabelString  = dvr$char_toggle_label;
+	    XmNtraversalOn  = true;
+    	};
+	callbacks {
+	    XmNvalueChangedCallback = procedure unit_toggle_change_proc ();
+	    MrmNcreateCallback	    = procedure create_proc (k_char_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_char);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		inches_button					       *
+!  Type:	  	XmToggleButton					       *
+!  Purpose:	  	allow user to use inches for size units		       *
+!  Usage:     		child of size_units_radio_box  			       *
+!*******************************************************************************
+
+    inches_button : XmToggleButton {
+	arguments {
+       	    XmNlabelString = dvr$inch_toggle_label;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNvalueChangedCallback = procedure unit_toggle_change_proc ();
+	    MrmNcreateCallback	    = procedure create_proc (k_inch_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_inches);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		mm_button					       *
+!  Type:	  	XmToggleButton					       *
+!  Purpose:	  	allow user to use mm for size units		       *
+!  Usage:     		child of size_units_radio_box  			       *
+!*******************************************************************************
+
+    mm_button : XmToggleButton {
+	arguments {
+       	    XmNlabelString = dvr$mm_toggle_label;
+	    XmNtraversalOn = true;
+    	};
+	callbacks {
+	    XmNvalueChangedCallback = procedure unit_toggle_change_proc ();
+	    MrmNcreateCallback	    = procedure create_proc (k_mm_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_mm);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		size_list_box					       *
+!  Type:	  	XmScrolledList					       *
+!  Purpose:		list standard paper sizes			       *
+!  Usage:		child of size_dialog_box			       *
+!*******************************************************************************
+
+size_list_box : XmScrolledList {
+	arguments {
+	    XmNborderWidth 	= dvr$size_list_bwidth;
+	    XmNvisibleItemCount = dvr$size_list_vis_cnt;
+	    XmNitems		= dvr$size_list_table;
+	    XmNselectionPolicy	= XmSINGLE_SELECT;
+	    XmNtraversalOn 	= true;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmLabel size_label;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset	= dvr$size_list_x;
+	};
+
+	callbacks {
+	    MrmNcreateCallback         = procedure create_proc (k_size_lb);
+	    XmNsingleSelectionCallback = procedure size_list_click_proc  ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_paper_size);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		reformat_toggle					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:	  	allow user to have document reformatted		       *
+!  Usage:		child of paper_size_dialog_box			       *
+!*******************************************************************************
+
+    reformat_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString  	= dvr$ref_tog_label;
+	    XmNset 		= off;
+	    XmNtraversalOn 	= true;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmForm size_dialog_box;
+
+	};
+        callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_reformat_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_override);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		paper_size_cancel_button 			       *
+!  Type:		XmPushButton					       *
+!  Purpose:		allow user to cancel paper size options options	       *
+!  Usage:	  	child of paper_size_dialog_box 			       *
+!*******************************************************************************
+
+    paper_size_cancel_button : XmPushButton {
+	arguments {
+       	    XmNlabelString 	= dvr$ps_can_label;
+	    XmNtraversalOn 	= true;
+	    XmNbottomAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_WIDGET;
+	    XmNleftWidget	= XmPushButton paper_size_ok_button;
+	    XmNleftOffset	= dvr$ps_can_x;
+    	};
+	callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_pap_can_but);
+	    XmNactivateCallback = procedure paper_size_cancel_proc ();
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_cancel_but );
+	};
+    };
+
+
+
+!
+! new ps stuff
+!
+
+!*******************************************************************************
+!  Object:		ps_op_dialog_box				       *
+!  Type:		XmBulletinBoard					       *
+!  Purpose:		house postscript specific options		       *
+!  Usage:	  	child of paper_size_dialog_box 			       *
+!  NOTE: this box gets destroyed if server does not have Display Postscript    *
+!*******************************************************************************
+
+ps_op_dialog_box : XmForm {
+	arguments {
+	    XmNborderWidth 	= dvr$ps_op_bwidth;
+	    XmNshadowType	= XmSHADOW_IN;
+	    XmNshadowThickness	= dvr$ps_op_shadow;
+	    XmNtraversalOn 	= true;
+	    XmNrightAttachment	= XmATTACH_FORM;
+	    XmNleftAttachment	= XmATTACH_FORM;
+	    XmNtopAttachment	= XmATTACH_WIDGET;
+	    XmNtopWidget	= XmToggleButton reformat_toggle;
+	    XmNbottomOffset	= dvr$ps_op_bot_y;
+	    XmNbottomAttachment	= XmATTACH_WIDGET;
+	    XmNbottomWidget	= XmPushButton paper_size_ok_button;
+	};
+	controls {
+	    XmLabel 	   more_ps_options;
+	    XmToggleButton comments;
+	    XmToggleButton bwidths;
+	    XmToggleButton faketrays;
+	    XmToggleButton windowDrawMode;
+!	    XmToggleButton header_required;
+
+	    XmScale 	  scaleScale;
+	    XmLabel 	  orientLabel;
+	    XmRadioBox	  orientRadio;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_ps_op_dbox);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		more_ps_options					       *
+!  Type:		XmLabel						       *
+!  Purpose:		Label ps options				       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+more_ps_options : XmLabel {
+	arguments {
+	    XmNlabelString = dvr$more_ps_label;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset     = dvr$more_ps_x;
+	    XmNtopAttachment  = XmATTACH_FORM;
+	    XmNtopOffset      = dvr$more_ps_y;
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		comments					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to enable/disable use of comments	       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    comments: XmToggleButton {
+	arguments {
+	    XmNindicatorType 	= XmN_OF_MANY;
+	    XmNlabelString	= dvr$com_tb_label;
+
+	    XmNset 		= true;
+	    XmNtraversalOn 	= true;
+	    XmNleftAttachment 	= XmATTACH_FORM;
+	    XmNleftOffset     	= dvr$com_tb_x;
+	    XmNtopAttachment  	= XmATTACH_WIDGET;
+	    XmNtopWidget      	= XmLabel more_ps_options;
+	};
+	callbacks {
+	    MrmNcreateCallback  = procedure create_proc (k_ps_comments);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_use_comments);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		bwidths						       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to enable/disable use of bitmap widths      *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    bwidths: XmToggleButton {
+	arguments {
+	    XmNindicatorType  = XmN_OF_MANY;
+	    XmNlabelString    = dvr$bw_tb_label;
+	    XmNtraversalOn    = true;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset     = dvr$bw_tb_x;
+	    XmNtopAttachment  = XmATTACH_WIDGET;
+	    XmNtopWidget      = XmToggleButton comments;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_ps_bwidths);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_use_bitmaps);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		fakeTrays					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to enable/disable use of fake trays	       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    faketrays: XmToggleButton {
+	arguments {
+	    XmNindicatorType  = XmN_OF_MANY;
+	    XmNlabelString    = dvr$ft_tb_label;
+	    XmNtraversalOn    = true;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset     = dvr$ft_tb_x;
+	    XmNtopAttachment  = XmATTACH_WIDGET;
+	    XmNtopWidget      = XmToggleButton bwidths;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_ps_fake_trays);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_use_faketrays);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		windowDrawMode					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to enable/disable wathing-progress	       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    windowDrawMode: XmToggleButton {
+	arguments {
+	    XmNindicatorType 	= XmN_OF_MANY;
+	    XmNlabelString      = dvr$dm_tb_label;
+	    XmNtraversalOn      = true;
+	    XmNleftAttachment   = XmATTACH_FORM;
+	    XmNleftOffset       = dvr$dm_tb_x;
+	    XmNtopAttachment    = XmATTACH_WIDGET;
+	    XmNtopWidget        = XmToggleButton faketrays;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_ps_draw_mode);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_watch_progress);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		header_required					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to enable/disable requiring ps header       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+!
+!    header_required: XmToggleButton {
+!	arguments {
+!	    XmNindicatorType 	= XmN_OF_MANY;
+!	    XmNlabelString	= dvr$hr_tb_label;
+!	    XmNx		= dvr$hr_tb_x;
+!	    XmNy 		= dvr$hr_tb_y;
+!	    XmNset 		= true;
+!	};
+!	callbacks {
+!	    MrmNcreateCallback = procedure create_proc (k_ps_header_req);
+!	};
+!    };
+
+!*******************************************************************************
+!  Object:		orientLabel 					       *
+!  Type:		XmLabel						       *
+!  Purpose:		allow user to cancel paper size options options	       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    orientLabel: XmLabel {
+	arguments {
+	    XmNlabelString     = dvr$orient_label;
+	    XmNleftAttachment  = XmATTACH_WIDGET;
+	    XmNleftWidget      = XmToggleButton comments;
+	    XmNleftOffset      = dvr$orient_x;
+	    XmNtopAttachment   = XmATTACH_WIDGET;
+	    XmNtopWidget       = XmLabel more_ps_options;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset     = dvr$orient_right_x;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_orientation);
+        };
+    };
+
+!*******************************************************************************
+!  Object:		orientRadio					       *
+!  Type:	  	XmRadioBox					       *
+!  Purpose:		select the current orientation used for paper width    *
+!  Usage:		child of ps_op_dialog_box			       *
+!*******************************************************************************
+
+orientRadio : XmRadioBox {
+	arguments {
+	    XmNborderWidth    	= dvr$orient_radio_bwidth;
+	    XmNtraversalOn    	= true;
+	    XmNleftAttachment 	= XmATTACH_WIDGET;
+	    XmNleftWidget     	= XmToggleButton comments;
+	    XmNleftOffset     	= dvr$orient_radio_x;
+	    XmNtopAttachment  	= XmATTACH_WIDGET;
+	    XmNtopWidget       	= XmLabel orientLabel;
+	    XmNrightAttachment  = XmATTACH_FORM;
+	    XmNrightOffset	= dvr$orient_radio_right_x;
+	};
+	controls {
+	    XmToggleButton degrees_0_tb;
+	    XmToggleButton degrees_90_tb;
+	    XmToggleButton degrees_180_tb;
+	    XmToggleButton degrees_270_tb;
+	};
+	callbacks {
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_orientation);
+        };
+    };
+
+
+!*******************************************************************************
+!  Object:		degrees_0_tb					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to set ps viewing orientation to 0 	       *
+!  Usage:	  	child of orientRadio	 			       *
+!*******************************************************************************
+
+    degrees_0_tb: XmToggleButton {
+	arguments {
+	    XmNset 			= true;
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap     		= orient_0_degrees_icon;
+	    XmNlabelInsensitivePixmap   = grey_orient_0_degrees_icon;
+	    XmNindicatorType 		= XmONE_OF_MANY;
+	    XmNindicatorOn		= true;
+	    XmNtraversalOn  		= true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_0_deg_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_portrait);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		degrees_90_tb					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to set ps viewing orientation to 90 	       *
+!  Usage:	  	child of orientRadio	 			       *
+!*******************************************************************************
+
+    degrees_90_tb: XmToggleButton {
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap     		= orient_90_degrees_icon;
+	    XmNlabelInsensitivePixmap   = grey_orient_90_degrees_icon;
+	    XmNindicatorType 		= XmONE_OF_MANY;
+	    XmNindicatorOn		= true;
+	    XmNtraversalOn 		= true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_90_deg_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_landscape);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		degrees_180_tb					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to set ps viewing orientation to 180        *
+!  Usage:	  	child of orientRadio	 			       *
+!*******************************************************************************
+
+    degrees_180_tb: XmToggleButton {
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap     		= orient_180_degrees_icon;
+	    XmNlabelInsensitivePixmap   = grey_orient_180_degrees_icon;
+	    XmNindicatorType 		= XmONE_OF_MANY;
+	    XmNindicatorOn		= true;
+	    XmNtraversalOn 		= true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_180_deg_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_down_portra);
+	};
+    };
+
+!*******************************************************************************
+!  Object:		degrees_270_tb					       *
+!  Type:		XmToggleButton					       *
+!  Purpose:		allow user to set ps viewing orientation to 270	       *
+!  Usage:	  	child of orientRadio	 			       *
+!*******************************************************************************
+
+    degrees_270_tb: XmToggleButton {
+	arguments {
+	    XmNlabelType 		= XmPIXMAP;
+	    XmNlabelPixmap     		= orient_270_degrees_icon;
+	    XmNlabelInsensitivePixmap   = grey_orient_270_degrees_icon;
+	    XmNindicatorType 		= XmONE_OF_MANY;
+	    XmNindicatorOn		= true;
+	    XmNtraversalOn 		= true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_270_deg_tb);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_ps_rev_land);
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		scaleScale 					       *
+!  Type:		XmScale						       *
+!  Purpose:		allow user to set scale of display 		       *
+!  Usage:	  	child of ps_op_dialog_box 			       *
+!*******************************************************************************
+
+    scaleScale: XmScale {
+	arguments {
+	    XmNminimum 		   = dvr$scale_min_val;
+	    XmNmaximum 		   = dvr$scale_max_val;
+	    XmNdecimalPoints 	   = dvr$scale_dpoints;
+	    XmNtitleString	   = dvr$scale_title;
+	    XmNvalue 		   = dvr$scale_value;
+	    XmNorientation	   = XmHORIZONTAL;		! Note XUI defaulted to horizontal
+	    XmNprocessingDirection = XmMAX_ON_RIGHT;		! Note default is XmMAX_ON_TOP
+	    XmNshowValue	   = true;			! Note XUI defaulted to true
+	    XmNtraversalOn 	   = true;
+	    XmNleftAttachment 	   = XmATTACH_FORM;
+	    XmNleftOffset     	   = dvr$scale_x;
+	    XmNtopAttachment  	   = XmATTACH_WIDGET;
+	    XmNtopWidget      	   = XmToggleButton windowDrawMode;
+	    XmNtopOffset      	   = dvr$scale_y;
+	    XmNbottomAttachment    = XmATTACH_FORM;
+	    XmNbottomOffset        = dvr$scale_bot_y;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure  create_proc(k_ps_scale);
+	    XmNhelpCallback     = procedure help_system_proc (dvr$help_scale_factor);
+	};
+
+    };
+
+!*******************************************************************************
+!  Object:		viewer_caution_box	 			       *
+!  Type:		XmWarningDialog					       *
+!  Purpose:		caution user of possible viewing troubles	       *
+!  Usage:	  	fetched as a child of viewer 			       *
+!*******************************************************************************
+
+    viewer_caution_box: XmWarningDialog {
+	arguments {
+	    XmNdefaultPosition 	= true;
+	    XmNmessageString    = dvr$ps_nohead_str;		! was labelString
+	    XmNdialogTitle	= dvr$caution_title;
+	    XmNdialogStyle 	= XmDIALOG_FULL_APPLICATION_MODAL;
+	    XmNtraversalOn 	= true;
+	};
+	callbacks {
+	    XmNokCallback     = procedure  caution_cb_proc ();
+!	    XmNnoCallback     = procedure  caution_cb_proc ();	! not in Motif
+	    XmNcancelCallback = procedure  caution_cb_proc ();
+	    XmNhelpCallback   = procedure  help_proc       ();
+	};
+    };
+
+
+!*******************************************************************************
+!  Object:		viewer_message		 			       *
+!  Type:		XmInformationDialog				       *
+!  Purpose:		display message in a pop-up windows		       *
+!  Usage:	  	pop-up window		 			       *
+!*******************************************************************************
+    viewer_message : XmInformationDialog {
+	arguments {
+	    arguments		message_box_args;
+	    XmNdefaultPosition 	= true;
+!	    XmNmessageString 	= dvr$message_label;		! was labelString
+	    XmNdialogTitle	= dvr$message_title;		! was titleString
+	    XmNdialogStyle 	= XmDIALOG_FULL_APPLICATION_MODAL;
+!	    take_focus 		= true;
+	    XmNtraversalOn      = true;
+	};
+	callbacks {
+    	    XmNokCallback     = procedure message_proc ();
+	    XmNhelpCallback   = procedure help_proc    ();
+!	    XmNcancelCallback = procedure message_proc ();
+	};
+    };
+
+
+end module;

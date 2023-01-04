@@ -1,0 +1,675 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: priocntl.2,v $ $Revision: 1.1.2.3 $ (DEC) $Date: 1994/01/17 11:05:52 $
+.\"
+.TH priocntl 2
+.SH NAME
+.PP
+\*Lpriocntl\*O \- manage scheduling properties of process
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.nL
+\*L#include <sys/priocntl.h>\*O
+.nL
+\*L#include <sys/rtpriocntl.h>\*O
+.nL
+\*L#include <sys/tspriocntl.h>\*O
+.PP
+\*Llong priocntl (
+.nL
+       idtype_t \*Vidtype\*L,
+.nL
+       id_t     \*Vid\*L,
+.nL
+       int      \*Vcmd\*L,
+.nL
+       void     \*V*arg)\*O;
+.sE
+.SH PARAMETERS
+.PP
+.VL 4m
+.LI "\*Vidtype\*O"
+Identifies the type of process to be affected.  It is used with the
+the \*Vid\*O parameter to specify the process or group of processes
+that will change.
+.LI "\*Vid\*O"
+Specifies the process ID, parent process ID, process group ID,
+session ID, class ID, user ID, or group ID of a process or
+group of processes.  It is used with the \*Vidtype\*O parameter.
+.LI "\*Vcmd\*O"
+Specifies the how the process or group of processes are affected.
+.LI "\*Varg\*O"
+Specifies a pointer to a structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "priocntl function"
+The \*Lpriocntl\*O function is used to change the class, priority,
+and other scheduling properties of one or more active processes.  Processes are
+divided into four classes: real-time, time-sharing, POSIX round robin,
+and the POSIX fifo class.  Although the class and attributes of a
+process within a class can change, each class has predefined scheduling
+properties that cannot change.
+.PP
+To identify a process or set of processes that you want to change, you
+must specify the \*Vid\*O and \*Vidtype\*O parameters.  The \*Vcmd\*O
+parameter defines how the process or set of processes is to be affected.
+Depending on which \*Vcmd\*O parameter you select, the data type and
+value for the \*Varg\*O parameter differs.
+.PP
+This discussion of the \*Lpriocntl\*O function is divided into the following
+sections:
+.ML
+.LI
+Process Selection
+.LI
+Command Descriptions
+.LI
+Command Arguments
+.LI
+Scheduling and Priority Classes
+.LI
+Include Files
+.LE
+.PP
+The RESTRICTIONS section additionally describes instances in which
+a class or process may not change.
+.SS Process Selection
+.if n .PP
+Using the \*Vidtype\*O and \*Vid\*O parameters, you can specify a
+group or group of processes that are to be affected by the
+\*Lpriocntl\*O function.  The definition of the \*Vid\*O parameter
+is determined by the value of the \*Vidtype\*O parameter as follows:
+.PP
+.TS
+tab(@);
+lfHB lfHB
+lw(1.5i) lw(2.5i) .
+_
+.sp 4p
+\*Vidtype\*O@\*Vid\*O
+.sp 4p
+_
+.sp 6p
+\*LP_PID\*O@T{
+Defines \*Vid\*O as a process ID.  A single process with this
+process ID is targeted.
+T}
+\*LP_PPID\*O@T{
+Defines \*Vid\*O as a parent process ID.  All processes with this
+specific parent process ID are targeted.
+T}
+\*LP_PGID\*O@T{
+Defines \*Vid\*O as a process group ID.  All processes with this
+specific process group ID are targeted.
+T}
+\*LP_SID\*O@T{
+Defines \*Vid\*O as a session ID.  All processes within the
+specified session are targeted.
+T}
+\*LP_CID\*O@T{
+Defines \*Vid\*O as a class ID.  All processes within the specified
+class are targeted.
+T}
+\*LP_UID\*O@T{
+Defines \*Vid\*O as a user ID.  All processes within the effective
+user ID are targeted.
+T}
+\*LP_GID\*O@T{
+Defines \*Vid\*O as a group ID.  All processes within the effective
+group ID are targeted.
+T}
+\*LP_ALL\*O@T{
+The value of \*Vid\*O is ignored.  All existing processes are
+targeted for change.  See the RESTRICTIONS section for exceptions.
+T}
+.sp 6p
+_
+.TE
+The \*Vid\*O parameter can also specify the value \*LP_MYID\*O which,
+when used with the \*Vidtype\*O parameter, specifies the calling
+process's process ID, parent process ID, process group ID, session ID,
+class ID, user ID, or group ID.
+.SS Command Descriptions
+.if n .PP
+The five commands currently supported by the \*Lpriocntl\*O function
+are as follows:
+.PP
+.VL
+.LI "\*LPC_GETCID\*O"
+Retrieves the class ID and class attributes for a specific class given
+the class name.  The \*Vidtype\*O and \*Vid\*O arguments are ignored.
+If the value of the \*Varg\*O parameter is non-null, the class ID and
+attribute data are returned in a \*Lpcinfo_t\*O structure that is
+discussed in the next subsection.  If the value
+of the \*Varg\*O parameter is null, attribute data is not returned, but
+the \*Lpriocntl\*O function does return the configured number of
+classes.
+.LI "\*LPC_GETCLINFO"
+Retrieves the class name and class attributes for a specific class
+given the class ID.  The \*Vidtype\*O and \*Lid\*O arguments are
+ignored.  If the value of the \*Varg\*O is non-null, the class name
+and attribute data is returned in a \*Lpcinfo_t\*O structure that is
+discussed in the next subsection.  If
+the value of the \*Varg\*O parameter is null, attribute data is not
+returned, but the \*Lpriocntl\*O function returns the configured number
+of classes (including the \*Lsys\*O class).
+.LI "\*LPC_SETPARMS\*O"
+Sets the class and class-specific scheduling parameters of the process
+or processes specified by the \*Vid\*O and \*Vidtype\*O parameters.
+The \*Varg\*O parameter is a pointer to a \*Lpcparms_t\*O structure
+that is discussed in the next subsection.
+.LI "\*LPC_GETPARMS\*O"
+Retrieves either the class or class-specific scheduling
+parameters of a process or both.  The process type is specified by the
+\*Vid\*O and \*Lidtype\*O parameters.  The \*Varg\*O parameter points
+to a \*Lpcparms_t\*O structure that is discussed in the next
+subsection.
+.LI "\*LPC_ADMIN\*O"
+Specified for use by a specific command and is not intended for
+general use by any other application.
+.LE
+.SS Command Arguments
+.if n .PP
+The data type and value of the \*Varg\*O parameter is specific to
+the type of command specified by the \*Lcmd\*O parameter.  This
+section highlights the value for the \*Varg\*O parameter as it
+pertains to the commands.
+.PP
+For both the \*LPC_GETCID\*O and \*LPC_GETCLINFO\*O commands, the
+\*Varg\*O parameter if not non-null,  points to the following structure:
+.PP
+.sS
+\*Ltypedef struct {
+.nL
+     id_t  \*Vpc_cid;\*L
+.nL
+     char  \*Vpc_clname[PC_CLNMSZ];\*L
+.nL
+     long  \*Vpc_clinfo[PC_CLINFOSZ];\*L
+.nL
+} pcinfo_t;\*O
+.sE
+.PP
+For the \*LPC_GETCID\*O command, the
+\*Vpc_cid\*O field specifies the class ID on return. The
+\*Vpc_clname\*O field specifies the name of the class whose
+attributes you are retrieving.  The \*Vpc_clinfo\*O field
+specifies the class attributes on return. The format of the attribute
+data that is returned is defined by the \*L<sys/rtpriocntl.h>\*O or the
+\*L<sys/tspriocntl.h>\*O header files.
+.PP
+For the \*LPC_GETCINFO\*O command, the \*Vpc_cid\*O field Specifies the
+class ID of the class whose attributes you are retrieving.  The \*Vpc_clname\*O
+field specifies the class name on return.  The \*Vpc_clinfo\*O field specifies
+the class attributes on return. The format of the attribute data that
+is returned is defined by the \*L<sys/rtpriocntl.h>\*O or the
+\*L<sys/tspriocntl.h>\*O header files.
+.PP
+For both the \*LPC_SETPARMS\*O and \*LPC_GETPARMS\*O command, the \*Varg\*O
+parameter points to the following structure:
+.PP
+.sS
+\*Ltypedef struct {
+.nL
+     id_t  \*Vpc_cid;\*L
+.nL
+     char  \*Vpc_clparms\*L[PC_CLPARMSZ];\*O
+.nL
+\*L} pcparms_t;\*O
+.sE
+.PP
+For \*LPC_SETPARMS\*O, the \*Vpc_cid\*O field specifies the class ID
+that you want to set. The \*Vpc_clparms\*O field contains the class
+specific parameters you are setting. The \*LPC_CLPARMSZ\*O argument
+specifies the length of \*Vpc_clparms\*O field and is defined in
+\*L<sys/priocntl.h>\*O.  The format of the class specific data is defined
+by the \*L<sys/rtpriocntl.h>\*O or \*L<sys/tspriocntl.h>\*O header
+file.  These formats are discussed in more detail under
+the discussion of the available classes.
+.PP
+For the \*LPC_GETPARMS\*O command, the \*Vpc_cid\*O field
+specifies the class ID.  This is the class ID returned by the
+\*Lpriocntl PC_GETCID\*O request. The special class ID \*LPC_CLNULL\*O
+may also be assigned to the \*Vpc_cid\*O parameter.
+The \*Vpc_pcparms\*O field specifies the buffer that contains the
+class-specific scheduling parameters.  The \*LPC_CLPARMSZ\*O argument
+specifies the length of \*Vpc_clparms\*O buffer and is defined in
+\*L<sys/priocntl.h>\*O.  The format of the class specific data is defined
+by the \*L<sys/rtpriocntl.h>\*O or \*L<sys/tspriocntl.h>\*O header
+file.  These formats are discussed in more detail under
+the discussion of the available classes.
+.PP
+For the \*LPC_GETPARMS\*O command, the contents of the \*Vpc_clparms\*O field
+is determined by the contents of the \*Vpc_cid\*O field as follows:
+.ML
+.LI
+If the \*Vpc_cid\*O field specifies a configured class and
+the process that belongs to that class was specified by the
+\*Vidtype\*O and the \*Vid\*O parameters or by the \*Lprocset\*O
+structure, the \*Vpc_clparms\*O field contains the scheduling
+parameters of that process.
+If the process does not exist or the process does not belong
+to the specified class, the \*Lpriocntl\*O function
+returns the value -1 with errno set to [ESRCH].
+.LI
+If the \*Vpc_cid\*O field specifies a configured class and
+a set of processes is specified, only the scheduling parameters of
+one process belonging to the specified class is returned in
+this field.  The \*Lpriocntl\*O function returns the process
+ID of the selected process.  In this instance, selecting a
+process to return is class-dependent.  If the specified
+process does not exist, or if none of the processes belongs
+to the specified class, the \*Lpriocntl\*O function returns
+the value -1 with \*Lerrno\*O set to [ESRCH].
+.LI
+If the \*Vpc_cid\*O field contains \*LPC_NULL\*O and a single
+process is specified, the class of the specified process is
+returned in the \*Vpc_cid\*O field and its scheduling parameters
+are returned in the \*Vpc_clparms\*O field.
+.LI
+If this special class ID and a
+single process is specified, the class of the specified process
+is returned in the \*Vpc_pid\*O field and the scheduling
+parameters are returned in the \*Vpc_clparms\*O field.
+.LE
+.SS Scheduling and Priority Classes
+.if n .PP
+There are four types of classifications that can be used when
+managing the scheduling priorities of a process or set of processes.
+These classes are the real-time, time-sharing, POSIX round-robin, and the
+POSIX fifo classes discussed in the next sections.
+.SS Real-time Class
+.if n .PP
+Processes that require quick response and complete control of
+its scheduling priorities through the user or application are placed
+in this class.  The real-time class provides a fixed scheduling policy
+that can only be changed by an explicit request from either the
+user or application.  If this class is configured on the system,
+any running real-time process should obtain the services of the
+CPU before a process that belongs to another class.
+.PP
+To distinguish the priority of processes within the real-time class,
+all processes are assigned a priority value.  A priority value can
+range from zero (0) to \*Vx\*O, where \*Vx\*O is a configurable
+value that can be specified for a specific installation using the
+\*LPC_GETCID\*O or \*LPC_GETCLINFO\*O commands.
+The higher the numerical priority value of a process, the higher its
+priority on the system.
+.PP
+Each priority value that is configured into the system has a
+separate scheduling queue that the system's process scheduler manages.
+Processes with the same priority value share the same scheduling queue.
+All processes within a queue are placed in First-In-First-Out (FIFO)
+order.
+.PP
+The \*Lpriocntl\*O function not only controls priority, it also
+controls the time quantum that is allotted to a process in the
+real-time class.  The time quantum value determines the maximum
+time that a running process which has not entered a resource or
+event wait state (\*Lsleep\*O) may run.  Note that regardless of
+the the time quantum specified, if another process at a higher
+priority makes a request to run, a running process may be preempted
+before receiving its full time quantum.  A process that is preempted
+by a higher priority process remains first its scheduling queue with
+the remainder of its specified time quantum still available.
+.PP
+Note that after a \*Lfork\*O system call by a real-time time process,
+the parent process continues to run while the child process inherits
+the priority value of the parent and is placed at the back of the
+queue.
+.PP
+The structures used by the real time class to define the
+scheduling priorities and class attributes of a process are
+discussed in the section on Include Files.
+.PP
+To change the class of a process to real-time (from any other class)
+the process invoking the \*Lpriocntl\*O function must have
+superuser privileges.  In order to change the priority or time quantum
+setting of a real-time process the process invoking the \*Lpriocntl\*O
+function must have superuser privileges or must itself be a real-time
+process whose real or effective user ID matches the real of effective
+user ID of the target process.
+.PP
+The real-time priority and time quantum are inherited
+.SS Time-Sharing Class
+.if n .PP
+Processes that vary in CPU consumption, but which still require
+a reasonable response time with some user or application control
+over scheduling should be placed in this class.  To determine
+the scheduling of processes within the time-sharing class, a user
+priority value is assigned to a process.  This value may range
+from \*V-x\*O to \*V+x\*O, where the value of \*Vx\*O is configurable
+and may be determined for a specific installation using the
+\*LPC_CID\*O or \*LPC_GETCLINFO\*O commands.
+.PP
+Typically, a process with a higher user priority runs before a
+process with a lower user priority allowing some control over
+the scheduling of processes in this class.  However, other factors
+also affect the priority of a process in this class such as the amount
+of CPU usage already expended by a process.  There is also a
+per process user priority limit that can be set for a given process.
+.PP
+The structures used by the time sharing class to define the
+scheduling priorities and class attributes of a process are
+discussed in the section on Include Files.
+.SS POSIX Round Robin Class
+.if n .PP
+This class is the same as the real-time class when a finite
+time quantum is specified.  The POSIX round-robin class uses the
+same structures as the real-time class to define the scheduling
+priorities and attributes of a process.
+.PP
+To set or request the scheduling parameters for a POSIX round robin
+class, only one process can be selected.  If more than one process
+is selected, all POSIX processes are ignored.  This is true even when
+all of the processes in the specified set belong to the POSIX
+round-robin scheduling class.
+.PP
+The priority value for a processes in this class has the range
+-20 to 20.  The time quantum must be a valid time quantum value
+and not a reserved value as discussed in the Include Files
+section.
+.SS POSIX Fifo Class
+.if n .PP
+This class is the same as the real-time class when an infinite
+time quantum is specified.  The POSIX fifo class uses the
+same structures as the real-time class to define the scheduling
+priorities and attributes of a process.
+.PP
+To set or request the scheduling parameters for a POSIX
+fifo class, only one process can be selected.  If more than one process
+is selected, all POSIX processes are ignored. This is true even when all
+of the processes in the specified set belong to the POSIX fifo
+scheduling class.
+.PP
+The priority value specified for processes has the range -20, 20.
+There are restrictions set on the usage of the time quantum field
+as discussed in the Include Files section.
+.SS Include Files
+.if n .PP
+The real-time, POSIX round robin, and POSIX fifo classes
+use structures defined in \*L<sys/rtpriocntl.h>\*O to
+define the format and class specific priorities of a
+process.  The time sharing class uses the structures defined in
+\*L<sys/tspriocntl.h>\*O to define the format and class specific
+priorities of a process.
+.PP
+These structures are defined in the next two sections.
+.SS The rtpriocntl.h Header File
+.if n .PP
+The \*LPC_GETCID\*O and \*LPC_GETCLINFO\*O commands return
+real time class attributes in the \*Vpc_clinfo\*O buffer in
+using the following format:
+.PP
+.sS
+\*Ltypedef struct {
+.PP
+\*Lshort \*Vrt_maxpri; /* Maximum real-time priority */
+.nL
+\*L}   rtinfo_t;\*O
+.sE
+.PP
+The \*Vrt_maxpri\*O field specifies the configured maximum
+priority value (\*Vrt_pri\*O) for the real time class.  For
+example, if \*Vrt_maxpri\*O is \*Vx\*O, the valid real time
+priorities range from zero (0) to \*Vx\*O).
+.PP
+If you use the \*LPC_SETPARMS\*O or \*LPC_GETPARMS\*O
+commands and the \*Vpc_cid\*O buffer specifies the real-time class,
+the data in the \*Vpc_clparms\*O buffer is in the following format:
+.PP
+.sS
+\*Ltypedef struct {
+.nL
+   short \*Vrt_pri;\*L    /* Real-Time priority */
+.nL
+   ulong \*Vrt_tqsecs;\*L /* Seconds in time quantum */
+.nL
+   long  \*Vrt_tqnsecs;\* /* Additional nanoseconds in quantum */
+.nL
+} rtparms_t;\*O
+.sE
+.PP
+.VL
+.LI "\*Vrt_pri\*O"
+Used, depending on the command specified, to either set the
+real time priority value or to get the current real time
+priority value.
+.IP
+If the real time priority value of a running or runnable process
+is set, this causes the process to be placed at the back of the
+scheduling queue for the specified priority regardless of the
+previous priority value setting.  Note that a running process
+can release the CPU and return to the back of the scheduling
+queue by resetting its priority value to its current real time
+priority value.
+.IP
+When getting the real time priority value, if the \*Vpc_cid\*O
+field specifies the real time class and more than one real
+time process is specified, the scheduling parameters of the
+real time process with the highest priority value of the set
+is returned adn the process ID of this process is returned
+by the \*Lpriocntl\*O function.  If more than one process
+shares the highest priority, the one returned is
+implementation-dependent
+.IP
+Note that you can change the time quantum of a process
+without setting the priority or affecting the process's
+position on the queue. In this instance, the \*Vrt_pri\*O
+field should be set to the reserved value \*LRT_NOCHANGE\*O
+defined below.  Specifying this value \*LRT_NOCHANGE\*O when
+changing the class of a process to real-time from some other
+class results in the real time priority being set to zero.
+.LI "\*Vrt_tqsecs\*O"
+Used, depending on the command specified, to set or get
+the time quantum associated with a process or group of
+processes.
+.IP
+The \*Vrt_tqsecs\*O field specifies the number of seconds
+in the time quantum.
+.LI "\*Vrt_tqnsecs\*O"
+Used, depending on the command specified, to set or get
+the time quantum associated with a process or group of
+processes.
+.IP
+The \*Vrt_tqnsecs\*O field specifies
+the number of additional nanoseconds in the quantum.
+Specifying a value that exceeds 999,999,999 in the
+\*Vrt_tqnsecs\*O field results in an error.  For
+\*Vrt_tqnsecs\*O, the specified time quantum length is
+rounded up by the system to the next integral multiple
+of the system clock's resolution.
+.IP
+The maximum time quantum that can be specified is
+implementation-specific and equal to \*LLONG_MAX\*O
+ticks which is defined in \*L<sys/time>\*O.  Requesting
+a time quantum greater than the maximum results in
+error.  Requesting a time quantum of zero by setting
+both \*Vrt_tqsecs\*O and \*Vrt_tqnsecs\*O to zero
+results in an error.
+.IP
+The \*Vrt_tqnsecs\*O field can also be set to one of the following
+reserved values (defined in \*L<sys/rtpriocntl.h>\*O).
+If one of these values is specified, \*Vrt_tqsecs\*O is
+ignored. Note that these values may not be used if your
+process or process is in the POSIX round robin class:
+.VL
+.LI "\*LRT_TQINF\*O"
+Sets an infinite time quantum.  This must be used if you
+have selected the POSIX fifo class for your process or
+processes.
+.LI "\*LRT_TQDEF\*O"
+Sets the time quantum to the default for this priority.
+.LI "\*LRT_NOCHANGE\*O"
+Does not set a time quantum.
+Specifying this value when changing the class of a process to real
+time from some other class is equivalent to specifying \*LRT_TQDEF\*O.
+.LE
+.LE
+.SS Setup of Structures in tspriocntl.h
+.if n .PP
+The \*LPC_GETCID\*O and \*LPC_GETCLINFO\*O commands return
+time-sharing class attributes in the \*Vpc_clinfo\*O buffer in
+the following format:
+.PP
+.sS
+\*Ltypedef struct {\*O
+.nL
+    \*Lshort \*Vts_maxupri;\*O /* Limits of user priority range */
+.nL
+\*L} tsinfo_t;\*O
+.sE
+.PP
+The \*Lts_maxupri\*O field specifies the configured maximum
+user priority value for the time-sharing class.  If the
+\*Lts_maxupri\*O field is 2x1, the valid range for both user priorities
+and user priority limits is from \*V-x\*O to \*L+x\*O.
+.PP
+If you use the \*LPC_SETPARMS\*O or \*LPC_GETPARMS\*O
+commands and the \*Vpc_cid\*O buffer specifies the time sharing class,
+the data in the \*Vpc_clparms\*O buffer is in the following format:
+.PP
+.sS
+\*Ltypedef struct {\*O
+.nL
+   \*Lshort \*Vts_uprilim\*O;  /* Time-Sharing user priority limit */
+.nL
+   \*Lshort \*Vts_upri;\*O      /* Time-Sharing user priority */
+.nL
+\*L} tsparms_t;\*O
+.sE
+.PP
+.VL
+.LI "\*Vts_uprilim\*O"
+Specifies the maximum user priority limit for a process or set of
+processes.
+.IP
+All time sharing processes can lower its own \*Vts_uprilim\*O value
+(or that of another process with the same user ID).
+Only a time-sharing process with superuser privileges can
+increase this value.
+.IP
+If changing the class of a process to the time sharing class from some
+other class, superuser privileges are required to set the
+initial \*Vts_uprilim\*O to a value greater than zero (0).
+Attempts by a nonprivileged process to increase this value or to set
+an initial value greater than zero (0) results in an error.
+.LI "\*Vts_upri\*O"
+Specifies the user priority limit of a process or set of processes.
+.IP
+If used with the \*LPC_GETPARMS\*O command and the \*Vpc_cid\*O field
+specifies the time-sharing class and more than one time-sharing process
+is specified, the scheduling parameters of the time-sharing process with
+the highest \*Vts_upri\*O value among the specified processes is returned
+and the process ID of this process is returned by the \*Lpriocntl\*O
+function.  If there is more than one process sharing the highest user priority,
+the one returned is implementation-dependent.
+.IP
+Any time sharing process can set its own \*Vts_upri\*O value
+(or that of another process with the same user ID) to any value
+less than or equal to the process's \*Vts_uprilim\*O value.
+Attempts to set the \*Vts_upri\*O above the \*Lts_uprilim\*O (and/or
+set the \*Vts_uprilim\*O value below the \*Lts_upri\*O) value results in the
+\*Vts_upri\*O value being set equal to the \*Vts_uprilim\*O value.
+.LE
+.PP
+Note that a reserved value, \*LTS_NOCHANGE\*O defined in
+\*L<sys/tspriocntl.h>\*O) can be used to set either the \*Vts_uprilim\*O
+or \*Vts_upri\*O value without affecting the other.  Specifying
+\*LTS_NOCHANGE\*O for the \*Vts_upri\*O value when the \*Vts_uprilim\*O
+value is set below the current \*Vts_upri\*O value causes the
+\*Vts_upri\*O value to be set equal to the \*Vts_uprilim\*O value that
+is being set.
+.PP
+Specifying \*LTS_NOCHANGE\*O for a parameter when changing the class of
+a process to time-sharing (from some other class) causes the parameter
+to be set to a default value.
+The default value fo the \*Vts_uprilim\*O is zero (0) and the
+default for \*Vts_upri\*O is to set it equal to the \*Vts_uprilim\*O
+which is being set.
+.PP
+The time-sharing user priority and user priority limit are inherited
+across the \*Lfork\*O and \*Lexec\*O functions.
+.SH RETURN VALUE
+.PP
+Unless otherwise noted above, the \*Lpriocntl\*O returns a value of zero
+(0) on success.  Upon failure, the \*Lpriocntl\*O function returns \-1
+and sets \*Lerrno\*O to indicate the error.
+.SH ERRORS
+.PP
+The \*Lpriocntl\*O function fails under the following conditions:
+.VL
+.LI "[EPERM]"
+The calling process does not have the required permissions as
+explained above.
+.LI "[EINVAL]"
+The argument \*Vcmd\*O was invalid, an invalid or unconfigured
+class was specified, or one of the parameters specified
+was invalid.
+.LI "[ERANGE]"
+The requested time quantum is out of range.
+.LI "[ESRCH]"
+None of the specified processes exist.
+.LI "[EFAULT]"
+All or part of the area pointed to by one of the data pointers
+is outside the process's address space.
+.LI "[ENOMEM]"
+An attempt to change the class of a process failed because of
+insufficient memory.
+.LI "[EAGAIN]"
+An attempt to change the class of a process failed because of
+insufficient resources other than memory (for example, class-specific
+kernel data structures).
+.LE
+.SH RESTRICTIONS
+.PP
+Some restrictions exist when changing the class or priorities of a
+process or group of processes as follows:
+.ML
+.LI
+The \*Lsys\*O scheduling class is a special purpose category that
+is used solely to manage the scheduling priorities of special
+system processes such as the \*Lswapper\*O.  The class of a process
+that belongs to the \*Lsys\*O class cannot be changed (with the
+exception of the \*Linit\*O process).  Attempts to change the class
+or priorities of a process in the \*Lsys\*O class
+are ignored by the \*Lpriocntl\*O function.
+.IP
+The class or scheduling properties of the \*Linit\*O process (Process ID 1)
+can be changed if it is the only process identified by the \*Vid\*O and
+\*Vidtype\*O arguments.  Although it can be placed in any class, it is
+most suited in the time-sharing class.
+.LI
+The default configuration enables an executable real-time process to
+run before other processes.  Adverse system performance may occur if
+you are not careful when specifying changes to real-time processes.
+.LE
+.SH NOTES
+.PP
+If a process which is not running in a scheduling class recognized
+by \*Lpriocntl\*O attempts to use P_CID with P_MYID, a -1 will be returned
+with \*Lerrno\*O set to [EINVAL].
+.SH RELATED INFORMATION
+.PP
+Functions:\*Lexec\*O(2), \*Lfork\*O(2), \*Lgetpriority\*O(2), \*Lpriocntlset\*O(2), \*Lsetpriority\*O(2).
+.PP
+Routines: \*Lnice\*O(3).
+.EQ
+delim off
+.EN

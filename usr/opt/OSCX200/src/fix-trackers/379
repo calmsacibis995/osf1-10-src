@@ -1,0 +1,231 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207092020.AA18162@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2607) close XBUG #5375: fontlib: bitmap pointer used but not set
+Date: Thu, 09 Jul 92 16:20:50 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: client ink metrics bitmap pointer used but not set
+        ### bug number:   5375
+        ### area:         fontlib
+        ### severity:     medium
+
+Some lint cleanup, too.
+
+*** /tmp/da17991	Thu Jul  9 16:11:19 1992
+--- fonts/lib/font/fc/fserve.c	Thu Jul  9 16:11:09 1992
+***************
+*** 1,25 ****
+! /* $XConsortium: fserve.c,v 1.23 92/05/18 18:00:38 rws Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and its
+!  * documentation for any purpose is hereby granted without fee, provided that
+!  * the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of Network Computing Devices not be
+!  * used in advertising or publicity pertaining to distribution of the
+!  * software without specific, written prior permission.  Network Computing
+!  * Devices makes no representations about the suitability of this software
+!  * for any purpose.  It is provided "as is" without express or implied
+!  * warranty.
+   *
+!  * NETWORK COMPUTING DEVICES DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+!  * SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS,
+!  * IN NO EVENT SHALL NETWORK COMPUTING DEVICES BE LIABLE FOR ANY SPECIAL,
+!  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+!  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+!  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+!  * OR PERFORMANCE OF THIS SOFTWARE.
+   *
+   * Author:  	Dave Lemke, Network Computing Devices, Inc
+   */
+--- 1,23 ----
+! /* $XConsortium: fserve.c,v 1.25 92/07/09 16:08:03 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and
+!  * its documentation for any purpose is hereby granted without fee, provided
+!  * that the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the names of Network Computing Devices, Digital or
+!  * M.I.T. not be used in advertising or publicity pertaining to distribution
+!  * of the software without specific, written prior permission.
+   *
+!  * NETWORK COMPUTING DEVICES, DIGITAL AND M.I.T. DISCLAIM ALL WARRANTIES WITH
+!  * REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF
+!  * MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL NETWORK COMPUTING DEVICES,
+!  * DIGITAL OR M.I.T. BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+!  * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+!  * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+!  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+!  * THIS SOFTWARE.
+   *
+   * Author:  	Dave Lemke, Network Computing Devices, Inc
+   */
+***************
+*** 68,74 ****
+  static int  fs_font_type;
+  extern unsigned long fs_fd_mask[];
+  
+! static int  fs_block_handler();
+  static int  fs_wakeup();
+  
+  static FSFpePtr awaiting_reconnect;
+--- 66,72 ----
+  static int  fs_font_type;
+  extern unsigned long fs_fd_mask[];
+  
+! static void fs_block_handler();
+  static int  fs_wakeup();
+  
+  static FSFpePtr awaiting_reconnect;
+***************
+*** 124,130 ****
+  fs_name_check(name)
+      char       *name;
+  {
+!     return (!strncmp(name, "tcp/", MIN(4, strlen(name))));
+  }
+  
+  /*
+--- 122,128 ----
+  fs_name_check(name)
+      char       *name;
+  {
+!     return (!strncmp(name, "tcp/", MIN(4, (int) strlen(name))));
+  }
+  
+  /*
+***************
+*** 366,372 ****
+      FSFpePtr    recon,
+                 *prev;
+      prev = &awaiting_reconnect;
+!     while (recon = *prev) {
+  	if (conn == recon) {
+  	    *prev = recon->next_reconnect;
+  	    break;
+--- 364,371 ----
+      FSFpePtr    recon,
+                 *prev;
+      prev = &awaiting_reconnect;
+!     while (*prev) {
+! 	recon = *prev;
+  	if (conn == recon) {
+  	    *prev = recon->next_reconnect;
+  	    break;
+***************
+*** 666,672 ****
+      Bool	haveInk = FALSE; /* need separate ink metrics? */
+      CharInfoPtr ci,
+                  pCI;
+-     xCharInfo	teInfo;
+      FSFontPtr   fsfont = (FSFontPtr) bfont->pfont->fontPrivate;
+      fsCharInfo *fsci,
+                 *fscip;
+--- 665,670 ----
+***************
+*** 679,685 ****
+  	return StillWorking;
+      }
+      /* move the data over */
+!     /* need  separate inkMetrics for fixed font server protocol version */
+      numInfos =  rep.num_extents;
+      if (bfont->pfont->info.terminalFont && conn->fsMajorVersion > 1)
+      {
+--- 677,683 ----
+  	return StillWorking;
+      }
+      /* move the data over */
+!     /* need separate inkMetrics for fixed font server protocol version */
+      numInfos =  rep.num_extents;
+      if (bfont->pfont->info.terminalFont && conn->fsMajorVersion > 1)
+      {
+***************
+*** 884,890 ****
+  }
+  
+  /* ARGSUSED */
+! static int
+  fs_block_handler(data, wt, LastSelectMask)
+      pointer     data;
+      struct timeval **wt;
+--- 882,888 ----
+  }
+  
+  /* ARGSUSED */
+! static void
+  fs_block_handler(data, wt, LastSelectMask)
+      pointer     data;
+      struct timeval **wt;
+***************
+*** 914,920 ****
+  	    **wt = recon_timeout;
+  	}
+      }
+-     return Successful;
+  }
+  
+  static void
+--- 912,917 ----
+***************
+*** 1419,1424 ****
+--- 1416,1423 ----
+  	else
+  	    bits = 0;
+  	fsdata->encoding[i].bits = bits;
++ 	/* copy the pointer into inkMetrics so _fs_get_metrics can use it */
++ 	fsdata->inkMetrics[i].bits = bits;
+      }
+  
+      /* read glyphs according to the range */
+*** /tmp/da18010	Thu Jul  9 16:11:21 1992
+--- fonts/lib/font/fc/fservestr.h	Thu Jul  9 16:11:13 1992
+***************
+*** 1,10 ****
+! /* $XConsortium: fservestr.h,v 1.7 92/05/12 18:07:36 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and its
+!  * documentation for any purpose is hereby granted without fee, provided that
+!  * the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+   * documentation, and that the name of Network Computing Devices not be
+   * used in advertising or publicity pertaining to distribution of the
+--- 1,10 ----
+! /* $XConsortium: fservestr.h,v 1.8 92/07/09 16:11:10 gildea Exp $ */
+  /*
+   * Copyright 1990 Network Computing Devices
+   *
+!  * Permission to use, copy, modify, distribute, and sell this software and
+!  * its documentation for any purpose is hereby granted without fee, provided
+!  * that the above copyright notice appear in all copies and that both that
+   * copyright notice and this permission notice appear in supporting
+   * documentation, and that the name of Network Computing Devices not be
+   * used in advertising or publicity pertaining to distribution of the
+***************
+*** 46,52 ****
+  typedef struct _fs_font {
+      CharInfoPtr pDefault;
+      CharInfoPtr encoding;
+!     CharInfoPtr inkMetrics;	/* pointer to bitmap unused */
+      pointer     bitmaps;
+  }           FSFontRec, *FSFontPtr;
+  
+--- 46,52 ----
+  typedef struct _fs_font {
+      CharInfoPtr pDefault;
+      CharInfoPtr encoding;
+!     CharInfoPtr inkMetrics;
+      pointer     bitmaps;
+  }           FSFontRec, *FSFontPtr;
+  

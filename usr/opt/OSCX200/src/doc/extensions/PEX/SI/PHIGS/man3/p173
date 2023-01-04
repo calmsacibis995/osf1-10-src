@@ -1,0 +1,175 @@
+.\"
+.\" $XConsortium: p173,v 5.1 91/02/16 09:39:59 rws Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "INQUIRE PATHS TO DESCENDANTS" 3P "29 February 1991"
+.SH NAME
+INQUIRE PATHS TO DESCENDANTS \- inquire the descendants of the specified structure
+.IX "Structure Networks" "INQUIRE PATHS DESCENDENTS"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.4i 3i
+.nf
+void
+pinq_paths_descs ( struct_id, order, depth, store, error_ind, paths )
+Pint	struct_id;	\fIstructure identifier\fP
+Ppath_order	order;	\fIpath order\fP
+Pint	depth;	\fIpath depth\fP
+Pstore	store;	\fIhandle to Store object\fP
+Pint	*error_ind;	\fI\s-2OUT\s+2 error indicator\fP
+Pelem_ref_list_list	**paths;	\fI\s-2OUT\s+2 structure path list\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, *, *)
+.SH DESCRIPTION
+.SS Purpose
+Use \s-2INQUIRE PATHS DESCENDENTS\s+2 to determine the path or
+paths in the Central Structure Store that are referenced by the
+specified structure.  It performs the same function in \s-2PEX-SI\s0 
+as \s-2INQUIRE PATHS TO DESCENDANTS\s+2 does in standard \s-2PHIGS\s+2.
+.SS C Input Parameters
+Applications using the \s-2C\s+2 binding must create a buffer to be used by this
+function as memory space for storing data associated with the device state.
+This buffer is passed as the \fIstore\fP argument.  
+.LP
+The store buffer is a data area managed by \s-2PHIGS\s+2. While the application 
+is responsible for creating the inital buffer through a call to \s-2\CREATE STORE\s+2, 
+\s-2PHIGS\s+2 manages this area such that there is sufficient memory for the 
+specific inquiry. The data record within the store buffer is accessed 
+by the pointer pointed to by \fIpaths\fR.
+.IP \fIstruct_id\fP
+Identifier of the structure to be inquired for descendants.
+.IP \fIorder\fP
+Order in which the path lists are to be returned.
+This is an enumerated type defined in phigs.h to have the
+following values:
+.sp .2
+.ta .5i +2i
+.nf
+	PORDER_TOP_FIRST	\fItop first\fR
+	PORDER_BOTTOM_FIRST	\fIbottom first\fR
+.fi
+.IP \fIdepth\fP
+Depth (maximum number of references) of path lists to return.
+.IP \fIstore\fP
+The memory buffer \s-2PHIGS\s+2 is to use for storing the information
+returned.  
+This buffer must exist prior to calling this function (see
+\s-2CREATE STORE (3P)\s+2).
+.SS C Output Parameters
+.IP \fIerror_ind\fP
+A pointer to the location to store the error number of any error detected
+by this function.
+.IP \fIpaths\fP
+A pointer to a pointer to a structure Pelem_ref_list_list,
+containing a list of the specified structure's structure path lists.
+Pelem_ref_list_list is defined in phigs.h as follows:
+.sp .4
+.ta .5i +\w'Pelem_ref_list     'u +\w'num_elem_ref_lists;     'u
+.nf
+typedef struct{
+.sp .2
+	Pint	num_elem_ref_lists;	/* number of execute reference lists */
+	Pelem_ref_list	*elem_ref_lists;	/* list of execute reference lists */
+.sp .2
+} Pelem_ref_list_list;
+.fi
+.sp
+The \fInum_elem_ref_lists\fP component specifies the number of structure path lists
+or execute reference lists. The \fIelem_ref_lists\fP component is a pointer to 
+a list, \fInum_elem_ref_lists\fP long, of Pelem_ref_list structures 
+containing the specified structure's execute reference lists.
+Pelem_ref_list is defined in phigs.h as follows:
+.sp .4
+.ta .5i +\w'Pelem_ref     'u +\w'num_elem_refs;     'u
+.nf
+typedef struct{
+.sp .2
+	Pint	num_elem_refs;	/* number of execute references */
+	Pelem_ref	*elem_refs;	/* list of execute references */
+.sp .2
+} Pelem_ref_list;
+.fi
+.sp
+\fIelem_refs\fP is a pointer to a list \fInum_elem_refs\fP long of 
+Pelem_ref structures containing the structure identifier and element 
+number of each execute reference structure element in the execute reference list.
+Pelem_ref is defined in phigs.h as follows:
+.sp .4
+.ta .5i +\w'Pint     'u +\w'struct_id;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	struct_id;	/* structure identifier */
+	Pint	elem_pos;	/* element number */
+.sp .2
+} Pelem_ref;
+.fi
+.SS Execution
+When \s-2INQUIRE PATHS DESCENDENTS\s+2 is called,
+\fIpaths\fP is filled with list(s) identifying the \s-2EXECUTE STRUCTURE\s+2 structure
+elements which are referenced by \fIstruct_id\fP,
+in the order of traversal.
+These \s-2EXECUTE STRUCTURE\s+2 structure elements are represented as
+(structure identifier, element position) pairs, giving the parent structure
+identifier and the position of the \s-2EXECUTE STRUCTURE\s+2 structure element.
+The bottom-most element of a structure network, if included in a returned
+path, is indicated by a
+(structure identifier, element position) pair containing the identifier
+of the bottom-most structure and an element position of 0.
+\fIorder\fP and \fIdepth\fP are used to determine the portion
+of each path returned.
+The number of references returned in each path is specified by
+\fIdepth\fP;
+a \fIdepth\fP of 0 returns all the references in the path.
+In case of truncation, \fIorder\fP determines whether the head
+(\s-2PORDER_TOP_FIRST\s+2) or the tail (\s-2PORDER_BOTTOM_FIRST\s+2) portion of 
+a path is returned.
+If a path truncation results in two or more partial paths with the same
+set of element references, only one of the identical path portions is returned.
+.LP
+For example, specifying \s-2PORDER_TOP_FIRST\s+2 and a depth of 0 returns all
+paths from \fIstruct_id\fP. Specifying \s-2PORDER_TOP_FIRST\s+2
+and a depth of 1 returns each \s-2EXECUTE STRUCTURE\s+2 structure
+element in \fIstruct_id\fP as a separate path list.
+Specifying \s-2PORDER_BOTTOM_FIRST\s+2 and a depth of
+1 returns all the bottom-most structures of the network.
+.SH ERRORS
+.IP 002
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2*\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 201
+Ignoring function, the specified structure does not exist
+.IP 207
+Ignoring function, the specified path depth is less than zero
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "EXECUTE STRUCTURE (3P)"
+.SM "INQUIRE PATHS TO ANCESTORS (3P)"
+.SM "CREATE STORE (3P)"
+.SM "DELETE STORE (3P)"
+.fi

@@ -1,0 +1,179 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: inittab.4,v $ $Revision: 3.7.2.6 $ (DEC) $Date: 1992/10/06 17:19:16 $
+.\" 
+...\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+...\" ALL RIGHTS RESERVED 
+...\" OSF/1 Release 1.0.4
+.TH inittab 4
+.iX "inittab file"
+.iX "file" "inittab"
+.iX "inittab"
+.SH NAME
+.PP 
+\*Linittab\*O \- Controls the initialization process
+.SH SYNOPSIS
+.sS
+\*L/etc/inittab\*O
+.\" \*L/tcb/files/inittab\*O  -  Change by D. Suitor
+.sE
+.SH "DESCRIPTION"
+.PP
+The \*Linittab\*O file provides the \*Linit\*O
+program with instructions for creating and running initialization processes.
+The \*Linit\*O program reads
+the \*Linittab\*O file each time \*Linit\*O is invoked.
+The file typically contains instructions for the default initialization,
+the creation and control of processes at each run level, and
+the \*Lgetty\*O command, which controls the activation of terminal lines.
+.PP 
+Each line in the \*Linittab\*O file contains an entry that has 
+four fields; each field is separated by a colon.
+There is no limit to the number of entries in the \*Linittab\*O
+file. The entry syntax is as follows:
+.iS
+Identifier:Runlevel:Action:Command
+.iE
+.PP 
+.VL
+.LI "\*LIndentifier\*O"
+Specifies a fourteen character field used to
+uniquely identify an object.
+.LI "\*LRunlevel\*O"
+Specifies a twenty character field that defines
+the run levels in which the object is to be processed. \*LRunlevel\*O
+corresponds to a configuration of processes in a system. Each process
+spawned by the \*Linit\*O command is assigned one or more run levels
+in which it is allowed to exist.  The run levels are as follows:
+.\" Begin Digital-specific information
+.VL
+.LI "\*L0\*O"
+Specifies the halt state.
+.LI "\*L2\*O" 
+Specifies multiuser state without network services.
+.LI "\*L3\*O"
+Specifies multiuser state with network services.
+.LI "\*LS\*O or \*Ls\*O"
+Specifies single-user state.
+.LE
+.\" End Digital-specific information
+You can define multiple run levels for a process by specifying more
+than one run level character in any combination.
+.LI "\*LAction\*O"
+Specifies a twenty character field that tells \*Linit\*O
+how to treat the specified process.  \*Linit\*O recognizes 
+the following \*LAction\*O values:
+.VL
+.LI "\*Lrespawn\*O"
+Specifies that if the process does not exist or if it dies, \*Linit\*O
+starts it.  If the process exists, \*Linit\*O continues to process the 
+\*Linittab\*O file.
+.LI "\*Lwait\*O"
+Specifies that if \*Linit\*O enters
+a run level that matches the run level specified in the \*Linittab\*O file
+entry, it starts the process and
+waits for its termination.  As long as \*Linit\*O continues in this run
+level, it does not act on subsequent reads of the entry in the \*Linittab\*O
+file.
+.LI "\*Lonce\*O"
+Specifies that if \*Linit\*O enters a run level that matches the run level
+specified in the \*Linittab\*O file,
+it starts the process and does not wait for its termination.  When the 
+process stops, \*Linit\*O does not restart it.
+If \*Linit\*O enters a new run level where the process is still running
+from a previous runlevel change, \*Linit\*O does not restart the process.
+.LI "\*Lboot\*O"
+Specifies that when \*Linit\*O
+first executes and reads the \*Linittab\*O file, it processes this entry.
+The \*Linit\*O program starts the process and does not wait for its
+termination.   When the process stops, \*Linit\*O does not restart it.
+The run level specified in this \*Linittab\*O file entry should be 
+the default run level, or it must match the
+run level in which \*Linit\*O operates at boot time.
+.LI "\*Lbootwait\*O"
+Specifies that when \*Linit\*O first executes and reads the \*Linittab\*O file,
+it processes this \*Linittab\*O file entry.  The \*Linit\*O program 
+starts the process, waits for its termination and, when it dies,
+does not restart the process.
+.LI "\*Lpowerfail\*O"
+Specifies that if \*Linit\*O receives the \*LSIGPWR\*O power fail signal,
+it executes the process associated with this line.
+.LI "\*Lpowerwait\*O"
+.\" Begin Digital-specific information CORRECTION
+.\" Removed extra 'the' per QAR 6887.
+Specifies that if \*Linit\*O receives the \*LSIGPWR\*O power fail signal,
+.\" End Digital-specific information CORRECTION
+it executes the process associated with this line
+and waits until the process terminates before continuing processing 
+the \*Linittab\*O file.
+.LI "\*Loff\*O"
+Specifies that if the process associated with this line is
+currently running, \*Linit\*O sends the warning
+signal \*LSIGTERM\*O and waits 20 seconds before sending the
+kill signal \*LSIGKILL\*O.  If the process does not existent, 
+\*Linit\*O ignores the \*Linittab\*O entry.
+.LI "\*Linitdefault\*O"
+Specifies that a line with this action is processed
+when \*Linit\*O is originally invoked.  The \*Linit\*O program
+uses this line to determine the run level to enter originally.
+It determines this by taking the highest run level specified in the
+run level field and using that as its initial state. If the run level
+field is empty, this is interpreted as 0s23, causing \*Linit\*O to 
+enter run level \*L3\*O.  If \*Linit\*O
+does not find an \*Linitdefault\*O entry in the \*Linittab\*O
+file, it requests an initial run level from the operator.
+.LI "\*Lsysinit\*O"
+Specifies that entries of this type are executed before
+\*Linit\*O tries to access the console. 
+This \*Linittab\*O file entry should be used only to initialize 
+devices on which \*Linit\*O could attempt to request a run level.
+.LE 
+.LI "\*LCommand\*O"
+Specifies a 1024 character field that contains the \*Lsh\*O
+command to be executed.  The command is prefixed
+with exec.  Any legitimate \*Lsh\*O syntax can appear in the command
+field. Comments can be inserted be specifying a number sign (#). The line
+continuation character \*L\\\*O can be placed at the end of a line.
+.LE 
+.SH "EXAMPLES"
+.PP
+The following is an example of an \*Linittab\*O file entry for a 
+terminal line:
+.oS
+tty01:23:respawn:/usr/sbin/getty /dev/tty08 9600 vt100
+.oE
+.SH "FILES"
+.PP
+.VL
+.\" Begin Digital-specific information - Note location
+.LI "\*L/usr/sbin/getty\*O"
+.\" End Digital-specific information
+Specifies the command that initializes and controls terminal lines.
+.LE 
+.SH "RELATED INFORMATION"
+.PP 
+.\" Begin Digital-specific information - Added getty.8
+Commands: \*Linit\*O(8), \*Lgetty\*O(8)
+.\" End Digital-specific information
+.PP 
+Functions:  \*Lkill\*O(2)
+.EQ
+delim off
+.EN
+.EQ
+delim off
+.EN

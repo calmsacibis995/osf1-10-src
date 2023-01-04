@@ -1,0 +1,576 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205192140.AA29028@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2557) Close XBUG #5264: xdm: generates XDM-AUTHORIZATION-1 data incorrectly when using XDMCP
+Date: Tue, 19 May 92 17:40:10 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   5264
+### area:         xdm
+### severity:     low
+### comments:
+
+This fix also provides backward compatibility hooks in the server
+to make XDM-AUTHORIZATION-1 work even when xdm is broken.  It also
+fixes some other random problems in the server side code.  It's much
+better now, honest.
+
+*** /tmp/da8649	Tue May 19 17:29:07 1992
+--- server/os/xdmcp.c	Tue May 19 17:22:19 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xdmcp.c,v 1.21 92/03/25 11:50:47 rws Exp $ */
+  /*
+   * Copyright 1989 Network Computing Devices, Inc., Mountain View, California.
+   *
+--- 1,4 ----
+! /* $XConsortium: xdmcp.c,v 1.22 92/05/19 17:22:10 keith Exp $ */
+  /*
+   * Copyright 1989 Network Computing Devices, Inc., Mountain View, California.
+   *
+***************
+*** 251,257 ****
+  {
+      int	i;
+  
+-     XdmcpDisposeARRAY8 (AuthenticationName);
+      for (i = 0; i < AuthenticationNames.length; i++)
+  	if (XdmcpARRAY8Equal (&AuthenticationNames.data[i], name))
+  	{
+--- 251,256 ----
+***************
+*** 427,440 ****
+  XdmcpOpenDisplay(sock)
+      int	sock;
+  {
+-     extern void AugmentSelf();
+- 
+      if (state != XDM_AWAIT_MANAGE_RESPONSE)
+  	return;
+      state = XDM_RUN_SESSION;
+      sessionSocket = sock;
+-     /* permit access control manipulations from this host */
+-     AugmentSelf(sock);
+  }
+  
+  void 
+--- 426,435 ----
+***************
+*** 662,668 ****
+  XdmcpDeadSession (reason)
+      char *reason;
+  {
+!     printf ("XDM: %s, declaring session dead\n", reason);
+      state = XDM_INIT_STATE;
+      isItTimeToYield = TRUE;
+      dispatchException |= DE_RESET;
+--- 657,663 ----
+  XdmcpDeadSession (reason)
+      char *reason;
+  {
+!     ErrorF ("XDM: %s, declaring session dead\n", reason);
+      state = XDM_INIT_STATE;
+      isItTimeToYield = TRUE;
+      dispatchException |= DE_RESET;
+***************
+*** 686,692 ****
+      }
+      else if (timeOutRtx >= XDM_RTX_LIMIT)
+      {
+! 	printf("XDM: too many retransmissions\n");
+  	state = XDM_AWAIT_USER_INPUT;
+  	timeOutTime = 0;
+  	timeOutRtx = 0;
+--- 681,687 ----
+      }
+      else if (timeOutRtx >= XDM_RTX_LIMIT)
+      {
+! 	ErrorF("XDM: too many retransmissions\n");
+  	state = XDM_AWAIT_USER_INPUT;
+  	timeOutTime = 0;
+  	timeOutRtx = 0;
+***************
+*** 928,933 ****
+--- 923,930 ----
+  	    {
+  		XdmcpFatal ("Authentication Failure", &AcceptAuthenticationName);
+  	    }
++ 	    /* permit access control manipulations from this host */
++ 	    AugmentSelf (&req_sockaddr, req_socklen);
+  	    /* if the authorization specified in the packet fails
+  	     * to be acceptable, enable the local addresses
+  	     */
+***************
+*** 1025,1031 ****
+      if (XdmcpReadCARD32 (&buffer, &FailedSessionID) &&
+  	XdmcpReadARRAY8 (&buffer, &Status))
+      {
+!     	if (length == 5 + Status.length &&
+  	    SessionID == FailedSessionID)
+  	{
+  	    XdmcpFatal ("Session failed", &Status);
+--- 1022,1028 ----
+      if (XdmcpReadCARD32 (&buffer, &FailedSessionID) &&
+  	XdmcpReadARRAY8 (&buffer, &Status))
+      {
+!     	if (length == 6 + Status.length &&
+  	    SessionID == FailedSessionID)
+  	{
+  	    XdmcpFatal ("Session failed", &Status);
+***************
+*** 1093,1099 ****
+  {
+      extern void AbortDDX();
+  
+!     printf("XDMCP fatal error: %s %*.*s\n", type,
+  	   status->length, status->length, status->data);
+      AbortDDX ();
+      exit (1);
+--- 1090,1096 ----
+  {
+      extern void AbortDDX();
+  
+!     ErrorF ("XDMCP fatal error: %s %*.*s\n", type,
+  	   status->length, status->length, status->data);
+      AbortDDX ();
+      exit (1);
+***************
+*** 1103,1109 ****
+  XdmcpWarning(str)
+      char *str;
+  {
+!     printf("XDMCP warning: %s\n", str);
+  }
+  
+  static
+--- 1100,1106 ----
+  XdmcpWarning(str)
+      char *str;
+  {
+!     ErrorF("XDMCP warning: %s\n", str);
+  }
+  
+  static
+***************
+*** 1115,1126 ****
+  
+      if (i == argc)
+      {
+! 	printf("Xserver: missing host name in command line\n");
+  	exit(1);
+      }
+      if (!(hep = gethostbyname(argv[i])))
+      {
+! 	printf("Xserver: unknown host: %s\n", argv[i]);
+  	exit(1);
+      }
+      if (hep->h_length == sizeof (struct in_addr))
+--- 1112,1123 ----
+  
+      if (i == argc)
+      {
+! 	ErrorF("Xserver: missing host name in command line\n");
+  	exit(1);
+      }
+      if (!(hep = gethostbyname(argv[i])))
+      {
+! 	ErrorF("Xserver: unknown host: %s\n", argv[i]);
+  	exit(1);
+      }
+      if (hep->h_length == sizeof (struct in_addr))
+***************
+*** 1131,1137 ****
+      }
+      else
+      {
+! 	printf ("Xserver: host on strange network %s\n", argv[i]);
+  	exit (1);
+      }
+  }
+--- 1128,1134 ----
+      }
+      else
+      {
+! 	ErrorF ("Xserver: host on strange network %s\n", argv[i]);
+  	exit (1);
+      }
+  }
+*** /tmp/da8676	Tue May 19 17:29:21 1992
+--- server/os/connection.c	Tue May 19 17:24:02 1992
+***************
+*** 21,27 ****
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.143 92/02/12 19:15:31 keith Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+--- 21,27 ----
+  SOFTWARE.
+  
+  ******************************************************************/
+! /* $XConsortium: connection.c,v 1.144 92/05/19 17:23:21 keith Exp $ */
+  /*****************************************************************
+   *  Stuff to create connections --- OS dependent
+   *
+***************
+*** 552,557 ****
+--- 552,561 ----
+      priv->auth_id = auth_id;
+      priv->conn_time = 0;
+  
++ #ifdef XDMCP
++     /* indicate to Xdmcp protocol that we've opened new client */
++     XdmcpOpenDisplay(priv->fd);
++ #endif /* XDMCP */
+      /* At this point, if the client is authorized to change the access control
+       * list, we should getpeername() information, and add the client to
+       * the selfhosts list.  It's not really the host machine, but the
+***************
+*** 687,696 ****
+  	    ErrorConnMax(newconn);
+  	    CloseDownFileDescriptor(oc);
+  	}
+- #ifdef XDMCP
+- 	/* indicate to Xdmcp protocol that we've opened new client */
+- 	XdmcpOpenDisplay(newconn);
+- #endif /* XDMCP */
+      }
+      return TRUE;
+  }
+--- 691,696 ----
+*** /tmp/da8703	Tue May 19 17:29:31 1992
+--- server/os/xdmauth.c	Tue May 19 17:25:22 1992
+***************
+*** 2,8 ****
+   * XDM-AUTHENTICATION-1 (XDMCP authentication) and
+   * XDM-AUTHORIZATION-1 (client authorization) protocols
+   *
+!  * $XConsortium: xdmauth.c,v 1.5 91/07/24 18:36:20 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 2,8 ----
+   * XDM-AUTHENTICATION-1 (XDMCP authentication) and
+   * XDM-AUTHORIZATION-1 (client authorization) protocols
+   *
+!  * $XConsortium: xdmauth.c,v 1.6 92/05/19 17:24:20 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 24,29 ****
+--- 24,31 ----
+  
+  #ifdef HASXDMAUTH
+  
++ static Bool authFromXDMCP;
++ 
+  #ifdef XDMCP
+  #include "Xmd.h"
+  #include "Xdmcp.h"
+***************
+*** 76,83 ****
+      int	    name_len, data_len;
+      char    *name, *data;
+  {
+      XdmcpUnwrap (data, &privateKey, data, data_len);
+!     AddAuthorization (name_len, name, data_len, data);
+  }
+  
+  
+--- 78,89 ----
+      int	    name_len, data_len;
+      char    *name, *data;
+  {
++     Bool    ret;
+      XdmcpUnwrap (data, &privateKey, data, data_len);
+!     authFromXDMCP = TRUE;
+!     ret = AddAuthorization (name_len, name, data_len, data);
+!     authFromXDMCP = FALSE;
+!     return ret;
+  }
+  
+  
+***************
+*** 278,285 ****
+      switch (data_length)
+      {
+      case 16:		    /* auth from files is 16 bytes long */
+! 	rho_bits = (unsigned char *) data;
+! 	key_bits = (unsigned char *) (data + 8);
+  	break;
+      case 8:		    /* auth from XDMCP is 8 bytes long */
+  	rho_bits = rho.data;
+--- 284,302 ----
+      switch (data_length)
+      {
+      case 16:		    /* auth from files is 16 bytes long */
+! 	if (authFromXDMCP)
+! 	{
+! 	    /* R5 xdm sent bogus authorization data in the accept packet,
+! 	     * but we can recover */
+! 	    rho_bits = rho.data;
+! 	    key_bits = (unsigned char *) data;
+! 	    key_bits[0] = '\0';
+! 	}
+! 	else
+! 	{
+! 	    rho_bits = (unsigned char *) data;
+! 	    key_bits = (unsigned char *) (data + 8);
+! 	}
+  	break;
+      case 8:		    /* auth from XDMCP is 8 bytes long */
+  	rho_bits = rho.data;
+*** /tmp/da8730	Tue May 19 17:29:41 1992
+--- server/os/access.c	Tue May 19 17:23:06 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: access.c,v 1.53 91/12/29 14:06:01 rws Exp $ */
+  
+  #include "Xos.h"
+  #include "X.h"
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: access.c,v 1.54 92/05/19 17:23:02 keith Exp $ */
+  
+  #include "Xos.h"
+  #include "X.h"
+***************
+*** 310,328 ****
+  
+  #ifdef XDMCP
+  void
+! AugmentSelf(fd)
+!     int fd;
+  {
+-     int len;
+-     struct sockaddr from;
+      int family;
+      pointer addr;
+      register HOST *host;
+  
+!     len = sizeof(from);
+!     if (getpeername(fd, &from, &len))
+! 	return;
+!     family = ConvertAddr(&from, &len, &addr);
+      if (family == -1 || family == FamilyLocal)
+  	return;
+      for (host = selfhosts; host; host = host->next)
+--- 310,324 ----
+  
+  #ifdef XDMCP
+  void
+! AugmentSelf(from, len)
+!     struct sockaddr *from;
+!     int		    len;
+  {
+      int family;
+      pointer addr;
+      register HOST *host;
+  
+!     family = ConvertAddr(from, &len, &addr);
+      if (family == -1 || family == FamilyLocal)
+  	return;
+      for (host = selfhosts; host; host = host->next)
+*** /tmp/da8763	Tue May 19 17:30:41 1992
+--- clients/xdm/xdmauth.c	Tue May 19 17:27:37 1992
+***************
+*** 1,7 ****
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: xdmauth.c,v 1.8 91/07/24 00:07:05 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * xdm - display manager daemon
+   *
+!  * $XConsortium: xdmauth.c,v 1.9 92/05/19 17:27:04 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 30,36 ****
+  
+  static char	auth_name[256];
+  static int	auth_name_len;
+- #define AUTH_DATA_LEN	16
+  
+  XdmPrintDataHex (s, a, l)
+      char	    *s;
+--- 30,35 ----
+***************
+*** 41,47 ****
+  
+      Debug ("%s", s);
+      for (i = 0; i < l; i++)
+! 	Debug (" %2x", a[i]);
+      Debug ("\n");
+  }
+  
+--- 40,46 ----
+  
+      Debug ("%s", s);
+      for (i = 0; i < l; i++)
+! 	Debug (" %02x", a[i] & 0xff);
+      Debug ("\n");
+  }
+  
+***************
+*** 73,82 ****
+      bcopy (name, auth_name, name_len);
+  }
+  
+  Xauth *
+! XdmGetAuth (namelen, name)
+      unsigned short  namelen;
+      char	    *name;
+  {
+      Xauth   *new;
+      new = (Xauth *) malloc (sizeof (Xauth));
+--- 72,91 ----
+      bcopy (name, auth_name, name_len);
+  }
+  
++ /*
++  * Generate authorization for XDM-AUTHORIZATION-1 
++  *
++  * When being used with XDMCP, 8 bytes are generated for the session key
++  * (sigma), as the random number (rho) is already shared between xdm and
++  * the server.  Otherwise, we'll prepend a random number to pass in the file
++  * between xdm and the server (16 bytes total)
++  */
++ 
+  Xauth *
+! XdmGetAuthHelper (namelen, name, includeRho)
+      unsigned short  namelen;
+      char	    *name;
++     int	    includeRho;
+  {
+      Xauth   *new;
+      new = (Xauth *) malloc (sizeof (Xauth));
+***************
+*** 88,95 ****
+      new->address = 0;
+      new->number_length = 0;
+      new->number = 0;
+  
+!     new->data = (char *) malloc (AUTH_DATA_LEN);
+      if (!new->data)
+      {
+  	free ((char *) new);
+--- 97,108 ----
+      new->address = 0;
+      new->number_length = 0;
+      new->number = 0;
++     if (includeRho)
++ 	new->data_length = 16;
++     else
++ 	new->data_length = 8;
+  
+!     new->data = (char *) malloc (new->data_length);
+      if (!new->data)
+      {
+  	free ((char *) new);
+***************
+*** 104,116 ****
+      }
+      bcopy (name, (char *)new->name, namelen);
+      new->name_length = namelen;
+!     GenerateAuthorization ((char *)new->data, AUTH_DATA_LEN);
+!     ((char *)new->data)[8] = '\0';
+!     new->data_length = AUTH_DATA_LEN;
+      XdmPrintDataHex ("Local server auth", (char *)new->data, new->data_length);
+      return new;
+  }
+  
+  #ifdef XDMCP
+  
+  XdmGetXdmcpAuth (pdpy,authorizationNameLen, authorizationName)
+--- 117,140 ----
+      }
+      bcopy (name, (char *)new->name, namelen);
+      new->name_length = namelen;
+!     GenerateAuthorization ((char *)new->data, new->data_length);
+!     /*
+!      * set the first byte of the session key to zero as it
+!      * is a DES key and only uses 56 bits
+!      */
+!     ((char *)new->data)[new->data_length - 8] = '\0';
+      XdmPrintDataHex ("Local server auth", (char *)new->data, new->data_length);
+      return new;
+  }
+  
++ Xauth *
++ XdmGetAuth (namelen, name)
++     unsigned short  namelen;
++     char	    *name;
++ {
++     return XdmGetAuthHelper (namelen, name, TRUE);
++ }
++ 
+  #ifdef XDMCP
+  
+  XdmGetXdmcpAuth (pdpy,authorizationNameLen, authorizationName)
+***************
+*** 122,128 ****
+  
+      if (pdpy->fileAuthorization && pdpy->xdmcpAuthorization)
+  	return;
+!     xdmcpauth = XdmGetAuth (authorizationNameLen, authorizationName);
+      if (!xdmcpauth)
+  	return;
+      fileauth = (Xauth *) malloc (sizeof (Xauth));
+--- 146,152 ----
+  
+      if (pdpy->fileAuthorization && pdpy->xdmcpAuthorization)
+  	return;
+!     xdmcpauth = XdmGetAuthHelper (authorizationNameLen, authorizationName, FALSE);
+      if (!xdmcpauth)
+  	return;
+      fileauth = (Xauth *) malloc (sizeof (Xauth));
+***************
+*** 131,136 ****
+--- 155,161 ----
+  	XauDisposeAuth(xdmcpauth);
+  	return;
+      }
++     /* build the file auth from the XDMCP auth */
+      *fileauth = *xdmcpauth;
+      fileauth->name = malloc (xdmcpauth->name_length);
+      fileauth->data = malloc (16);
+***************
+*** 145,155 ****
+--- 170,186 ----
+  	free ((char *) fileauth);
+  	return;
+      }
++     /*
++      * for the file authorization, prepend the random number (rho)
++      * which is simply the number we've been passing back and
++      * forth via XDMCP
++      */
+      bcopy (xdmcpauth->name, fileauth->name, xdmcpauth->name_length);
+      bcopy (pdpy->authenticationData.data, fileauth->data, 8);
+      bcopy (xdmcpauth->data, fileauth->data + 8, 8);
+      XdmPrintDataHex ("Accept packet auth", xdmcpauth->data, xdmcpauth->data_length);
+      XdmPrintDataHex ("Auth file auth", fileauth->data, fileauth->data_length);
++     /* encrypt the session key for its trip back to the server */
+      XdmcpWrap (xdmcpauth->data, &pdpy->key, xdmcpauth->data, 8);
+      pdpy->fileAuthorization = fileauth;
+      pdpy->xdmcpAuthorization = xdmcpauth;

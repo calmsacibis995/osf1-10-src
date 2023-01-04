@@ -1,0 +1,272 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: msgrcv.2,v $ $Revision: 3.5.5.2 $ (DEC) $Date: 1993/10/04 17:38:51 $
+.\" 
+...\" 
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" 
+...\"build rmifdef
+...\"
+...\"
+.TH msgrcv 2
+.iX "msgrcv function"
+.SH NAME
+\*Lmsgrcv\*O -  Receives a message from a message queue
+.iX "message queue" "receiving a message from"
+.iX "message" "receiving from a message queue"
+.SH SYNOPSIS 
+.sS
+\*L#include\*O <\*Lsys/types.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/ipc.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/msg.h\*O>\*L
+.sp .4v
+\*Lint msgrcv\*O(\*L
+.nL
+	\*Lint\*O \*Vmsqid\*O,\*L
+.nL
+	\*Lstruct msgbuf\*O \*V*msgp\*O,\*L
+.nL
+	\*Lint\*O \*Vmsgsz\*O,\*L
+.nL
+	\*Llong\*O \*Vmsgtyp\*O,\*L
+.nL
+	\*Lint\*O \*Vmsgflg\*O);\*L
+.sE 
+.SH PARAMETERS
+...\"from TP 1i"  
+.VL 1i
+.LI "\*Vmsqid\*O"
+Specifies the ID of the message queue from which to receive the message.
+...\"from TP "  
+.LI "\*Vmsgp\*O" 
+Specifies a pointer to the
+\*Lmsgbuf\*O
+structure that is to receive the message.  See \*LNOTES\*O.
+...\"from TP "  
+.LI "\*Vmsgsz\*O" 
+Specifies the maximum number of bytes allowed for the received data.
+...\"from TP "  
+.LI "\*Vmsgtyp\*O" 
+Specifies the message type to read from the queue.
+...\"from TP "  
+.LI "\*Vmsgflg\*O" 
+Specifies the action to be taken by the kernel if there are no
+\*Vmsgtyp\*O
+messages on the queue.
+.LE 
+.SH DESCRIPTION
+The
+\*Lmsgrcv()\*O
+function receives a message from the queue associated with the
+\*Vmsqid\*O parameter.
+It returns the number of bytes in the received message.
+.PP
+The
+\*Vmsgp\*O
+parameter
+points to a user-defined
+\*Lmsgbuf\*O
+structure.  The structure will receive the message read from the
+queue.
+.PP
+The
+\*Vmsgsz\*O
+parameter
+specifies the maximum size allowed for the received data.  If the message is
+longer than
+\*Vmsgsz\*O,
+the kernel will take one of the following actions, depending on whether the
+MSG_NOERROR flag is set:
+...\"from TP 4"  
+.ML
+.LI
+If MSG_NOERROR is not set, the kernel returns an [E2BIG] error to the calling
+process and leaves the message on the queue.
+...\"from TP "  
+.LI
+If MSG_NOERROR is set, the kernel truncates the message to
+\*Vmsgsz\*O
+and discards the truncated portion without notifying the
+calling process.
+.LE 
+.PP
+The
+\*Vmsgtyp\*O
+parameter
+specifies the message type that the process wants to receive.  Possible
+values and their results are as follows:
+...\"from TP .3i"  
+.VL
+.LI "0"
+The process receives the message at the head of the queue.
+...\"from TP "  
+.LI ">0" 
+The process receives the first message of the requested
+positive-integer type.
+...\"from TP "  
+.LI "<0" 
+The process receives the first message of the lowest type on the queue.
+To qualify as the lowest type, the negative-integer type must be less than or equal to
+the absolute value of
+\*Vmsgtyp\*O.
+.LE 
+.PP
+The
+\*Vmsgflg\*O
+parameter
+specifies the action that the kernel should take if the queue does not
+contain a message of the requested type.  Either of two kernel actions can be specified, as follows:
+...\"from TP 4"  
+.ML
+.LI
+If IPC_NOWAIT is set, the kernel returns immediately with a return
+value of -1 and \*Lerrno\*O set to [ENOMSG].
+...\"from TP "  
+.LI
+If IPC_NOWAIT is not set, the kernel suspends the calling process.
+.IP
+The process remains suspended until one of the following occurs:
+.wH .RS  Can not be used in nested lists
+...\"from TP .3i"  
+.ML
+.LI
+A message of the requested type
+appears on the queue.  In this case, the kernel wakes the
+process to receive the message.
+...\"from TP "  
+.LI
+The specified message queue ID is removed from the
+system.  In this case, the kernel sets \*Lerrno\*O to
+[EIDRM] and returns -1 to the calling process.
+...\"from TP "  
+.LI
+The process catches a signal.  In this case, the process does not
+receive the message and, instead, resumes execution as directed by the
+\*Lsignal(\|)\*O call.
+.wH .RE
+.LE
+.LE 
+.SH NOTES
+The user-specified
+\*Lmsgbuf\*O
+structure, used to store received messages, is defined as follows:
+.rS
+\*Lstruct msgbuf {
+.nL
+	mtyp_t \*Vmtype\*L;
+.nL
+	char \*Vmtext\*L[];
+.nL
+}\*O
+.rE
+.PP
+The \*Vmytpe\*O field
+is set to the message type supplied by the sender.
+.PP
+The \*Vmtext\*O field
+is set to the message text.  Unless MSG_NOERROR is set, the message size will be less than or
+equal to the
+\*Vmsgsz\*O
+specified on the call to
+\*Lmsgrcv(\|)\*O.
+.SH RETURN VALUES
+Upon successful completion, the
+\*Lmsgrcv(\|)\*O function
+returns a value equal
+to the number of bytes actually stored in \*Vmtext\*O.
+Also, the kernel updates the
+\*Lmsqid_ds\*O
+structure associated with the message queue ID as follows:
+...\"from TP 4"  
+.ML
+.LI
+Decrements \*Vmsg_qnum\*O
+by 1.
+...\"from TP "  
+.LI
+Sets \*Vmsg_lrpid\*O
+equal to the process ID of the calling process.
+...\"from TP 4"  
+.LI
+Sets \*Vmsg_rtime\*O
+equal to the current time.
+...\"from TP "  
+.LI
+Decrements \*Vmsg_cbytes\*O
+by the message text size.
+.LE 
+.PP
+When the
+\*Lmsgrcv(\|)\*O
+function fails, a value of -1 is returned
+and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+If the
+\*Lmsgrcv(\|)\*O
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+...\"from TP 1i"  
+.VL 1i
+.LI "[EINVAL]"
+The
+\*Vmsqid\*O
+parameter
+is not a valid message queue ID, or the
+\*Vmsgsz\*O
+parameter
+is less than 0 (zero).
+...\"from TP 1i"  
+.LI "[EACCES]" 
+The calling process does not have permission for the operation.
+...\"from TP 1i"  
+.LI "[EIDRM]" 
+The
+\*Vmsgid\*O
+parameter
+has been removed from the system.
+...\"from TP "  
+.LI "[E2BIG]" 
+The number of bytes to be received in
+\*Vmtext\*O
+is greater than
+\*Vmsgsz\*O
+and the MSG_NOERROR flag is not set.
+...\"from TP 1i"  
+.LI "[ENOMSG]" 
+The queue does not contain a message of the requested type and the IPC_NOWAIT
+flag is set.
+...\"from TP 1i"  
+.LI "[EINTR]" 
+The operation was interrupted by a signal.
+.LE 
+.SH RELATED INFORMATION
+Functions:
+\*Lmsgctl\*O(2),
+\*Lmsgget\*O(2),
+\*Lmsgsnd\*O(2),
+\*Lsigaction\*O(2)
+.PP 
+Data Structures:
+\*Lmsqid_ds\*O(4)
+.iX "msgrcv function"
+.EQ
+delim off
+.EN

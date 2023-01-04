@@ -1,0 +1,290 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_bind.3,v $ $Revision: 3.2.8.2 $ (DEC) $Date: 1993/07/27 13:16:58 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.TH t_bind 3
+.SH NAME
+.PP
+t_bind \- Binds an address to a transport endpoint
+.SH LIBRARY
+.PP
+XTI Library (\f3libxti.a\f1)
+.SH SYNOPSIS
+.PP
+\f3#include <xti.h>\fP
+.PP
+.B int t_bind(
+.ti +0.2i
+.B int 
+\f2fd\f1, 
+.ti +0.2i
+\f3struct t_bind \f2*req\f1, 
+.ti +0.2i
+\f3struct t_bind \f2*ret\f1) ;
+.SH "PARAMETERS"
+.PP
+The \f3t_bind\f1(\|) function can only be called in the T_UNBND
+transport provider state. The following table summarizes the relevance
+of input and output parameters before and after \f3t_bind\f1(\|) is
+called:
+.sp
+.TS
+center, tab (@) ;
+lb  lb  lb
+l   l   l.
+Parameter@Before Call@After Call
+_
+\f2fd\fP@y@n
+\f2req\fP->\f3addr.maxlen\fP@n@n
+\f2req\fP->\f3addr.len\fP@y\f2 >= 0@\fPn
+\f2req\fP->\f3addr.buf\fP@y(y)@n
+\f2req\fP->\f3qlen\fP@y\f2>= 0@\fPn
+\f2ret\fP->\f3addr.maxlen@\fPy@n
+\f2ret\fP->\f3addr.len\fP@n@y
+\f2ret\fP->\f3addr.buf@\fPy@(y)
+\f2ret\fP->\f3qlen@\fPn@y\f2 >= 0
+.TE
+\f3Notes to table:\f1
+.RS
+.ta .5i
+.nf
+y	This is a meaningful parameter.
+n	This is not a meaningful parameter.
+(y)	The content of the object pointed to by \f2y\f1 is meaningful.
+.fi
+.RE
+.TP
+.I fd
+Specifies a file descriptor returned by the \f3t_open\f1(\|) function
+that identifies
+the local transport endpoint. More than a single 
+transport endpoint may be bound to the same protocol address, but only 
+one protocol address can be bound to a transport endpoint.
+.sp
+.ne 3i
+.TP
+\0
+When a transport user binds more than one transport endpoint to the
+same protocol address, only one endpoint can be used to listen for
+connect indications associated with that protocol address using the
+\f3t_listen\f1(\|) function. Consequently, for a given protocol address,
+only one \f3t_bind(\|)\fP function may specify a value greater than 0
+(zero) for the \f2req\f1->\f3qlen\fP parameter. In this way, the transport 
+provider can identify the transport endpoint that should be notified
+of an incoming connect indication is
+called.
+.TP
+\0
+No other transport endpoint may be bound for listening to that same
+protocol address when the initial listening endpoint is active, during 
+data transfer, or during the T_IDLE state. This prevents more than 
+one transport endpoint, which is bound to the same protocol address, 
+from accepting any connect indication.
+.TP
+\f2req\f1
+Points to a type \f3t_bind\f1(\|) structure used to define the protocol
+address of the caller and to hold the allowable number of outstanding
+connect indications in connection-oriented transport protocol service.
+An outstanding connect indication is one that 
+has been passed to the transport provider, but has not been accepted
+or rejected.
+The \f3t_bind\f1(\|) structure has the following two members:
+.RS
+.TP .5i
+\f3struct netbuf\ \ \  addr\f1
+Specifies a buffer for protocol address information sent by the
+calling transport user. The type \f3netbuf\f1 structure referenced by
+this member is defined in the \f3xti.h\f1 include file. This
+structure, which is used to specify the address to be bound to the
+endpoint, has the
+following members:
+.RS .5i
+.TP .5i
+\f3unsigned int\ \ \ maxlen\f1
+Specifies the maximum byte length of the data buffer.
+.TP .5i
+\f3unsigned int\ \ \ len\f1
+Specifies the actual byte length of data written to the buffer.
+.TP .5i
+\f3char\ \ \ *buf\f1
+Points to the buffer location.
+.RE
+.TP .5i
+\f3unsigned\ \ \ \ qlen\f1
+Specifies the allowable number of outstanding connect indications in
+connection-oriented service.
+.RE
+.TP 1i
+\0
+The \f2req\f1 parameter is used to request that the protocol address, 
+pointed to by \%\f2req\f1->\f3addr.buf\f1 be bound to the transport endpoint
+specified by the \f2fd\f1 parameter. The
+\%\f2req\f1->\f3addr.maxlen\fP parameter has no
+meaning.
+.sp
+.ne 3i
+.TP
+\0
+When the protocol address is not available, or when 0 (zero) is specified
+for \%\f2req\f1->\f3addr.len\f1, the transport provider assigns an
+alternate protocol address whenever automatic address generation is
+supported. A pointer to the returned alternate protocol address is
+specified by \%\f2req\f1->\f3addr.buf\f1.
+.TP
+\0
+When a transport user does not specify a protocol address, the value 0
+(zero) is used for \%\f2req\f1->\f3addr.len\f1. When the
+transport provider does not support automatic address generation and
+the value 0 (zero) is specified by \%\f2req\f1->\f3addr.len\f1 as the
+data buffer length, a \f3t_bind\f1(\|) call returns the value -1 and sets
+\f3t_errno\f1 to [TNOADDR].
+.TP
+\0
+A value greater than 0 (zero) for \%\f2req\f1->\f3qlen\f1 has meaning
+whenever it is specified by a transport user expecting other transport
+users to call it. When the transport
+provider can not support the requested number of allowable outstanding
+connections, the value returned in \%\f2ret\f1->\f3qlen\f1 may be different
+than the one requested.
+.TP
+\0
+The \f2req\f1 parameter may be specified as a null pointer when
+a transport user does not need to use a protocol address for binding.
+The \f2req\f1 parameter may also be specified as a null pointer when
+the protocol address is not significant.
+.TP
+\0
+When the protocol addresses pointed to by the \f2req\f1 and
+\f2ret\f1 parameters are not the same, a protocol address different than
+the one specified by \f2req\f1 has been bound to the transport endpoint
+by the transport provider.
+.TP
+\0
+When the \f3t_bind\f1(\|) function does not allocate a local transport
+protocol address (that is, automatic address generation is not
+supported), the protocol address pointed to by the \f2ret\f1 parameter
+is always
+the same as the protocol address pointed to by the \f2req\f1
+parameter. In this case,
+values for variables pointed to by this parameter must be specified 
+before the \f3t_bind\f1(\|) function is called.
+.TP
+\f2ret\f1
+Points to a type \f3t_bind\f1(\|) structure. The
+\f3addr\f1 structure member returned by \f3t_bind\f1(\|) specifies variables
+for the protocol address actually bound to the transport endpoint
+specified by the \f2fd\f1 parameter. The bound address may be
+different than the
+address pointed to by the transport user with the
+\%\f2req\f1->\f3addr.buf\f1 parameter.
+.TP
+\0
+The transport user must specify the maximum size in bytes of the
+protocol address with the  \%\f2ret\f1->\f3addr.maxlen\fP parameter. On
+return, the \f2ret\f1->\f3addr.len\fP parameter specifies the actual
+number of bytes in the bound protocol address. When the
+\%\f2ret\f1->\f3addr.maxlen\fP
+parameter is not large enough to hold 
+the returned protocol address, an error occurs.
+.sp
+.ne 3i
+.TP
+\0
+The \%\f2ret\f1->\f3qlen\f1 parameter, which specifies the allowable 
+number of outstanding connect indications that the transport provider 
+can support, is meaningful only when initializing connection-oriented 
+transport provider service.
+.SH "DESCRIPTION"
+.PP
+.iX "t_bind function"
+.iX "XTI" "t_bind function"
+The \f3t_bind(\|)\fP XTI function is used in connectionless and
+connection-oriented
+transport service to associate a protocol address with the transport
+endpoint returned by the \f3t_open\f1(\|) function and to activate that
+transport endpoint. This function uses type \f3t_bind\f1(\|) 
+and \f3netbuf\f1 structures, which are defined in the \f3xti.h\f1
+include file. 
+.PP
+When connection-oriented transport service is in
+effect, and once this function has been called, the transport provider
+may begin enqueuing incoming connect
+indications or may service a connection request on the transport
+endpoint. 
+.PP
+When connectionless transport service is in effect and once this
+function has been called,
+the transport user may send or receive data units through the
+transport endpoint. 
+.SH "RETURN VALUE"
+.PP
+Upon successful completion, a value of 0 (zero) is returned. Otherwise, a
+value of -1 is returned and \f3t_errno\f1 is set to indicate the error.
+.SH ERRORS
+.PP
+If the \f3t_bind(\)\fP function fails, \f3t_errno\f1 may be set to one of
+the following values:
+.TP 1i
+[TBADF]
+The specified file descriptor does not refer to a transport endpoint.
+.TP
+[TOUTSTATE]
+The function was issued in the wrong sequence.
+.TP
+[TBADADDR]
+The specified protocol address was in an incorrect format or contained
+illegal information.
+.TP
+[TNOADDR]
+The transport provider could not allocate an address.
+.TP
+[TACCES]
+The user does not have permission to use the specified address.
+.TP
+[TBUFOVFLW]
+The number of bytes allowed for an incoming argument is not sufficient
+to store the value of that argument.  The provider's state will change
+to T_IDLE and the information to be returned in the \f2ret\fP
+parameter will be discarded.
+.sp
+.ne 3i
+.TP
+[TSYSERR]
+A system error occurred during execution of this function.
+.TP
+[TADDRBUSY]
+The address requested is in use and the transport provider could not
+allocate a new address.
+.SH "RELATED INFORMATION"
+.PP
+Functions:
+.BR t_alloc (3),
+.BR t_close (3),
+.BR t_open (3),
+.BR t_optmgmt (3),
+.BR t_unbind (3)
+.EQ
+delim off
+.EN

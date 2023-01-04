@@ -1,0 +1,1894 @@
+
+
+
+
+
+
+
+	   Protocol Specification for the Distributed Input System
+
+			on the X Window System, Version 11
+
+
+
+			      Masahiko Narita
+			      Takashi Fujiwara
+			      Keisuke Fukui
+
+			      Fujitsu Limited
+
+
+			      Masaki Takeuchi
+
+			      Sony Corporation
+
+
+			      Makoto Matsuyama
+			      Kazuki Nishihara
+
+			      Fuji Xerox Co., Ltd.
+
+
+			      Yasuhiro Kawai
+
+		      Oki Technosystems Laboratory, Inc.
+
+
+			      Katsuhisa Yano
+
+			      Toshiba Corporation
+
+
+			      Hideki Hiura
+			      Masayuki Seino
+
+			Nihon Sun Microsystems K.K.
+
+
+
+
+
+		Revision 3.5		 20 September, 1991
+
+
+
+		Copyright 1991 Fujitsu Limited
+		Copyright 1991 Sony Corporation
+		Copyright 1991 Fuji Xerox Co., Ltd.
+		Copyright 1991 Oki Technosystems Laboratory, Inc.
+		Copyright 1991 Toshiba Corporation
+		Copyright 1991 Nihon Sun Microsystems K.K.
+
+ Permission to use, copy, modify, distribute, and sell this documentation
+ for any purpose without fee is hereby granted, provided that the above
+ copyright notice appear in all copies and that both that copyright notice
+ and this permission notice are retained, and that the name of FUJITSU LIMITED,
+ Sony Corporation, Fuji Xerox Co., Ltd., Oki Technosystems Laboratory, Inc.,
+ Toshiba Corporation, Nihon Sun Microsystems K.K. not be used in advertising
+ or publicity pertaining to this document without specific, written prior
+ permission.
+ FUJITSU LIMITED, Sony Corporation, Fuji Xerox Co., Ltd.,
+ Oki Technosystems Laboratory, Inc., Toshiba Corporation,
+ Nihon Sun Microsystems K.K. make no representations about the suitability
+ of this document or the protocol defined in this document for any purpose.
+ It is provided "as is" without express or implied warranty.
+
+
+
+				Index
+
+	1. Overview
+	    1.1. Scope
+	    1.2. Characteristics
+	    1.3. Basic Concept
+	2. Data Structure
+	    2.1. ClientMessage
+		2.1.1. The Format from the Client to the IM server
+		2.1.2. The Format from the IM Server to the Client
+	    2.2. Property
+		2.2.1. The Property Changing by the Client
+		2.2.2. The Property Changing by the IM Server
+	3. Initial Processing in IM Server
+	    3.1. Creation of the Atom declaring the input language
+	    3.2. Declaration of the IMS Window
+	    3.3. Registration of the Attributes of the IM Server
+		3.3.1. _XIMP_VERSION
+		3.3.2. _XIMP_STYLE
+		3.3.3. _XIMP_KEYS
+		3.3.4. _XIMP_SERVERNAME
+		3.3.5. _XIMP_SERVERVERSION
+		3.3.6. _XIMP_VENDORNAME
+	4. Basic Request
+	    4.1. Forward KeyEvent
+	    4.2. Initial processing for establishing the connection
+		4.2.1. Setting the IC Informations
+		4.2.2. Request for connection establishing
+		4.2.3. Receiving the ICID
+	    4.3. The End of the Input Service Request
+	    4.4. Start of the Native Language Input Service
+		4.4.1. Start Request of the Input Service from the Client
+		4.4.2. Start Request of the Input Service from the IM Server
+	    4.5. End of the Native Language Input Service
+		4.5.1. End Request from the Client
+		4.5.2. Process End Notify from the IM Server
+	    4.6. Focus of the Input Service Windows
+	    4.7. Unfocus of the Input Service Windows
+	    4.8. Getting the Converted String
+		4.8.1. Getting the Converted String by the ClientMessage
+		4.8.2. Getting the Converted String by the Property
+	    4.9. Controlling the IM server
+	    4.10. Moving the Preedit Window
+	    4.11. Querying Attributes of IM Server
+		4.11.1. Querying Attributes Request
+		4.11.2. Querying Attributes Reply
+	    4.12. Reset of the IC
+		4.12.1. Reset IC Request
+		4.12.2. Reset IC Reply
+	    4.13. Error Notify
+		4.13.1. Error Notify from IM Server
+		4.13.2. Abnormal Termination of the IM Server
+	5. Callback Protocol
+	    5.1. GeometryCallback
+	    5.2. PreeditStartCallback
+	    5.3. PreeditDoneCallback
+	    5.4. PreeditDrawCallback
+	    5.5. PreeditCaretCallback
+	    5.6. StatusStartCallback
+	    5.7. StatusDoneCallback
+	    5.8. StatusDrawCallback
+	6. Vendor Specific Extensions Protocol
+	    6.1. Format
+	7. Acknowledgements
+
+
+1. Overview
+
+1.1. Scope
+
+    MIT X Consortium made a specification for input method,
+called "X Window System, Version 11 Input Method Specifications"
+(XIM specification). This specification provides a common interface
+to a input library of the string which depends on the native language.
+By the XIM specification, an application programmer can write
+software supporting a native language by unique source code
+without a knowledge of the implementation of this library.
+
+    As regards server-client IM system, however, there is no guarantee
+of the interoperability between heterogeneous environments such as
+the one provided by X Window System itself.
+
+    This documentation, XIM input server protocol specification,
+makes it possible that one input server connect multi-clients on
+a display. This documentation describes a implementation method
+based on the XIM specification. It is possible to refer the XIM
+specification about the API.
+
+1.2. Characteristics
+
+    The basic idea of this protocol is the followings.
+
+  - This protocol preserves the network interoperability
+   between heterogeneous environments.
+  - This protocol is able to separate the input system and
+   clients and supports a distributed system.
+  - This protocol doesn't require any special communication techniques
+   except for the X protocol.
+  - This protocol doesn't depend on a specific native language.
+  - This protocol can provide multi-language services on one display.
+  - This protocol can provide a callback method.
+  - This protocol supports both the front-end method
+   and the back-end method.
+
+1.3. Basic Concept
+
+IM Server
+	Server process which provide a native language input function.
+	This protocol supports both the front-end method and
+	back-end method.
+
+IM Client
+	Client process which asks the input service to the IM server.
+
+IMS Window
+	The window which IM server uses to receive the communications
+	from the client. In the case of the multi-lingual, there are
+	corresponding windows to language.
+
+Front-End Method
+	The method which key press passed to the IM server directly,
+	not via the client.
+
+Back-End Method
+	The method which the key press event passed to the IM server
+	through the client.
+
+Callback Method
+	The method which the application's callback routines display
+	the strings for preedit.
+
+		      +--------------------+
+		      |  Application       |
+		      |                    |
+		      | +------+           |
+		      | |      |           |
+		      | |   +--+-----------+
+		      | |   |  | Library   |
+		      +-+---+--+-----------+
+		        A      |
+		        |      V
+		        |   +--+-------------------+
+		        |   |     IM Server        |
+		        |   +-----------+----------+
+		        |               A
+	Back End Method |               | Front End Method
+		        |               |
+		      +-+---------------+--+
+		      |     X Server       |
+		      +--------------------+
+
+		Fig.1. The Flow of The Key Press Event
+
+
+2. Data Structure
+
+    This protocol uses the ClientMessage and the Property
+which has been provided by the X Window System.
+
+  - This protocol uses a ClientMessage event in the case of small data.
+  - This protocol uses a Property in the case of big data.
+
+The following sector describes about the common format of the data.
+
+2.1. ClientMessage
+
+2.1.1. The Format from the Client to the IM Server
+
+    The library function generates a input service request and sends it to
+the IM server by the ClientMessage event. The following is a list of the
+requests:
+
+	- Forward KeyEvent
+	- Open Connection Request
+	- Close Connection Request
+	- Begin Process Request
+	- End Process Request
+	- Focus Window Request
+	- Unfocus Window Request
+	- Control IM Server Request
+	- Move Preedit Window Request
+	- Reset IM Server Request
+
+    The ClientMessage event's format is the following.
+
+	--------------------------+-------------------------------------
+		Structure Member  | 	Contents
+	--------------------------+-------------------------------------
+	  int	    type	  |   ClientMessage
+	  u_long    serial	  |   Set by the X Window System
+	  Bool	    send_event	  |   Set by the X Window System
+	  Display  *display	  |   The value specified with XOpenIM
+	  Window    window	  |   IMS Window ID
+	  Atom	    message_type  |   _XIMP_PROTOCOL
+	  int	    format	  |   32
+	--------------------------+-------------------------------------
+	  long      data[5]	  |   (to be described in each request)
+	--------------------------+-------------------------------------
+
+2.1.2. The Format from the IM Server to the Client
+
+    The IM server uses the ClientMessage event to reply for the request
+from the client, to notify of a completion of processing, and to
+notify of the error.
+
+	- Send KeyEvent
+	- Return ICID
+	- Begin Process Notify
+	- End Process Notify
+	- Return Converted String
+	- Return Attributes
+	- Error Notify
+	- Callback Procedure Call
+
+    The format is shown belows.
+
+	--------------------------+-------------------------------------
+		Structure Member  | 	Contents
+	--------------------------+-------------------------------------
+	  int	    type	  |   ClientMessage
+	  u_long    serial	  |   Set by the X Window System
+	  Bool	    send_event	  |   Set by the X Window System
+	  Display  *display	  |   IM Server's Display
+	  Window    window	  |   Focus Window ID specified in IC
+	  Atom	    message_type  |   _XIMP_PROTOCOL
+	  int	    format	  |   32 or 8 (*)
+	--------------------------+-------------------------------------
+	  long      data[5]	  |   (to be described in each request)
+	--------------------------+-------------------------------------
+
+(*) The format depends on the notifying contents.
+    In regards to format 8, it specified as below.
+
+	Send KeyEvent					32
+	Return ICID				 	32
+	Begin Process Notify				32
+	End Process Notify				32
+	Return Converted String				8
+	Return Attributes				32
+	Error Notify					32
+	Callback Procedure Call				32
+
+
+2.2. Property
+
+2.2.1. The Property Changing by the Client
+
+    The client sends informations to the IM server using the "property"
+mechanism. This is performed by the XChangeProperty function with the
+corresponding data for each request.
+
+	- Connection Attributes Data
+	- Callback Request Data
+
+    The library changes the Property using the XChangeProperty function
+with the following arguments.
+
+	------------------------+--------------------------------------
+		Argument	|	Contents
+	------------------------+--------------------------------------
+	Display	*display	| Specified in XOpenIM
+	Window	window		| Client window ID specified in XIC (*)
+	Atom	property	| to be described in each request
+	Atom	type		| to be described in each request
+	int	format		| to be described in each request
+	int	mode		| PropModeAppend
+	u_char	*data		| to be described in each request
+	int	nelements	| to be described in each request
+	------------------------+--------------------------------------
+
+	(*) XIC is a resource ID of Input Context, which specified
+	in XIM specification.
+
+    The clients changes the property with the mode of PropModeAppend and
+IM server reads it with the delete mode (delete == True).
+
+2.2.2. The Property Changing by the IM Server
+
+    The IM server uses the property for notifying or sending data
+to the client.
+
+	- IM Server's Characteristics Data
+	- Converted String Data
+	- IM Server's Attributes Reply Data
+	- Callback Procedures Call Data
+
+    The IM server changes the Property using the XChangeProperty function
+with the following arguments.
+
+	------------------------+--------------------------------------
+		Argument	|	Contents
+	------------------------+--------------------------------------
+	Display	*display	| IM Server's Display
+	Window	window		| IMS Window ID
+	Atom	property	| to be described in each request
+	Atom	type		| to be described in each request
+	int	format		| to be described in each request
+	int	mode		| PropModeAppend
+	u_char	*data		| to be described in each request
+	int	nelements	| to be described in each request
+	------------------------+--------------------------------------
+
+
+3. Initial Processing in IM Server
+
+    IM server sets the following in initialization.
+
+	- Creation of the Atom declaring the language
+	- Declaration the IMS window
+	- Registration of the attributes of the IM server
+
+    And after the connection with the client, IM server processes
+the following.
+
+	- Replying corresponding to each requests
+	- Calling a callback procedure
+
+These are described below.
+
+3.1. Creation of the Atom declaring the input language
+
+    IM server registers the name of input language with the following format.
+ 
+    Basic Declaration of Input     _XIMP_<localename>
+    Detailed Declaration of Input  _XIMP_<localename>@<servername>.<screen>
+
+    <localename>	locale name
+    <servername>	IM server name
+    <screen>		screen number
+ 
+    examples:
+
+	_XIMP_ja_JP		Japanese
+	_XIMP_ja_JP@xxx.0
+	_XIMP_ko_KR		Korean
+	_XIMP_ko_KR@xxx.0
+	_XIMP_zh_CN		Chinese in Mainland China
+	_XIMP_zh_CN@xxx.0
+	_XIMP_zh_TW		Chinese in R.O.C.
+	_XIMP_zh_TW@xxx.0
+
+    IM server must declare basic declaration format at least.
+
+    This localename format is compliant with XPG3,
+using the following format.
+
+    <language>_<territory>
+
+And this protocol uses ISO 639 (language code) in "language"
+and ISO 3166 (country code) in "territory".
+
+3.2. Declaration of the IMS Window
+
+    IM server creates a window (IMS Window) depending on a input language
+for communication between clients and the IM server. An IMS window is
+declared as a selection owner of the Atom of declaring the input language.
+ 
+3.3. Registration of the Attributes of the IM Server
+ 
+    IM server registers the following information to IMS window as a
+Property. Detail information are described below.
+ 
+	_XIMP_VERSION		Protocol version
+	_XIMP_STYLE		List of supported styles
+	_XIMP_KEYS		List of keys of start/end service
+	_XIMP_SERVERNAME	Name of IM server
+	_XIMP_SERVERVERSION	Version of IM server
+	_XIMP_VENDORNAME	Name of vendor
+	_XIMP_EXTENSIONS	List of vendor extensions
+
+3.3.1. _XIMP_VERSION
+
+	Property Name	:  _XIMP_VERSION
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described protocol version
+	nelements	:  String Length of data
+
+	  +---------------------------------//----------+
+	  | XIMP.3.5					|
+	  +---------------------------------//----------+
+
+3.3.2. _XIMP_STYLE
+
+	Property Name	:  _XIMP_STYLE
+	Property Type	:  _XIMP_STYLE
+	Format		:  32
+	data		:  List of XIMStyle specified in XIM specification
+	nelements	:  The number of styles, IM server supported
+
+	  +-------------------------------------+
+	 0|					|
+	  +-------------------------------------+
+	 4|					|
+	  ~					~
+	  +-------------------------------------+
+
+3.3.3. _XIMP_KEYS
+
+	Property Name	:  _XIMP_KEYS
+	Property Type	:  _XIMP_KEYS
+	Format		:  32
+	data		:  Modifier, modifier mask and keysym for
+			   judging the key event of start/end service
+	nelements	:  The number of keys * 3
+
+	  +-------------------------------------+
+	 0| modifier				|
+	  +-------------------------------------+
+	 4| modifier_mask			|
+	  +-------------------------------------+
+	 8| keysym				|
+	  +-------------------------------------+
+	  ~					~
+	  |					|	      
+	  +-------------------------------------+
+
+3.3.4. _XIMP_SERVERNAME
+
+	Property Name	:  _XIMP_SERVERNAME
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described server name
+	nelements	:  String length of data
+
+	  +---------------------------------//----------+
+	  |						|
+	  +---------------------------------//----------+
+
+3.3.5. _XIMP_SERVERVERSION
+
+	Property Name	:  _XIMP_SERVERVERSION
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described server version
+	nelements	:  String length of data
+
+	  +---------------------------------//----------+
+	  |						|
+	  +---------------------------------//----------+
+
+3.3.6. _XIMP_VENDORNAME
+
+	Property Name	:  _XIMP_VENDORNAME
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described vendor name
+	nelements	:  String length of data
+
+	  +---------------------------------//----------+
+	  |						|
+	  +---------------------------------//----------+
+
+4.  Basic Request
+
+    There are following requests and reply between IM server and clients.
+
+  1) Request from the client to the IM server.
+
+    --------------------+-------------------------------+-------
+	Request         |	Contents		|
+    --------------------+-------------------------------+-------
+     XIMP_KEYPRESS	| Forward KeyEvent		| 4.1.
+     XIMP_CREATE	| Open Connection Request	| 4.2.1.
+     XIMP_DESTROY	| Close Connection Request	| 4.3.
+     XIMP_BEGIN		| Begin Process Request		| 4.4.1.
+     XIMP_END		| End Process Request		| 4.5.1.
+     XIMP_SETFOCUS	| Focus Window Request		| 4.6.
+     XIMP_UNSETFOCUS	| Unfocus Window Request	| 4.7.
+     XIMP_SETVALUE	| Set Value Request		| 4.9.
+     XIMP_MOVE		| Move Preedit Window Request	| 4.10.
+     XIMP_GETVALUE	| Get Value Request		| 4.11.1.
+     XIMP_RESET		| Reset IM Server Request	| 4.12.
+    --------------------+-------------------------------+--------
+
+
+  2) Reply from the IM server to the client
+
+    -----------------------+----------------------------+--------
+	Reply		   |	Contents		|
+    -----------------------+----------------------------+--------
+     XIMP_KEYPRESS   	   | Forward KeyEvent		| 4.1.
+     XIMP_CREATE_RETURN    | Return ICID		| 4.2.3.
+     XIMP_PROCESS_BEGIN    | Begin Process Notify	| 4.4.2.
+     XIMP_PROCESS_END      | End Process Notify		| 4.5.2.
+     XIMP_READPROP         | Return Converted String	| 4.8.1.
+     XIMP_GETVALUE_RETURN  | Return Attributes		| 4.11.2.
+     XIMP_RESET_RETURN     | Reset IM Server Return	| 4.12.
+     XIMP_ERROR            | Error Notify		| 4.13.1.
+    -----------------------+----------------------------+--------
+
+    Request and Reply are the integer.
+
+4.1. Forward KeyEvent
+
+    This protocol will be used in the case of a KeyPress Event. And this
+protocol is used in the both case, which the IM server working
+in the front-end method forwards a intercepted key event that isn't used
+in the IM to the client, and which clients using the IM server by the
+back-end method send the key event to the IM server.
+
+    It's easy to send the key event using the XSendEvent function, but all
+of clients can send the key event, therefore there is a security problem.
+Better application can ignore the key event sending by the XSendEvent.
+
+    To consider the security problem, clients and the IM server use a
+established channel based on this protocol to send the key event.
+By this method, it seems to be better than the simple XSendEvent method.
+
+    Data Format
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 |   XIMP_KEYPRESS                 | 
+	  +---------------------------------+
+	4 |   ICID                          |
+	  +---------------------------------+
+	8 |   keycode                       | 
+	  +---------------------------------+
+	12|   state                         | 
+	  +---------------------------------+
+
+	2 members, keycode and state, of the XKeyEvent
+	are sent in this client message.
+
+
+4.2. Initial processing for establishing the connection
+
+  1) Initial processing in the client
+
+    The client performs the following procedure before sending
+input service requests.
+
+	- Getting the IMS window id
+	- Getting the keys of start/end service
+	- Setting the attributes using in initial connection
+	- Sending the request for connection
+	- Receiving the reply of ICID from IM server
+
+  2) Processing in IM server
+
+	- Registration of the client
+	- Reply of ICID corresponding to the client
+
+
+4.2.1. Setting the IC Informations
+
+    The clients set the following Property before the connection request,
+and the IM server reads it at the connection initializing processing.
+It is possible to set or change this information even if using
+XIMP_SETVALUE.
+
+	_XIMP_VERSION		Protocol version using the client
+	_XIMP_FOCUS		Current focus window
+	_XIMP_PREEDIT		Detail information of preedit window
+	_XIMP_STATUS		Detail information of status window
+	_XIMP_PREEDITFONT	Font information of preedit window
+	_XIMP_STATUSFONT	Font information of status window
+
+    - _XIMP_VERSION Property
+
+	Property Name	:  _XIMP_VERSION
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String specifies Protocol Version
+	nelements	:  String length of data
+
+	  +---------------------------------//----------+
+	  | XIMP.3.5					|
+	  +---------------------------------//----------+
+
+    - _XIMP_FOCUS Property
+
+	Property Name	:  _XIMP_FOCUS
+	Property Type	:  XA_WINDOW
+	Format		:  32
+	data		:  Focus Window ID
+	nelements	:  String length of data
+
+	  +-------------------------------------+
+	  | Window ID				|
+	  +-------------------------------------+
+
+
+    - _XIMP_PREEDIT Property
+
+	The client registers the following Property to set the pre-edit
+    window's attributes.
+
+	Property Name	:  _XIMP_PREEDIT
+	Property Type	:  _XIMP_PREEDIT
+	Format		:  32
+	data		:  Values corresponding the XIM specification
+			   with the following format.
+	nelements	:  13
+
+	  +-------------------------------------+
+	 0| Area.x				|
+	  +-------------------------------------+
+	 4| Area.y				|
+	  +-------------------------------------+
+	 8| Area.width				|
+	  +-------------------------------------+
+	12| Area.height	 			|
+	  +-------------------------------------+
+	16| Foreground				|
+	  +-------------------------------------+
+	20| Background				|
+	  +-------------------------------------+
+	24| Colormap				|
+	  +-------------------------------------+
+	28| Bg Pixmap				|
+	  +-------------------------------------+
+	32| LineSpacing				|
+	  +-------------------------------------+
+	36| Cursor				|
+	  +-------------------------------------+
+	40| AreaNeeded.width			|
+	  +-------------------------------------+
+	44| AreaNeeded.height			|
+	  +-------------------------------------+
+	48| SpotLocation.x			|
+	  +-------------------------------------+
+	52| SpotLocation.y			|
+	  +-------------------------------------+
+
+
+    - _XIMP_STATUS Property
+
+	The client registers the following Property to set the status
+    window's attributes.
+
+	Property Name	:  _XIMP_STATUS
+	Property Type	:  _XIMP_STATUS
+	Format		:  32
+	data		:  Values corresponding the XIM specification
+			   with the following format
+	nelements	:  1
+
+	  +-------------------------------------+
+	 0| Area.x				|
+	  +-------------------------------------+
+	 4| Area.y				|
+	  +-------------------------------------+
+	 8| Area.width				|
+	  +-------------------------------------+
+	12| Area.height				|
+	  +-------------------------------------+
+	14| Foreground				|
+	  +-------------------------------------+
+	18| Background				|
+	  +-------------------------------------+
+	22| Colormap				|
+	  +-------------------------------------+
+	26| Bg Pixmap				|
+	  +-------------------------------------+
+	30| LineSpacing				|
+	  +-------------------------------------+
+	34| Cursor				|
+	  +-------------------------------------+
+	38| AreaNeeded.width			|
+	  +-------------------------------------+
+	42| AreaNeeded.height			|
+	  +-------------------------------------+
+	48| WID of status window		| (*)
+	  +-------------------------------------+
+
+    (*)	Status window id, if the client want to set it. If this ID
+	is not zero, the IM server uses it to status display.
+        (XIMP extension)
+
+    - _XIMP_PREEDITFONT Property
+
+	Property Name	:  _XIMP_PREEDITFONT
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described base font name list
+	nelements	:  string length of data
+
+	  +---------------------------------//----------+
+	  | data					|
+	  +---------------------------------//----------+
+
+    - _XIMP_STATUSFONT Property
+
+	Property Name	:  _XIMP_STATUSFONT
+	Property Type	:  XA_STRING
+	Format		:  8
+	data		:  String described base font name list
+	nelements	:  string length of data
+
+	  +---------------------------------//----------+
+	  | data					|
+	  +---------------------------------//----------+
+
+4.2.2. Request for connection establishing
+  
+    The client sends the following ClientMessage to the IMS window.
+
+	  Data Field in the XClientMessage Structure
+
+	  +-------------------------------------+
+	 0| XIMP_CREATE				|
+	  +-------------------------------------+
+	 4| Client Window ID			|
+	  +-------------------------------------+
+	 8| InputStyle				|
+	  +-------------------------------------+
+	12| mask				| (*)
+	  +-------------------------------------+
+
+      (*) The mask is the following.
+
+              Name             |   Value  |      Contents
+      -------------------------+----------+-----------------------------
+       XIMP_FOCUS_WIN_MASK     | (1L<< 0) | _XIMP_FOCUS
+       XIMP_PRE_AREA_MASK      | (1L<< 1) | _XIMP_PREEDIT Area
+       XIMP_PRE_FG_MASK        | (1L<< 2) | _XIMP_PREEDIT Foreground
+       XIMP_PRE_BG_MASK        | (1L<< 3) | _XIMP_PREEDIT Background
+       XIMP_PRE_COLORMAP_MASK  | (1L<< 4) | _XIMP_PREEDIT Colormap
+       XIMP_PRE_BGPIXMAP_MASK  | (1L<< 5) | _XIMP_PREEDIT Bg Pixmap
+       XIMP_PRE_LINESP_MASK    | (1L<< 6) | _XIMP_PREEDIT LineSpacing
+       XIMP_PRE_CURSOR_MASK    | (1L<< 7) | _XIMP_PREEDIT Cursor
+       XIMP_PRE_AREANEED_MASK  | (1L<< 8) | _XIMP_PREEDIT AreaNeeded
+       XIMP_PRE_SPOTL_MASK     | (1L<< 9) | _XIMP_PREEDIT SpotLocation
+       XIMP_STS_AREA_MASK      | (1L<<10) | _XIMP_STATUS Area
+       XIMP_STS_FG_MASK        | (1L<<11) | _XIMP_STATUS Foreground
+       XIMP_STS_BG_MASK        | (1L<<12) | _XIMP_STATUS Background
+       XIMP_STS_COLORMAP_MASK  | (1L<<13) | _XIMP_STATUS Colormap
+       XIMP_STS_BGPIXMAP_MASK  | (1L<<14) | _XIMP_STATUS Bg Pixmap
+       XIMP_STS_LINESP_MASK    | (1L<<15) | _XIMP_STATUS LineSpacing
+       XIMP_STS_CURSOR_MASK    | (1L<<16) | _XIMP_STATUS Cursor
+       XIMP_STS_AREANEED_MASK  | (1L<<17) | _XIMP_STATUS AreaNeeded
+       XIMP_STS_WINDOW_MASK    | (1L<<18) | _XIMP_STATUS WID of status
+       XIMP_PRE_FONT_MASK      | (1L<<19) | _XIMP_PREEDITFONT
+       XIMP_STS_FONT_MASK      | (1L<<20) | _XIMP_STATUSFONT
+      -------------------------+----------+-----------------------------
+
+
+4.2.3.  Receiving the ICID
+
+    The clients receive the ICID with the following format.
+If there are any errors, the clients receive the error notify
+described in below.
+
+    The ClientMessage from the IM server.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_CREATE_RETURN              |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+
+4.3. The End of the Input Service Request
+
+    The client sends the end request to the IM server with XIMP_DESTROY
+to notify the end of the input service request.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the ClientMessage to the IM server
+      for request of the ending the input service.
+    - The client performs to free the resources which created at
+      the opening.
+
+    2) Processing in the IM server
+
+    - The IM server performs to free the resources.
+    - The IM server deletes the registration of the client.
+
+    Except the ending request from the client, the IM server performs
+this closing processing in the case of getting the destroy event
+of focused window.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_DESTROY                    |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+4.4. Start of the Native Language Input Service
+
+    The client sends the request of the starting for the native language
+input service to the IM server with XIMP_BEGIN, or the IM server
+sends the starting notify to the client with XIMP_PROCESS_BEGIN.
+
+4.4.1. Start Request of the Input Service from the Client
+
+    The client sends a request of the start of input service
+with XIMP_BEGIN to the IM server.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the XIMP_BEGIN request of specified window.
+    - If the front end method, the client deletes the key press event
+      mask of that window.
+
+    2) Processing in the IM server
+
+    - If the front end method, the IM server sets the key press event
+      mask of specified window.
+    - The IM server begins the service.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_BEGIN                      |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+4.4.2. Notify a Starting of the Input Service from the IM Server
+
+    The IM server sends a notify of the start of input service
+with XIMP_PROCESS_BEGIN to the client.
+
+    o Processing Contents
+
+    1) Processing in the IM server
+
+    - The IM server sends a XIMP_PROCESS_BEGIN to the client.
+    - If the front end method, the IM server sets the key press event
+      mask of specified window.
+    - The IM server begins the service.
+
+    2) Processing in the Client
+
+    - The client receives the XIMP_PROCESS_BEGIN notify from the IM server.
+    - If the front end method, the client deletes the key press event
+      mask of that window.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PROCESS_BEGIN              |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+
+4.5. End of the Native Language Input Service
+
+    The client sends the request of the ending for the native language
+input service to the IM server with XIMP_END, or the IM server
+sends the ending notify to the client with XIMP_PROCESS_END.
+
+4.5.1. End Request from the Client
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the XIMP_END request to the IM server.
+    - If the front end method, the client sets the key press event mask.
+
+    2) Processing in the IM server
+
+    - When the IM server receives XIMP_END request, the IM server
+      performs the ending processing of the service.
+    - The IM server deletes the key press event mask of focused window,
+      if the front end method.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage to the IM server.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_END                        |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+4.5.2. Process End Notify from the IM Server
+
+    o Processing Contents
+
+    1) Processing in the IM server
+
+    - The IM server sends a XIMP_PROCESS_END to the client.
+    - If the front end method, the IM server deletes the key press event
+      mask of specified window.
+    - The IM server ends the service.
+
+    2) Processing in the Client
+
+    - The client receives the XIMP_PROCESS_END notify from the IM server.
+    - If the front end method, the client sets the key press event
+      mask of that window.
+
+    o Data Format of This ClientMessage
+
+    The IM server sends the following ClientMessage to the client.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PROCESS_END                |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+
+4.6. Focus of the Input Service Windows
+
+    The client sends the request of focus of input service windows
+with XIMP_SETFOCUS. This means corresponding IC is set focus.
+The IM server makes input service windows focus. Actually,
+the behavior of input service windows depends on the IM server.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the focus request with the ClientMessage.
+
+    2) Processing in the IM server
+
+    - The IM server makes input service windows focus.
+
+    Except this request, IM server redisplays the input service windows
+when creating these windows.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_SETFOCUS                   |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+
+4.7. Unfocus of the Input Service Windows
+
+    The client sends the request of unfocus of input service windows
+with XIMP_UNSETFOCUS. This means corresponding IC is unset focus.
+The IM server makes input service windows unfocus. Actually,
+the behavior of input service windows depends on the IM server.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the unfocus request with the ClientMessage.
+
+    2) Processing in the IM server
+
+    - The IM server makes input service windows unfocus.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_UNSETFOCUS                 |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+
+4.8. Getting the Converted String
+
+    IM server sends the converted string to the client with
+compound text.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client receives the string, and converts that compound text
+      format to the adopted format depending on the locale specified
+      in XOpenIM (which is in XIM specification).
+
+    2) Processing in the IM server
+
+    - IM server sends the resulted string by the ClientMessage or
+      the Property. This string is compound text.
+
+4.8.1. Getting the Converted String by the ClientMessage
+
+    o Data Format of This ClientMessage
+
+    The IM server sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  |0       |4 |5                                          19|
+	  +--------+--+---------------------------------------------+
+	  | ICID   |  |                                             |
+	  +--------+--+---------------------------------------------+
+	           |  |<------------------------------------------->|
+	           |  |                Compound Text                |
+	           Size
+
+    This ClientMessage's format is 8. The ICID must be processed in
+network byte order.
+
+    If a compound text is longer to be sent in one client message,
+compound text may be divide into pieces and sent by several client message.
+The following is the format in this case.
+
+	  +------+------+---------------------------------------------+
+	  | ICID | Size |  Compound Text                              |
+	  +------+------+---------------------------------------------+
+	  +------+------+---------------------------------------------+
+	  | ICID | Size |  Compound Text                              |
+	  +------+------+---------------------------------------------+
+			....
+	  +------+------+---------------------------------------------+
+	  | ICID | Size |  Compound Text                              |
+	  +------+------+---------------------------------------------+
+
+    "Size" indicates the number of rest bytes of a compound text
+which includes the piece of this compound text in that client message.
+
+4.8.2. Getting the Converted String by the Property
+
+    1) IM server makes a default property used in this communication.
+
+	Property Name	:  depends on the implementation of IM server
+	Property Type	:  COMPOUND_TEXT
+	Format		:  8
+	data		:  resulted string
+	nelements	:  elements of data
+
+	  +---------------------------------//----------+
+	  | Compound Text				|
+	  +---------------------------------//----------+
+
+    2) IM server stores the resulted compound text in this property.
+       IM server stores it to the client window by XChangeProperty
+       function with the mode PropModeAppend.
+
+    3) After that, IM server sends the client message to the client.
+
+       o Data Format
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_READPROP                   |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | Atom ID of stored property      | * stored property
+	  +---------------------------------+
+
+    4) The client receives the XIMP_READPROP client message,
+       gets the result by XGetWindowProperty function with
+       True in delete. This performs in filter.
+
+    Supplement
+       The name of this property is not specified in this protocol,
+       therefore, IM server can prepare each property per each client,
+       or each property per each ICID, or only one property.
+
+4.9. Controlling the IM server
+
+    The client sends the XIMP_SETVALUE request for changing attributes
+of the input service window which is specified in the previous XIMP_CREATE
+request or XIMP_SETVALUE request.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sets the attributes of input service windows to Property.
+    - The client sends the XIMP_SETVALUE request to the IM server
+      by the ClientMessage.
+
+    2) Processing in the IM server
+
+    - The IM server gets the attributes from the Property and
+      changes the attributes of corresponding input service window.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_SETVALUE                   |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | mask                            | (*)
+	  +---------------------------------+
+
+	(*) This mask is same as XIMP_CREATE.
+
+4.10. Moving the Preedit Window
+
+    The client sends the request for moving the location of preedit
+window with XIMP_MOVE. This is effective only if the client specified
+XIMPreeditPosition.
+
+    This makes the same result in the case of that XIMP_SETVALUE does
+only moving of the preedit window, but the communication protocol is
+more simplified, so it performs faster.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the moving request by the ClientMessage.
+
+    2) Processing in the IM server
+
+    - The IM server move the pre-edit window.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_MOVE                       |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | X coordinate                    |
+	  +---------------------------------+
+	12| Y coordinate                    |
+	  +---------------------------------+
+
+4.11. Querying Attributes of IM Server
+
+    The client can query the IC informations from the IM server with
+XIMP_GETVALUE.  Also the client can query the default attributes which
+are not specified by the client.
+
+    o Processing Contents
+
+    1) Processing in the Client
+
+    - The client sends the request of XIMP_GETVALUE
+    - The client receives the reply of XIMP_GETVALUE_RETURN,
+      and gets the information from the specified property.
+
+    2) Processing in the IM server
+
+    - The IM server sets the corresponding attributes to specified mask
+      in property, and sends the XIMP_GETVALUE_RETURN reply to the client.
+
+4.11.1. Querying Attributes Request
+
+    XIMP_GETVALUE request uses the following ClientMessage.
+
+    o Data Format of This ClientMessage
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_GETVALUE                   |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | mask                            | (*)
+	  +---------------------------------+
+
+	(*) This mask is same as XIMP_CREATE.
+
+4.11.2. Querying Attributes Reply
+
+    The IM server returns the following ClientMessage after setting
+the corresponding attributes.
+
+    o Data Format of This ClientMessage
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_GETVALUE_RETURN            |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+    The client gets the information using XGetWindowProperty with
+True as the delete argument.
+
+    IM server must use the same properties used in XIMP_CREATE.
+
+
+4.12. Reset of the IC
+
+4.12.1. Reset IC Request
+
+    The client sends the XIMP_RESET request in the X*ResetIC functions.
+This performs the processing which is described in the XIM specification.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_RESET                      |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+4.12.2. Reset IC Reply
+
+    The IM server returns a following reply corresponding with the
+XIMP_RESET request.
+
+    o Data Format of This ClientMessage
+
+    The client sends the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_RESET_RETURN               |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | Atom ID of reset data           | (*)
+	  +---------------------------------+
+
+	(*) The Atom ID of reset data.
+
+	Property Name	:  depends on the implementation of IM server
+	Property Type	:  COMPOUND_TEXT
+	Format		:  8
+	data		:  resulted string
+	nelements	:  elements of data
+
+	  +---------------------------------//----------+
+	  | Compound Text				|
+	  +---------------------------------//----------+
+
+4.13. Error Notify
+
+4.13.1. Error Notify from IM Server
+
+	In the case of the occurrence of the error at the IM server 
+processing, IM server notifies the client of an error using the 
+ClientMessage. The format of an error notify message is described
+as follows:
+
+      0	+-----------------------------------------+
+        |   XIMP_ERROR                             |
+      4 +-----------------------------------------+
+        |   ICID                                  |
+      8 +-----------------------------------------+
+        |   Error Request Number                  | (*1)
+     12 +-----------------------------------------+
+        |   Detail Error Number                   | (*2)
+     16 +-----------------------------------------+
+        |   (Vender Defined Detail Error Number)  | (*3)
+        +-----------------------------------------+
+
+
+(*1) Request number which caused this error.
+(*2) The number for error information which describes the reason
+     of the error in detail. The following is a list of Detail Error Number:
+
+	XIMP_NoError		0	/* No error */
+	XIMP_BadAlloc		1	/* memory allocation fail */
+	XIMP_BadStyle		2	/* unsupported input style */
+	XIMP_BadClientWindow	3	/* invalid client window */
+	XIMP_BadFocusWindow	4	/* invalid focus window */
+	XIMP_BadArea		5	/* invalid area */
+	XIMP_BadSpotLocation	6	/* spot location out of range of
+					   client/focus window */
+	XIMP_BadColormap	7	/* invalid colormap id */
+	XIMP_BadAtom		8	/* invalid atom id */
+	XIMP_BadPixel		9	/* invalid pixel value in input method
+					   colormap */
+	XIMP_BadPixmap		10	/* invalid pixmap value */
+	XIMP_BadName		11	/* invalid font name */
+	XIMP_BadCursor		12	/* invalid cursor id */
+
+	XIMP_BadProtocol	13	/* invalid protocol */
+	XIMP_BadProperty	14	/* invalid property */
+	XIMP_BadPropertyType	15	/* invalid property type */
+
+(*3) The vender may add its own detail error information if necessary.
+     However, the client will ignore if it does not know of the vendor
+     defined detail error.
+
+4.13.2. Abnormal Termination of the IM Server
+
+    In the case of destroying the IMS window, this library thinks
+it abnormal termination of the IM server. And this library performs
+initialization and notifys the error to the client program.
+
+
+5. Callback Protocol
+
+    The client sets XIMPreeditCallback, XIMStatusCallback,
+XIMPreeditArea or XIMStatusArea as the XIMStyle, IM server
+calls the corresponding callback.
+
+    This is performed by the sending the ClientMessage from the IM server
+to the client. The arguments of the callback functions is set in
+the data field of the ClientMessage basically, however, if it is
+impossible, it is set in the each described Property.
+Each formats of the callbacks are the following.
+Callbacks requests was following.
+
+  1) ClientMessage requests from IM server to the client
+
+  --------------------------+---------------------------+-------------
+      Requests              |   Contents                |                   
+  --------------------------+---------------------------+-------------
+   XIMP_GEOMETRY            |  GeometoryCallBack        | 5.1.
+   XIMP_PREEDITSTART        |  PreeditStartCallback     | 5.2.
+   XIMP_PREEDITDONE         |  PreeditDontCallback      | 5.3.
+   XIMP_PREEDITDRAW         |  PreeditDrawCallback      | 5.4.
+   XIMP_PREEDITDRAW_CM      |  PreeditDrawCallback      | 5.4.
+   XIMP_PREEDITDRAW_TINY    |  PreeditDrawCallback      | 5.4.
+   XIMP_PREEDITCARET        |  PreeditCaretCallback     | 5.5.
+   XIMP_STATUSSTART         |  StatusStartCallback      | 5.6.
+   XIMP_STATUSDONE          |  StatusDoneCallback       | 5.7.
+   XIMP_STATUSDRAW          |  StatusDrawCallback       | 5.8.
+   XIMP_STATUSDRAW_CM       |  StatusDrawCallback       | 5.8.
+  --------------------------+---------------------------+-------------
+
+  2) Reply from the client to the IM server
+
+  --------------------------+---------------------------+-------------
+      Reply                 |    Contents               |
+  --------------------------+---------------------------+-------------
+   XIMP_PREEDITSTART_RETURN |  PreeditStartCAllback     | 5.2.
+   XIMP_PREEDITCARET_RETURN |  PreeditCaretCallback     | 5.5.
+  --------------------------+---------------------------+-------------
+
+5.1. Geometry Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_GEOMETRY                   |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+  
+5.2. Preedit Start Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITSTART               |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+
+    And the return value of the callback function is sent
+to the IM server by the following ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITSTART_RETURN        |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | Return Value                    |
+	  +---------------------------------+
+  
+5.3. Preedit Done Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITDONE                |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+  
+5.4. Preedit Draw Callback
+
+Protocols using ClientMessages and ones using propertys.
+These protocols are used together or independently.
+
+1) Protocol format for using Property.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITDRAW                |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | Atom 1.                         |
+	  +---------------------------------+
+	12| Atom 2.                         |
+	  +---------------------------------+
+	16| Atom 3.                         |
+	  +---------------------------------+
+
+	Each Atom 1, 2 and 3 specifies the following each properties.
+
+Atom 1.
+	Property Name	:  _XIMP_CALLBACKS_#
+			    (# is any number, This name is recommendation)
+	Window		:  IMS window
+	Property Type	:  _XIMP_PREEDIT_DRAW_DATA
+	Format		:  32
+	data		:  Values corresponding the XIM specification
+			   with the following format.
+	nelements	:  3
+
+	  +---------------------------------+
+	0 | caret                           |
+	  +---------------------------------+
+	4 | chg_first                       |
+	  +---------------------------------+
+	8 | chg_length                      |
+	  +---------------------------------+
+
+Atom 2.
+	Property Name	:  _XIMP_CALLBACKS_#
+			    (# is any number, This name is recommendation)
+	Window		:  IMS window
+	Property Type	:  COMPOUND_TEXT
+	Format		:  8
+	data		:  Contents of pre-edit
+	nelements	:  elements of data
+
+	  +--------------------------------//-----------+
+	0 | string                                      |
+	  +--------------------------------//-----------+
+
+Atom 3.
+	Property Name	:  _XIMP_CALLBACKS_#
+			    (# is any number, This name is a recommendation)
+	Window		:  IMS window
+	Property Type	:  _XIMP_FEEDBACKS
+	Format		:  32
+	data		:  attributes of each characters
+				in the contents of pre-edit
+	nelements	:  elements of data
+
+	  +---------------------------------//----------+
+	0 | feedback                                    |
+	  +---------------------------------//----------+
+
+2) Protocol format for using ClientMessages (part 1.)
+
+    This protocol was realized by two ClientMessages.
+The IM server does not intrude into this two ClientMessages.
+
+    o Format for First ClientMessage
+
+          Data Field in the XClientMessage Structure
+
+          +-------------------------------------+
+         0| XIMP_PREEDITDRAW_CM                 |
+          +-------------------------------------+
+         4| ICID                                |
+          +-------------------+-----------------+
+         8|PreeditDrawCBStatus|       caret     |
+          +-------------------+-----------------+
+        12| chg_first         |  chg_length     |
+          +-------------------+-----------------+
+        16| feedback                            |
+          +-------------------------------------+
+
+    Note 1.
+	format == 32, and chg_first, chg_length are into 12-15 byte
+	field, they are using 16 bits and they are Network Order.
+    Note 2.
+	The PreeditDrawCBStatus is a BIT array of follows.
+	0x0001 no_text:	if set, string == NULL and no following client message,
+			else string exists.
+	0x0002 no_feedback:
+			if set, feedback == NULL,
+			else feedback exists.
+	0x0004 feedbacks_via_property:
+			if set, feedback field has atom# that indicates the
+			property that has XIMFeedback values of string field,
+			else feedback field has one XIMFeedback value
+			for all of the characters in string field. 
+    Note 3.
+	The feedbacks_via_property bit == 0  means the XIMFeedback value of
+	all characters are same.
+	If the string has more than two XIMFeedback values,
+	it must be divided. Therefore, one protocol includes
+	one XIMFeedback value.
+
+    o Format for Second ClientMessage
+
+       Data Field in the XClientMessage Structure
+       
+       |0   |4  5  6  7  8 |                                          19|
+       +----+--+--+--+--+--+-----------------------------------------+--+
+       |ICID|  |  |  |  |  |                                         |  |
+       +----+--+--+--+--+--+-----------------------------------------+--+
+            |  |<------------------------------------------------------>|
+            |  |                 Compound Text                          |
+             Size                                                        
+             
+    format == 8, ICID is set in the 0-3 byte field using Network Order.
+ 
+3) Protocol format for using ClientMessages (part 2.)
+
+    This protocol is realized by only one ClientMessage. This is used when
+    a tiny change is made in a preedit draw data.
+
+          Data Field in the XClientMessage Structure
+
+          +-------------------------------------+
+         0| XIMP_PREEDITDRAW_TINY               |
+          +-------------------------------------+
+         4| ICID                                |
+          +---------------+------------+--------+
+         8| chg_first     | chg_length | length |
+          +---------------+------------+--------+
+        12| string (COMPOUND TEXT)              |
+          +-------------------+-----------------+
+        16| string (continued.)                 |
+          +-------------------------------------+
+
+    Note 1.
+	format == 32, and chg_first, chg_length, length are stored into 
+	8-11 byte field, and chg_first is represented by 16bits,
+	chg_length, length are represented by 8 bits, 
+	and they are Network Order.
+    Note 2.
+	New caret position is the end of changed area of preedit string.
+	And caret value is omitted because it can be calculated by
+	information in this protocol.
+    Note 3.
+	This protocol implies the feedback field == NULL.
+    Note 4.
+	String is stored into 12-15 and 16-19 byte field, and using 8 bits 
+	format, it is Network Order.
+
+5.5. Preedit Caret Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITCARET               |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | position                        |
+	  +---------------------------------+
+	12| direction                       |
+	  +---------------------------------+
+	16| style                           |
+	  +---------------------------------+
+ 
+	direction:
+
+	    XIMForwardChar		0
+	    XIMBackwardChar		1
+	    XIMForwardWord		2
+	    XIMBackwardWord		3
+	    XIMCaretUp			4
+	    XIMCaretDown		5
+	    XIMNextLine			6
+	    XIMPreviousLine		7
+	    XIMLineStart		8
+	    XIMLineEnd			9
+	    XIMAbsolutePosition		10
+	    XIMDontChange		11
+
+	style:
+
+	    XIMInvisible		0
+	    XIMPrimary			1
+	    XIMSecondary		2
+
+    The return value of callback function is sent by the
+client message to the IM server with the following format.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_PREEDITCARET_RETURN        |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | return value (new position)     |
+	  +---------------------------------+
+
+5.6. Status Start Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+        0 | XIMP_STATUSSTART                |
+	  +---------------------------------+
+        4 | ICID                            |
+	  +---------------------------------+
+  
+5.7. Status Done Callback
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_STATUSDONE                 |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+  
+5.8. Status Draw Callback
+
+    Protocol using ClientMessage and ones using propertys.
+These protocols are use together or independently.
+
+    1) Protocol Format for Using a Property.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_STATUSDRAW                 |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | type                            |
+	  +---------------------------------+
+	12| bitmap or Atom 1                |
+	  +---------------------------------+
+	16| NULL or Atom 2.                 |
+	  +---------------------------------+
+ 
+    Type is defined as the following.
+
+	0 : Text Type
+	1 : Bitmap Type
+
+    bitmap or Atom 1.
+	type == 0 : The Atom id specifies the property including
+		    the string using to display in status area.
+	type == 1 : The ID of bitmap to display in status area.
+
+    NULL or Atom 2.
+	type == 0 : The Atom id specified the property including
+		    the attributes of each characters.
+	type == 1 : Not used.
+
+    Atom 1.
+	Property Name	:  _XIMP_CALLBACKS_#
+			    (# is any number, This name is recommendation)
+	Window		:  IMS window
+	Property Type	:  COMPOUND_TEXT
+	Format		:  8
+	data		:  string to display in status area
+	nelements	:  elements of data
+
+	  +----------------------------//---------+
+	0 | string                                |
+	  +----------------------------//---------+
+
+    Atom 2.
+	Property Name	:  _XIMP_CALLBACKS_#
+			    (# is any number, This name is recommendation)
+	Window		:  IMS window
+	Property Type	:  _XIMP_FEEDBACKS
+	Format		:  32
+	data		:  attributes of each characters
+	nelements	:  elements of data
+
+	  +----------------------------//---------+
+	0 | feedback                              |
+	  +----------------------------//---------+
+
+    2) Protocol format for using ClientMessages.
+
+	This protocol was provided for use two ClientMessages
+    The IM server does not intrude into this two ClientMessages.
+
+    o Format for first ClientMessage.
+
+          Data Field in the XClientMessage Structure
+          
+          +------------------------------------+
+         0| XIMP_STATUSDRAW_CM                 |
+          +------------------------------------+
+         4| ICID                               |
+          +------------------------------------+
+         8| type                               |
+          +------------------------------------+
+        12| bitmap or feedback                 |
+          +------------------------------------+
+
+    Note 1.
+	format == 32
+    Note 2.
+	The feedback field has one XIMFeedback value for all of
+	the characters which are contained in the following ClientMessage.
+	This means the XIMFeedback value of all characters are same.
+	If the string has more than two XIMFeedback values,
+	it must be divided. Therefore, one protocol includes
+	one XIMFeedback value.
+
+    o Format for second ClientMessage
+ 
+        Data Field in the XClientMessage Structure
+ 
+        |0   |4  5  6  7  8 |                                          19|
+        +----+--+--+--+--+--+-----------------------------------------+--+
+        |ICID|  |  |  |  |  |                                         |  |
+        +----+--+--+--+--+--+-----------------------------------------+--+
+             |  |<------------------------------------------------------>|
+             |  |                   Compound Text                        |
+              Size
+
+    format == 8, ICID was setting in the 0-3 byte field using Network Order.
+ 
+  
+6. Vendor Specific Extensions Protocol
+ 
+    Vendor dependent extensions mean the IM server functions which
+is impossible to include in the common interface depending the
+situation of the application or the each native language.
+Therefore, it depends on the implementation of the IM server.
+The client must perform the minimum processing even if the
+IM server doesn't have a extension.
+
+    Specific usage is the following examples.
+
+    - Setting the status window.
+    - Selecting the front-end method or back-end method.
+    - Selecting the mode of listing candidates.
+    - Switching the language on IC.
+    - Setting the input mode depending on the native language.
+      (e.g. latin-KANA conversion mode, alphanumeric mode).
+
+6.1. Format
+
+    The Atom name of the vendor dependent function is defined as
+the following rules.
+
+	<Property Name>	:: _XIMP_EXT_<Vendor Name>_<Function Name>
+
+	  <Vendor Name> :: Specifies the vendor name as a string
+	<Function Name> :: Specifies the function name as a string
+
+    The IM server registers the vendor extensions to the IMS window
+with the following format.
+ 
+ 	Property Name	_XIMP_EXTENSIONS
+ 	Type		_XIMP_EXTENSIONS
+ 	Format		32
+ 	data		List of the Atom of the vendor extensions
+
+    If the above Property is declared,
+client messages in the following format can be used in order to
+invoke the vendor specific functions.
+IM server can responds to it with the same format ClientMessage.
+
+	  Data Field in the XClientMessage Structure
+
+	  +---------------------------------+
+	0 | XIMP_EXTENSION                  |
+	  +---------------------------------+
+	4 | ICID                            |
+	  +---------------------------------+
+	8 | Atom ID of Vendor Extension     |
+	  +---------------------------------+
+	12| data                            |
+	  +---------------------------------+
+	16| data                            |
+	  +---------------------------------+
+ 
+	The format of data fields is not restricted.
+
+Note.
+    Any IM server with vendor specific must not send the ClientMessage
+to the library that does not expect the vendor specific.
+
+
+7. Acknowledgements
+
+    The following people are participated to draft and review this document.
+
+C.Ko (III)
+S.Hung (CCL/ITRI)
+D.Lee (KAIST)
+J.Yoon (KAIST)
+S.Whang (KAIST)
+K.Kudo (USLP)
+
+Special thanks for meeting cooperation,
+
+G.Watson (UI)
+Y.Hiratsuka (UIAP)
+

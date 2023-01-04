@@ -1,0 +1,859 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: fsdb.8,v $ $Revision: 3.5.5.2 $ (DEC) $Date: 1993/09/30 20:22:01 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 Release 1.0.4
+.\" 
+.\" Copyright (c) 1988 Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" This code is derived from software contributed to Berkeley by
+.\" Computer Consoles Inc.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted
+.\" provided that the above copyright notice and this paragraph are
+.\" duplicated in all such forms and that any documentation,
+.\" advertising materials, and other materials related to such
+.\" distribution and use acknowledge that the software was developed
+.\" by the University of California, Berkeley.  The name of the
+.\" University may not be used to endorse or promote products derived
+.\" from this software without specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+.\" IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+.\" WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)fsdb.8	6.2 (Berkeley) 7/9/88
+.\" 
+.\"build rmifdef
+.TH fsdb 8
+.SH NAME
+\*Lfsdb\*O \- File system debugger
+.SH SYNOPSIS
+.PP
+.sS
+\*L/usr/sbin/fsdb\*O [\*Voptions\*O]  \*Vspecial\*L
+.sE 
+.SH DESCRIPTION
+.PP
+.iX "fsdb"
+Since
+\*Lfsdb\*O
+reads the disk raw,
+it is able to circumvent normal
+file system security.
+Extreme caution is advised
+in determining its availability
+on the system.
+.\" Begin Digital-specific information CORRECTION
+.\" Changed 600 --> 500 per mail from Steve Strange.
+Suggested permissions are 500,
+.\" End Digital-specific information CORRECTION
+owned by \*Lbin\*O.
+.PP 
+You must
+be \*Lroot\*O
+to use this command.
+.PP 
+The
+\*Lfsdb\*O
+command can be used
+to repair
+a damaged file system
+after a crash.
+It has conversions
+to translate block and i-numbers
+into their corresponding disk addresses.
+Also included are mnemonic offsets
+to access different parts
+of an inode.
+These greatly simplify the process
+of correcting control block entries
+or descending the file system tree.
+.PP 
+The
+\*Lfsdb\*O
+command contains several error-checking routines
+to verify inode and block addresses.
+These can be disabled if necessary
+by invoking
+\*Lfsdb\*O
+with the
+\*L\-o\*O
+option.
+.PP 
+The
+\*Lfsdb\*O
+command reads a block at a time
+and works with raw as well as block
+I/O.
+A buffer management routine
+is used to retain commonly used
+blocks of data
+in order to reduce the number of read system calls.
+All assignment operations result
+in an immediate write-through
+of the corresponding block.
+Note that in order to modify
+any portion of the disk,
+\*Lfsdb\*O
+must be invoked with the
+\*L-w\*O
+option.
+.PP 
+Wherever possible,
+\*Ladb-\*Olike
+syntax was adopted
+to promote the use
+of
+\*Lfsdb\*O
+through familiarity.
+.PP 
+Numbers are considered hexadecimal by default.
+However, you have control over how data is
+to be displayed
+or accepted.
+The
+\*Lbase\*O
+command displays
+or sets the input/output base.
+Once set,
+all input will default to this base
+and all output will be shown in this base.
+The base can be overridden temporarily for input by
+preceding hexadecimal numbers with '0x', preceding
+decimal numbers with '0t', or
+octal numbers with '0'.
+Hexadecimal numbers beginning with a-f or A-F must
+be preceded with '0x'
+to distinguish them from commands.
+.PP 
+.PP 
+Disk addressing by
+\*Lfsdb\*O
+is at the byte level.
+However,
+\*Lfsdb\*O
+offers many commands to convert
+a desired inode, directory entry,
+block, superblock etc. to a
+byte address.
+Once the address has been calculated,
+\*Lfsdb\*O
+will record the result in
+\*Ldot\*O.
+.PP 
+Several global values are maintained by
+\*Lfsdb\*O:
+The current base (referred to as
+\*Lbase\*O);
+the current address (referred to as
+\*Ldot\*O);
+the current inode (referred to as
+\*Linode\*O);
+the current count (referred to as
+\*Lcount\*O);
+and the current type (referred to as
+\*Ltype\*O).
+Most commands use the preset value of
+\*Ldot\*O
+in their execution.
+For example:
+.iS
+> 2:inode
+.iE 
+will first set the value of \*Ldot\*O
+to 2, ':' will alert the start of a command,
+and the
+\*Linode\*O
+command will set
+\*Linode\*O
+to 2.
+A count is specified after a ','.
+Once set,
+\*Lcount\*O
+will remain at this value
+until a new command is encountered
+which will then reset the value back to 1 (the default).
+So, if
+.iS
+> 2000,400/X
+.iE 
+is typed,
+400 hex longs are listed
+from 2000,
+and when completed,
+the value of
+\*Ldot\*O
+will be 2000 + 400 * sizeof (long).
+If you press the
+.kY Return
+key,
+the output routine uses the
+current values of
+\*Ldot\*O,
+\*Lcount\*O,
+and
+\*Ltype\*O
+and displays 400 more hex longs.
+An asterisk (*) causes the entire block to
+be displayed.
+.PP 
+End of fragment, block and file are maintained by
+\*Lfsdb\*O.
+When displaying data as fragments or blocks,
+an error message is displayed when the end of fragment
+or block is reached.
+When displaying data using the
+\*Ldb\*O,
+\*Lib\*O,
+\*Vdirectory,\*O
+or
+\*Lfile\*O
+commands, an error message is displayed if the
+end of file is reached.
+This is mainly needed
+to avoid passing the
+end of a directory or file
+and getting unknown and unwanted results.
+.PP 
+An example showing several commands and
+the use of
+.kY Return
+follows:
+.iS
+> 2:ino; 0:dir?d
+.iE
+or
+.iS
+> 2:ino; 0:db:block?d
+.iE 
+The two examples are synonymous for getting to the first directory
+entry of the root of the file system.  Once there,
+subsequent use of the
+.kY Return
+key (or +, -) advances to subsequent
+entries.
+The following display is again synonymous:
+.iS
+> 2:inode; :ls
+.iE
+or
+.iS
+> :ls /
+.iE 
+.SH FLAGS
+.PP
+.VL
+.LI "\*L-?\*O"
+Display usage
+.LI "\*L-o\*O"
+Override some error conditions
+.LI "\*L-p'\*Vstring\*L'\*O"
+Set prompt to \*Vstring\*O
+.LI "\*L-w\*O"
+Open for write
+.LE 
+.SH EXAMPLES
+.PP
+.VL
+.LI "\*L> 2000+400%(20+20)=D\*O"
+will display 2010 in decimal (use of
+\*Vfsdb\*O
+as a calculator
+for complex arithmetic).
+.LI "\*L> 386:ino?i\*O"
+display i-number 386 in an inode format.
+This now becomes the current
+\*Vinode\*O.
+.LI "\*L> :ln=4\*O"
+changes the link count for the
+current
+\*Vinode\*O
+to 4.
+.LI "\*L> :ln=+1\*O"
+increments the link count by 1.
+.LI "\*L> :ct=X\*O"
+display the creation time as a hexadecimal long.
+.LI "\*L> :mt=t\*O"
+display the modification time in time format.
+.LI "\*L> 0:file/c\*O"
+displays, in
+\*VASCII\*O,
+block zero of the file associated
+with the
+current
+\*Vinode\*O.
+.LI "\*L> 2:ino,*?d\*O"
+displays the first blocks worth of directory entries for
+the root inode of this file system.
+It will stop prematurely if the eof is reached.
+.LI "\*L> 5:dir:inode; 0:file,*/c\*O"
+changes the current inode to that
+associated with the 5th directory entry
+(numbered from zero)
+of the current
+\*Vinode.\*O
+The first logical block of the file
+is then displayed in
+\*VASCII\*O.
+.LI "\*L> :sb\*O"
+displays the superblock of this file system.
+.LI "\*L> 1:cg?c\*O"
+displays cylinder group information and summary
+for cylinder group 1.
+.LI "\*L> 2:inode; 7:dir=3\*O"
+changes the i-number for the
+seventh directory slot in the root directory to 3.
+.LI "\*L> 7:dir:nm="name"\*O"
+changes the name field
+in the directory slot to
+\*Vname\*O.
+.LI "\*L> 2:db:block,*?d\*O"
+displays the third block of the current
+\*Vinode\*O
+as directory entries.
+.LI "\*L> 3c3:fragment,20:fill=0x20\*O"
+get fragment 3c3 and fill 20
+\*Vtype\*O
+elements
+with 0x20.
+.LI "\*L> 2050=0xffff\*O"
+set the contents of address 2050 to 0xffffffff.
+0xffffffff may be truncated depending on the current
+\*Vtype.\*O
+.LI "\*L> 1c92434="this is some text"\*O"
+will place the
+ASCII
+for the string at
+1c92434.
+.LE 
+.SS Expressions
+.PP 
+The symbols recognized by
+\*Lfsdb\*O
+are:
+.VL
+.LI "\*L<Return>\*O"
+update the value of
+\*Ldot\*O
+by the current value of
+\*Vtype\*O
+and display using the current value of
+\*Vcount\*O.
+.LI "\*V#\*O"
+numeric expressions may be composed of +, -, *, and % operators
+(evaluated left to right) and may use parentheses.  Once evaluated,
+the value of
+\*Ldot\*O
+is updated.
+.LI "\*L,\*O\*Vcount\*O" 
+count indicator.  The global value of
+\*Vcount\*O
+will be updated to
+\*Vcount\*O.
+The value of
+\*Vcount\*O
+remains until a new command is run.
+A count specifier of '*' will attempt to show the
+information of a block.
+The default for
+\*Vcount\*O
+is 1.
+.LI "\*L?\*O \*Vf\*O"
+display in structured style with format
+specifier
+\*Vf\*O
+.LI "\*L/\*O\*Vf\*O" 
+display in unstructured style with format
+specifier
+\*Vf\*O
+.LI "\*L.\*O"
+the value of
+\*Ldot\*O.
+.LI "\*L+\*O\*Ve\*O"
+increment the value of
+\*Ldot\*O
+by the expression
+\*Ve\*O.
+The amount actually incremented is dependent
+on the size of
+\*Vtype\*O:
+.iS
+dot = dot + e * sizeof (type)
+.iE
+The default for
+\*Ve\*O
+is 1.
+.LI "\*L-\*O\*Ve\*O "
+decrement the value of
+\*Ldot\*O
+by the expression
+\*Ve\*O
+(see +).
+.LI "\*L*\*O\*Ve\*O "
+multiply the value of
+\*Ldot\*O
+by the expression
+\*Ve.\*O
+Multiplication and division do not
+use
+\*Vtype.\*O
+In the above calculation of
+\*Ldot\*O,
+consider the
+size of (\*Vtype\*O)
+to be 1.
+.LI \*L%\*O\*Ve\*O "
+divide the value of"
+\*Ldot\*O
+by the expression
+\*Ve\*O
+(see *).
+.LI "\*L<\*O\*Vname\*O "
+restore an address saved in register
+\*Vname\*O.
+\*Vname\*O
+must be a single letter or digit.
+.LI "\*L>\*O \*Vname\*O" 
+save an address in register
+\*Vname\*O.
+\*Vname\*O
+must be a single letter or digit.
+.LI "\*L=\*O \*Vf\*O " 
+display indicator.
+If
+\*Vf\*O
+is a legitimate format specifier,
+then the value of
+\*Ldot\*O
+is displayed using
+format specifier
+\*Vf\*O.
+Otherwise,
+assignment is assumed.
+.LI "\*L= [\*Vs\*L] [\*Ve\*L]\*O"
+assignment indicator.
+The address pointed to by
+\*Ldot\*O
+has its contents changed to the value of the
+expression
+\*Ve\*O
+or to the
+ASCII
+representation of the
+quoted ("") string
+\*Vs\*O.
+This may be useful for changing
+directory names or
+ASCII
+file information.
+.LI "\*L=+\*O \*Ve\*O " 
+incremental assignment.
+The address pointed to by
+\*Ldot\*O
+has its contents incremented by expression
+\*Ve\*O.
+.LI "\*L=-\*O \*Ve\*O"
+decremental assignment.
+The address pointed to by
+\*Ldot\*O
+has its contents decremented by expression
+\*Ve\*O.
+.LE 
+.SS Commands
+.PP 
+A command must be prefixed by a ':' character.
+Only enough letters of the command
+to uniquely
+distinguish it are needed.
+Multiple commands may be entered
+on one line by separating
+them by a space, tab or ';'.
+.PP 
+In order to view a potentially
+unmounted disk in a reasonable
+manner,
+\*Lfsdb\*O
+offers the
+\*Lcd\*O,
+\*Lpwd\*O,
+\*Lls\*O,
+and
+\*Lfind\*O
+commands.
+The functionality of these
+commands substantially matches those of
+its
+\*AUNIX\*O
+counterparts.
+The '*', '?', and '[-]' wild card
+characters are available.
+.VL
+.LI "\*Lbase=b\*O"
+display or set base.  As stated above,
+all input and output is governed by
+the current
+\*Lbase\*O.
+If the '=b' is left off,
+the current
+\*Lbase\*O
+is displayed.
+Otherwise, the current
+\*Lbase\*O
+is set
+to
+\*Vb\*O.
+Note that this is interpreted
+using the old value of
+\*Lbase\*O,
+so to ensure correctness use the '0', '0t', or '0x'
+prefix when changing the
+\*Lbase\*O.
+The default for
+\*Lbase\*O
+is hexadecimal.
+.LI "\*Lblock\*O"
+convert the value of
+\*Ldot\*O
+to a block address.
+.LI "\*Lcd\*O \*Vdir\*O "
+change the current directory
+to directory
+\*Vdir\*O.
+The current values of
+\*Vinode\*O
+and
+\*Ldot\*O
+are also updated.
+If no
+\*Vdir\*O
+is specified,
+then change directories to
+inode 2 ("/").
+.LI "\*Lcg\*O"
+convert the value of
+\*Vdot\*O
+to a cylinder group.
+.LI "\*Ldirectory\*O"
+If the current
+\*Vinode\*O
+is a directory,
+then the value of
+\*Vdot\*O
+is converted to a directory
+slot offset in that directory
+and
+\*Vdot\*O
+now points to
+this entry.
+.LI "\*Lfile\*O"
+the value of
+\*Vdot\*O
+is taken as
+a relative block count from the
+beginning of the file.
+The value of
+\*Vdot\*O
+is updated to the first byte
+of this block.\*O
+.LI "\*Lfind\*O \*Vdir\*L [-name \*Vn\*L] [-inum \*Vi\*L]\*O"
+find files by name or i-number.
+\*Vfind\*O
+recursively searches
+directory
+\*Vdir\*O
+and below for filenames whose
+i-number matches
+\*Vi\*O
+or whose name
+matches pattern
+\*Vn\*O.
+Note that only one of the two options
+(-name or -inum)
+may be used at one time.
+Also, the -print is not needed or
+accepted.
+.LI "\*Lfill=\*O\*Vp\*O"
+fill an area of disk with pattern
+\*Vp.\*O
+The area of disk
+is delimited by
+\*Vdot\*O
+and
+\*Vcount\*O.
+.LI "\*Lfragment\*O"
+convert the value of
+\*Vdot\*O
+to
+a fragment address.
+The only difference between the
+\*Vfragment\*O
+command and the
+\*Vblock\*O
+command is the amount that
+is able to be displayed.
+.LI "\*Linode\*O"
+convert the value of
+\*Vdot\*O
+to an inode address.
+If successful,
+the current value of
+\*Vinode\*O
+will be updated as well as
+the value of
+\*Vdot.\*O
+As a convenient shorthand,
+if ':inode' appears at the
+beginning of the line,
+the value of
+\*Vdot\*O
+is set to the current
+\*Vinode\*O
+and that inode is displayed
+in inode format.
+.LI "\*Lls [-R] [-l] \*Vpat1 pat2 ...\*O" 
+list directories or files.
+If no file is specified,
+the current directory is assumed.
+Either or both of the
+options may be used (but, if used,
+\*Vmust\*O
+be specified before the
+filename specifiers).
+Also, as stated above,
+wild card characters are
+available and multiple
+arguments may be given.
+The long listing shows only
+the i-number and the name;
+use the
+\*Vinode\*O
+command with '?i'
+to get more information.
+.LI "\*Loverride\*O"
+toggle the value of override.
+Some error conditions may be
+overridden
+if override is toggled on.
+.LI "\*Lprompt\*O \*Vp\*O"
+change the fsdb prompt to
+\*Vp.\*O
+\*Vp\*O
+must be surrounded by (")s.
+.LI "\*Lpwd\*O"
+display the current working directory.
+.LI "\*Lquit\*O"
+quit
+\*Vfsdb\*O.
+.LI "\*Lsb\*O"
+the value of
+\*Vdot\*O
+is taken as a cylinder group
+number and then converted to
+the address of the superblock
+in that cylinder group.
+As a shorthand, ':sb' at
+the beginning of a line
+will set the value of
+\*Vdot\*O
+to
+\*Vthe\*O
+superblock and display it
+in superblock format.
+.LI "\*L!\*O"
+escape to shell
+.LE 
+.SS Inode Commands
+.PP
+In addition to the above commands,
+there are several commands that deal with inode
+fields and operate directly on the current
+\*Vinode\*O
+(they still require the ':').
+They may be used to more easily display
+or change the particular fields.
+.VL
+.LE 
+.PP 
+The value of
+\*Vdot\*O
+is only used by the ':db'
+and ':ib' commands.
+Upon completion of the command,
+the value of
+\*Vdot\*O
+is changed to point to
+that particular field.
+For example,
+.iS
+> :ln=+1
+.iE 
+would
+increment the link count of the current
+\*Vinode\*O
+and set the value of
+\*Vdot\*O
+to the address of the link
+count field.
+.VL
+.LI "\*Lat\*O"
+access time.
+.LI "\*Lbs\*O"
+block size.
+.LI "\*Lct\*O"
+creation time.
+.LI "\*Ldb\*O"
+use the current value of
+\*Vdot\*O
+as a direct block index,
+where direct blocks number from
+0 - 11.
+In order to display the block
+itself, you need to 'pipe' this
+result into the
+\*Vblock\*O
+or
+\*Vfragment\*O
+command.
+For example,
+.iS
+> 1:db:block,20/X
+.iE
+would get the contents of
+data block field 1 from the inode and
+convert it to a block address.
+20 longs are then displayed in hexadecimal
+(see Formatted Output section).
+.LI "\*Lgid\*O"
+group id.
+.LI "\*Lib\*O"
+use the current value of
+\*Vdot\*O
+as an indirect block index
+where indirect blocks number from
+0 - 2.
+This will only get the indirect block itself
+(the block containing the pointers to the actual blocks).
+Use the
+\*Vfile\*O
+command and start at block 12 to get to the actual
+blocks.
+.LI "\*Lln\*O"
+link count.
+.LI "\*Lmt\*O"
+modification time.
+.LI "\*Lmd\*O"
+mode.
+.LI "\*Lmaj\*O"
+major device number.
+.LI "\*Lmin\*O"
+minor device number.
+.LI "\*Lnm\*O"
+although listed here,
+this command actually
+operates on the directory
+name field.
+Once poised at the desired
+directory entry (using the
+\*Vdirectory\*O
+command),
+this command will allow
+you to change or display
+the directory name.
+For example,
+.iS
+> 7:dir:nm="foo"
+.iE
+will get the 7th directory
+entry of the current
+\*Vinode\*O
+and change its name to foo.
+Note that names
+cannot be made larger than the
+field is set up for.
+If an attempt is made,
+the string is truncated to fit
+and a warning message to this
+effect is displayed.
+.LI "\*Lsz\*O"
+file size.
+.LI "\*Luid\*O"
+user id.
+.LE 
+.SS Formatted Output
+.PP 
+There are two styles
+and many format types.
+The two styles are structured and
+unstructured.
+Structured output is used to display
+inodes, directories, superblocks and the
+like.
+Unstructured just displays
+raw data.
+The following table shows the
+different ways of displaying:
+.VL
+.LI "\*L?\*O"
+.VL
+.LI "\*Lc\*O"
+display as cylinder groups
+.LI "\*Li\*O"
+display as inodes
+.LI "\*Ld\*O"
+display as directories
+.LI "\*Ls\*O"
+display as superblocks
+.LE
+.LI "\*L/\*O"
+.VL
+.LI "\*Lb\*O"
+display as bytes
+.LI "\*Lc\*O"
+display as characters
+.LI "\*Lo O\*O"
+display as octal shorts or longs
+.LI "\*Ld D\*O"
+display as decimal shorts or longs
+.LI "\*Lx X\*O"
+display as hexadecimal shorts or longs
+.LE
+.LE 
+.PP 
+The format specifier immediately follows
+the '/' or '?' character.
+The values displayed by '/b' and all '?'
+formats are displayed in the current
+\*Vbase\*O.
+Also,
+\*Vtype\*O
+is appropriately updated
+upon completion.
+.SH FILES
+.PP
+.VL
+.LI "\*L/usr/sbin/fsdb\*O"
+Specifies the command path
+.LE 
+.SH RELATED INFORMATION
+.PP
+Commands:  \*Lfsck\*O(8)
+.EQ
+delim off
+.EN

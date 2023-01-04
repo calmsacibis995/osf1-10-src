@@ -1,0 +1,86 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.14 91/09/08 14:13:39 rws Exp $
+#undef ServerDefines
+#include <Server.tmpl>
+#define	IHaveSubdirs
+
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)' 'CC=$(CC)' 'CCOPTIONS=$(CCOPTIONS)'
+
+CC = ServerCcCmd
+CCOPTIONS = ServerCCOptions
+STD_DEFINES = ServerDefines
+CDEBUGFLAGS = ServerCDebugFlags
+
+OSDIR = os
+OSLIB = $(OSDIR)/libos.a
+DIFSDIR = difs
+DIFSLIB = $(DIFSDIR)/libdifs.a
+FONTLIBDIR = $(FONTSRC)/lib/font
+FONTLIB = $(FONTLIBDIR)/libfont.a
+SYSLIBS =
+#if defined(HPArchitecture) || defined(i386SVR3Architecture)
+BSDEMUL = $(LIBSRC)/Berk/Berklib.o
+#endif
+
+FSDIRS = $(OSDIR) $(DIFSDIR) $(PCFDIRS)
+FSLIBS = $(DIFSLIB) $(FONTLIB) $(DIFSLIB) $(OSLIB) $(BSDEMUL)
+#ifdef MacIIArchitecture
+MFSDIRS = MacFS
+#endif
+
+SUBDIRS = $(FSDIRS) $(MFSDIRS)
+
+FSLIBDIR = $(LIBDIR)/fs
+FSERRORS = $(FSLIBDIR)/fs-errors
+/* DEFAULTFONTPATH = DefaultFontPath */
+DEFAULTFONTPATH = $(FONTDIR)/decwin/100dpi/,$(FONTDIR)/decwin/75dpi/,DefaultFontPath,$(FONTDIR)/Type1Adobe/
+SITE_CONFIG = -DDEFAULTFONTPATH=$(DEFAULTFONTPATH) -DFSERRORS=$(FSERRORS)
+SHAREDSWITCH = -call_shared
+
+all:: fs config $(MFSDIRS)
+
+ServerTarget(fs,$(FSDIRS),NullParameter,$(FSLIBS),$(SYSLIBS))
+
+CppFileTarget(config,config.cpp,$(SITE_CONFIG),$(ICONFIGFILES))
+
+InstallProgram(fs,$(BINDIR))
+
+InstallManPage(fs,$(MANDIR))
+
+#if InstallFSConfig
+InstallNonExecFile(config,$(FSLIBDIR))
+#endif
+
+DependSubdirs($(SUBDIRS))
+
+$(SUBDIRS):	FRC
+	@cd $@; echo "making $@" ;	\
+	$(MAKE) $(MFLAGS) PassCDebugFlags all
+
+clean::
+	$(RM) fs
+
+FRC:

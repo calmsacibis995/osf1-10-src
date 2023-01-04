@@ -1,0 +1,150 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+FAILFLAG=0
+
+netdev="NETDEV_"
+ifconfg="IFCONFIG_"
+slipdev="SLIPTTY_"
+
+# Get actual configuration 
+HOSTNAME=unknown;NETDEV_0=;IFCONFIG_0=;MAX_NETDEVS=0;NUM_NETCONFIG=0;ROUTER=no
+if [ -f /etc/rc.config ] ; then
+       	. /etc/rc.config
+else
+       	echo "$0 ERROR: /etc/rc.config defaults file MISSING"
+	exit 1
+fi
+export HOSTNAME NETDEV_0 IFCONFIG_0 MAX_NETDEVS NUM_NETCONFIG ROUTER
+
+#
+# Enable network
+#
+case $1 in
+'start')
+	echo "Configuring network"
+	/sbin/hostname $HOSTNAME >/dev/null
+	echo "hostname: \c"
+	/sbin/hostname
+	found=0
+	num=0
+	if [ "$NUM_NETCONFIG" -gt 0 ]; then
+	    while [ "$num" != "$MAX_NETDEVS" ]
+	    do
+		dev=`eval echo $netdev$num`	# NETDEV_n
+		eval devval=\$$dev		# value of NETDEV_n
+		if [ "$devval" != '' ]; then
+			ifconf=`eval echo $ifconfg$num`    # IFCONFIG_n
+			eval ifval=\$$ifconf	# value of IFCONFIG_n
+			echo  >/tmp/ifconfig_"$dev".tmp
+			/sbin/ifconfig $devval $ifval up >/tmp/ifconfig_"$dev".tmp 2>&1
+			if [ $? != 0 ]; then
+				ERROR=`cat /tmp/ifconfig_"$dev".tmp`
+				echo "$0: ifconfig failed - $ERROR"
+				FAILFLAG=1
+			fi
+			rm /tmp/ifconfig_"$dev".tmp
+			found=`expr $found + 1`
+			# get first two characters of device name
+			devval2=`echo $devval | cut -c1-2`
+			# if SLIP device, do slattach
+			if [ "$FAILFLAG" = 0 -a -f /usr/sbin/slattach -a "$devval2" = "sl" ]; then
+				slipdev=`eval echo $slipdev$num`  # SLIPTTY_n
+				eval slipval=\$$slipdev	  # value of SLIPTTY_n
+				if [ "$slipval" != '' ]; then
+					/usr/sbin/slattach $slipval
+				fi
+			fi
+		fi
+		if [ "$found" = "$NUM_NETCONFIG" ]; then
+			break
+		fi
+		num=`expr $num + 1`
+	    done
+	fi
+	/sbin/ifconfig lo0 127.0.0.1
+	# if configured to be an IP router, set ipforwarding and ipgateway
+	if [ -f /usr/sbin/iprsetup ]; then
+		if [ "$FAILFLAG" = 0 -a "$ROUTER" = 'yes' ]; then
+			/usr/sbin/iprsetup -s
+		else
+			/usr/sbin/iprsetup -r
+		fi
+	fi
+	/usr/sbin/umount -b
+        ;;
+'stop')
+	found=0
+	num=0
+	if [ "$NUM_NETCONFIG" -gt 0 ]; then
+	    while [ "$num" != "$MAX_NETDEVS" ]
+	    do
+		dev=`eval echo $netdev$num`	# NETDEV_n
+		eval devval=\$$dev		# value of NETDEV_n
+		if [ "$devval" != '' ]; then
+			# get first two characters of device name
+			devval2=`echo $devval | cut -c1-2`
+			# if SLIP device and slattach pid file exists,
+			# kill the slattach
+			if [ "$devval2" = "sl" ]; then
+				# get SLIPTTY_n
+				slipdev=`eval echo $slipdev$num`  # SLIPTTY_n
+				eval slipval=\$$slipdev	  # value of SLIPTTY_n
+				# extract tty name form SLIPTTY_n
+				ttyname=`eval echo $slipval | sed 's/^.*tty/tty/p' | cut -d" " -f1`
+				if [ "$ttyname" != '' -a -f /var/run/$ttyname.pid ] ; then
+					/bin/kill `/bin/cat /var/run/$ttyname.pid`
+				fi
+			fi
+			echo  >/tmp/ifconfig_"$dev".tmp
+			/sbin/ifconfig $devval  >/tmp/ifconfig_"$dev".tmp 2>&1
+			up=`egrep "UP" /tmp/ifconfig_"$dev".tmp`
+			rm /tmp/ifconfig_"$dev".tmp
+			if [ -n "$up" ] ; then
+				/sbin/ifconfig $devval down
+			fi
+			found=`expr $found + 1`
+		fi
+		if [ "$found" = "$NUM_NETCONFIG" ]; then
+			break
+		fi
+		num=`expr $num + 1`
+	    done
+	fi
+        /sbin/ifconfig lo0 down
+        ;;
+*)
+        echo "usage: $0 {start|stop}"
+	exit 1
+        ;;
+esac
+exit 0

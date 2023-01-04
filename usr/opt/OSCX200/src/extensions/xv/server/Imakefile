@@ -1,0 +1,94 @@
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#include <Server.tmpl>
+IMAKE_DEFINES = $(EXT_DEFINES)
+
+/* DEVICE INDEPENDENT STUFF */
+
+     DISRCS = xvmain.c xvdisp.c 
+     DIOBJS = xvmain.o xvdisp.o 
+     DIINCS = -I../include -I$(EXTENSIONSRC)/include/xv \
+	       -I$(SERVERSRC)/include
+   SHDISRCS = xv_load.c
+   SHDIOBJS = xv_load.o
+   STDISRCS = xv_static.c
+   STDIOBJS = xv_static.o
+
+/* DEFINE DEPENDENT STUFF */
+
+#if BuildXvParallax
+     PLXSRCS = xvplx.c
+     PLXOBJS = xvplx.o
+     PLXINCS = -I$(SERVERSRC)/ddx/plx -I$(SERVERSRC)/ddx/mi -I$(EXTENSIONSRC)/include
+#else
+     PLXSRCS = /* nothing */
+     PLXOBJS = /* nothing */
+     PLXINCS = /* nothing */
+#endif
+
+#define BuildXvRasterOps YES
+#if BuildXvRasterOps
+     ROPSRCS = xvrop.c libpip.c
+     ROPOBJS = xvrop.o libpip.o
+     ROPHDRS = libpip.h i2c.h
+     ROPINCS = -I$(SERVERSRC)/include -I$(SERVERSRC)/ddx/cfb32 \
+	       -I$(SERVERSRC)/ddx/mfb -I$(SERVERSRC)/ddx/mi 
+#    undef PixelSize
+#    define PixelSize 8
+    DEFINES = -DPSZ=PixelSize
+#else
+     ROPSRCS = /* nothing */
+     ROPOBJS = /* nothing */
+     ROPINCS = /* nothing */
+#endif
+
+      STSRCS = $(DISRCS) $(STDISRCS) $(PLXSRCS) $(ROPSRCS)
+      STOBJS = $(DIOBJS) $(STDIOBJS) $(PLXOBJS) $(ROPOBJS)
+      SHSRCS = $(DISRCS) $(SHDISRCS) 
+      SHOBJS = $(DIOBJS) $(SHDIOBJS) 
+      XVINCS = $(DIINCS) $(PLXINCS) $(ROPINCS)
+    INCLUDES = -I$(INCLUDESRC) -I$(SERVERSRC)/include -I$(FONTSRC)/include $(XVINCS) 
+    LINTLIBS = $(SERVERSRC)/dix/llib-ldix.ln $(SERVERSRC)/os/4.2bsd/llib-los.ln
+
+NormalLibraryTarget(xv,$(STOBJS))
+NormalLibraryObjectRule()
+LintLibraryTarget(xv,$(STSRCS))
+NormalLintTarget($(STSRCS))
+
+#if SharedServerLibs
+SharedLibraryTarget(xv,.,$(SHOBJS))
+InstallSharedLibrary(xv,.,$(INSTALLSERVERLIBSDIR))
+
+#  if BuildXvRasterOps
+SharedLibraryTarget(_dec_xv_tx,.,$(ROPOBJS))
+InstallSharedLibrary(_dec_xv_tx,.,$(INSTALLSERVERLIBSDIR))
+#  endif
+
+#endif
+
+saber_src:
+	#load $(CFLAGS) $(STSRCS)
+
+DependTarget()

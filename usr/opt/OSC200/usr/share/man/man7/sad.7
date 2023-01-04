@@ -1,0 +1,246 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 1.2
+...\"	[91/10/02  14:58:11  steto]
+...\"
+.TH sad 7
+.SH NAME
+.PP
+\*Lsad\*O \- STREAMS Administrative Driver
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+\*L#include <sys/conf.h>
+.nL
+\*L#include <sys/sad.h>
+.nL
+\*L#include <sys/stropts.h>
+.sp 0.4v
+\*Lint ioctl(
+.nL
+	int \*Vfildes\*L,
+.nL
+	const \*Vcommand\*L,
+.nL
+	int \*Varg\*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfildes\*O"
+Specifies an open file descriptor of the \*Lsad\*O driver.
+.LI "\*Vcommand\*O"
+Specifies the administrative function to be performed.
+.LI "\*Varg\*O"
+Points to a data structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "STREAMS" "STREAMS administrative driver"
+.iX "STREAMS drivers" "sad"
+The \*Lsad\*O driver provides an interface to the \*Lautopush\*O
+facility using the \*Lioctl(\|)\*O function.  As an interface, the
+\*Lsad\*O driver enables administrative tasks to be performed on
+STREAMS modules and drivers.  Specifically, specifying the \*Vcommand\*O
+parameter to the \*Lioctl(\|)\*O function, an administrator can
+configure \*Lautopush\*O information for a device, get information on
+a device, or check a list of modules.
+.PP
+To access the \*Lsad\*O driver, use \*L/dev/sad/admin\*O.
+.SS ioctl Commands
+The commands used to perform administrative functions on a STREAMS
+module or driver are specified by the following \*Lioctl(\|)\*O commands:
+.VL
+.LI "\*LSAD_GAP\*O"
+Lets you use the \*Lsad\*O driver to obtain \*Lautopush\*O
+configuration information for a device by setting the \*Lsap_major\*O
+and \*Lsap_minor\*O fields of the \*Lstrapush\*O structure (see the
+\*LSAD_SAP\*O command) to the major and minor device numbers of the
+device being queried.
+.sp 0.4v
+Upon successful completion, the \*Lstrapush\*O structure contains all
+of the information used to configure the device.  Values of 0 (zero)
+will appear in any unused entry in the module list.
+.LI "\*LSAD_SAP\*O"
+Allows you to configure \*Lautopush\*O information for a device.  The
+\*Varg\*O parameter points to a \*Lstrapush\*O structure (defined in
+the \*Lsad.h\*O header file), whose members are as follows:
+.iS
+struct strapush {
+    uint sap_cmd;
+    long sap_major;
+    long sap_minor;
+    long sap_lastminor;
+    long sap_npush;
+    char sap_list[MAXAPUSH][FMNAMESZ+1];
+};
+.iE
+.VL
+.LI "\*Lsap_cmd\*O"
+Allows you to specify the type of
+configuration to perform.  This field can have the following values:
+.VL
+.LI "\*LSAP_ALL\*O"
+Configures all minor devices.
+.LI "\*LSAP_RANGE\*O"
+Configures a range of minor devices.
+.LI "\*LSAP_ONE\*O"
+Configures a single minor device.
+.LI "\*LSAP_CLEAR\*O"
+Clears the previous settings.  Specify only the \*Lsap_major\*O and
+\*Lsap_minor\*O fields when using this command.  If a previous entry
+specified \*LSAP_ALL\*O, set the \*Lsap_minor\*O field to 0 (zero).
+If a previous entry was specified as \*LSAP_RANGE\*O, set the
+\*Lsap_minor\*O field to the lowest minor device number in the range.
+.LE
+.sp 0.4v
+.LI "\*Lsap_major\*O"
+Specifies the major device number.
+.LI "\Lsap_minor\*O"
+Specifies the minor device number.
+.LI "\*Lsap_lastminor\*O"
+Specifies the range of minor devices.
+.LI "\*Lsap_npush\*O"
+Specifies the number of modules to push.  This number must be no more than
+\*LMAXAPUSH\*O, which is defined in \*Lsad.h\*O.  Additionally, this
+number must not exceed \*LNSTRPUSH\*O.
+.LI "\*Lsap_list[MAXPUSH][FMNAMESZ+1]\*O"
+Specifies, in order, the
+array of modules to push.
+.LE
+.sp 0.4v
+.LI "\*LSAD_VML\*O"
+Enables you to check a list of modules.  For example, you can
+determine if a specific module has been installed.  The \*Varg\*O
+parameter points to a \*Lstr_list\*O structure (defined in
+the \*Lstropts.h\*O header file), whose members are as follows:
+.iS
+struct str_list {
+    int sl_nmods;
+    struct str_mlist *sl_modlist;
+};
+.iE
+.VL
+.LI "\*Lsl_nmods\*O"
+Specifies the number of entries you have
+allocated in an array.
+.LI "\*Lsl_modlist\*O"
+Points to the array
+of module names.
+The \*Lstr_mlist\*O structure (also in the \*Lstropts.h\*O header
+file) is as follows:
+.iS
+struct str_mlist {
+    char    1_name[FMNAMESZ+1];
+};
+.iE
+.sp 0.4v
+where \*L1_name[FMNAMESZ+1]\*O specifies the array of module names.
+.LE
+If the \*L1_name[FMNAMESZ+1]\*O array is valid, the \*LSAD_VML\*O command
+returns a value of 0 (zero).  If the array contains an invalid module
+name, the command returns a value of 1.  Upon failure, the command
+returns a value of -1.
+.LE
+.SH NOTES
+.PP
+As a STREAMS driver, \*Lsad\*O also supports the normal STREAMS
+\*Lioctl(\|)\*O:
+.sS
+\*Lint ioctl(
+.nL
+	int \*Vfildes\*L,
+.nL
+	const I_STR,
+.nL
+	struct strioctl *\*Vstrp\*L);
+.sE
+.PP
+In this form, specify the \*Lic_cmd\*O field in the \*Lstrioctl\*O
+structure to either \*LSAD_SAP\*O, \*LSAD_GAP\*O, or \*LSAD_VML\*O.
+The \*Lic_dp\*O field points to the \*Lstrapush\*O structure (see the
+\*LSAD_SAP\*O command in the \*LDESCRIPTION\*O section).  Refer to the
+\*Lstreamio(\|)\*O reference page for further details.
+.SS RETURN VALUES
+Unless specified otherwise, upon successful completion, the \*Lsad
+ioctl(\|)\*O commands return a value of 0 (zero).  Otherwise, a value
+of -1 is returned.
+.SH ERRORS
+.PP
+If any of the following conditions occur, the \*Lsad\*O ioctl\*O
+commands return the corresponding value:
+.PP
+\*LSAD_GAP\*O
+.nL
+.VL
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LI "[EINVAL]"
+The major device number (\*Lsad_major\*O) is invalid.
+.LI "[ENODEV]"
+The device is not configured for \*Lautopush\*O.
+.LI "[ENOSTR]"
+The major device does not represent a STREAMS driver.
+.LE
+.PP
+\*LSAD_SAP\*O
+.VL
+.LI "[EEXIST]"
+The specified major/minor device number pair
+(\*Lsad_major/sad_minor\*O) has already been
+configured.
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LI "[EINVAL]"
+The major device number (\*Lsad_major\*O) is invalid, the number of
+modules (\*Lsap_list[MAXPUSH][FMNAMESZ+1]\*O) is invalid,
+or the list of module names is invalid.
+.LI "[ENODEV]"
+The device is not configured for \*Lautopush\*O.  This value is
+returned from a \*LSAD_GAP\*O command.
+.LI "[ENOSR]"
+A internal \*Lautopush\*O data structure cannot be allocated.
+.LI "[ENOSTR]"
+The major device does not represent a STREAMS driver.
+.LI "[ERANGE]"
+The \*Lsap.lastminor\*O field is less than the \*Lsap_minor\*O field
+when the command is \*LSAP_RANGE\*O, or the minor device specified in
+a \*LSAP_CLEAR\*O command does not exist.
+.LE
+.PP
+\*LSAD_VML\*O
+.VL
+.LI "[EFAULT]"
+The \*Varg\*O parameter points outside the allocated address space.
+.LI "[EINVAL]"
+The list of module names is invalid.
+.LE
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lautopush\*O(8).
+.PP
+Functions: \*Lioctl\*O(2).
+.PP
+Interfaces:
+\*Lstreamio\*O(7).
+.EQ
+delim off
+.EN

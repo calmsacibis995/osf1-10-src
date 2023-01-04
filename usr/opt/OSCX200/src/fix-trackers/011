@@ -1,0 +1,1476 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111202111.AA05657@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2234) Close XBUG #4683, #4288 (fontlib)
+Date: Wed, 20 Nov 91 16:11:56 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Subject: fontlib: snfreader does not check for skip/seek failure
+
+### bug number:   4288
+### area:         fontlib
+### severity:     low
+### comments:     
+
+Subject: fontlib: can't read compressed bitmap fonts
+
+### bug number:   4683
+### area:         fontlib
+### severity:     enhancement
+### comments:     
+
+*** /tmp/,RCSt1a05148	Wed Nov 20 15:41:56 1991
+--- fonts/lib/font/include/bitmap.h	Wed Sep 11 11:12:57 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: bitmap.h,v 1.1 91/05/11 09:11:56 rws Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: bitmap.h,v 1.3 91/09/11 11:12:52 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 26,32 ****
+  #ifndef _BITMAP_H_
+  #define _BITMAP_H_
+  
+! #include    <stdio.h>
+  
+  /*
+   * Internal format used to store bitmap fonts
+--- 26,33 ----
+  #ifndef _BITMAP_H_
+  #define _BITMAP_H_
+  
+! #include <fontfileio.h>
+! #include <stdio.h>  /* just for NULL */
+  
+  /*
+   * Internal format used to store bitmap fonts
+***************
+*** 58,73 ****
+  
+  extern void bitmapComputeFontBounds();
+  extern void bitmapComputeFontInkBounds();
+- 
+- typedef FILE	*FontFilePtr;
+- 
+- #define FontFileGetc(f)	    getc(f)
+- #define FontFilePutc(c,f)   putc(c,f)
+- #define FontFileRead(f,b,n) fread((char *) b, 1, n, f)
+- #define FontFileWrite(f,b,n)	fwrite ((char *) b, 1, n, f)
+- #define FontFileSkip(f,n)   (fseek(f,n,1) != -1)
+- #define FontFileSeek(f,n)   (fseek(f,n,0) != -1)
+- 
+- #define FontFileEOF	EOF
+  
+  #endif				/* _BITMAP_H_ */
+--- 59,63 ----
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/include/bufio.h	Sat Sep  7 11:59:56 1991
+***************
+*** 0 ****
+--- 1,37 ----
++ #ifdef TEST
++ 
++ #define xalloc(s)   malloc(s)
++ #define xfree(s)    free(s)
++ 
++ #endif
++ 
++ #define BUFFILESIZE	8192
++ #define BUFFILEEOF	-1
++ 
++ typedef unsigned char BufChar;
++ 
++ typedef struct _buffile {
++     BufChar *bufp;
++     int	    left;
++     BufChar buffer[BUFFILESIZE];
++     int	    (*io)(/* BufFilePtr f */);
++     int	    (*skip)(/* BufFilePtr f, int count */);
++     int	    (*close)(/* BufFilePtr f */);
++     char    *private;
++ } BufFileRec, *BufFilePtr;
++ 
++ extern BufFilePtr   BufFileCreate ();
++ extern BufFilePtr   BufFileOpenRead (), BufFileOpenWrite ();
++ extern BufFilePtr   BufFilePushCompressed ();
++ extern int	    BufFileClose ();
++ extern int	    BufFileFlush ();
++ #define BufFileGet(f)	((f)->left-- ? *(f)->bufp++ : (*(f)->io) (f))
++ #define BufFilePut(c,f)	(--(f)->left ? *(f)->bufp++ = (c) : (*(f)->io) (c,f))
++ #define BufFileSkip(f,c)    ((*(f)->skip) (f, c))
++ 
++ #ifndef TRUE
++ #define TRUE 1
++ #endif
++ #ifndef FALSE
++ #define FALSE 0
++ #endif
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/include/fontfileio.h	Sat Sep  7 12:00:03 1991
+***************
+*** 0 ****
+--- 1,43 ----
++ /*
++  * $XConsortium: fontfileio.h,v 1.1 91/09/07 11:59:55 keith Exp $
++  *
++  * Copyright 1991 Massachusetts Institute of Technology
++  *
++  * Permission to use, copy, modify, distribute, and sell this software and its
++  * documentation for any purpose is hereby granted without fee, provided that
++  * the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of M.I.T. not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission.  M.I.T. makes no representations about the
++  * suitability of this software for any purpose.  It is provided "as is"
++  * without express or implied warranty.
++  *
++  * M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL M.I.T.
++  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
++  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
++  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++  *
++  * Author:  Keith Packard, MIT X Consortium
++  */
++ 
++ #include    <bufio.h>
++ 
++ typedef BufFilePtr  FontFilePtr;
++ 
++ #define FontFileGetc(f)	    BufFileGet(f)
++ #define FontFilePutc(c,f)   BufFilePut(c,f)
++ #define FontFileRead(f,b,n) BufFileRead(f,b,n)
++ #define FontFileWrite(f,b,n)	BufFileWrite(f,b,n)
++ #define FontFileSkip(f,n)   (BufFileSkip (f, n) != BUFFILEEOF)
++ #define FontFileSeek(f,n)   (BufFileSeek (f,n,0) != BUFFILEEOF)
++ 
++ #define FontFileEOF	BUFFILEEOF
++ 
++ extern FontFilePtr  FontFileOpen ();
++ extern FontFilePtr  FontFileOpenWrite ();
++ extern FontFilePtr  FontFileOpenFd ();
++ extern FontFilePtr  FontFileOpenWriteFd ();
++ extern int	    FontFileClose ();
+*** /tmp/,RCSt1a05211	Wed Nov 20 15:42:54 1991
+--- fonts/lib/font/fontfile/Imakefile	Sat Sep  7 11:57:50 1991
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: Imakefile,v 1.5 91/07/22 22:21:11 rws Exp $
+  #include <Server.tmpl>
+  
+          INCLUDES = -I$(FONTSRC)/include -I../include -I$(FONTSERVERSRC)/include
+--- 1,4 ----
+! XCOMM $XConsortium: Imakefile,v 1.6 91/09/07 11:57:37 keith Exp $
+  #include <Server.tmpl>
+  
+          INCLUDES = -I$(FONTSRC)/include -I../include -I$(FONTSERVERSRC)/include
+***************
+*** 6,15 ****
+  #ifdef FontFormatDefines
+       FORMAT_DEFS = FontFormatDefines
+  #endif
+!             SRCS = dirfile.c fontdir.c fontfile.c fontscale.c \
+! 	    	   fontutil.c defaults.c bitsource.c renderers.c
+!             OBJS = dirfile.o fontdir.o fontfile.o fontscale.o \
+! 	    	   fontutil.o defaults.o bitsource.o renderers.o
+  
+  SubdirLibraryRule($(OBJS))
+  NormalLibraryObjectRule()
+--- 6,17 ----
+  #ifdef FontFormatDefines
+       FORMAT_DEFS = FontFormatDefines
+  #endif
+!             SRCS = dirfile.c fontdir.c fontfile.c fontfileio.c fontscale.c \
+! 	    	   fontutil.c defaults.c bitsource.c renderers.c \
+! 		   bufio.c decompress.c fontfilewr.c
+!             OBJS = dirfile.o fontdir.o fontfile.o fontfileio.o fontscale.o \
+! 	    	   fontutil.o defaults.o bitsource.o renderers.o \
+! 		   bufio.o decompress.o fontfilewr.o
+  
+  SubdirLibraryRule($(OBJS))
+  NormalLibraryObjectRule()
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/fontfile/bufio.c	Wed Nov 20 15:40:36 1991
+***************
+*** 0 ****
+--- 1,201 ----
++ /*
++  * $XConsortium: bufio.c,v 1.2 91/11/20 15:40:18 keith Exp $
++  *
++  * Copyright 1991 Massachusetts Institute of Technology
++  *
++  * Permission to use, copy, modify, distribute, and sell this software and its
++  * documentation for any purpose is hereby granted without fee, provided that
++  * the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of M.I.T. not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission.  M.I.T. makes no representations about the
++  * suitability of this software for any purpose.  It is provided "as is"
++  * without express or implied warranty.
++  *
++  * M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL M.I.T.
++  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
++  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
++  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++  *
++  * Author:  Keith Packard, MIT X Consortium
++  */
++ 
++ 
++ #include    <fontmisc.h>
++ #include    <bufio.h>
++ #include    <errno.h>
++ extern int errno;
++ 
++ BufFilePtr
++ BufFileCreate (private, io, skip, close)
++     char    *private;
++     int	    (*io)();
++     int	    (*skip)();
++     int	    (*close)();
++ {
++     BufFilePtr	f;
++ 
++     f = (BufFilePtr) xalloc (sizeof *f);
++     if (!f)
++ 	return 0;
++     f->private = private;
++     f->bufp = f->buffer;
++     f->left = 0;
++     f->io = io;
++     f->skip = skip;
++     f->close = close;
++     return f;
++ }
++ 
++ #define FileDes(f)  ((int) (f)->private)
++ 
++ static int
++ BufFileRawFill (f)
++     BufFilePtr	f;
++ {
++     int	left;
++ 
++     left = read (FileDes(f), f->buffer, BUFFILESIZE);
++     if (left <= 0) {
++ 	f->left = 0;
++ 	return BUFFILEEOF;
++     }
++     f->left = left - 1;
++     f->bufp = f->buffer + 1;
++     return f->buffer[0];
++ }
++ 
++ static int
++ BufFileRawSkip (f, count)
++     BufFilePtr	f;
++     int		count;
++ {
++     int	    curoff;
++     int	    fileoff;
++     int	    todo;
++ 
++     curoff = f->bufp - f->buffer;
++     fileoff = curoff + f->left;
++     if (curoff + count <= fileoff) {
++ 	f->bufp += count;
++ 	f->left -= count;
++     } else {
++ 	todo = count - (fileoff - curoff);
++ 	if (lseek (FileDes(f), todo, 1) == -1) {
++ 	    if (errno != ESPIPE)
++ 		return BUFFILEEOF;
++ 	    while (todo) {
++ 		curoff = BUFFILESIZE;
++ 		if (curoff > todo)
++ 		    curoff = todo;
++ 		fileoff = read (FileDes(f), f->buffer, curoff);
++ 		if (fileoff <= 0)
++ 		    return BUFFILEEOF;
++ 		todo -= fileoff;
++ 	    }
++ 	}
++ 	f->left = 0;
++     }
++     return count;
++ }
++ 
++ static int
++ BufFileRawClose (f, doClose)
++     BufFilePtr	f;
++ {
++     if (doClose)
++ 	close (FileDes (f));
++     return 1;
++ }
++ 
++ BufFilePtr
++ BufFileOpenRead (fd)
++     int	fd;
++ {
++     return BufFileCreate ((char *) fd, BufFileRawFill, BufFileRawSkip, BufFileRawClose);
++ }
++ 
++ static
++ BufFileRawFlush (c, f)
++     int		c;
++     BufFilePtr	f;
++ {
++     int	cnt;
++ 
++     if (c != BUFFILEEOF)
++ 	*f->bufp++ = c;
++     cnt = f->bufp - f->buffer;
++     f->bufp = f->buffer;
++     f->left = BUFFILESIZE;
++     if (write (FileDes(f), f->buffer, cnt) != cnt)
++ 	return BUFFILEEOF;
++     return c;
++ }
++ 
++ BufFilePtr
++ BufFileOpenWrite (fd)
++     int	fd;
++ {
++     BufFilePtr	f;
++ 
++     f = BufFileCreate ((char *) fd, BufFileRawFlush, 0, BufFileFlush);
++     f->bufp = f->buffer;
++     f->left = BUFFILESIZE;
++     return f;
++ }
++ 
++ BufFileRead (f, b, n)
++     BufFilePtr	f;
++     char	*b;
++     int		n;
++ {
++     int	    c, cnt;
++     cnt = n;
++     while (cnt--) {
++ 	c = BufFileGet (f);
++ 	if (c == BUFFILEEOF)
++ 	    break;
++ 	*b++ = c;
++     }
++     return n - cnt;
++ }
++ 
++ BufFileWrite (f, b, n)
++     BufFilePtr	f;
++     char	*b;
++     int		n;
++ {
++     int	    c, cnt;
++     cnt = n;
++     while (cnt--) {
++ 	if (BufFilePut (*b++, f) == BUFFILEEOF)
++ 	    return BUFFILEEOF;
++     }
++     return n;
++ }
++ 
++ int
++ BufFileFlush (f)
++     BufFilePtr	f;
++ {
++     if (f->bufp != f->buffer)
++ 	(*f->io) (BUFFILEEOF, f);
++ }
++ 
++ int
++ BufFileClose (f, doClose)
++     BufFilePtr	f;
++ {
++     (void) (*f->close) (f, doClose);
++     xfree (f);
++ }
++ 
++ int
++ BufFileFree (f)
++     BufFilePtr	f;
++ {
++     xfree (f);
++ }
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/fontfile/decompress.c	Sat Sep  7 11:58:30 1991
+***************
+*** 0 ****
+--- 1,356 ----
++ /* 
++  * decompress - cat a compressed file
++  */
++ 
++ #include "fontmisc.h"
++ #include <bufio.h>
++ 
++ #define BITS	16
++ 
++ /*
++  * a code_int must be able to hold 2**BITS values of type int, and also -1
++  */
++ #if BITS > 15
++ typedef long int	code_int;
++ #else
++ typedef int		code_int;
++ #endif
++ 
++ typedef long int	  count_int;
++ 
++ #ifdef NO_UCHAR
++  typedef char	char_type;
++ #else
++  typedef	unsigned char	char_type;
++ #endif /* UCHAR */
++ 
++ char_type magic_header[] = { "\037\235" };	/* 1F 9D */
++ 
++ /* Defines for third byte of header */
++ #define BIT_MASK	0x1f
++ #define BLOCK_MASK	0x80
++ /* Masks 0x40 and 0x20 are free.  I think 0x20 should mean that there is
++    a fourth header byte (for expansion).
++ */
++ 
++ #define INIT_BITS 9			/* initial number of bits/code */
++ 
++ #ifdef COMPATIBLE		/* But wrong! */
++ # define MAXCODE(n_bits)	(1 << (n_bits) - 1)
++ #else
++ # define MAXCODE(n_bits)	((1 << (n_bits)) - 1)
++ #endif /* COMPATIBLE */
++ 
++ static code_int getcode();
++ 
++ /*
++  * the next two codes should not be changed lightly, as they must not
++  * lie within the contiguous general code space.
++  */ 
++ #define FIRST	257	/* first free entry */
++ #define	CLEAR	256	/* table clear output code */
++ 
++ #define STACK_SIZE  8192
++ 
++ typedef struct _compressedFILE {
++     BufFilePtr	    file;
++ 
++     char_type	    *stackp;
++     code_int	    oldcode;
++     char_type	    finchar;
++ 
++     int		block_compress;
++     int		maxbits;
++     code_int	maxcode, maxmaxcode;
++ 
++     code_int	free_ent;
++     int		clear_flg;
++     int		n_bits;
++ 
++     /* bit buffer */
++     int		offset, size;
++     char_type	buf[BITS];
++ 
++     char_type	    de_stack[STACK_SIZE];
++     char_type	    *tab_suffix;
++     unsigned short  *tab_prefix;
++ } CompressedFile;
++ 
++ 
++ int hsize_table[] = {
++     5003,	/* 12 bits - 80% occupancy */
++     9001,	/* 13 bits - 91% occupancy */
++     18013,	/* 14 bits - 91% occupancy */
++     35023,	/* 15 bits - 94% occupancy */
++     69001	/* 16 bits - 95% occupancy */
++ };
++ 
++ static int  BufCompressedFill(), BufCompressedSkip(), BufCompressedClose();
++ 
++ BufFilePtr
++ BufFilePushCompressed (f)
++     BufFilePtr	f;
++ {
++     int		    code;
++     int		    maxbits;
++     int		    hsize;
++     CompressedFile  *file;
++     int		    extra;
++ 
++     if ((BufFileGet(f) != (magic_header[0] & 0xFF)) ||
++ 	(BufFileGet(f) != (magic_header[1] & 0xFF)))
++     {
++ 	return 0;
++     }
++     code = BufFileGet (f);
++     maxbits = code & BIT_MASK;
++     if (maxbits > BITS || maxbits < 12)
++ 	return 0;
++     hsize = hsize_table[maxbits - 12];
++     extra = (1 << maxbits) * sizeof (char_type) +
++ 	    hsize * sizeof (unsigned short);
++     file = (CompressedFile *) xalloc (sizeof (CompressedFile) + extra);
++     if (!file)
++ 	return 0;
++     file->file = f;
++     file->maxbits = maxbits;
++     file->block_compress = code & BLOCK_MASK;
++     file->maxmaxcode = 1 << file->maxbits;
++     file->tab_suffix = (char_type *) &file[1];
++     file->tab_prefix = (unsigned short *) (file->tab_suffix + file->maxmaxcode);
++     /*
++      * As above, initialize the first 256 entries in the table.
++      */
++     file->maxcode = MAXCODE(file->n_bits = INIT_BITS);
++     for ( code = 255; code >= 0; code-- ) {
++ 	file->tab_prefix[code] = 0;
++ 	file->tab_suffix[code] = (char_type) code;
++     }
++     file->free_ent = ((file->block_compress) ? FIRST : 256 );
++     file->clear_flg = 0;
++     file->offset = 0;
++     file->size = 0;
++     file->stackp = file->de_stack;
++     file->finchar = file->oldcode = getcode (file);
++     if (file->oldcode != -1)
++ 	*file->stackp++ = file->finchar;
++     return BufFileCreate ((char *) file,
++ 			  BufCompressedFill,
++ 			  BufCompressedSkip,
++ 			  BufCompressedClose);
++ }
++ 
++ static int
++ BufCompressedClose (f, doClose)
++     BufFilePtr	f;
++ {
++     CompressedFile  *file;
++     BufFilePtr	    raw;
++ 
++     file = (CompressedFile *) f->private;
++     raw = file->file;
++     xfree (file);
++     BufFileClose (raw, doClose);
++     return 1;
++ }
++ 
++ static int
++ BufCompressedFill (f)
++     BufFilePtr	    f;
++ {
++     CompressedFile  *file;
++     register char_type *stackp, *de_stack;
++     register char_type finchar;
++     register code_int code, oldcode, incode;
++     BufChar	    *buf, *bufend;
++ 
++     file = (CompressedFile *) f->private;
++ 
++     buf = f->buffer;
++     bufend = buf + BUFFILESIZE;
++     stackp = file->stackp;
++     de_stack = file->de_stack;
++     finchar = file->finchar;
++     oldcode = file->oldcode;
++     while (buf < bufend) {
++ 	while (stackp > de_stack && buf < bufend)
++ 	    *buf++ = *--stackp;
++ 
++ 	if (buf == bufend)
++ 	    break;
++ 
++ 	if (oldcode == -1)
++ 	    break;
++ 
++ 	code = getcode (file);
++ 	if (code == -1)
++ 	    break;
++     
++     	if ( (code == CLEAR) && file->block_compress ) {
++ 	    for ( code = 255; code >= 0; code-- )
++ 	    	file->tab_prefix[code] = 0;
++ 	    file->clear_flg = 1;
++ 	    file->free_ent = FIRST - 1;
++ 	    if ( (code = getcode (file)) == -1 )	/* O, untimely death! */
++ 	    	break;
++     	}
++     	incode = code;
++     	/*
++      	 * Special case for KwKwK string.
++      	 */
++     	if ( code >= file->free_ent ) {
++ 	    *stackp++ = finchar;
++ 	    code = oldcode;
++     	}
++     
++     	/*
++      	 * Generate output characters in reverse order
++      	 */
++     	while ( code >= 256 )
++     	{
++ 	    *stackp++ = file->tab_suffix[code];
++ 	    code = file->tab_prefix[code];
++     	}
++ 	finchar = file->tab_suffix[code];
++ 	*stackp++ = finchar;
++     
++     	/*
++      	 * Generate the new entry.
++      	 */
++     	if ( (code=file->free_ent) < file->maxmaxcode ) {
++ 	    file->tab_prefix[code] = (unsigned short)oldcode;
++ 	    file->tab_suffix[code] = finchar;
++ 	    file->free_ent = code+1;
++     	} 
++ 	/*
++ 	 * Remember previous code.
++ 	 */
++ 	oldcode = incode;
++     }
++     file->oldcode = oldcode;
++     file->stackp = stackp;
++     file->finchar = finchar;
++     if (buf == f->buffer) {
++ 	f->left = 0;
++ 	return BUFFILEEOF;
++     }
++     f->bufp = f->buffer + 1;
++     f->left = (buf - f->buffer) - 1;
++     return f->buffer[0];
++ }
++ 
++ /*****************************************************************
++  * TAG( getcode )
++  *
++  * Read one code from the standard input.  If BUFFILEEOF, return -1.
++  * Inputs:
++  * 	stdin
++  * Outputs:
++  * 	code or -1 is returned.
++  */
++ 
++ static char_type rmask[9] = {0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
++ 
++ static code_int
++ getcode(file)
++     CompressedFile  *file;
++ {
++     register code_int code;
++     register int r_off, bits;
++     register char_type *bp = file->buf;
++     register BufFilePtr	raw;
++ 
++     if ( file->clear_flg > 0 || file->offset >= file->size ||
++ 	file->free_ent > file->maxcode )
++     {
++ 	/*
++ 	 * If the next entry will be too big for the current code
++ 	 * size, then we must increase the size.  This implies reading
++ 	 * a new buffer full, too.
++ 	 */
++ 	if ( file->free_ent > file->maxcode ) {
++ 	    file->n_bits++;
++ 	    if ( file->n_bits == file->maxbits )
++ 		file->maxcode = file->maxmaxcode;	/* won't get any bigger now */
++ 	    else
++ 		file->maxcode = MAXCODE(file->n_bits);
++ 	}
++ 	if ( file->clear_flg > 0) {
++     	    file->maxcode = MAXCODE (file->n_bits = INIT_BITS);
++ 	    file->clear_flg = 0;
++ 	}
++ 	bits = file->n_bits;
++ 	raw = file->file;
++ 	while (bits > 0 && (code = BufFileGet (raw)) != BUFFILEEOF)
++ 	{
++ 	    *bp++ = code;
++ 	    --bits;
++ 	}
++ 	bp = file->buf;
++ 	if (bits == file->n_bits)
++ 	    return -1;			/* end of file */
++ 	file->size = file->n_bits - bits;
++ 	file->offset = 0;
++ 	/* Round size down to integral number of codes */
++ 	file->size = (file->size << 3) - (file->n_bits - 1);
++     }
++     r_off = file->offset;
++     bits = file->n_bits;
++     /*
++      * Get to the first byte.
++      */
++     bp += (r_off >> 3);
++     r_off &= 7;
++     /* Get first part (low order bits) */
++ #ifdef NO_UCHAR
++     code = ((*bp++ >> r_off) & rmask[8 - r_off]) & 0xff;
++ #else
++     code = (*bp++ >> r_off);
++ #endif /* NO_UCHAR */
++     bits -= (8 - r_off);
++     r_off = 8 - r_off;		/* now, offset into code word */
++     /* Get any 8 bit parts in the middle (<=1 for up to 16 bits). */
++     if ( bits >= 8 ) {
++ #ifdef NO_UCHAR
++ 	code |= (*bp++ & 0xff) << r_off;
++ #else
++ 	code |= *bp++ << r_off;
++ #endif /* NO_UCHAR */
++ 	r_off += 8;
++ 	bits -= 8;
++     }
++     /* high order bits. */
++     code |= (*bp & rmask[bits]) << r_off;
++     file->offset += file->n_bits;
++ 
++     return code;
++ }
++ 
++ static int
++ BufCompressedSkip (f, bytes)
++     BufFilePtr	f;
++     int		bytes;
++ {
++     int		    c;
++     while (bytes-- && ((c = BufFileGet(f)) != BUFFILEEOF))
++ 	    ;
++     return c;
++ }
++ 
++ #ifdef TEST
++ main (argc, argv)
++     int	    argc;
++     char    **argv;
++ {
++     BufFilePtr	    inputraw, input, output;
++     int		    c;
++     
++     inputraw = BufFileOpenRead (0);
++     input = BufFilePushCompressed (inputraw);
++     output = BufFileOpenWrite (1);
++     while ((c = BufFileGet (input)) != -1)
++ 	BufFilePut (c, output);
++     BufFileClose (input, FALSE);
++     BufFileClose (output, FALSE);
++ }
++ #endif
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/fontfile/fontfileio.c	Sat Sep  7 11:58:14 1991
+***************
+*** 0 ****
+--- 1,62 ----
++ /*
++  * $XConsortium: fontfileio.c,v 1.1 91/09/07 11:58:03 keith Exp $
++  *
++  * Copyright 1991 Massachusetts Institute of Technology
++  *
++  * Permission to use, copy, modify, distribute, and sell this software and its
++  * documentation for any purpose is hereby granted without fee, provided that
++  * the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of M.I.T. not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission.  M.I.T. makes no representations about the
++  * suitability of this software for any purpose.  It is provided "as is"
++  * without express or implied warranty.
++  *
++  * M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL M.I.T.
++  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
++  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
++  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++  *
++  * Author:  Keith Packard, MIT X Consortium
++  */
++ 
++ #include <fontfileio.h>
++ 
++ FontFilePtr
++ FontFileOpen (name)
++     char    *name;
++ {
++     int		fd;
++     int		len;
++     BufFilePtr	raw, cooked;
++ 
++     fd = open (name, 0);
++     if (fd < 0)
++ 	return 0;
++     raw = BufFileOpenRead (fd);
++     if (!raw)
++     {
++ 	close (fd);
++ 	return 0;
++     }
++     len = strlen (name);
++     if (len > 2 && !strcmp (name + len - 2, ".Z")) {
++ 	cooked = BufFilePushCompressed (raw);
++ 	if (!cooked) {
++ 	    BufFileClose (raw, TRUE);
++ 	    return 0;
++ 	}
++ 	raw = cooked;
++     }
++     return (FontFilePtr) raw;
++ }
++ 
++ FontFileClose (f)
++     FontFilePtr	f;
++ {
++     BufFileClose ((BufFilePtr) f, TRUE);
++ }
++ 
+*** /dev/null	Wed Nov 20 15:28:45 1991
+--- fonts/lib/font/fontfile/fontfilewr.c	Sat Sep  7 11:58:21 1991
+***************
+*** 0 ****
+--- 1,51 ----
++ /*
++  * $XConsortium: fontfilewr.c,v 1.1 91/09/07 11:58:12 keith Exp $
++  *
++  * Copyright 1991 Massachusetts Institute of Technology
++  *
++  * Permission to use, copy, modify, distribute, and sell this software and its
++  * documentation for any purpose is hereby granted without fee, provided that
++  * the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of M.I.T. not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission.  M.I.T. makes no representations about the
++  * suitability of this software for any purpose.  It is provided "as is"
++  * without express or implied warranty.
++  *
++  * M.I.T. DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL M.I.T.
++  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
++  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
++  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++  *
++  * Author:  Keith Packard, MIT X Consortium
++  */
++ 
++ #include <fontfileio.h>
++ 
++ FontFilePtr
++ FontFileOpenWrite (name)
++     char    *name;
++ {
++     int	fd;
++ 
++     fd = creat (name, 0666);
++     if (fd < 0)
++ 	return 0;
++     return (FontFilePtr) BufFileOpenWrite (fd);
++ }
++ 
++ FontFilePtr
++ FontFileOpenWriteFd (fd)
++ {
++     return (FontFilePtr) BufFileOpenWrite (fd);
++ }
++ 
++ FontFilePtr
++ FontFileOpenFd (fd)
++     int	fd;
++ {
++     return (FontFilePtr) BufFileOpenRead (fd);
++ }
+*** /tmp/,RCSt1a05332	Wed Nov 20 16:00:26 1991
+--- fonts/lib/font/bitmap/bdfread.c	Sat Sep  7 11:59:19 1991
+***************
+*** 22,28 ****
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfread.c,v 1.8 91/07/22 22:58:44 keith Exp $ */
+  
+  #include <ctype.h>
+  #include "fontfilest.h"
+--- 22,28 ----
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfread.c,v 1.9 91/09/07 11:59:15 keith Exp $ */
+  
+  #include <ctype.h>
+  #include "fontfilest.h"
+***************
+*** 32,37 ****
+--- 32,38 ----
+  
+  #define INDICES 256
+  #define MAXENCODING 0xFFFF
++ #define BDFLINELEN  1024
+  
+  extern int  bitmapGetGlyphs(), bitmapGetMetrics();
+  extern int  bitmapGetBitmaps(), bitmapGetExtents();
+***************
+*** 62,68 ****
+      unsigned char *pInBits,
+                 *picture,
+                 *line = NULL;
+!     char        lineBuf[BUFSIZ];
+  
+      widthBits = GLYPHWIDTHPIXELS(pCI);
+      height = GLYPHHEIGHTPIXELS(pCI);
+--- 63,69 ----
+      unsigned char *pInBits,
+                 *picture,
+                 *line = NULL;
+!     char        lineBuf[BDFLINELEN];
+  
+      widthBits = GLYPHWIDTHPIXELS(pCI);
+      height = GLYPHHEIGHTPIXELS(pCI);
+***************
+*** 88,94 ****
+  /*		0 width characters? */
+  
+      for (row = 0; row < height; row++) {
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if (!line)
+  	    break;
+  
+--- 89,95 ----
+  /*		0 width characters? */
+  
+      for (row = 0; row < height; row++) {
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if (!line)
+  	    break;
+  
+***************
+*** 136,142 ****
+      }
+  
+      if ((line && (!bdfIsPrefix(line, "ENDCHAR"))) || (height == 0))
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  
+      if ((!line) || (!bdfIsPrefix(line, "ENDCHAR"))) {
+  	bdfError("missing 'ENDCHAR'\n");
+--- 137,143 ----
+      }
+  
+      if ((line && (!bdfIsPrefix(line, "ENDCHAR"))) || (height == 0))
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  
+      if ((!line) || (!bdfIsPrefix(line, "ENDCHAR"))) {
+  	bdfError("missing 'ENDCHAR'\n");
+***************
+*** 174,183 ****
+  {
+      unsigned char *line;
+      int         i = 0;
+!     char        lineBuf[BUFSIZ];
+  
+      do {
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	i++;
+      } while (line && !bdfIsPrefix(line, "ENDCHAR") && i <= height);
+  
+--- 175,184 ----
+  {
+      unsigned char *line;
+      int         i = 0;
+!     char        lineBuf[BDFLINELEN];
+  
+      do {
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	i++;
+      } while (line && !bdfIsPrefix(line, "ENDCHAR") && i <= height);
+  
+***************
+*** 214,220 ****
+      BitmapFontPtr  bitmapFont;
+      BitmapExtraPtr bitmapExtra;
+      CARD32     *bitmapsSizes;
+!     char        lineBuf[BUFSIZ];
+      int         nencoding;
+  
+      bitmapFont = (BitmapFontPtr) pFont->fontPrivate;
+--- 215,221 ----
+      BitmapFontPtr  bitmapFont;
+      BitmapExtraPtr bitmapExtra;
+      CARD32     *bitmapsSizes;
+!     char        lineBuf[BDFLINELEN];
+      int         nencoding;
+  
+      bitmapFont = (BitmapFontPtr) pFont->fontPrivate;
+***************
+*** 233,239 ****
+      bitmapFont->metrics = NULL;
+      ndx = 0;
+  
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+  
+      if ((!line) || (sscanf((char *) line, "CHARS %d", &nchars) != 1)) {
+  	bdfError("bad 'CHARS' in bdf file\n");
+--- 234,240 ----
+      bitmapFont->metrics = NULL;
+      ndx = 0;
+  
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  
+      if ((!line) || (sscanf((char *) line, "CHARS %d", &nchars) != 1)) {
+  	bdfError("bad 'CHARS' in bdf file\n");
+***************
+*** 267,273 ****
+  	    return FALSE;
+  	}
+      }
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      pFont->info.firstRow = 256;
+      pFont->info.lastRow = 0;
+      pFont->info.firstCol = 256;
+--- 268,274 ----
+  	    return FALSE;
+  	}
+      }
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      pFont->info.firstRow = 256;
+      pFont->info.lastRow = 0;
+      pFont->info.firstCol = 256;
+***************
+*** 294,300 ****
+  	if (bitmapExtra)
+  	    bitmapExtra->glyphNames[ndx] = bdfForceMakeAtom(charName, NULL);
+  
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if (!line || (t = sscanf((char *) line, "ENCODING %d %d", &enc, &enc2)) < 1) {
+  	    bdfError("bad 'ENCODING' in BDF file\n");
+  	    goto BAILOUT;
+--- 295,301 ----
+  	if (bitmapExtra)
+  	    bitmapExtra->glyphNames[ndx] = bdfForceMakeAtom(charName, NULL);
+  
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if (!line || (t = sscanf((char *) line, "ENCODING %d %d", &enc, &enc2)) < 1) {
+  	    bdfError("bad 'ENCODING' in BDF file\n");
+  	    goto BAILOUT;
+***************
+*** 342,348 ****
+  	    }
+  	}
+  
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if ((!line) || (sscanf((char *) line, "SWIDTH %d %d", &wx, &wy) != 2)) {
+  	    bdfError("bad 'SWIDTH'\n");
+  	    goto BAILOUT;
+--- 343,349 ----
+  	    }
+  	}
+  
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if ((!line) || (sscanf((char *) line, "SWIDTH %d %d", &wx, &wy) != 2)) {
+  	    bdfError("bad 'SWIDTH'\n");
+  	    goto BAILOUT;
+***************
+*** 357,363 ****
+  /* 5/31/89 (ef) -- we should be able to ditch the character and recover */
+  /*		from all of these.					*/
+  
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if ((!line) || (sscanf((char *) line, "DWIDTH %d %d", &wx, &wy) != 2)) {
+  	    bdfError("bad 'DWIDTH'\n");
+  	    goto BAILOUT;
+--- 358,364 ----
+  /* 5/31/89 (ef) -- we should be able to ditch the character and recover */
+  /*		from all of these.					*/
+  
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if ((!line) || (sscanf((char *) line, "DWIDTH %d %d", &wx, &wy) != 2)) {
+  	    bdfError("bad 'DWIDTH'\n");
+  	    goto BAILOUT;
+***************
+*** 366,372 ****
+  	    bdfError("DWIDTH y value must be zero\n");
+  	    goto BAILOUT;
+  	}
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if ((!line) || (sscanf((char *) line, "BBX %d %d %d %d", &bw, &bh, &bl, &bb) != 4)) {
+  	    bdfError("bad 'BBX'\n");
+  	    goto BAILOUT;
+--- 367,373 ----
+  	    bdfError("DWIDTH y value must be zero\n");
+  	    goto BAILOUT;
+  	}
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if ((!line) || (sscanf((char *) line, "BBX %d %d %d %d", &bw, &bh, &bl, &bb) != 4)) {
+  	    bdfError("bad 'BBX'\n");
+  	    goto BAILOUT;
+***************
+*** 376,382 ****
+  		     charName, bw, bh);
+  	    goto BAILOUT;
+  	}
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if ((line) && (bdfIsPrefix(line, "ATTRIBUTES"))) {
+  	    for (p = line + strlen("ATTRIBUTES ");
+  		    (*p == ' ') || (*p == '\t');
+--- 377,383 ----
+  		     charName, bw, bh);
+  	    goto BAILOUT;
+  	}
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if ((line) && (bdfIsPrefix(line, "ATTRIBUTES"))) {
+  	    for (p = line + strlen("ATTRIBUTES ");
+  		    (*p == ' ') || (*p == '\t');
+***************
+*** 383,389 ****
+  		    p++)
+  		 /* empty for loop */ ;
+  	    ci->metrics.attributes = bdfHexByte(p) << 8 + bdfHexByte(p + 2);
+! 	    line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	} else
+  	    ci->metrics.attributes = 0;
+  
+--- 384,390 ----
+  		    p++)
+  		 /* empty for loop */ ;
+  	    ci->metrics.attributes = bdfHexByte(p) << 8 + bdfHexByte(p + 2);
+! 	    line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	} else
+  	    ci->metrics.attributes = 0;
+  
+***************
+*** 413,419 ****
+  	} else
+  	    bdfSkipBitmap(file, bh);
+  
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);	/* get STARTCHAR or
+  							 * ENDFONT */
+      }
+  
+--- 414,420 ----
+  	} else
+  	    bdfSkipBitmap(file, bh);
+  
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);	/* get STARTCHAR or
+  							 * ENDFONT */
+      }
+  
+***************
+*** 492,513 ****
+      bdfFileState *pState;
+  {
+      unsigned char *line;
+!     char        namebuf[BUFSIZ];
+      int         tmp;
+!     char        lineBuf[BUFSIZ];
+  
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!line || sscanf((char *) line, "STARTFONT %s", namebuf) != 1 ||
+  	    !bdfStrEqual(namebuf, "2.1")) {
+  	bdfError("bad 'STARTFONT'\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!line || sscanf((char *) line, "FONT %[^\n]", pState->fontName) != 1) {
+  	bdfError("bad 'FONT'\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!line || !bdfIsPrefix(line, "SIZE")) {
+  	bdfError("missing 'SIZE'\n");
+  	return (FALSE);
+--- 493,514 ----
+      bdfFileState *pState;
+  {
+      unsigned char *line;
+!     char        namebuf[BDFLINELEN];
+      int         tmp;
+!     char        lineBuf[BDFLINELEN];
+  
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!line || sscanf((char *) line, "STARTFONT %s", namebuf) != 1 ||
+  	    !bdfStrEqual(namebuf, "2.1")) {
+  	bdfError("bad 'STARTFONT'\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!line || sscanf((char *) line, "FONT %[^\n]", pState->fontName) != 1) {
+  	bdfError("bad 'FONT'\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!line || !bdfIsPrefix(line, "SIZE")) {
+  	bdfError("missing 'SIZE'\n");
+  	return (FALSE);
+***************
+*** 522,528 ****
+  	bdfError("SIZE values must be > 0\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!line || !bdfIsPrefix(line, "FONTBOUNDINGBOX")) {
+  	bdfError("missing 'FONTBOUNDINGBOX'\n");
+  	return (FALSE);
+--- 523,529 ----
+  	bdfError("SIZE values must be > 0\n");
+  	return (FALSE);
+      }
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!line || !bdfIsPrefix(line, "FONTBOUNDINGBOX")) {
+  	bdfError("missing 'FONTBOUNDINGBOX'\n");
+  	return (FALSE);
+***************
+*** 542,555 ****
+                  nextProp;
+      char       *stringProps;
+      FontPropPtr props;
+!     char        namebuf[BUFSIZ],
+!                 secondbuf[BUFSIZ],
+!                 thirdbuf[BUFSIZ];
+      unsigned char *line;
+!     char        lineBuf[BUFSIZ];
+      BitmapFontPtr  bitmapFont = (BitmapFontPtr) pFont->fontPrivate;
+  
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!line || !bdfIsPrefix(line, "STARTPROPERTIES")) {
+  	bdfError(file, "missing 'STARTPROPERTIES'\n");
+  	return (FALSE);
+--- 543,556 ----
+                  nextProp;
+      char       *stringProps;
+      FontPropPtr props;
+!     char        namebuf[BDFLINELEN],
+!                 secondbuf[BDFLINELEN],
+!                 thirdbuf[BDFLINELEN];
+      unsigned char *line;
+!     char        lineBuf[BDFLINELEN];
+      BitmapFontPtr  bitmapFont = (BitmapFontPtr) pFont->fontPrivate;
+  
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!line || !bdfIsPrefix(line, "STARTPROPERTIES")) {
+  	bdfError(file, "missing 'STARTPROPERTIES'\n");
+  	return (FALSE);
+***************
+*** 577,583 ****
+      }
+      nextProp = 0;
+      while (nProps-- > 0) {
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+  	if (line == NULL || bdfIsPrefix(line, "ENDPROPERTIES")) {
+  	    bdfError("%d too few properites\n", nProps + 1);
+  	    goto BAILOUT;
+--- 578,584 ----
+      }
+      nextProp = 0;
+      while (nProps-- > 0) {
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+  	if (line == NULL || bdfIsPrefix(line, "ENDPROPERTIES")) {
+  	    bdfError("%d too few properites\n", nProps + 1);
+  	    goto BAILOUT;
+***************
+*** 635,641 ****
+  	    nextProp++;
+      }
+  
+!     line = bdfGetLine(file, lineBuf, BUFSIZ);
+      if (!bdfIsPrefix(line, "ENDPROPERTIES")) {
+  	bdfError("missing 'ENDPROPERTIES'\n");
+  	goto BAILOUT;
+--- 636,642 ----
+  	    nextProp++;
+      }
+  
+!     line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      if (!bdfIsPrefix(line, "ENDPROPERTIES")) {
+  	bdfError("missing 'ENDPROPERTIES'\n");
+  	goto BAILOUT;
+***************
+*** 717,723 ****
+  	pFont->info.props = NULL;
+      }
+      while (line && bdfIsPrefix(line, "ENDPROPERTIES"))
+! 	line = bdfGetLine(file, lineBuf, BUFSIZ);
+      return (FALSE);
+  }
+  
+--- 718,724 ----
+  	pFont->info.props = NULL;
+      }
+      while (line && bdfIsPrefix(line, "ENDPROPERTIES"))
+! 	line = bdfGetLine(file, lineBuf, BDFLINELEN);
+      return (FALSE);
+  }
+  
+*** /tmp/,RCSt1a05356	Wed Nov 20 16:00:34 1991
+--- fonts/lib/font/bitmap/bitmapfuncs.c	Sat Sep  7 11:59:21 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: bitmapfuncs.c,v 1.3 91/06/12 14:35:17 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: bitmapfuncs.c,v 1.4 91/09/07 11:59:18 keith Exp $
+   *
+   * Copyright 1991 Massachusetts Institute of Technology
+   *
+***************
+*** 44,51 ****
+--- 44,54 ----
+   */
+  static BitmapFileFunctionsRec readers[] = {
+      pcfReadFont, pcfReadFontInfo,
++     pcfReadFont, pcfReadFontInfo,
+      snfReadFont, snfReadFontInfo,
++     snfReadFont, snfReadFontInfo,
+      bdfReadFont, bdfReadFontInfo,
++     bdfReadFont, bdfReadFontInfo,
+  };
+  
+  static FontRendererRec	renderers[] = {
+***************
+*** 52,63 ****
+--- 55,75 ----
+      ".pcf", 4,
+      BitmapOpenBitmap, BitmapOpenScalable,
+  	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
++     ".pcf.Z", 6,
++     BitmapOpenBitmap, BitmapOpenScalable,
++ 	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
+      ".snf", 4,
+      BitmapOpenBitmap, BitmapOpenScalable,
+  	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
++     ".snf.Z", 6,
++     BitmapOpenBitmap, BitmapOpenScalable,
++ 	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
+      ".bdf", 4,
+      BitmapOpenBitmap, BitmapOpenScalable,
+  	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
++     ".bdf.Z", 6,
++     BitmapOpenBitmap, BitmapOpenScalable,
++ 	BitmapGetInfoBitmap, BitmapGetInfoScalable, 0,
+  };
+  
+  BitmapOpenBitmap (fpe, ppFont, flags, entry, fileName, format, fmask)
+***************
+*** 69,75 ****
+      fsBitmapFormat	format;
+      fsBitmapFormatMask	fmask;
+  {
+!     FILE       *file;
+      FontPtr     pFont;
+      int         i;
+      int         ret;
+--- 81,87 ----
+      fsBitmapFormat	format;
+      fsBitmapFormatMask	fmask;
+  {
+!     FontFilePtr	file;
+      FontPtr     pFont;
+      int         i;
+      int         ret;
+***************
+*** 84,95 ****
+       * useful in the file functions array
+       */
+      i = entry->u.bitmap.renderer - renderers;
+!     file = fopen(fileName, "r");
+      if (!file)
+  	return BadFontName;
+      pFont = (FontPtr) xalloc(sizeof(FontRec));
+      if (!pFont) {
+! 	fclose(file);
+  	return AllocError;
+      }
+      /* set up default values */
+--- 96,107 ----
+       * useful in the file functions array
+       */
+      i = entry->u.bitmap.renderer - renderers;
+!     file = FontFileOpen (fileName);
+      if (!file)
+  	return BadFontName;
+      pFont = (FontPtr) xalloc(sizeof(FontRec));
+      if (!pFont) {
+! 	FontFileClose (file);
+  	return AllocError;
+      }
+      /* set up default values */
+***************
+*** 104,110 ****
+  
+      ret = (*readers[i].ReadFont) (pFont, file, bit, byte, glyph, scan);
+  
+!     fclose(file);
+      if (ret != Successful)
+  	xfree(pFont);
+      else
+--- 116,122 ----
+  
+      ret = (*readers[i].ReadFont) (pFont, file, bit, byte, glyph, scan);
+  
+!     FontFileClose (file);
+      if (ret != Successful)
+  	xfree(pFont);
+      else
+***************
+*** 118,126 ****
+      FontEntryPtr	entry;
+      char		*fileName;
+  {
+!     FILE    *file;
+!     int	    i;
+!     int	    ret;
+      FontRendererPtr renderer;
+  
+      renderer = FontFileMatchRenderer (fileName);
+--- 130,138 ----
+      FontEntryPtr	entry;
+      char		*fileName;
+  {
+!     FontFilePtr file;
+!     int		i;
+!     int		ret;
+      FontRendererPtr renderer;
+  
+      renderer = FontFileMatchRenderer (fileName);
+***************
+*** 127,137 ****
+      if (!renderer)
+  	return BadFontName;
+      i = renderer - renderers;
+!     file = fopen (fileName, "r");
+      if (!file)
+  	return BadFontName;
+      ret = (*readers[i].ReadInfo) (pFontInfo, file);
+!     fclose (file);
+      return ret;
+  }
+  
+--- 139,149 ----
+      if (!renderer)
+  	return BadFontName;
+      i = renderer - renderers;
+!     file = FontFileOpen (fileName);
+      if (!file)
+  	return BadFontName;
+      ret = (*readers[i].ReadInfo) (pFontInfo, file);
+!     FontFileClose (file);
+      return ret;
+  }
+  

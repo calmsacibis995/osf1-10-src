@@ -1,0 +1,982 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: curses.3,v $ $Revision: 1.1.3.5 $ (DEC) $Date: 1993/11/16 19:57:33 $
+.\"
+.TH curses 3
+.SH NAME
+.PP
+\*Lcurses\*O \- A library that controls cursor movement and windowing
+.SH LIBRARY
+.PP
+The \*Lcurses\*O library (\*Llibcurses.so\*O, \*Llibcurses.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <curses.h>
+.nL
+#include <term.h>
+.sE
+.SH DESCRIPTION
+.PP
+.iX "curses library"
+The \*Lcurses\*O library is a screen manipulation package.
+.PP
+The full \*Lcurses\*O interface allows you to manipulate
+structures called \*Lwindow\*Os, which can
+be thought of as two-dimensional arrays of characters representing
+all or part of the screen.  A default window (called \*Lstdscr\*O) is supplied,
+and you can create others by using the \*Lnewwin(\|)\*O function.
+Windows are referred to by variables declared as type
+\*LWINDOW *\*O, defined in the \*Lcurses.h\*O header file.
+(Use the \*Lterm.h\*O header file only
+when using the \*Lterminfo\*O level functions.)
+.PP
+Routine names beginning with "w" allow you to specify a window.
+Routine names not beginning with "w" affect only the window
+\*Lstdscr\*O.
+.PP
+The \*Lminicurses\*O package is a subset of \*Lcurses\*O that allows
+.iX "curses" "minicurses package"
+you to manipulate only one window.  You invoke this subset by
+specifying the \*L-DMINICURSES\*O flag to the \*Lcc\*O compiler.
+The \*Lminicurses\*O subset is smaller and faster
+than the full \*Lcurses\*O interface.
+.PP
+If your program needs only one terminal, you can specify the
+\*L-DSINGLE\*O flag to the C compiler.
+This flag produces static references instead
+of dynamic references to capabilities. The result is more concise
+code, but you can use only one terminal for the program.
+.PP
+To initialize the functions that are described in the \*Lcurses\*O
+library, you must call the \*Linitscr(\|)\*O function before using any
+other functions that affect windows and screens and the \*Lendwin(\|)\*O
+function before exiting.
+.SS "Support for Wide-Character Encoding"
+.if n .PP
+.iX "curses" "international functions"
+As is the case for the process code in the Standard C Library,
+the curses library
+has been extended to support Asian language multibyte characters encoded
+in wchar_t format.
+The curses library also includes routines based on the
+specification of ``Unix System V Release 4
+Multi-National Language Supplement (SVR4 MNLS)''
+to process wchar_t data for editing and screen formatting.
+.PP
+The operation of overwriting a multicolumn character with a character of
+a different
+column width may produce orphaned columns. Orphaned columns are
+automatically filled with the background character \*LSPACE\*O (code 0x20)
+when you use the \*Lcurses\*O
+interfaces that process wchar_t data.  However, if you use a
+\*Lcurses\*O interface that handles only single-byte character
+encoding to overwrite a multicolumn
+character, the results are undefined.
+.PP
+When you insert and delete characters, you operate on a character level.
+When you insert a character just before the target character, even if the
+cursor is not at the proper character boundary, the cursor is automatically
+adjusted to the first column of the target character before the insertion.
+Insertion of the character may cause characters to overflow the line on
+the screen. In this case, the characters at the end of the line automatically
+wrap to the first column of the next line and may create orphaned
+columns at the right margin of the screen.
+The orphaned columns are automatically filled with the background character.
+.PP
+Similar rules of operation apply to character deletion.  You delete
+a character with a single call (using the \*Ldelch\*O routine, for
+example). The entire character is deleted by the call, regardless of
+where the cursor is positioned in a
+multicolumn character. The cursor is automatically adjusted
+to the first column of
+the character before the deletion. Any orphaned columns created after the
+deletion are filled with the background character.
+.PP
+When two overlapping or overwriting windows appear on the screen,
+orphaned columns may be produced at the edge of the underlying window.
+The orphaned columns are handled in the same way as those created
+by character insertion and deletion.
+.PP
+Cursor movement operates at the column level rather than the character
+level. For example, you can place the cursor at the second or later
+column position of a
+multicolumn character.
+.SS "Screen Dimensions"
+.if n .PP
+.iX "curses" "screen dimensions"
+The screen is a matrix of character positions that can contain
+any character from the terminal's character set.
+The actual dimensions of the
+matrix are different for each type of terminal. These dimensions are
+defined when the \*Linitscr(\|)\*O function calls the
+\*Lterminfo\*O
+initialization function \*Lsetupterm(\|)\*O. The functions enforce
+the following limits on the terminal:
+.ML
+.LI
+If the terminal specification defines fewer than 5 lines,
+the functions use a value of 24 lines.
+.\"from TP "  
+.LI
+If the terminal specification defines fewer than 5
+columns, the functions use a value of 80 columns.
+.LE
+.PP
+Note that line values (\*Vy\*O coordinates) are specified first
+to the library functions that request line and column values.
+.PP
+To update the screen, the functions must know what the screen currently
+looks like and what it should be changed to. The functions define the
+\*LWINDOW\*O
+data type to hold this information. This data type is a structure
+that describes a window image to the functions, including the starting
+position on the screen (the (\*Vline\*O, \*Vcol\*O) coordinates
+of the upper left corner) and size.
+.PP
+You can think of a window as an array of characters on which to
+make changes. Using the window, your program builds and stores an image
+of a portion of the terminal that it later
+transfers to the actual screen. When the window is complete,
+use one of the following functions to transfer the window to the terminal:
+.VL
+.LI "\*Lrefresh"
+\*OTransfers the contents of \*Lstdscr\*O to
+the terminal
+.LI "\*Lwrefresh"
+\*OTransfers the contents of a named window (not \*Lstdscr\*O)
+to the terminal
+.LE
+.PP
+This two-step process maintains several different copies of a
+window in memory and selects the proper one to display at any time.
+In addition, your program can change the contents of the screen in
+any order. When the program has made all of the changes, the library functions
+update the terminal in an efficient manner.
+.SS "The curses Routines"
+.if n .PP
+.iX "curses" "curses routines"
+The \*Lcurses\*O routines are summarized as follows:
+.VL
+.LI "\*Lint addch( chtype \*Vch \*L);"
+\*OAdds a character to \*Lstdscr\*O, wrapping to the next line at the end of a
+line (like \*Lputchar(\|)\*O).  May be called with \*Lminicurses\*O.
+.LI "\*Lint addnwstr( wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OCalls \*Laddwch(\|)\*O with the first \*Vn\*O
+wchar_t characters in string \*Vwstr\*O.
+.LI "\*Lint addstr( char *\*Vstr \*L);"
+\*OCalls \*Laddch(\|)\*O with each character in string \*Vstr\*O.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint addwch( chtype \*Vwch \*L);"
+\*OAdds a wchar_t character to \*Lstdscr\*O, wrapping to the next line at
+the end of a line (similar to the operation performed by \*Lputwchar(\|)\*O).
+May be called with \*Lminicurses\*O.
+.LI "\*Lint addwchnstr( chtype *\*Vwchstr\*L, int \*Vn \*L);"
+\*OAdds the first \*Vn\*O wchar_t characters (and attributes)
+in string \*Vwchstr\*L to \*Lstdscr\*O.
+.LI "\*Lint addwchstr( chtype *\*Vwchstr \*L);"
+\*OAdds a string of wchar_t characters (and attributes) to \*Lstdscr\*O.
+.LI "\*Lint addwstr( wchar_t *\*Vwstr \*L);"
+\*OCalls \*Laddwch(\|)\*O with each
+wchar_t character in string \*Vwstr\*O.
+.LI "\*Lint attroff( chtype \*Vattrs \*L);"
+\*OTurns off attributes named in list \*Vattrs\*O\&.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint attron( chtype \*Vattrs \*L);"
+\*OTurns on attributes named in list \*Vattrs\*O\&.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint attrset( chtype \*Vattrs \*L);"
+\*OSets current attributes to those specified
+in list \*Vattrs\*O.  May be used with \*Lminicurses\*O.
+.LI "\*Lint baudrate ( void );"
+\*OQueries current terminal speed.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint beep ( void );"
+\*OSounds beep on terminal.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint box( WINDOW *\*Vwin\*L, chtype \*Vvert\*L, chtype \*Vhor \*L);"
+\*ODraws a box around edges
+of window \*Vwin\*O. The \*Vvert\*O and \*Vhor\*O parameters are
+the characters to use for vertical and horizontal edges of the box.
+.LI "\*Lint cbreak ( void );"
+\*OSets \*Lcbreak(\|)\*O mode.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint clear ( void );"
+\*OClears \*Lstdscr\*O.
+.LI "\*Lint clearok( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OClears screen before next redraw
+of window \*Vwin\*O if \*Vbool_flag\*O is true.
+.LI "\*Lint clrtobot ( void );"
+\*OClears to bottom of \*Lstdscr\*O.
+.LI "\*Lint clrtoeol ( void );"
+\*OClears to end of line on \*Lstdscr\*O.
+.LI "\*Lint delay_output( int \*Vms \*L);"
+\*OInserts pause of \*Vms\*O milliseconds in output.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint delch ( void );"
+\*ODeletes a character.
+.LI "\*Lint deleteln ( void );"
+\*ODeletes a line.
+.LI "\*Lint delwin( WINDOW *\*Vwin \*L);"
+\*ODeletes window \*Vwin\*O.
+.LI "\*Lint doupdate ( void );"
+\*OUpdates screen from all \*Lwnoutrefresh(\|)\*O.
+.LI "\*Lint echo ( void );"
+\*OSets echo mode.
+.LI "\*Lint echowchar( chtype \*Vwch \*L);"
+\*OAdds wchar_t character \*Vwch\*O to \*Lstdscr\*O and refreshes the screen.
+.LI "\*Lint endwin ( void );"
+\*OEnds window mode.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint erase ( void );"
+\*OErases \*Lstdscr\*O.
+.LI "\*Lchar erasechar ( void );"
+\*OReturns user's erase character.
+.LI "\*Lint fixterm ( void );"
+\*ORestores terminal to "in curses" state.
+.LI "\*Lint flash ( void );"
+\*OFlashes screen or beeps.
+.LI "\*Lint flushinp ( void );"
+\*OThrows away any data in type-ahead buffer.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint flushok ( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OSets the flush-on-refresh
+flag for window \*Vwin\*O to be \*Vbool_flag\*O.
+.LI "\*Lint getch ( void );"
+\*OGets a character from \*Lstdscr\*O. May be used with \*Lminicurses\*O.
+The following list contains the function keys that might be returned by the
+\*Lgetch(\|)\*O function if \*Lkeypad(\|)\*O has been enabled.
+Due to lack of definitions in \*Lterminfo\*O,
+or due to the terminal not transmitting a unique code when the key
+is pressed, not all of these keys are supported.
+.VL
+.LI "KEY_BREAK"
+Break key (unreliable)
+.LI "KEY_DOWN"
+Down arrow key
+.LI "KEY_UP"
+Up arrow key
+.LI "KEY_LEFT"
+Left arrow key
+.LI "KEY_RIGHT"
+Right arrow key
+.LI "KEY_HOME"
+Home key
+.LI "KEY_BACKSPACE"
+Backspace key (unreliable)
+.LI "KEY_F(\*Vn\*O)"
+Function key F\*Vn\*O, where \*Vn\*O
+is an integer from 0 to 63
+.LI "KEY_DL"
+Delete line
+.LI "KEY_IL"
+Insert line
+.LI "KEY_DC"
+Delete character
+.LI "KEY_IC"
+Insert character or enter insert mode
+.LI "KEY_EIC"
+Exit insert character mode
+.LI "KEY_CLEAR"
+Clear screen
+.LI "KEY_EOS"
+Clear to end of screen
+.LI "KEY_EOL"
+Clear to end of line
+.LI "KEY_SF"
+Scroll one line forward
+.LI "KEY_SR"
+Scroll one line backwards (reverse)
+.LI "KEY_NPAGE"
+Next page
+.LI "KEY_PPAGE"
+Previous page
+.LI "KEY_STAB"
+Set tab
+.LI "KEY_CTAB"
+Clear tab
+.LI "KEY_CATAB"
+Clear all tabs
+.LI "KEY_ENTER"
+Enter or send (unreliable)
+.LI "KEY_SRESET"
+Soft (partial) reset (unreliable)
+.LI "KEY_RESET"
+Reset or hard reset (unreliable)
+.LI "KEY_PRINT"
+Print or copy
+.LI "KEY_LL"
+Home down or bottom (lower left)
+.LI "KEY_A1"
+Upper left key of keypad
+.LI "KEY_A3"
+Upper right key of keypad
+.LI "KEY_B2"
+Center key of keypad
+.LI "KEY_C1"
+Lower left key of keypad
+.LI "KEY_C3"
+Lower right key of keypad
+.LI "KEY_ACTION"
+Action key
+.LI "KEY_HELP"
+Help key
+.LI "KEY_COMMAND"
+Command key
+.LI "KEY_SELECT"
+Select key
+.LI "KEY_BTAB"
+Back tab key
+.LE
+.LI "\*Lchar *getcap ( char *\*Vcap_name \*L);"
+\*OGets terminal capability \*Vcap_name\*O.
+.LI "\*Lint getstr( char *\*Vstr \*L);"
+\*OGets the string through \*Lstdscr\*O.
+.LI "\*Lint getnstr( char *\*Vstr \*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O characters in the string \*Vstr\*O through
+\*Lstdscr\*O.
+.LI "\*Lint getnwstr( wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O wchar_t characters in the string \*Vwstr\*O
+through \*Lstdscr\*O.
+.LI "\*Lint gettmode ( void );"
+\*OGets current \*Ltty\*O modes.
+.LI "\*Lint getwch ( void );"
+\*OGets a wchar_t character from \*Lstdscr\*O.
+.LI "\*Lint getwstr( wchar_t *\*Vwstr \*L);"
+\*OGets a wchar_t character string through \*Lstdscr\*O.
+.LI "\*Lint getyx( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OGets (\*Vy\*O,\*Vx\*O) coordinates from window \*Vwin\*O.
+.LI "\*Lbool has_ic ( void );"
+\*OHas value of TRUE if terminal can insert character.
+.LI "\*Lbool has_il ( void );"
+\*OHas value of TRUE if terminal can insert line.
+.LI "\*Lint idlok( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OUses terminal's insert/delete
+line on window \*Vwin\*O if \*Vbool_flag\*O is true.
+May be used with \*Lminicurses\*O.
+.LI "\*Lchtype inch ( void );"
+\*OGets character at current (\*Vy\*O,\*Vx\*O)
+coordinates.
+.LI "\*LWINDOW *initscr ( void );"
+\*OInitializes screen.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint innwstr( wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O wchar_t characters in string \*Vwstr\*O
+from \*Lstdscr\*O.
+.LI "\*Lint insch( chtype \*Vch \*L);"
+\*OInserts character \*Vch\*O.
+.LI "\*Lint insertln ( void );"
+\*OInserts a line.
+.LI "\*Lint insnwstr( wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OInserts the first \*Vn\*O wchar_t characters in string \*Vwstr\*O.
+.LI "\*Lint inswch( chtype \*Vwch \*L);"
+\*OInserts wchar_t character \*Vwch\*O.
+.LI "\*Lint inswstr( wchar_t *\*Vwstr \*L);"
+\*OInserts wchar_t character string \*Vwstr\*O.
+.LI "\*Lint intrflush( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OInterrupts flush
+output on window \*Vwin\*O if \*Vbool_flag\*O is true.
+.LI "\*Lchtype inwch( void );"
+\*OGets a wchar_t character and its attribute.
+.LI "\*Lchtype inwchnstr( chtype *\*Vwchstr\*L, int \*Vn \*L);"
+\*OGets a string of at most \*Vn\*O wchar_t characters (and attributes)
+from \*Lstdscr\*O.
+.LI "\*Lchtype inwchstr( chtype *\*Vwchstr \*L);"
+\*OGets a string of wchar_t characters (and attributes) from
+\*Lstdscr\*O.
+.LI "\*Lint inwstr( wchar_t *\*Vwstr \*L);"
+\*OGets a string of wchar_t characters from \*Lstdscr\*O.
+.LI "\*Lint keypad( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OEnables keypad input on window \*Vwin\*O if
+\*Vbool_flag\*O is true.
+.LI "\*Lchar killchar ( void );"
+\*OReturns current user's \*Lkill(\|)\*O character.
+.LI "\*Lint leaveok( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OPermits cursor
+to be left anywhere after refresh for window \*Vwin\*O if
+\*Vbool_flag\*O is true;
+otherwise, cursor must be left at current position.
+.LI "\*Lchar *longname ( void );"
+\*OReturns verbose name of terminal.
+.LI "\*Lchar *longname( char *\*Vtermbuf\*L, char *\*Vname \*L);"
+\*OSets \*Vname\*O
+to the full name of the terminal described by \*Vtermbuf\*O.  Used
+in programs that are compiled with the \*L-D_BSD\*O option to provide
+BSD compatibility.
+.LI "\*Lchar meta( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OAllows metacharacters
+on input from window \*Vwin\*O if \*Vbool_flag\*O is true.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint move( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O)
+on \*Lstdscr\*O.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint mvaddch( int \*Vy\*L, int \*Vx\*L, chtype \*Vch \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then adds character \*Vch\*O.
+.LI "\*Lint mvaddnwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then adds at most \*Vn\*O wchar_t characters in string \*Vwstr\*O.
+.LI "\*Lint mvaddstr( int \*Vy\*L, int \*Vx\*L, char *\*Vstr \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then adds string \*Vstr\*O.
+.LI "\*Lint mvaddwch( int \*Vy\*L, int \*Vx\*L, chtype \*Vwch \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then adds a wchar_t character \*Vwch\*O.
+.LI "\*Lint mvaddwchnstr( int \*Vy\*L, int \*Vx\*L, chtype *\*Vwchstr\*L, \*O"
+\*Lint \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O), then adds the first \*Vn\*O
+wchar_t
+characters (and attributes) in the string \*Vwchstr\*O to window.
+.LI "\*Lint mvaddwchstr( int \*Vy\*L, int \*Vx\*L, chtype *\*Vwchstr \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then adds the string \*Vwchstr\*O to window.
+.LI "\*Lint mvaddwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then adds wchar_t character string \*Vwstr\*O.
+.LI "\*Lchar mvcur( int \*Vy1\*L, int \*Vx1\*L, int \*Vy2\*L, int \*Vx2 \*L);\*O"
+Moves cursor from current position (\*Vy1\*O,\*Vx1\*O) to new position
+(\*Vy2\*O,\*Vx2\*O).
+.LI "\*Lint mvdelch( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then deletes a character.
+.LI "\*Lint mvgetch( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets a character from the terminal.
+.LI "\*Lint mvgetnstr( int \*Vy\*L, int \*Vx\*L, char *\*Vstr\*L, int \*Vn \*L) ; "
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets
+at most \*Vn\*O characters in the string \*Vstr\*O from the terminal.
+.LI "\*Lint mvgetnwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then gets at most \*Vn\*O wchar_t characters in the
+string \*Vwstr\*O from the terminal.
+.LI "\*Lint mvgetstr( int \*Vy\*L, int \*Vx\*L, char *\*Vstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets string \*Vstr\*O
+from the terminal.
+.LI "\*Lint mvgetwch( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets a wchar_t character from the terminal.
+.LI "\*Lint mvgetwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then gets the wchar_t character string
+\*Vwstr\*O from the terminal.
+.LI "\*Lchtype mvinch( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets the character at current (\*Vy\*O,\*Vx\*O) coordinates.
+.LI "\*Lint mvinnwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then gets at most \*Vn\*O wchar_t characters in string \*Vwstr\*O
+from \*Lstdscr\*O.
+.LI "\*Lint mvinsch( int \*Vy\*L, int \*Vx\*L, chtype \*Vch \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then inserts character \*Vch\*O.
+.LI "\*Lint mvinswch( int \*Vy\*L, int \*Vx\*L, chtype \*Vwch \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then inserts wchar_t character \*Vwch\*O.
+.LI "\*Lint mvinswstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then inserts wchar_t character string \*Vwstr\*O.
+.LI "\*Lint mvinwch( int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets a wchar_t character and its attributes.
+.LI "\*Lchtype mvinwchnstr( int \*Vy\*L, int \*Vx\*L, chtype *\*Vwchstr\*L, int \*Vn \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then
+gets a string of at most \*Vn\*O wchar_t characters (and attributes)
+from \*Lstdscr\*O.
+.LI "\*Lchtype mvinwchstr( int \*Vy\*L, int \*Vx\*L, chtype *\*Vwchstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets a string of wchar_t characters (and attributes) from \*Lstdscr\*O.
+.LI "\*Lint mvinwstr( int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets a string of wchar_t characters from \*Lstdscr\*O.
+.LI "\*Lint mvprintw( int \*Vy\*L, int \*Vx\*L, char *\*Vfmt \*L[, \*Vargs \*L] );"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then prints on \*Lstdscr\*O.
+.LI "\*Lint mvscanw( int \*Vy\*L, int \*Vx\*L, char *\*Vfmt \*L[, \*Vargs \*L] );"
+\*OMoves
+to position (\*Vy\*O,\*Vx\*O), then scans through \*Lstdscr\*O.
+.LI "\*Lint mvwaddch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, chtype \*Vch \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then adds character \*Vch\*O to
+window \*Vwin\*O.
+.LI "\*Lint mvwaddnwstr( WINDOW *\*Vwin, \*Lint \*Vy\*L, int \*Vx\*L,\*O "
+\*Lwchar_t *\ *Vwstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then adds at most \*Vn\*O wchar_t characters in string \*Vwstr\*O to
+window \*Vwin\*O.
+.LI "\*Lint mvwaddstr( WINDOW *\*Vwin, \*Lint \*Vy\*L, int \*Vx\*L, char *\*Vstr \*L);"
+\*OMoves to position (\*Vy\*O, \*Vx\*O),
+then adds string \*Vstr\*O to window \*Vwin\*O.
+.LI "\*Lint mvwaddwch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, chtype \*Vwch \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then adds wchar_t character
+\*Vwch\*O to window \*Vwin\*O.
+.LI "\*Lint mvwaddwchnstr( WINDOW *\*Vwin, \*Lint \*Vy\*L, int \*Vx\*L, \*O"
+\*Lchtype * \*Vwchstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then adds the first \*Vn\*O wchar_t characters (and attributes)
+in string \*Vwchstr\*O to window \*Vwin\*O.
+.LI "\*Lint mvwaddwchstr( WINDOW *\*Vwin, \*Lint \*Vy\*L, int \*Vx\*L, \*O"
+\*Lchtype *\ *Vwchstr \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then adds the string \*Vwchstr\*O to window \*Vwin\*O.
+.LI "\*Lint mvwaddwstr( WINDOW *\*Vwin, \*Lint \*Vy\*L, int \*Vx\*L, \*O"
+\*Lwchar_t *\*Vwstr \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then adds wchar_t character string \*Vwstr\*O to window \*Vwin\*O.
+.LI "\*Lint mvwdelch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves
+to position (\*Vy\*O,\*Vx\*O), then deletes a character from \*Vwin\*O.
+.LI "\*Lint mvwgetch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves
+to position (\*Vy\*O,\*Vx\*O), then gets a character through \*Vwin\*O.
+.LI "\*Lint mvwgetnstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, \*O"
+\*Lchar *\*Vstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O), then gets
+at most \*Vn\*O characters in the string \*Vstr\*O through \*Vwin\*O.
+.LI "\*Lint mvwgetnwstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, \*O"
+\*Lwchar_t *\ *Vwstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O), then gets a string of at most
+\*Vn\*O wchar_t characters through \*Vwin\*O.
+.LI "\*Lint mvwgetstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, char *\*Vstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets a string through \*Vwin\*O.
+.LI "\*Lint mvwgetwch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves
+to position (\*Vy\*O,\*Vx\*O), then gets a wchar_t character through \*Vwin\*O.
+.LI "\*Lint mvwgetwstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O), then gets a wchar_t character string
+through \*Vwin\*O.
+.LI "\*Lint mvwin( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves \*Vwin\*O so that the upper left corner is located at position
+(\*Vy\*O,\*Vx\*O).
+.LI "\*Lchtype mvwinch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O) in \*Vwin\*O, then gets the character at the new position.
+.LI "\*Lint mvwinnwstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, "
+\*Lwchar_t *\*Vwstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then gets at most \*Vn\*O wchar_t characters in string \*Vwstr\*O
+from \*Vwin\*O.
+.LI "\*Lint mvwinsch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, chtype \*Vch \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then inserts character \*Vch\*O into \*Vwin\*O.
+.LI "\*Lint mvwinsnwstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, "
+\*Lwchar_t *\*Vwstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O, \*Vx\*O),
+then inserts the first \*Vn\*O wchar_t characters in string \*Vwstr\*O
+into \*Vwin\*O.
+.LI "\*Lint mvwinswch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, chtype \*Vwch \*L);"
+\*OMoves to position
+(\*Vy\*O,\*Vx\*O), then inserts wchar_t character \*Vwch\*O into \*Vwin\*O.
+.LI "\*Lint mvwinswstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then inserts wchar_t character string \*Vwstr\*O into \*Vwin\*O.
+.LI "\*Lint mvwinwch( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets a wchar_t character and its attributes from \*Vwin\*O.
+.LI "\*Lchtype mvwinwchnstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, "
+\*Lchtype *\*Vwchstr\*L, int \*Vn \*L);\*O
+.IP
+Moves to position (\*Vy\*O,\*Vx\*O), then
+gets a string of at most \*Vn\*O wchar_t characters (and attributes)
+from \*Vwin\*O.
+.LI "\*Lchtype mvwinwchstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, \*O"
+\*Lchtype *\*Vwchstr \*L);\*O
+.IP
+Moves to position (\*Vy\*O,\*Vx\*O),
+then gets a string of wchar_t characters (and attributes) from \*Vwin\*O.
+.LI "\*Lint mvwinwstr( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, wchar_t *\*Vwstr \*L);"
+\*OMoves to position (\*Vy\*O,\*Vx\*O),
+then gets a string of wchar_t characters from \*Vwin\*O.
+.LI "\*Lint mvwprintw( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, "
+\*Lchar *\*Vfmt \*L[, \*Vargs \*L] );\*O
+.IP
+Moves to position (\*Vy\*O,\*Vx\*O), then performs \*Lprintf(\|)\*O
+on \*Lstdscr\*O.
+.LI "\*Lint mvwscanw( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx\*L, "
+\*Lchar *\*Vfmt \*L[, \*Vargs \*L] );\*O
+.IP
+Moves to position (\*Vy\*O,\*Vx\*O), then performs \*Lscanf(\|)\*O
+through \*Lstdscr\*O.
+.LI "\*LWINDOW *newpad( int \*Vnlines\*L, int \*Vncols \*L);"
+\*OCreates a new pad with given dimensions.
+.LI "\*LSCREEN *newterm( char *\*Vtype\*L, FILE \*Voutfd\*O, \*LFILE \*Vinfd \*L);"
+\*OSets up new terminal of given type to output on \*Voutfd\*O and input
+from \*Vinfd\*O.
+.LI "\*LWINDOW *newwin( int \*Vlines\*L, int \*Vcols\*L, "
+\*Lint \*Vbegin_y\*L, int \*Vbegin_x \*L);\*O
+.IP
+Creates a new window.
+.LI "\*Lint nl ( void );"
+\*OSets newline mapping.  May be used with \*Lminicurses\*O.
+.LI "\*Lint nocbreak ( void );"
+\*OUnsets \*Lcbreak(\|)\*O mode.
+.LI "\*Lint nodelay( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OEnables \*Lnodelay(\|)\*O input
+mode through \*Lgetch(\|)\*O on window \*Vwin\*O if
+\*Vbool_flag\*O is true.
+.LI "\*Lint noecho ( void );"
+\*OUnsets echo mode.
+.LI "\*Lint nonl ( void );"
+\*OUnsets new line mapping.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint noraw ( void );"
+\*OUnsets raw mode. May be used with \*Lminicurses\*O.
+.LI "\*Lint overlay( WINDOW *\*Vwin1\*L, WINDOW *\*Vwin2 \*L);"
+\*OOverlays \*Vwin1\*O
+on \*Vwin2\*O. The overlaying window (\*Vwin1\*O) takes as its
+origin the window being overlayed (\*Vwin2\*O).
+.LI "\*Lint overwrite( WINDOW *\*Vwin1\*L, WINDOW *\*Vwin2 \*L);"
+\*OOverwrites \*Vwin1\*O
+on \*Vwin2\*O.
+.LI "\*Lint pnoutrefresh(WINDOW *\*Vpad\*L, int \*Vpminrow\*L, int \*Vpmincol\*L ,"
+\*Lint \*Vsminrow\*L, \*Lint \*Vsmincol\*L, \*Lint \*Vsmaxrow\*L,
+\*Lint \*Vsmaxcol\*L);
+.IP
+\*ORefreshes like \*Lprefresh(\|)\*O, but with no output until
+\*Ldoupdate(\|)\*O is called.
+.LI "\*Lint prefresh( WINDOW *\*Vpad\*L, int \*Vpminrow\*L, int \*Vpmincol\*L,\*O"
+\*Lint \*Vsminrow\*L, \*Lint \*Vsmincol\*L, int \*Vsmaxrow\*L,
+.br
+int \*Vsmaxcol \*L);\*O
+.IP
+Refreshes from \*Vpad\*O starting with given
+upper left corner of pad with output to given portion of screen.
+.LI "\*Lint printw( char *\*Vfmt \*L[, \*Varg1\*L, \*Varg2, ... \*L] );"
+\*OPrints
+on \*Lstdscr\*O.
+.LI "\*Lint raw ( void );"
+\*OSets raw mode.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint refresh ( void );"
+\*OMakes current screen look like \*Lstdscr\*O.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint pnoutrefresh(WINDOW *\*Vpad\*L, int \*Vpminrow\*L, int \*Vpmincol\*L,"
+\*Lint \*Vsminrow\*L, \*Lint \*Vsmincol\*L, \*Lint \*Vsmaxrow\*L, \*Lint \*Vsmaxcol\*L);
+.IP
+\*ORefreshes like \*Lprefresh(\|)\*O, but with no output
+until \*Ldoupdate(\|)\*O is called.
+.LI "\*Lint resetterm ( void );"
+\*OSets \*Ltty\*O modes to "out of
+curses" state.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint resetty ( void );"
+\*OResets \*Ltty\*O flags to stored value.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint saveterm ( void );"
+\*OSaves current modes as "in curses" state.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint savetty ( void );"
+\*OStores current \*Ltty\*O flags.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint scanw( char *\*Vfmt \*L[, \*Varg1\*L, \*Varg2, ... \*L] );"
+\*OPerforms \*Lscanf\*O through \*Lstdscr\*O.
+.LI "\*Lint scroll( WINDOW *\*Vwin \*L);"
+\*OScrolls \*Vwin\*O one line.
+.LI "\*Lint scrollok( WINDOW *\*Vwin\*L, bool \*Vbool_flag \*L);"
+\*OAllows terminal to scroll if \*Vbool_flag\*O is true.
+.LI "\*LSCREEN *set_term( SCREEN *\*Vnew \*L);"
+\*OEnables talk to terminal \*Vnew\*O.
+.LI "\*Lint setscrreg( int \*Vtop\*L, int \*Vbottom \*L);"
+\*OSets user scrolling
+region to lines \*Vtop\*O through \*Vbottom\*O.
+.LI "\*Lvoid setterm( char *\*Vtype \*L);"
+\*OEstablishes terminal with a given type.
+.LI "\*Lint standend ( void );"
+\*OClears standout mode attribute.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint standout ( void );"
+\*OSets standout mode attribute.
+May be used with \*Lminicurses\*O.
+.LI "\*LWINDOW *subwin( WINDOW *\*Vwin\*L, int \*Vlines\*L,"
+\*Lint \*Vcols\*L, int \*Vbegin_y\*L, int \*Vbegin_x \*L);\*O
+.IP
+\*OCreates a subwindow.
+.LI "\*Lint touchline( WINDOW *\*Vwin\*L, int \*Vy\*L, "
+\*Lint \*Vfirstcol\*L, int \*Vnumcol \*L);\*O
+.IP
+Marks \*Vnumcol\*O columns, starting at column \*Vfirstcol\*O,
+of line \*Vy\*O as changed.
+.LI "\*Lint touchoverlap( WINDOW *\*Vwin1\*L, WINDOW *\*Vwin2 \*L);"
+\*OMarks overlap of \*Vwin1\*O on \*Vwin2\*O as changed.
+.LI "\*Lint touchwin( WINDOW *\*Vwin \*L);"
+\*OChanges all of \*Vwin\*O.
+.LI "\*Lint traceoff ( void );"
+\*OTurns off debugging trace output.
+.LI "\*Lint traceon ( void );"
+\*OTurns on debugging trace output.
+.LI "\*Lint typeahead( FILE \*Vfd \*L);"
+\*OChecks file descriptor \*Vfd\*O to check type-ahead.
+.LI "\*Lchar *unctrl( chtype \*Vch \*L);"
+\*OUses printable version of \*Vch\*O.
+May be used with \*Lminicurses\*O.
+.LI "\*Lint ungetwch( int \*Vwch \*L);"
+\*OPushes a wchar_t character back to the input queue.
+.LI "\*Lint vwprintw( WINDOW *\*Vwin\*L, char *\*Vfmt\*L, va_list \*Vvarglist \*L);"
+Performs \*Lvprintf(\|)\*O on \*Vwin\*O.
+.LI "\*Lint vwscanw( WINDOW *\*Vwin\*L, char *\*Vfmt\*L, va_list \*Vvarglist \*L);"
+\*OReads input from \*Vwin\*O by calling \*Lwscanw\*O(\|) using
+a variable argument list.
+.LI "\*Lint waddch( WINDOW *\*Vwin\*L, chtype \*Vch \*L);"
+\*OAdds character \*Vch\*O to window \*Vwin\*O.
+.LI "\*Lint waddnwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OAdds at most \*Vn\*O wchar_t characters in string \*Vwstr\*O
+to window \*Vwin\*O.
+.LI "\*Lint waddstr( WINDOW *\*Vwin\*L, char *\*Vstr \*L);"
+\*OAdds string \*Vstr\*O to window \*Vwin\*O.
+.LI "\*Lint waddwch( WINDOW *\*Vwin\*L, chtype \*Vwch \*L);"
+\*OAdds a wchar_t character \*Vwch\*O to window \*Vwin\*O.
+.LI "\*Lint waddwchnstr( WINDOW *\*Vwin\*L, chtype *\*Vwchstr\*L, int \*Vn \*L) ; "
+\*OAdds the first \*Vn\*O wchar_t characters (and attributes) in
+string \*Vwchstr\*O to window \*Vwin\*O.
+.LI "\*Lint waddwchstr( WINDOW *\*Vwin\*L, chtype *\*Vwchstr \*L);"
+\*OAdds the string \*Vwchstr\*O to window \*Vwin\*O.
+.LI "\*Lint waddwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr \*L);"
+\*OAdds wchar_t character string \*Vwstr\*O to window \*Vwin\*O.
+.LI "\*Lint wattroff( WINDOW *\*Vwin\*L, int \*Vattrs \*L);"
+\*OTurns off \*Vattrs\*O in \*Vwin\*O.
+.LI "\*Lint wattron( WINDOW *\*Vwin\*L, int \*Vattrs \*L);"
+\*OTurns on \*Vattrs\*O in \*Vwin\*O.
+.LI "\*Lint wattrset( WINDOW *\*Vwin\*L, int \*Vattrs \*L);"
+\*OSets attributes in \*Vwin\*O to \*Vattrs\*O.
+.LI "\*Lint wclear( WINDOW *\*Vwin \*L);"
+\*OClears \*Vwin\*O.
+.LI "\*Lint wclrtobot( WINDOW *\*Vwin \*L);"
+\*OClears to bottom of \*Vwin\*O.
+.LI "\*Lint wclrtoeol( WINDOW *\*Vwin \*L);"
+\*OClears to end of line on \*Vwin\*O.
+.LI "\*Lint wdelch( WINDOW *\*Vwin \*L);"
+\*ODeletes the current character from \*Vwin\*O.
+.LI "\*Lint wdeleteln( WINDOW *\*Vwin \*L);"
+\*ODeletes line from \*Vwin\*O.
+.LI "\*Lint wechowchar( WINDOW *\*Vwin\*L, chtype \*Vwch \*L);"
+\*OAdds wchar_t character \*Vwch\*O to window \*Vwin\*O and
+refreshes the screen.
+.LI "\*Lint werase( WINDOW *\*Vwin \*L);"
+\*OErases \*Vwin\*O.
+.LI "\*Lint wgetch( WINDOW *\*Vwin \*L);"
+\*OGets a character through \*Vwin\*O.
+.LI "\*Lint wgetnstr( WINDOW *\*Vwin\*L, char *\*Vstr\*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O characters in the string \*Vstr\*O through
+\*Vwin\*O.
+.LI "\*Lint wgetnwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O wchar_t characters in the string \*Vwstr\*O
+through \*Vwin\*O.
+.LI "\*Lint wgetstr( WINDOW *\*Vwin\*L, char *\*Vstr \*L);"
+\*OGets the string \*Vstr\*O through \*Vwin\*O.
+.LI "\*Lint wgetwch( WINDOW *\*Vwin \*L);"
+\*OGets a wchar_t character through \*Vwin\*O.
+.LI "\*Lint wgetwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr \*L);"
+\*OGets wchar_t character string \*Vwstr\*O through \*Vwin\*O.
+.LI "\*Lchtype winch( WINDOW *\*Vwin \*L);"
+\*OGets the character at current (\*Vy\*O, \*Vx\*O) in \*Vwin\*O.
+.LI "\*Lint winnwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OGets at most \*Vn\*O wchar_t characters in string \*Vwstr\*O
+from \*Vwin\*O.
+.LI "\*Lint winsch( WINDOW *\*Vwin\*L, chtype \*Vch \*L);"
+\*OInserts character \*Vch\*O into \*Vwin\*O.
+.LI "\*Lint winsnwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr\*L, int \*Vn \*L);"
+\*OInserts the first \*Vn\*O wchar_t characters in string \*Vwstr\*O
+into \*Vwin\*O.
+.LI "\*Lint winswch( WINDOW *\*Vwin\*L, chtype \*Vwch \*L);"
+\*OInserts wchar_t character \*Vwch\*O into \*Vwin\*O.
+.LI "\*Lint winswstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr \*L);"
+\*OInserts wchar_t character string \*Vwstr\*O into \*Vwin\*O.
+.LI "\*Lchtype winwch( WINDOW *\*Vwin \*L);"
+\*OGets a wchar_t character and its attribute from \*Vwin\*O.
+.LI "\*Lchtype winwchnstr( WINDOW *\*Vwin\*L, chtype *\*Vwchstr\*L, int \*Vn \*L);"
+\*OGets a string of at most \*Vn\*O wchar_t characters (and attributes)
+from \*Vwin\*O.
+.LI "\*Lchtype winwchstr( WINDOW *\*Vwin\*L, chtype *\*Vwchstr \*L);"
+\*OGets a string of wchar_t characters (and attributes) from \*Vwin\*O.
+.LI "\*Lint winwstr( WINDOW *\*Vwin\*L, wchar_t *\*Vwstr \*L);"
+\*OGets a string of wchar_t characters from \*Vwin\*O.
+.LI "\*Lint winsertln( WINDOW *\*Vwin \*L);"
+\*OInserts line into \*Vwin\*O.
+.LI "\*Lint wmove( WINDOW *\*Vwin\*L, int \*Vy\*L, int \*Vx \*L);"
+\*OSets current
+(\*Vy\*O, \*Vx\*O) coordinates on \*Vwin\*O.
+.LI "\*Lint wnoutrefresh( WINDOW *\*Vwin \*L);"
+\*ORefreshes window but does not output to screen.
+.LI "\*Lint wprintw( WINDOW *\*Vwin\*L, char *\*Vfmt \*L[, \*Varg1\*L, \*O"
+\*Varg2, ... \*L] );\*O
+.IP
+Performs \*Lprintf(\|)\*O on \*Vwin\*O.
+.LI "\*Lint wrefresh( WINDOW *\*Vwin \*L);"
+\*OMakes screen look like \*Vwin\*O.
+.LI "\*Lint wscanw( WINDOW *\*Vwin\*L, char *\*Vfmt \*L[, \*Varg1\*L, \*O"
+\*Varg2,...\  \*L] );\*O
+.IP
+Performs \*Lscanf(\|)\*O through \*Vwin\*O.
+.LI "\*Lint wsetscrreg( WINDOW *\*Vwin\*L, int \*Vtop\*L, int \*Vbottom \*L);"
+\*OSets scrolling region of \*Vwin\*O.
+.LI "\*Lint wstandend( WINDOW *\*Vwin \*L);"
+\*OClears standout attribute in \*Vwin\*O\&.
+.LI "\*Lint wstandout( WINDOW *\*Vwin \*L);"
+\*OSets standout attribute in \*Vwin\*O.
+.LE
+.SS "The terminfo Level Functions"
+.if n .PP
+.iX "curses" "terminfo level functions"
+.PP
+These functions should be called by programs that have to deal
+directly with the \*Lterminfo\*O database. Due to the low level
+of this interface, its use is discouraged.
+.PP
+To use the
+\*Lterminfo\*O
+level functions of \*Lcurses\*O, include
+the \*Lcurses.h\*O and \*Lterm.h\*O files, in that order, to
+get the definitions for these strings, numbers, and flags.
+Call the \*Lsetupterm(\|)\*O function before using any of
+the other \*Lterminfo\*O functions. The \*Lsetupterm(\|)\*O function
+defines the set of terminal-dependent variables defined in the \*Lterminfo\*O
+file.
+.PP
+Print all \*Lterminfo\*O strings (including the output of the
+\*Ltparm(\|)\*O parameter)
+using the \*Ltputs(\|)\*O or \*Lputp(\|)\*O
+function.  Before your program exits, make sure that it calls the \*Lreset_shell_mode(\|)\*O
+function to
+restore the \*Ltty\*O
+modes. If you want to use shell escapes in your program, you can call the
+\*Lreset_shell_mode(\|)\*O function
+before the shell is called and the \*Lreset_prog_mode(\|)\*O function
+after returning from the shell.
+.VL
+.LI "\*Lint def_prog_mode( void );"
+\*OSaves the current terminal mode as program
+mode in \*Lcur_term->Nttyb\*O.
+.LI "\*Lint def_shell_mode( void );"
+\*OSaves the shell mode as normal mode in
+\*Lcur_term->Ottyb\*O. The
+\*Ldef_shell_mode(\|)\*O function is called automatically
+by \*Lsetupterm(\|)\*O function.
+.LI "\*Lint delay_output ( int \*Vms \*L);"
+\*OSets the output delay in
+milliseconds.
+.LI "\*Lint putp( char *\*Vstr \*L);"
+\*OCalls \*Ltputs(\|)\*O( \*Lchar *\*Vstr\*O, \*L1\*O, \*Lputchar(\|)\*O).
+.LI "\*Lint reset_prog_mode ( void );"
+\*OPuts the terminal into program mode.
+.LI "\*Lint reset_shell_mode ( void );"
+\*OPuts the terminal into shell mode. All
+programs must call the \*Lreset_shell_mode(\|)\*O function before they
+exit. The
+higher-level function \*Lendwin(\|)\*O automatically does this.
+.LI "\*Lint setupterm( char *\*Vterm\*L, int \*Vfd\*L, int \*Vrc \*L);"
+\*OReads
+in the database. The \*Vterm\*O parameter is a character string
+that specifies the terminal name. If \*Vterm\*O is 0 (zero), then the
+value of the \*LTERM\*O environment variable is used. One of the
+following status values is stored into the integer pointed to by the
+\*Vrc\*O parameter:
+.VL
+.LI "\*L1"
+\*OSuccessful completion.
+.LI "\*L0"
+\*ONo such terminal.
+.LI "\*L-1"
+\*OAn error occurred while locating the \*Lterminfo\*O database.
+.IP
+\*OIf the \*Vrc\*O parameter is 0 (zero), then no status value is returned,
+and an error causes the \*Lsetupterm(\|)\*O function to print an error
+message and
+exit, rather than return. The \*Vfd\*O parameter is the file descriptor
+of the terminal being used for output.  The \*Lsetupterm(\|)\*O function
+calls the \*LTIOCGWINSZ\*O
+ioctl function to determine the number of lines and columns
+on the display. If \*Ltermdef\*O cannot supply this information,
+then the \*Lsetupterm(\|)\*O function uses the values in the
+\*Lterminfo\*O database. The simplest call is \*Lsetupterm(0,1,0)\*O,
+which uses all
+the defaults.
+.IP
+\*OAfter the call to the \*Lsetupterm(\|)\*O function, the global
+variable \*Lcur_term\*O
+is set to point to the current structure of terminal capabilities.
+A program can use more than one terminal at a time
+by calling the \*Lsetupterm(\|)\*O function for each terminal and
+saving and restoring \*Lcur_term\*O.
+.IP
+\*OThe \*Lsetupterm(\|)\*O function also initializes the global
+variable \*Lttytype\*O as an array of characters to the value of
+the list of names for the terminal. The list comes from the beginning
+of the \*Lterminfo\*O description.
+.LE
+.LI "\*Lchar *tparm( char *\*Vformat\*O [ \*L, \*Varg\*L, \*V\|.\|.\|.\*O ]\*L);"
+\*OInstantiates the format string \*Vformat\*O and one or more
+arguments of varying type.
+The character string returned has the given
+parameters applied.
+.LI "\*Lvoid tputs( char *\*Vstr\*L, int \*Vaffcnt\*L, int (*\*Vputc\*L)\|(\|));"
+\*OApplies
+padding information to string \*Vstr\*O. The \*Vaffcnt\*O parameter
+is the number of lines affected, or 1 if not applicable. The \*Vputc\*O
+parameter function is similar to
+\*Lputchar(\|)\*O to which the characters are passed one at a time.
+.IP
+\*OSome strings are of a form similar to \*L$<20>\*O, which is an instruction
+to pad for 20 milliseconds.
+.LI "\*Lvoid vidputs( int *\*Vattrs\*L, int (*\*Vputc\*L)\|(\|);"
+\*OOutputs the
+string to put terminal in video attribute mode \*Vattrs\*O. Characters
+are passed to the \*Vputc\*O function. The \*Vattrs\*O
+are defined in \*Lcurses.h\*O. The previous mode is retained
+by this function.
+.LI "\*Lvoid vidattr( int \*Vattrs \*L);"
+\*OLike \*Lvidputs(\|)\*O, but outputs
+through \*Lputchar(\|)\*O.
+.LE
+.SS "The termcap Compatibility Functions"
+.if n .PP
+.iX "curses" "termcap compatibility functions"
+These functions are included for compatibility with programs that
+require \*Ltermcap\*O. Their parameters are the same as for \*Ltermcap\*O,
+and they are emulated using the \*Lterminfo\*O database.
+.VL
+.LI "\*Lint tgetent( char *\*Vbp\*L, char *\*Vname \*L);"
+\*OLooks up the \*Ltermcap\*O
+entry for \*Vname\*O. Both \*Vbp\*O and \*Vname\*O are
+strings. The \*Vname\*O parameter is a terminal name; \*Vbp\*O
+is ignored. Calls the \*Lsetupterm(\|)\*O function.
+.LI "\*Lint tgetflag( char *\*Vid \*L);"
+\*OReturns the Boolean entry for \*Vid\*O,
+which is a 2-character string that contains a \*Ltermcap\*O identifier.
+.LI "\*Lint tgetnum( char *\*Vid \*L);"
+\*OReturns the numeric entry for \*Vid\*O,
+which is a 2-character string that contains a \*Ltermcap\*O identifier.
+.LI "\*Lchar *tgetstr( char *\*Vid\*L, char *\*Varea \*L);"
+\*OReturns the string
+entry for \*Vid\*O, which is a 2-character string that contains
+a \*Ltermcap\*O identifier. The \*Varea\*O parameter is ignored.
+.LI "\*Lchar *tgoto( char *\*Vcap\*L, int \*Vcol\*L, int \*Vrow \*L);"
+\*OApplies
+parameters to the given \*Vcap\*O. Calls the \*Ltparm(\|)\*O function.
+.LI "\*Lvoid tputs( char *\*Vcap\*L, int \*Vaffcnt\*L, int (*\*Vfn\*L)\|(\|);"
+\*OApplies
+padding to \*Vcap\*O, calling \*Vfn\*O as if calling \*Lputchar(\|)\*O.
+.LE
+.SH RELATED INFORMATION
+.PP
+Files: \*Lterminfo\*O(4).
+.EQ
+delim off
+.EN

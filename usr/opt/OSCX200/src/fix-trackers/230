@@ -1,0 +1,168 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204141427.AA22910@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2456) close XBUG #5108, #5109: Xlib: XDrawString16, XDrawText16: alignment dependence botch
+Date: Tue, 14 Apr 92 10:27:03 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: Xlib: XDrawString16, XDrawText16: alignment dependence botch
+### bug number:   5108
+### area:         Xlib
+### severity:     low
+### comments:     
+
+Subject: Xlib: unnecessary call to abs() in XPolyTxt.c and XPolyTxt16.c
+### bug number:   5109
+### area:         Xlib
+### severity:     low
+### comments:     
+
+The alignment problem is simply that the code needs to support systems that
+pad XChar2b structures to 4 bytes, separately from the MUSTCOPY define.
+
+*** /tmp/d22843	Tue Apr 14 10:22:14 1992
+--- lib/X/XText16.c	Mon Apr 13 20:00:21 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XText16.c,v 11.21 91/01/06 11:48:27 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XText16.c,v 11.22 92/04/13 19:59:02 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 77,83 ****
+  	    BufAlloc (xTextElt *, elt, nbytes);
+  	    elt->delta = 0;
+  	    elt->len = 254;
+! #ifdef MUSTCOPY
+  	    {
+  		register int i;
+  		register unsigned char *cp;
+--- 77,83 ----
+  	    BufAlloc (xTextElt *, elt, nbytes);
+  	    elt->delta = 0;
+  	    elt->len = 254;
+! #if defined(MUSTCOPY) || defined(MUSTCOPY2B)
+  	    {
+  		register int i;
+  		register unsigned char *cp;
+***************
+*** 99,105 ****
+  	    BufAlloc (xTextElt *, elt, nbytes); 
+  	    elt->delta = 0;
+  	    elt->len = PartialNChars;
+! #ifdef MUSTCOPY
+  	    {
+  		register int i;
+  		register unsigned char *cp;
+--- 99,105 ----
+  	    BufAlloc (xTextElt *, elt, nbytes); 
+  	    elt->delta = 0;
+  	    elt->len = PartialNChars;
+! #if defined(MUSTCOPY) || defined(MUSTCOPY2B)
+  	    {
+  		register int i;
+  		register unsigned char *cp;
+*** /tmp/d22862	Tue Apr 14 10:22:24 1992
+--- lib/X/XPolyTxt16.c	Mon Apr 13 20:00:25 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XPolyTxt16.c,v 11.21 91/01/06 11:47:22 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XPolyTxt16.c,v 11.23 92/04/13 19:59:19 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 48,54 ****
+  	    }
+              else
+              {
+!    	      length += SIZEOF(xTextElt) * ((abs(item->delta) + 127) / 128);
+   	    }
+          }
+  	if (item->nchars > 0)
+--- 48,54 ----
+  	    }
+              else
+              {
+!    	      length += SIZEOF(xTextElt) * ((-item->delta + 127) / 128);
+   	    }
+          }
+  	if (item->nchars > 0)
+***************
+*** 152,158 ****
+  		}
+  	    	elt->len = 254;
+  
+! #ifdef MUSTCOPY
+  		{
+  		    register int i;
+  		    register unsigned char *cp;
+--- 152,158 ----
+  		}
+  	    	elt->len = 254;
+  
+! #if defined(MUSTCOPY) || defined(MUSTCOPY2B)
+  		{
+  		    register int i;
+  		    register unsigned char *cp;
+***************
+*** 197,203 ****
+  		}
+  	    	elt->len = PartialNChars;
+  
+! #ifdef MUSTCOPY
+  		{
+  		    register int i;
+  		    register unsigned char *cp;
+--- 197,203 ----
+  		}
+  	    	elt->len = PartialNChars;
+  
+! #if defined(MUSTCOPY) || defined(MUSTCOPY2B)
+  		{
+  		    register int i;
+  		    register unsigned char *cp;
+*** /tmp/d22883	Tue Apr 14 10:22:53 1992
+--- lib/X/XPolyTxt.c	Mon Apr 13 19:46:23 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XPolyTxt.c,v 11.19 91/01/06 11:47:20 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XPolyTxt.c,v 11.20 92/04/13 19:45:13 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 48,54 ****
+  	    }
+              else
+              {
+!    	      length += SIZEOF(xTextElt) * ((abs(item->delta) + 127) / 128);
+   	    }
+          }
+  	if (item->nchars > 0)
+--- 48,54 ----
+  	    }
+              else
+              {
+!    	      length += SIZEOF(xTextElt) * ((-item->delta + 127) / 128);
+   	    }
+          }
+  	if (item->nchars > 0)

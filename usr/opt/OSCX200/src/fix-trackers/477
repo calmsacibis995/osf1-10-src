@@ -1,0 +1,385 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211021946.AA24456@excon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Cc: mor@expo.lcs.mit.edu
+Subject: (seq: 2714) close XBUG #5596 : PEXlib : Bug in encoding of mono encoded strings and decoding of trim curves
+Date: Mon, 02 Nov 92 14:46:40 EDT
+From: Ralph Mor <mor@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+There is an additional bug I found in PEXCountOCs for mono encoded text
+strings, and I'm including that fix in this patch.
+
+-Ralph
+
+        Subject: PEXlib : Bug in encoding of mono encoded strings and decoding of trim curves
+        ### bug number:   5596
+        ### area:         PEXlib
+        ### severity:     medium
+        ### comments:     
+
+
+extensions/lib/PEXlib/
+*** -	Mon Nov  2 14:39:11 1992
+--- extensions/lib/PEXlib/pl_oc_enc.c	Mon Nov  2 14:37:25 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_enc.c,v 1.4 92/08/06 22:56:31 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: pl_oc_enc.c,v 1.5 92/11/02 14:36:45 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+***************
+*** 1428,1446 ****
+  	    pTCHead->tMax = (float) ptrimCurve->tmax;
+  	    pTCHead->numKnots = thisLength;
+  	    pTCHead->numCoord = ptrimCurve->count;
+- 	}
+  	
+! 	PEXEncodeWords ((char *) ptrimCurve->knots.floats,
+! 	    *ocDest, thisLength);
+  	
+! 	thisLength = ptrimCurve->count *
+! 	    ((ptrimCurve->rationality == PEXRational) ?
+! 	    LENOF (pexCoord3D) : LENOF (pexCoord2D));
+  	
+! 	PEXEncodeWords ((char *) ptrimCurve->control_points.point,
+! 	    *ocDest, thisLength);
+  	
+! 	ptrimCurve++;
+      }
+  }
+  
+--- 1428,1446 ----
+  	    pTCHead->tMax = (float) ptrimCurve->tmax;
+  	    pTCHead->numKnots = thisLength;
+  	    pTCHead->numCoord = ptrimCurve->count;
+  	
+! 	    PEXEncodeWords ((char *) ptrimCurve->knots.floats,
+! 	        *ocDest, thisLength);
+  	
+! 	    thisLength = ptrimCurve->count *
+! 	        ((ptrimCurve->rationality == PEXRational) ?
+! 	        LENOF (pexCoord3D) : LENOF (pexCoord2D));
+  	
+! 	    PEXEncodeWords ((char *) ptrimCurve->control_points.point,
+! 	        *ocDest, thisLength);
+  	
+! 	    ptrimCurve++;
+! 	}
+      }
+  }
+  
+extensions/lib/PEXlib/
+*** -	Mon Nov  2 14:39:12 1992
+--- extensions/lib/PEXlib/pl_oc_dec.c	Mon Nov  2 14:38:24 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_dec.c,v 1.7 92/08/06 22:56:35 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: pl_oc_dec.c,v 1.8 92/11/02 14:38:10 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1992 by the Massachusetts Institute of Technology
+***************
+*** 761,770 ****
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) srcEnc->numChars);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, srcEnc->numChars);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (srcEnc->numChars));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+--- 761,778 ----
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 
+! 	if (srcEnc->characterSetWidth == PEXCSLong)
+! 	    size = srcEnc->numChars * sizeof (long);
+! 	else if (srcEnc->characterSetWidth == PEXCSShort)
+! 	    size = srcEnc->numChars * sizeof (short);
+! 	else /* srcEnc->characterSetWidth == PEXCSByte) */
+! 	    size = srcEnc->numChars;
+! 	
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) size);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, size);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+***************
+*** 802,811 ****
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) srcEnc->numChars);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, srcEnc->numChars);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (srcEnc->numChars));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+--- 810,827 ----
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 
+! 	if (srcEnc->characterSetWidth == PEXCSLong)
+! 	    size = srcEnc->numChars * sizeof (long);
+! 	else if (srcEnc->characterSetWidth == PEXCSShort)
+! 	    size = srcEnc->numChars * sizeof (short);
+! 	else /* srcEnc->characterSetWidth == PEXCSByte) */
+! 	    size = srcEnc->numChars;
+! 	
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) size);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, size);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+***************
+*** 847,856 ****
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) srcEnc->numChars);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, srcEnc->numChars);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (srcEnc->numChars));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+--- 863,880 ----
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 
+! 	if (srcEnc->characterSetWidth == PEXCSLong)
+! 	    size = srcEnc->numChars * sizeof (long);
+! 	else if (srcEnc->characterSetWidth == PEXCSShort)
+! 	    size = srcEnc->numChars * sizeof (short);
+! 	else /* srcEnc->characterSetWidth == PEXCSByte) */
+! 	    size = srcEnc->numChars;
+! 	
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) size);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, size);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+***************
+*** 890,899 ****
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) srcEnc->numChars);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, srcEnc->numChars);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (srcEnc->numChars));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+--- 914,931 ----
+  	destEnc->character_set_width = srcEnc->characterSetWidth;
+  	destEnc->encoding_state = srcEnc->encodingState;
+  	destEnc->length = srcEnc->numChars;
+! 
+! 	if (srcEnc->characterSetWidth == PEXCSLong)
+! 	    size = srcEnc->numChars * sizeof (long);
+! 	else if (srcEnc->characterSetWidth == PEXCSShort)
+! 	    size = srcEnc->numChars * sizeof (short);
+! 	else /* srcEnc->characterSetWidth == PEXCSByte) */
+! 	    size = srcEnc->numChars;
+! 	
+! 	destEnc->ch = (char *) PEXAllocBuf ((unsigned) size);
+! 	COPY_AREA ((srcEnc + 1), destEnc->ch, size);
+  	srcEnc = (pexMonoEncoding *) ((char *) srcEnc +
+! 	    sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+      }
+  
+      *ocSrc = (char *) srcEnc;
+extensions/lib/PEXlib/
+*** -	Mon Nov  2 14:39:13 1992
+--- extensions/lib/PEXlib/pl_oc_util.c	Mon Nov  2 14:38:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pl_oc_util.c,v 1.11 92/10/27 15:49:07 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+--- 1,4 ----
+! /* $XConsortium: pl_oc_util.c,v 1.12 92/11/02 14:37:28 mor Exp $ */
+  
+  /******************************************************************************
+  Copyright 1987,1991 by Digital Equipment Corporation, Maynard, Massachusetts
+***************
+*** 1336,1349 ****
+  
+  	    pexText 		*oc = (pexText *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (enc->numChars));
+  	    }
+  
+  	    ptr = (char *) enc;
+--- 1336,1356 ----
+  
+  	    pexText 		*oc = (pexText *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			size, i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
++ 		if (enc->characterSetWidth == PEXCSLong)
++ 		    size = enc->numChars * sizeof (long);
++ 		else if (enc->characterSetWidth == PEXCSShort)
++ 		    size = enc->numChars * sizeof (short);
++ 		else /* enc->characterSetWidth == PEXCSByte) */
++ 		    size = enc->numChars;
++ 
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+  	    }
+  
+  	    ptr = (char *) enc;
+***************
+*** 1357,1370 ****
+  
+  	    pexText2D 		*oc = (pexText2D *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (enc->numChars));
+  	    }
+  
+  	    ptr = (char *) enc;
+--- 1364,1384 ----
+  
+  	    pexText2D 		*oc = (pexText2D *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			size, i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
++ 		if (enc->characterSetWidth == PEXCSLong)
++ 		    size = enc->numChars * sizeof (long);
++ 		else if (enc->characterSetWidth == PEXCSShort)
++ 		    size = enc->numChars * sizeof (short);
++ 		else /* enc->characterSetWidth == PEXCSByte) */
++ 		    size = enc->numChars;
++ 
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+  	    }
+  
+  	    ptr = (char *) enc;
+***************
+*** 1378,1391 ****
+  
+  	    pexAnnotationText 	*oc = (pexAnnotationText *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (enc->numChars));
+  	    }
+  
+  	    ptr = (char *) enc;
+--- 1392,1412 ----
+  
+  	    pexAnnotationText 	*oc = (pexAnnotationText *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			size, i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
++ 		if (enc->characterSetWidth == PEXCSLong)
++ 		    size = enc->numChars * sizeof (long);
++ 		else if (enc->characterSetWidth == PEXCSShort)
++ 		    size = enc->numChars * sizeof (short);
++ 		else /* enc->characterSetWidth == PEXCSByte) */
++ 		    size = enc->numChars;
++ 
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+  	    }
+  
+  	    ptr = (char *) enc;
+***************
+*** 1399,1412 ****
+  
+  	    pexAnnotationText2D	*oc = (pexAnnotationText2D *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (enc->numChars));
+  	    }
+  
+  	    ptr = (char *) enc;
+--- 1420,1440 ----
+  
+  	    pexAnnotationText2D	*oc = (pexAnnotationText2D *) ptr;
+  	    pexMonoEncoding	*enc;
+! 	    int			size, i;
+  
+  	    enc = (pexMonoEncoding *) (oc + 1);
+  
+  	    for (i = 0; i < (int) oc->numEncodings; i++)
+  	    {
++ 		if (enc->characterSetWidth == PEXCSLong)
++ 		    size = enc->numChars * sizeof (long);
++ 		else if (enc->characterSetWidth == PEXCSShort)
++ 		    size = enc->numChars * sizeof (short);
++ 		else /* enc->characterSetWidth == PEXCSByte) */
++ 		    size = enc->numChars;
++ 
+  		enc = (pexMonoEncoding *) ((char *) enc +
+! 	            sizeof (pexMonoEncoding) + PADDED_BYTES (size));
+  	    }
+  
+  	    ptr = (char *) enc;

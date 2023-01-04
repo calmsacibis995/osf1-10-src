@@ -1,0 +1,106 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9209152050.AA01094@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2676) close XBUG #5469: Xt: XtSetValues on XtNargv/XtNargc of ApplicationShell is ignored
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Tue, 15 Sep 92 16:50:13 EDT
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: XtSetValues on XtNargv/XtNargc of ApplicationShell is ignored
+        ### bug number:   5469
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     important for response to WM_SAVE_YOURSELF
+        ### status:       fixed, Shell.c 1.129
+
+
+*** /tmp/da1034	Tue Sep 15 16:48:06 1992
+--- lib/Xt/Shell.c	Tue Sep 15 13:55:50 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Shell.c,v 1.128 92/09/09 17:47:37 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Shell.c,v 1.129 92/09/15 13:54:28 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 558,563 ****
+--- 558,564 ----
+  
+  static void ApplicationInitialize();
+  static void ApplicationDestroy();
++ static Boolean ApplicationSetValues();
+  static void ApplicationShellInsertChild();
+  
+  static CompositeClassExtensionRec compositeClassExtension = {
+***************
+*** 592,598 ****
+      /* destroy            */    ApplicationDestroy,
+      /* resize             */    XtInheritResize,
+      /* expose             */    NULL,
+!     /* set_values         */    NULL,
+      /* set_values_hook    */	NULL,			
+      /* set_values_almost  */	XtInheritSetValuesAlmost,
+      /* get_values_hook    */	NULL,			
+--- 593,599 ----
+      /* destroy            */    ApplicationDestroy,
+      /* resize             */    XtInheritResize,
+      /* expose             */    NULL,
+!     /* set_values         */    ApplicationSetValues,
+      /* set_values_hook    */	NULL,			
+      /* set_values_almost  */	XtInheritSetValuesAlmost,
+      /* get_values_hook    */	NULL,			
+***************
+*** 2082,2087 ****
+--- 2083,2123 ----
+      return False;
+  }
+  
++ 
++ /*ARGSUSED*/
++ static Boolean ApplicationSetValues(current, request, new, args, num_args)
++     Widget current, request, new;
++     ArgList args;
++     Cardinal *num_args;
++ {
++     ApplicationShellWidget nw = (ApplicationShellWidget) new;
++     ApplicationShellWidget cw = (ApplicationShellWidget) current;
++ 
++     if (cw->application.argv != nw->application.argv ||
++ 	cw->application.argc != nw->application.argc) {
++ 
++ 	if (nw->application.argc > 0) {
++ 	    int i = nw->application.argc;
++ 	    char **argp = nw->application.argv + i;
++ 	    char **argv = (char **) XtMalloc((unsigned) i * sizeof(char *));
++ 	    while (--i >= 0)
++ 		argv[i] = *--argp;
++ 	    nw->application.argv = argv;
++ 	}
++ 	if (cw->application.argc > 0 &&
++ 	    cw->application.argv != nw->application.argv)
++ 	    XtFree((char *) cw->application.argv);
++ 
++ 	if (XtIsRealized(new) && !nw->shell.override_redirect) {
++ 	    if (nw->application.argc >= 0 && nw->application.argv)
++ 		XSetCommand(XtDisplay(new), XtWindow(new),
++ 			    nw->application.argv, nw->application.argc);
++ 	    else
++ 		XDeleteProperty(XtDisplay(new), XtWindow(new), XA_WM_COMMAND);
++ 	}
++     }
++     return False;
++ }
+  
+  void _XtShellGetCoordinates( widget, x, y)
+      Widget widget;

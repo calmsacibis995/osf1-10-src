@@ -1,0 +1,162 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111221946.AA07737@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2240) close XBUG #4692: server: BadValue checks missing in GrabKey, UngrabKey, ChangePointerControl
+Date: Fri, 22 Nov 91 14:46:39 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4692
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1007721	Fri Nov 22 14:43:43 1991
+--- server/dix/devices.c	Fri Nov 22 12:12:30 1991
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.19 91/07/17 19:26:02 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: devices.c,v 5.21 91/11/22 12:12:01 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 901,915 ****
+      if (len != (stuff->keyCodes * stuff->keySymsPerKeyCode))
+              return BadLength;
+      if ((stuff->firstKeyCode < curKeySyms->minKeyCode) ||
+! 	(stuff->firstKeyCode + stuff->keyCodes - 1 > curKeySyms->maxKeyCode))
+      {
+  	    client->errorValue = stuff->firstKeyCode;
+  	    return BadValue;
+      }
+!     if (stuff->keySymsPerKeyCode == 0)
+      {
+! 	    client->errorValue = 0;
+!             return BadValue;
+      }
+      keysyms.minKeyCode = stuff->firstKeyCode;
+      keysyms.maxKeyCode = stuff->firstKeyCode + stuff->keyCodes - 1;
+--- 901,916 ----
+      if (len != (stuff->keyCodes * stuff->keySymsPerKeyCode))
+              return BadLength;
+      if ((stuff->firstKeyCode < curKeySyms->minKeyCode) ||
+! 	(stuff->firstKeyCode > curKeySyms->maxKeyCode))
+      {
+  	    client->errorValue = stuff->firstKeyCode;
+  	    return BadValue;
+      }
+!     if ((stuff->firstKeyCode + stuff->keyCodes - 1 > curKeySyms->maxKeyCode) ||
+! 	(stuff->keySymsPerKeyCode == 0))
+      {
+! 	    client->errorValue = stuff->keySymsPerKeyCode;
+! 	    return BadValue;
+      }
+      keysyms.minKeyCode = stuff->firstKeyCode;
+      keysyms.maxKeyCode = stuff->firstKeyCode + stuff->keyCodes - 1;
+***************
+*** 1266,1271 ****
+--- 1267,1282 ----
+  
+      REQUEST_SIZE_MATCH(xChangePointerControlReq);
+      ctrl = mouse->ptrfeed->ctrl;
++     if ((stuff->doAccel != xTrue) && (stuff->doAccel != xFalse))
++     {
++ 	client->errorValue = stuff->doAccel;
++ 	return(BadValue);
++     }
++     if ((stuff->doThresh != xTrue) && (stuff->doThresh != xFalse))
++     {
++ 	client->errorValue = stuff->doThresh;
++ 	return(BadValue);
++     }
+      if (stuff->doAccel)
+      {
+  	if (stuff->accelNum == -1)
+
+*** /tmp/,RCSt1007721	Fri Nov 22 14:43:49 1991
+--- server/dix/events.c	Fri Nov 22 12:19:58 1991
+***************
+*** 23,29 ****
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.47 91/08/21 15:38:34 keith Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+--- 23,29 ----
+  ********************************************************/
+  
+  
+! /* $XConsortium: events.c,v 5.48 91/11/22 12:19:11 rws Exp $ */
+  
+  #include "X.h"
+  #include "misc.h"
+***************
+*** 3050,3060 ****
+--- 3050,3068 ----
+      REQUEST(xUngrabKeyReq);
+      WindowPtr pWin;
+      GrabRec tempGrab;
++     DeviceIntPtr keybd = inputInfo.keyboard;
+  
+      REQUEST_SIZE_MATCH(xUngrabKeyReq);
+      pWin = LookupWindow(stuff->grabWindow, client);
+      if (!pWin)
+  	return BadWindow;
++     if (((stuff->key > keybd->key->curKeySyms.maxKeyCode) ||
++ 	 (stuff->key < keybd->key->curKeySyms.minKeyCode))
++ 	&& (stuff->key != AnyKey))
++     {
++ 	client->errorValue = stuff->key;
++         return BadValue;
++     }
+      if ((stuff->modifiers != AnyModifier) &&
+  	(stuff->modifiers & ~AllModifiersMask))
+      {
+***************
+*** 3063,3069 ****
+      }
+  
+      tempGrab.resource = client->clientAsMask;
+!     tempGrab.device = inputInfo.keyboard;
+      tempGrab.window = pWin;
+      tempGrab.modifiersDetail.exact = stuff->modifiers;
+      tempGrab.modifiersDetail.pMask = NULL;
+--- 3071,3077 ----
+      }
+  
+      tempGrab.resource = client->clientAsMask;
+!     tempGrab.device = keybd;
+      tempGrab.window = pWin;
+      tempGrab.modifiersDetail.exact = stuff->modifiers;
+      tempGrab.modifiersDetail.pMask = NULL;
+***************
+*** 3087,3092 ****
+--- 3095,3105 ----
+      DeviceIntPtr keybd = inputInfo.keyboard;
+  
+      REQUEST_SIZE_MATCH(xGrabKeyReq);
++     if ((stuff->ownerEvents != xTrue) && (stuff->ownerEvents != xFalse))
++     {
++ 	client->errorValue = stuff->ownerEvents;
++ 	return(BadValue);
++     }
+      if ((stuff->pointerMode != GrabModeSync) &&
+  	(stuff->pointerMode != GrabModeAsync))
+      {

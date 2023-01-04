@@ -1,0 +1,229 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: fs.4,v $ $Revision: 3.2.7.3 $ (DEC) $Date: 1994/01/20 01:40:10 $
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Copyright (c) 1983 Regents of the University of California.
+.\" All rights reserved.  The Berkeley software License Agreement
+.\" specifies the terms and conditions for redistribution.
+.\" 
+.\" @(#)fs.5	6.3 (Berkeley) 5/2/88
+.\" 
+.TH fs 4
+.SH NAME
+.PP
+\*Lfs\*O, \*Linode\*O \- Specifies the format of the file system volume
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.nL
+\*L#include <sys/fs.h>\*O
+.nL
+\*L#include <ufs/inode.h>\*O
+.sE
+.SH DESCRIPTION
+.PP
+.iX "fs" "file system volume"
+.iX "format of file system volume"
+.iX "inodes"
+.iX "files" "file system volume"
+Every file system storage volume (disk, nine-track tape, for instance)
+has a common format for certain vital information.
+Each such volume is divided into a certain number of blocks.
+The block size is a parameter of the file system.
+Sectors beginning at BBLOCK and continuing for BBSIZE are used to
+contain a label and for some hardware
+primary and secondary bootstrapping programs.
+.PP
+Each disk drive contains some number of file systems.
+A file system consists of a number of cylinder groups.
+Each cylinder group has inodes and data.
+.PP
+A file system is described by its superblock, which in turn
+describes the cylinder groups.  The superblock is critical
+data and is replicated in each cylinder group to protect against
+loss of data.  This is done at file system creation
+time and the critical
+superblock data does not change, so the copies need not be
+referenced further until necessary.
+.PP
+Addresses stored in inodes are capable of addressing fragments
+of blocks.  File system blocks of at most MAXBSIZE size can
+be optionally broken into 2, 4, or 8 pieces, each of which is
+addressable; these pieces may be DEV_BSIZE, or some multiple of
+a DEV_BSIZE unit.
+.PP
+Large files consist exclusively of large data blocks.  To avoid
+wasted disk space, the last data block of a small file is
+allocated only as many fragments of a large block as are
+necessary.  The file system format retains only a single pointer
+to such a fragment, which is a piece of a single large block that
+has been divided.  The size of such a fragment is determined from
+information in the inode, using the \*Lblksize(fs, ip, lbn)\*O macro.
+.PP
+The file system records space availability at the fragment level;
+to determine block availability, aligned fragments are examined.
+.PP
+The root inode is the root of the file system.
+Inode 0 (zero) can't be used for normal purposes and,
+historically, bad blocks were linked to inode 1.
+Thus, the root inode is 2 (inode 1 is no longer used for
+this purpose, but numerous dump tapes make this
+assumption).
+.PP
+Some fields to the
+\*Lfs\*O
+structure are as follows:
+.\"from TP "  
+.\" Bold under TP !" 
+.VL
+.LI "\*Lfs_minfree\*O"
+Gives the minimum acceptable percentage of file system
+blocks that may be free. If the freelist drops below this level
+only the superuser may continue to allocate blocks.
+The
+\*Lfs_minfree\*O
+field
+may be set to 0 (zero) if no reserve of free blocks is deemed necessary.
+However, severe performance degradations will be observed if the
+file system is run at greater than 90% full; thus the default
+value of the
+\*Lfs_minfree\*O
+field
+is 10%.
+.IP
+Empirically the best trade-off between block fragmentation and
+overall disk utilization at a loading of 90% comes with a
+fragmentation of 8, thus the default fragment size is an eighth
+of the block size.
+.wH .RE
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*Lfs_optim\*O"
+Specifies whether the file system should try to minimize the time spent
+allocating blocks, or if it should attempt to minimize the space
+fragmentation on the disk.
+If the value of
+\*Lfs_minfree\*O
+is less than 10%,
+then the file system defaults to optimizing for space to avoid
+running out of full sized blocks.
+If the value of
+\*Lfs_minfree\*O
+is greater than or equal to 10%,
+fragmentation is unlikely to be problematical, and
+the file system defaults to optimizing for time.
+.wH .RS  Can not be used in nested lists
+.IP
+\*VCylinder group related\*O
+\*Vlimits\*O:
+Each cylinder keeps track of the availability of blocks at different
+positions of rotation, so that sequential blocks can be laid out
+with minimum rotational latency. With the default of 8 distinguished
+rotational positions, the resolution of the
+summary information is 2 milliseconds for a typical 3600 rpm drive.
+.wH .RE
+.\"from TP "  
+.\" Bold under TP !" 
+.LI "\*Lfs_rotdelay\*O"
+Gives the minimum number of milliseconds to initiate
+another disk transfer on the same cylinder.
+The
+\*Lfs_rotdelay\*O
+field
+is used in
+determining the rotationally optimal layout for disk blocks
+within a file; the default value for
+\*Lfs_rotdelay\*O
+is 2 milliseconds.
+.LE
+.PP
+Each file system has a statically allocated number of inodes.
+An inode is allocated for each NBPI bytes of disk space.
+The inode allocation strategy is extremely conservative.
+.PP
+MINBSIZE is the smallest allowable block size.
+With a MINBSIZE of 4096
+it is possible to create files of size
+2\u\s-432\s+4\d with only two levels of indirection.
+MINBSIZE must be big enough to hold a cylinder group block,
+thus changes to
+\*Lstruct cg\*O
+must keep its size within MINBSIZE.
+Note that superblocks are never more than size SBSIZE.
+.PP
+The pathname on which the file system is mounted is maintained in
+\*Lfs_fsmnt\*O.
+MAXMNTLEN defines the amount of space allocated in
+the superblock for this name.
+The limit on the amount of summary information per file system
+is defined by MAXCSBUFS.
+For a 4096 byte block size, it is currently parameterized for a
+maximum of two million cylinders.
+.PP
+Per cylinder group information is summarized in blocks allocated
+from the first cylinder group's data blocks.
+These blocks are read in from
+\*Lfs_csaddr\*O
+(size
+\*Lfs_cssize\*O)
+in addition to the superblock.
+.PP
+\*VSuperblock for a file\*O
+\*Vsystem\*O:
+The size of the rotational layout tables
+is limited by the fact that the superblock is of size SBSIZE.
+The size of these tables is
+\*Linversely\*O
+proportional to the block
+size of the file system. The size of the tables is
+increased when sector sizes are not powers of two,
+as this increases the number of cylinders
+included before the rotational pattern repeats (\*Lfs_cpc\*O).
+The size of the rotational layout
+tables is derived from the number of bytes remaining in (\*Lstruct fs\*O).
+.PP
+The number of blocks of data per cylinder group
+is limited because cylinder groups are at most one block.
+The inode and free block tables
+must fit into a single block after deducting space for
+the cylinder group structure
+\*Lstruct cg\*O.
+.PP
+\*VInode\*O:
+The inode is the focus of all file activity in the
+UNIX file system.  There is a unique inode allocated
+for each active file,
+each current directory, each mounted-on file,
+text file, and the root.
+An inode is `named' by its device/i-number pair.
+.SH NOTES
+.PP
+\*Lsizeof (struct csum)\*O
+must be a power of two in order for
+the
+\*Lfs_cs\*O
+macro to work.
+.iX "fs" "file system volume"
+.EQ
+delim off
+.EN

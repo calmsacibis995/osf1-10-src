@@ -1,0 +1,315 @@
+.\"
+.\" $XConsortium: p084,v 5.1 91/02/16 09:38:15 rws Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "INITIALIZE STROKE 3" 3P "29 February 1991"
+.SH NAME
+INITIALIZE STROKE 3 \- initialize a stroke input device using
+\s-2\&3D\s+2 data
+.IX "Stroke Input Devices" "INITIALIZE STROKE 3"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pinit_stroke3 ( ws, dev, init_view_ind, init_stroke, pet, echo_volume, rec )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	dev;	\fIstroke device number\fP
+Pint	init_view_ind;	\fIinitial view indicator\fP
+Ppoint_list3	*init_stroke;	\fIinitial stroke pointer\fP
+Pint	pet;	\fIprompt and echo type\fP
+Plimit3	*echo_volume;	\fIecho volume pointer\fP
+Pstroke_data3	*rec;	\fIdata record pointer\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+Use \s-2INITIALIZE STROKE 3\s+2 to set the initialization parameters of a
+\s-2STROKE\s+2 device.
+This function stores these parameters in the workstation state list
+of the workstation associated with the specified device.
+The specified \fBdevice must be in \s-2REQUEST\s+2 mode\fP when this
+function is called.
+.SS C Input Parameters
+.IP \fIws\fP
+The workstation identifier of the workstation associated with the device.
+.IP \fIdev\fP
+The device number of the \s-2STROKE\s+2 device to initialize.
+See the \fIAVAILABLE DEVICES\fP section below for a description of the
+available devices.
+.IP \fIinit_view_ind\fP
+The index of the view representation in the workstation's view table to use 
+to map the specified initial positions from World Coordinates (\s-2WC\s+2) 
+to Normalized Projection Coordinates (\s-2NPC\s+2).
+.IP \fIinit_stroke\fP
+A pointer to a Ppoint_list3 structure containing the initial stroke.
+The Ppoint_list3 structure is defined in phigs.h as follows:
+.sp .4
+.ta .5i +\w'Ppoint3     'u +\w'view_index;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	num_points;
+	Ppoint3	*points;
+.sp .2
+} Ppoint_list3;
+.fi
+.IP
+\fInum_points\fP is the number of points in the initial stroke.  This must be
+less than or equal to the buffer size specified in the input data record,
+\fIrec\fP.
+.IP
+\fIpoints\fP is an array of Ppoint3 structures specifying the
+\fIx\fP, \fIy\fP, and \fIz\fP \s-2WC\s+2
+of the initial
+stroke points.
+Ppoint3 is defined in phigs.h as follows:
+.sp .4
+.ta .5i +1i  +1i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	x;	/* x coordinate */
+	Pfloat	y;	/* y coordinate */
+	Pfloat	z;	/* z coordinate */
+.sp .2
+} Ppoint3;
+.fi
+.IP \fIpet\fP
+The prompt/echo type desired.
+Those supported by each device are listed in the
+\fIAVAILABLE DEVICES\fP section below.
+.IP \fIecho_volume\fP
+A pointer to a Plimit3 structure defining the
+\fIx\fP, \fIy\fP, and \fIz\fP
+components of the echo volume, in Device Coordinates (\s-2DC\s+2).
+Plimit3 is defined in phigs.h as follows:
+.sp .4
+.ta .5i +1i  +1i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	x_min;	/* minimum x coordinate value */
+	Pfloat	x_max;	/* maximum x coordinate value */
+	Pfloat	y_min;	/* minimum y coordinate value */
+	Pfloat	y_max;	/* maximum y coordinate value */
+	Pfloat	z_min;	/* minimum z coordinate value */
+	Pfloat	z_max;	/* maximum z coordinate value */
+.sp .2
+} Plimit3;
+.fi
+.IP \fIrec\fP
+A pointer to a Pstroke_data3 structure containing the data record information.
+The contents of the data record for each device and prompt/echo type are
+described below in the \fIAVAILABLE DEVICES\fP section.
+.IP
+Some members of the data record correspond to the prompt/echo type
+being used.
+.IP
+Pstroke_data3 is defined in phigs.h as follows:
+.sp .4
+.ta .5i +.75i +.5i +1i +1i
+.nf
+typedef struct {
+.sp .2
+	Pint	buffer_size;	/* input buffer size */
+	Pint	init_pos;		/* initial editing position */
+	Pfloat	x_interval;	/* x interval */
+	Pfloat	y_interval;	/* y interval */
+	Pfloat	z_interval;	/* z interval */
+	Pfloat	time_interval;	/* time interval */
+	union {
+		struct {
+			Pint	unused;
+		} pet_r1;
+		struct {
+			Pint	unused;
+		} pet_r2;
+		struct {
+			Pmarker_attrs	marker_attrs;		/* marker attributes */
+		} pet_r3;
+		struct {
+			Pline_attrs	line_attrs;	/* line attributes */
+		} pet_r4;
+	} pets;
+.sp .2
+} Pstroke_data3;
+.fi
+.SS Execution
+.LP
+\s-2INITIALIZE STROKE 3\s+2 sets the initialization parameters of a
+\s-2STROKE\s+2 device.
+This function stores these parameters in the workstation state list
+of the workstation associated with the specified device.
+The specified device must be in \s-2REQUEST\s+2 mode when this
+function is called.
+.LP
+The parameters that are initialized by this function are 
+\fIinitial stroke\fP,
+\fIprompt/echo type\fP,
+\fIecho volume\fP,
+and
+\fIinput data record\fP.
+.LP
+The \fIinitial stroke\fP is the logical input value the device will be
+set to whenever it is enabled.
+The device's measure will retain this value until operator input changes it.
+A device is enabled when the appropriate \s-2REQUEST\s+2 function is called,
+or when its input mode is set to \s-2SAMPLE\s+2 or \s-2EVENT\s+2.
+.LP
+A \s-2STROKE\s+2 device measure consists of \fIpoints\fP and a
+\fIview index\fP.
+The \fIpoints\fP are World Coordinate (\s-2WC\s+2) points corresponding to the
+positions on the workstation selected by the operator.
+The \fIview index\fP is the index of the view representation used to
+transform the stroke positions from Normalized Projection
+Coordinates (\s-2NPC\s+2) to \s-2WC\s+2.
+This view representation is determined by selecting the highest priority
+representation that contains all the stroke positions within its \s-2NPC\s+2 limits.
+See \s-2SET VIEW TRANSFORMATION INPUT PRIORITY\s+2 for more information.
+The workstation transform is used to transform the operator-selected
+positions from Device Coordinates (\s-2DC\s+2) to \s-2NPC\s+2.
+.LP
+The initial stroke points are transformed to \s-2DC\s+2 by
+applying the view orientation and view mapping transforms of the specified
+view representation, and then applying the workstation transformation.
+If the view index is invalid, an error is generated.
+.LP
+The \fIprompt/echo type\fP determines how the device will be presented
+to the operator and respond to his actions.
+Each device supports one or more prompt/echo types.
+Those supported by each device are listed in the device's
+description in the \fIAVAILABLE DEVICES\fP section below.
+All devices support prompt/echo type 1.
+Positive prompt/echo types are defined by the \s-2PHIGS\s+2 standard.
+Negative types are implementation-dependent.
+.LP
+The \fIecho volume\fP defines the region of the display surface in which to
+echo the device.
+It is specified in Device Coordinates (\s-2DC\s+2).
+Devices that use the echo volume may restrict their display to this
+region.
+Some of these devices may still recognize operator input
+outside the region even though they do not display there.
+.LP
+The \fIinput data record\fP contains the prompt/echo type specific
+information that controls the device's appearance and characteristics.
+Not all of the data record contents are used by some devices.
+The device descriptions in the \fIAVAILABLE DEVICES\fP section below
+list the data record contents that each device recognizes.
+.LP
+Stroke devices contain a buffer in which to store the points selected
+by the operator.  Points are added to the buffer starting at the edit
+position.  Both the buffer size and the edit position are specified in the
+input data record.
+.LP
+All the initialization parameters must be specified properly, or this function
+will generate an error.
+The \s-2\fIERRORS\fP\s+2 section below lists the possible error conditions.
+.LP
+The default initialization parameters and the list of prompt/echo types
+supported by a \s-2STROKE\s+2 input device can be inquired with the function
+\s-2INQUIRE DEFAULT STROKE DEVICE DATA 3\s+2.
+The current state of the device can be inquired with the function
+\s-2INQUIRE STROKE DEVICE STATE 3\s+2.
+.SH AVAILABLE DEVICES
+.SS Device 1 - "Pointer device"
+.LP
+This device is associated with the X pointer device.
+The stroke points in the \s-2STROKE\s+2 device's measure are the 
+\s-2WC\s+2 points corresponding to the positions specified in an
+operator-generated series of X pointer events.
+The operator adds points to the buffer by
+positioning the cursor to the desired location and depressing the
+left pointer button.  Once all the desired points are selected,
+the operator presses both the shift key and the left mouse
+button at the same time.  This triggers the stroke.
+Points can be removed from the buffer by pressing the \s-2CONTROL\s+2 key
+and pointer button simultaneously.  Only points after the \fIedit position\fP
+can be removed in this way.
+.LP
+\fBPrompt/echo types supported\fP: 1
+.IP "PET 1" .8i
+Display the stroke points by drawing a marker at each stroke position.
+The marker used is of marker type 3 (asterisk), size 1.0, and uses colour
+index 1.
+.LP
+This device uses the \fIbuffer_size\fP and \fIinit_pos\fP fields of the
+stroke data record, Pstroke_data.
+.LP
+.LP
+.RE
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP, WSOP, *, *\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 061
+Ignoring function, specified workstation is neither of
+category \s-2INPUT\s+2
+nor of category \s-2OUTIN\s+2
+.IP 250
+Ignoring function, the specified device is not available
+on the specified workstation
+.IP 251
+Ignoring function, the function requires the input device to be in
+\s-2REQUEST\s+2 mode
+.IP 253
+Warning, the specified prompt/echo type is not available on the specified
+workstation.
+Prompt/echo type one will be used in its place
+.IP 254
+Ignoring function, invalid echo area/volume;
+\s-2XMIN \(>= XMAX, YMIN \(>= YMAX,\s+2 or \s-2ZMIN > ZMAX\s+2
+.IP 255
+Ignoring function, one of the echo area/volume boundary points
+is outside the range of the device
+.IP 260
+Ignoring function, one of the fields within the input device data record
+is in error
+.IP 253
+Warning, the specified prompt/echo type is not available on the specified
+workstation.
+Prompt/echo type one will be used in its place
+.IP 261
+Ignoring function, initial value is invalid
+.IP 262
+Ignoring function, number of points in the initial stroke is greater
+than the buffer size
+.IP 114
+Ignoring function, the view index value is less than zero
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET STROKE MODE (3P)"
+.SM "REQUEST STROKE 3 (3P)"
+.SM "SAMPLE STROKE 3 (3P)"
+.SM "GET STROKE 3 (3P)"
+.SM "INQUIRE STROKE DEVICE STATE 3 (3P)"
+.SM "SET VIEW TRANSFORMATION INPUT PRIORITY (3P)"
+.SM "INITIALIZE STROKE (3P)"
+.fi

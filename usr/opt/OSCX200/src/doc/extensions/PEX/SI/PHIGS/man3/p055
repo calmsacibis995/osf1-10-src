@@ -1,0 +1,132 @@
+.\"##
+.\" $XConsortium: p055,v 5.1 91/02/16 09:37:40 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "EXECUTE STRUCTURE" 3P "29 February 1991"
+.SH NAME
+EXECUTE STRUCTURE \- create a structure element to invoke another structure
+.IX "Elements" "EXECUTE STRUCTURE"
+.IX "Structure Networks" "EXECUTE STRUCTURE"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pexec_struct ( struct_id )
+Pint	struct_id;	\fIstructure identifier\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, STOP, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2EXECUTE STRUCTURE\s+2 puts a structure element containing the
+\fIstructure identifier\fP into the currently open structure
+according to the current edit mode.
+If no structure exists with the \fIstructure identifier\fP, an empty structure is created with that identifier.
+\s-2EXECUTE STRUCTURE\s+2 elements are used to define hierarchical structure networks by invoking one structure from within another during structure traversal.
+.LP
+If the current edit mode is \s-2INSERT\s+2, the \s-2EXECUTE STRUCTURE\s+2
+element is inserted into the open structure after the element pointed to
+by the current element pointer. If the edit mode is \s-2REPLACE\s+2, the
+\s-2EXECUTE STRUCTURE\s+2 element replaces the element pointed to by the
+element pointer. In either case, the element pointer is updated to point
+to the new \s-2EXECUTE STRUCTURE\s+2 element.
+.SS C Input Parameter
+.IP \fIstruct_id\fP
+Identifies structure to be invoked from the currently open structure.
+.SS Execution
+When an \s-2EXECUTE STRUCTURE\s+2 element is traversed, the traversal performs
+the following in order:
+.RS
+.IP 1.
+Suspends the traversal of the current structure.
+.IP 2.
+Saves the current states of:
+.nf
+    all primitive attributes,
+    local and global modelling transformations,
+    the view index,
+    HLHSR and PICK identifiers,
+    the name set, and
+    modelling clipping limits and clipping indicator.
+.fi
+.IP 3.
+Sets the global modelling transformation to the current composite modelling transformation.
+Sets the local modelling transformation to an identity matrix.
+.IP 4.
+Traverses the structure specified by \fIstructure identifier\fP. This
+process will be repeated for any \s-2EXECUTE STRUCTURE\s+2 elements
+encountered in the structure with the \fIstructure identifier\fP and its
+subordinate structures before returning to the current structure.
+.IP 5.
+Restores all the saved states.
+.IP 6.
+Resumes traversal of the current structure.
+.RE
+.LP
+If \fIstructure identifier\fP itself contains an \s-2EXECUTE STRUCTURE\s+2
+element, traversal of the structure with the \fIstructure identifier\fP is
+also suspended, and traversal continues with that structure invocation.
+At the end of a structure (i.e., after its last element), traversal
+returns to the invoking structure, restoring the saved state, and
+continuing with later elements in the invoking structure, until its end.
+This continues until the entire structure network is traversed (i.e., until
+traversal of the posted structure is completed).
+.LP
+The application must avoid recursive structure networks: no \s-2EXECUTE
+STRUCTURE\s+2 element may invoke any ancestor structure.
+The \s-2PHIGS\s+2 implementation
+is not required to check for this problem, and \s-2PEX-SI\s0 does not.
+.LP
+Each subordinate structure inherits the current attribute values from its
+parent structure, except for the modelling transformations, as described in
+step 3 above.  Unless the attributes are explicitly changed with the
+appropriate \s-2SET\s+2 element, they retain the last value set in a
+structure higher in the structure network hierarchy. On the other hand,
+when traversal of a structure is suspended, the current attribute values
+are saved and later restored when traversal of the structure resumes. This
+means that structures can only affect the display of structures
+subordinate to them in the network; no structure can affect any attributes
+of its parent.
+.LP
+Implementations vary in the depth of structure execution supported, and in
+the efficiency of \s-2EXECUTE STRUCTURE\s+2 traversal.  
+\s-2PEX-SI\s0 is limited
+only by available virtual memory, and \s-2EXECUTE STRUCTURE\s+2
+is quite efficient.
+.SH ERRORS
+.IP 005
+Ignoring function, function requires state (PHOP, *, STOP, *)
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "POST STRUCTURE (3P)"
+.SM "DELETE STRUCTURE NETWORK (3P)"
+.SM "CHANGE STRUCTURE REFERENCES (3P)"
+.SM "CHANGE STRUCTURE IDENTIFIER AND REFERENCES (3P)"
+.SM "INQUIRE PATHS TO ANCESTORS (3P)"
+.SM "INQUIRE PATHS TO DESCENDENTS (3P)"
+.fi

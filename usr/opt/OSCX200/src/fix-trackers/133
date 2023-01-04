@@ -1,0 +1,176 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202112210.AA04672@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2356) close XBUG #4900 and #4794: fontlib: Type1 renderer fixes
+Date: Tue, 11 Feb 92 17:10:48 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+These are patches to the IBM Type1 renderer in the R5 contrib. They
+should be applied relative to the top of the "contrib" tree.
+
+NOTE: If you followed the README in the Type1 directory and moved the
+source code into the "mit" tree, you will want to apply the patches
+relative to the top of the "mit" tree. If you do not remember if you
+moved the source, check the directory "mit/fonts/lib/font/Type1".
+
+
+        Subject: fontlib Type1GetInfoScalable() returns garbage
+        ### bug number:   4900
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     Also returns structures containing pointers
+                          to freed memory.
+
+        Subject: fontlib: Type1 renderer doesn't handle Symbol font
+        ### bug number:   4794
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+
+*** /tmp/,RCSt1KdcBfD	Tue Feb 11 16:44:18 1992
+--- fonts/lib/font/Type1/t1info.c	Wed Feb  5 21:39:00 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1info.c,v 1.6 91/10/10 11:19:35 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1info.c,v 1.8 92/02/04 21:36:48 keith Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 320,326 ****
+           case COPYRIGHTPROP:
+              *is_str = TRUE;
+              QueryFontLib(Filename, "Notice", &infostrP, &rc);
+!             if (rc) {
+                  infostrP = "Copyright Notice not available";
+              }
+              pp->value = MakeAtom(infostrP, strlen(infostrP), TRUE);
+--- 320,326 ----
+           case COPYRIGHTPROP:
+              *is_str = TRUE;
+              QueryFontLib(Filename, "Notice", &infostrP, &rc);
+!             if (rc || !infostrP) {
+                  infostrP = "Copyright Notice not available";
+              }
+              pp->value = MakeAtom(infostrP, strlen(infostrP), TRUE);
+***************
+*** 343,353 ****
+      int flags = 0;
+      long format = 0;  /* It doesn't matter what format for just info */
+      long fmask = 0;
+   
+!     Type1OpenScalable(fpe, &pfont, flags, entry, fileName, Vals, format, fmask);
+      *pInfo = pfont->info;
+!  
+      Type1CloseFont(pfont);
+  }
+   
+  void
+--- 343,361 ----
+      int flags = 0;
+      long format = 0;  /* It doesn't matter what format for just info */
+      long fmask = 0;
++     int ret;
+   
+!     ret = Type1OpenScalable(fpe, &pfont, flags, entry, fileName, Vals, format, fmask);
+!     if (ret != Successful)
+! 	return ret;
+      *pInfo = pfont->info;
+! 
+!     /* XXX - Set pointers in pfont->info to NULL so they are not freed. */
+!     pfont->info.props = NULL;
+!     pfont->info.isStringProp = NULL;
+! 
+      Type1CloseFont(pfont);
++     return Successful;
+  }
+   
+  void
+*** /tmp/,RCSt1MesCSM	Tue Feb 11 16:44:21 1992
+--- fonts/lib/font/Type1/t1funcs.c	Wed Feb  5 21:40:24 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1funcs.c,v 1.4 91/10/10 11:19:28 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1funcs.c,v 1.6 92/02/05 21:38:42 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 591,597 ****
+         clearmemory(type1, sizeof(struct type1font));
+   
+         /* heuristic for "maximum" size of pool we'll need: */
+!        size = 20000 + 12 * vals->pixel * sizeof(short);
+         if (size < 0 || NULL == (pool = xalloc(size))) {
+                 xfree(type1);
+                 xfree(pFont);
+--- 591,597 ----
+         clearmemory(type1, sizeof(struct type1font));
+   
+         /* heuristic for "maximum" size of pool we'll need: */
+!        size = 200000 + 120 * vals->pixel * sizeof(short);
+         if (size < 0 || NULL == (pool = xalloc(size))) {
+                 xfree(type1);
+                 xfree(pFont);
+***************
+*** 605,613 ****
+   
+         glyphs = type1->glyphs;
+   
+!        for (p = entry->name.name, i = 13; --i >= 0 && p != NULL; p = strchr(p + 1, '-')) { ; }
+!  
+!        if (p != NULL && !strncmp(p, "-ADOBE-FONTSPECIFIC", 19))
+                 codepage = SYMBOL;
+         else
+                 codepage = ISO8859;
+--- 605,615 ----
+   
+         glyphs = type1->glyphs;
+   
+!        p = entry->name.name + entry->name.length - 19;
+!        
+!        if (entry->name.ndashes == 14 &&
+! 	   p >= entry->name.name &&
+! 	   !strcmp (p, "-adobe-fontspecific"))
+                 codepage = SYMBOL;
+         else
+                 codepage = ISO8859;
+***************
+*** 809,816 ****
+                 if (type1->glyphs[i].bits != NULL)
+                          xfree(type1->glyphs[i].bits);
+         xfree(type1);
+!        xfree(pFont->info.props);
+!        xfree(pFont->info.isStringProp);
+         xfree(pFont);
+  }
+   
+--- 811,823 ----
+                 if (type1->glyphs[i].bits != NULL)
+                          xfree(type1->glyphs[i].bits);
+         xfree(type1);
+! 
+!        if (pFont->info.props)
+! 	   xfree(pFont->info.props);
+! 
+!        if (pFont->info.isStringProp)
+! 	   xfree(pFont->info.isStringProp);
+! 
+         xfree(pFont);
+  }
+   

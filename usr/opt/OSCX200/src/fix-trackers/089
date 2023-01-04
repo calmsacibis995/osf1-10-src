@@ -1,0 +1,797 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112302335.AA23107@exhume.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2312) close XBUG #4782, #4708: PEX - swap & convert problems with floats,  buffer mode byte swapping
+Date: Mon, 30 Dec 91 18:35:32 EST
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: PEX - swap & convert problems with floats
+        ### bug number:   4782
+        ### area:         pex
+        ### severity:     medium
+        ### comments:     Also have to change how Convert.c works too, and
+        ### comments:     should get rid of the PEXFLOAT casts on the function types
+
+
+        Subject: PEX BUG buffer mode byte swapping in CreatePhigsWKS
+        ### bug number:   4708
+        ### area:         pex
+        ### severity:     medium
+        ### comments:     found while implementing server double buffering
+
+
+*** /tmp/,RCSt1a04776	Mon Dec 30 18:21:03 1991
+--- extensions/lib/PEX/archive/ar_conv.c	Mon Dec 30 18:20:44 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: ar_conv.c,v 5.3 91/07/01 16:20:00 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: ar_conv.c,v 5.4 91/12/30 18:20:16 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 37,46 ****
+  
+  /* For in place conversions which happen in this file */
+  #define CONVERT_CARD32(swp, val) \
+!     (val = ((swp)->ConvertCARD32 ? (*(swp)->ConvertCARD32)(&(val)) : (val)))
+  
+  #define CONVERT_CARD16(swp, val) \
+!     (val = ((swp)->ConvertCARD16 ? (*(swp)->ConvertCARD16)(&(val)) : (val)))
+      
+      
+  static pexSwap   clientSwapStructure;	
+--- 37,46 ----
+  
+  /* For in place conversions which happen in this file */
+  #define CONVERT_CARD32(swp, val) \
+!     if ((swp)->ConvertCARD32)  ((*(swp)->ConvertCARD32)(&(val))) 
+  
+  #define CONVERT_CARD16(swp, val) \
+!     if ((swp)->ConvertCARD16)  ((*(swp)->ConvertCARD16)(&(val))) 
+      
+      
+  static pexSwap   clientSwapStructure;	
+***************
+*** 49,77 ****
+  static int fromFormat;
+  static int toFormat;
+  
+! extern PEXFLOAT	ConvertIEEEToVax();
+! extern PEXFLOAT	SwapIEEEToVax();
+! extern PEXFLOAT	ConvertVaxToIEEE();
+! extern PEXFLOAT	SwapVaxToIEEE();
+! extern CARD16	SwapCARD16();
+! extern CARD32	SwapCARD32();
+  
+  typedef struct {
+! 	CARD16 (*s)();		/* Function to convert a short */
+! 	CARD32 (*l)();		/* Function to convert a long */
+! 	PEXFLOAT  (*f)();		/* Function to convert a float */
+  } ThreeFuncs;
+  
+  static ThreeFuncs ConversionFunction[4][4] = {
+  	{   /* From Big Endian Ieee */
+  	    { 0, 0, 0 },
+! 	    { SwapCARD16, SwapCARD32, (PEXFLOAT (*)())SwapCARD32 },
+  	    { 0, 0, ConvertIEEEToVax },
+  	    { SwapCARD16, SwapCARD32, SwapIEEEToVax }
+  	},
+  	{
+  	    /* From Big Endian DecF */
+! 	    { SwapCARD16, SwapCARD32, (PEXFLOAT (*)())SwapCARD32 },
+  	    { 0, 0, 0 },
+  	    { SwapCARD16, SwapCARD32, SwapIEEEToVax },
+  	    { 0, 0, ConvertIEEEToVax }
+--- 49,77 ----
+  static int fromFormat;
+  static int toFormat;
+  
+! extern void	ConvertIEEEToVax();
+! extern void	SwapIEEEToVax();
+! extern void	ConvertVaxToIEEE();
+! extern void	SwapVaxToIEEE();
+! extern void	SwapCARD16();
+! extern void	SwapCARD32();
+  
+  typedef struct {
+! 	void (*s)();		/* Function to convert a short */
+! 	void (*l)();		/* Function to convert a long */
+! 	void  (*f)();		/* Function to convert a float */
+  } ThreeFuncs;
+  
+  static ThreeFuncs ConversionFunction[4][4] = {
+  	{   /* From Big Endian Ieee */
+  	    { 0, 0, 0 },
+! 	    { SwapCARD16, SwapCARD32, (void (*)())SwapCARD32 },
+  	    { 0, 0, ConvertIEEEToVax },
+  	    { SwapCARD16, SwapCARD32, SwapIEEEToVax }
+  	},
+  	{
+  	    /* From Big Endian DecF */
+! 	    { SwapCARD16, SwapCARD32, (void (*)())SwapCARD32 },
+  	    { 0, 0, 0 },
+  	    { SwapCARD16, SwapCARD32, SwapIEEEToVax },
+  	    { 0, 0, ConvertIEEEToVax }
+***************
+*** 81,93 ****
+  	    { 0, 0, ConvertVaxToIEEE },
+  	    { SwapCARD16, SwapCARD32, SwapVaxToIEEE },
+  	    { 0, 0, 0 },
+! 	    { SwapCARD16, SwapCARD32, (PEXFLOAT (*)())SwapCARD32 }
+  	},
+  	{
+  	    /* From Little Endian DecF */
+  	    { SwapCARD16, SwapCARD32, SwapVaxToIEEE },
+  	    { 0, 0, ConvertVaxToIEEE },
+! 	    { SwapCARD16, SwapCARD32, (PEXFLOAT (*)())SwapCARD32 },
+  	    { 0, 0, 0 }
+  	}
+  };
+--- 81,93 ----
+  	    { 0, 0, ConvertVaxToIEEE },
+  	    { SwapCARD16, SwapCARD32, SwapVaxToIEEE },
+  	    { 0, 0, 0 },
+! 	    { SwapCARD16, SwapCARD32, (void (*)())SwapCARD32 }
+  	},
+  	{
+  	    /* From Little Endian DecF */
+  	    { SwapCARD16, SwapCARD32, SwapVaxToIEEE },
+  	    { 0, 0, ConvertVaxToIEEE },
+! 	    { SwapCARD16, SwapCARD32, (void (*)())SwapCARD32 },
+  	    { 0, 0, 0 }
+  	}
+  };
+***************
+*** 172,178 ****
+      register int	command;
+      register CARD16	type;
+      CARD16		length;
+!     CARD16	      (*localswapshort)();
+      extern OCFunction	cPEXOutputCmd[];
+      extern OCFunction	uPEXOutputCmd[];
+  
+--- 172,178 ----
+      register int	command;
+      register CARD16	type;
+      CARD16		length;
+!     void	      (*localswapshort)();
+      extern OCFunction	cPEXOutputCmd[];
+      extern OCFunction	uPEXOutputCmd[];
+  
+***************
+*** 195,202 ****
+  	
+  	    /* we are reading fram an archive so we must 'decode' */
+  	    if (localswapshort != NULL) {
+! 		type = (*localswapshort)(head->elementType);
+! 		length = (*localswapshort)(head->length);
+  	    } else {
+  		type = head->elementType;
+  		length = head->length;
+--- 195,204 ----
+  	
+  	    /* we are reading fram an archive so we must 'decode' */
+  	    if (localswapshort != NULL) {
+! 		(*localswapshort)(head->elementType);
+! 		type = head->elementType;
+! 		(*localswapshort)(head->length);
+! 		length = head->length;
+  	    } else {
+  		type = head->elementType;
+  		length = head->length;
+*** /tmp/,RCSt1a04819	Mon Dec 30 18:22:32 1991
+--- extensions/server/PEX/dipex/dispatch/dipexExt.c	Mon Dec 30 18:22:19 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: dipexExt.c,v 5.4 91/07/21 12:01:49 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: dipexExt.c,v 5.5 91/12/30 18:22:00 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 61,68 ****
+  extern ddBuffer *pPEXBuffer;
+  extern ddBuffer *diInitPEXBuffer();
+  extern RequestFunction PEXRequest[];
+! extern CARD32 SwapCARD32();
+! extern CARD16 SwapCARD16();
+  static int DeletePexClient();
+  
+  /*
+--- 61,68 ----
+  extern ddBuffer *pPEXBuffer;
+  extern ddBuffer *diInitPEXBuffer();
+  extern RequestFunction PEXRequest[];
+! extern void SwapCARD32();
+! extern void SwapCARD16();
+  static int DeletePexClient();
+  
+  /*
+*** /tmp/,RCSt1a04860	Mon Dec 30 18:24:23 1991
+--- extensions/server/PEX/dipex/swap/floatconv.h	Mon Dec 30 18:23:39 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: floatconv.h,v 5.4 91/07/01 16:27:01 hersh Exp $ */
+  
+  /*
+   * Copyright (c) 1988-1991 by Sun Microsystems and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: floatconv.h,v 5.5 91/12/30 18:23:15 hersh Exp $ */
+  
+  /*
+   * Copyright (c) 1988-1991 by Sun Microsystems and the X Consortium.
+***************
+*** 48,54 ****
+  #define MyFloatType Ieee_754_32
+  #endif
+  
+! extern PEXFLOAT ConvertIEEEtoVax();
+! extern PEXFLOAT ConvertVaxToIEEE();
+  
+  #endif /* FLOAT_CON_H */
+--- 48,54 ----
+  #define MyFloatType Ieee_754_32
+  #endif
+  
+! extern void ConvertIEEEtoVax();
+! extern void ConvertVaxToIEEE();
+  
+  #endif /* FLOAT_CON_H */
+*** /tmp/,RCSt1a04869	Mon Dec 30 18:24:24 1991
+--- extensions/server/PEX/dipex/swap/Convert.c	Mon Dec 30 18:23:42 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: Convert.c,v 5.3 91/07/01 16:29:05 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: Convert.c,v 5.4 91/12/30 18:23:37 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 31,52 ****
+  #include "dipex.h"
+  
+  
+! extern PEXFLOAT SwapIEEEToVax();
+! extern PEXFLOAT SwapVaxToIEEE();
+! extern PEXFLOAT ConvertIEEEToVax();
+! extern PEXFLOAT ConvertVaxToIEEE();
+  
+  unsigned char temp;	/* only used for conversions */
+  
+  
+  /* Byte swap a long */
+! CARD32
+  SwapCARD32(i)
+  CARD32 *i;
+  {
+-     CARD32 *j = i;
+      CARD8  n;
+!     CARD8  *x = (CARD8 *)j;
+  
+      n = x[0];
+      x[0] = x[3];
+--- 31,51 ----
+  #include "dipex.h"
+  
+  
+! extern void SwapIEEEToVax();
+! extern void SwapVaxToIEEE();
+! extern void ConvertIEEEToVax();
+! extern void ConvertVaxToIEEE();
+  
+  unsigned char temp;	/* only used for conversions */
+  
+  
+  /* Byte swap a long */
+! void
+  SwapCARD32(i)
+  CARD32 *i;
+  {
+      CARD8  n;
+!     CARD8  *x = (CARD8 *)i;
+  
+      n = x[0];
+      x[0] = x[3];
+***************
+*** 55,113 ****
+      x[1] = x[2];
+      x[2] = n;
+  
+!     return (*j);
+  }
+  
+  /* Byte swap a short */
+! CARD16
+  SwapCARD16(i)
+  CARD16 *i;
+  {
+-     CARD16 *j = i;
+      CARD8  n;
+!     CARD8  *x = (CARD8 *)j;
+  
+      n = x[0];
+      x[0] = x[1];
+      x[1] = n;
+  
+!     return (*j);
+  }
+  
+  
+  /* Byte swap and convert a float */
+! PEXFLOAT
+  SwapIEEEToVax(f)
+  PEXFLOAT *f;
+  {
+-     PEXFLOAT x;
+-     CARD32 i;
+  
+!     i = SwapCARD32((CARD32 *) f);
+  
+!     x = ConvertIEEEToVax((PEXFLOAT *)(&i));
+  
+-     return (x);
+  }
+  
+  
+! PEXFLOAT
+  SwapVaxToIEEE(f)
+  PEXFLOAT *f;
+  {
+!     PEXFLOAT x;
+!     CARD32 i;
+  
+!     i = SwapCARD32((CARD32 *) f);
+  
+-     x = ConvertVaxToIEEE((PEXFLOAT *)(&i));
+- 
+-     return (x);
+  }
+  
+  
+  /* Byte swap a float */
+! PEXFLOAT
+  SwapFLOAT (f)
+  PEXFLOAT *f;
+  {
+--- 54,104 ----
+      x[1] = x[2];
+      x[2] = n;
+  
+!     return;
+  }
+  
+  /* Byte swap a short */
+! void
+  SwapCARD16(i)
+  CARD16 *i;
+  {
+      CARD8  n;
+!     CARD8  *x = (CARD8 *)i;
+  
+      n = x[0];
+      x[0] = x[1];
+      x[1] = n;
+  
+!     return;
+  }
+  
+  
+  /* Byte swap and convert a float */
+! void
+  SwapIEEEToVax(f)
+  PEXFLOAT *f;
+  {
+  
+!     SwapCARD32((CARD32 *) f);
+  
+!     ConvertIEEEToVax((PEXFLOAT *)(f));
+  
+  }
+  
+  
+! void
+  SwapVaxToIEEE(f)
+  PEXFLOAT *f;
+  {
+!     SwapCARD32((CARD32 *) f);
+  
+!     ConvertVaxToIEEE((PEXFLOAT *)(f));
+  
+  }
+  
+  
+  /* Byte swap a float */
+! void
+  SwapFLOAT (f)
+  PEXFLOAT *f;
+  {
+***************
+*** 121,125 ****
+      x[1] = x[2];
+      x[2] = n;
+  
+-     return (*f);
+  }
+--- 112,115 ----
+*** /tmp/,RCSt1a04878	Mon Dec 30 18:24:26 1991
+--- extensions/server/PEX/dipex/swap/convReq.c	Mon Dec 30 18:23:47 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: convReq.c,v 5.9 91/10/01 02:39:59 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: convReq.c,v 5.10 91/12/30 18:23:40 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 802,822 ****
+      SWAP_CARD16 (strmPtr->length);
+      SWAP_PHIGS_WKS (strmPtr->wks);
+      SWAP_DRAWABLE (strmPtr->drawable);
+-     SWAP_LOOKUP_TABLE (strmPtr->lineBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->markerBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->textBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->interiorBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->edgeBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->colourTable);
+-     SWAP_LOOKUP_TABLE (strmPtr->patternTable);
+-     SWAP_LOOKUP_TABLE (strmPtr->textFontTable);
+      SWAP_LOOKUP_TABLE (strmPtr->depthCueTable);
+      SWAP_LOOKUP_TABLE (strmPtr->lightTable);
+      SWAP_LOOKUP_TABLE (strmPtr->colourApproxTable);
+      SWAP_NAMESET (strmPtr->highlightIncl);
+      SWAP_NAMESET (strmPtr->highlightExcl);
+      SWAP_NAMESET (strmPtr->invisIncl);
+      SWAP_NAMESET (strmPtr->invisExcl);
+      CALL_REQUEST;
+  }
+  
+--- 802,823 ----
+      SWAP_CARD16 (strmPtr->length);
+      SWAP_PHIGS_WKS (strmPtr->wks);
+      SWAP_DRAWABLE (strmPtr->drawable);
+      SWAP_LOOKUP_TABLE (strmPtr->markerBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->textBundle);
++     SWAP_LOOKUP_TABLE (strmPtr->lineBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->interiorBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->edgeBundle);
+      SWAP_LOOKUP_TABLE (strmPtr->colourTable);
+      SWAP_LOOKUP_TABLE (strmPtr->depthCueTable);
+      SWAP_LOOKUP_TABLE (strmPtr->lightTable);
+      SWAP_LOOKUP_TABLE (strmPtr->colourApproxTable);
++     SWAP_LOOKUP_TABLE (strmPtr->patternTable);
++     SWAP_LOOKUP_TABLE (strmPtr->textFontTable);
+      SWAP_NAMESET (strmPtr->highlightIncl);
+      SWAP_NAMESET (strmPtr->highlightExcl);
+      SWAP_NAMESET (strmPtr->invisIncl);
+      SWAP_NAMESET (strmPtr->invisExcl);
++     SWAP_CARD16 (strmPtr->bufferMode);
+      CALL_REQUEST;
+  }
+  
+***************
+*** 1116,1122 ****
+  pexUpdatePickMeasureReq	*strmPtr;
+  {
+  
+!     extern PEXFLOAT SwapFLOAT();
+  
+      pexSwap *swapPtr = cntxtPtr->swap;
+      SWAP_CARD16 (strmPtr->length);
+--- 1117,1123 ----
+  pexUpdatePickMeasureReq	*strmPtr;
+  {
+  
+!     extern void SwapFLOAT();
+  
+      pexSwap *swapPtr = cntxtPtr->swap;
+      SWAP_CARD16 (strmPtr->length);
+*** /tmp/,RCSt1a04887	Mon Dec 30 18:24:28 1991
+--- extensions/server/PEX/dipex/swap/check.c	Mon Dec 30 18:23:53 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: check.c,v 5.3 91/07/01 16:42:42 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: check.c,v 5.4 91/12/30 18:23:45 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 32,38 ****
+  #include "dipex.h"
+  #include "pexSwap.h"
+  #include "pex_site.h"
+- #include "swapmacros.h"
+  #include "pexError.h"
+  
+  /*
+--- 32,37 ----
+***************
+*** 44,54 ****
+  	as a floating point specifier;
+   */
+  
+! extern PEXFLOAT SwapFLOAT();
+! extern PEXFLOAT SwapIEEEToVax();
+! extern PEXFLOAT SwapVaxToIEEE();
+! extern PEXFLOAT ConvertIEEEToVax();
+! extern PEXFLOAT ConvertVaxToIEEE();
+  extern OCFunction cPEXOutputCmd[];
+  extern OCFunction uPEXOutputCmd[];
+  extern RequestFunction PEXRequest[];
+--- 43,53 ----
+  	as a floating point specifier;
+   */
+  
+! extern void SwapFLOAT();
+! extern void SwapIEEEToVax();
+! extern void SwapVaxToIEEE();
+! extern void ConvertIEEEToVax();
+! extern void ConvertVaxToIEEE();
+  extern OCFunction cPEXOutputCmd[];
+  extern OCFunction uPEXOutputCmd[];
+  extern RequestFunction PEXRequest[];
+***************
+*** 55,61 ****
+--- 54,66 ----
+  extern RequestFunction cPEXRequest[];
+  extern ReplyFunction uPEXReply[];
+  
++ /* define some macros previously taken from swapmacros.h */
++ /* byte swap AND COPY a short (given pointer) */
++ #define SWAPSHORTC(x, y)\
++ ((char *) (y))[1] = ((char *) (x))[0];\
++ ((char *) (y))[0] = ((char *) (x))[1]
+  
++ 
+  typedef struct {
+      CARD8 	reqType;
+      CARD8 	opcode;
+***************
+*** 115,121 ****
+  	cntxtPtr->pexSwapRequestOC  =  cPEXOutputCmd; 
+  	cntxtPtr->pexSwapReply	    =  uPEXReply;
+  	cntxtPtr->pexSwapReplyOC    =  uPEXOutputCmd;
+! 	swapshortc(strmPtr->fpFormat, fp);
+  
+  	if ( fp == SERVER_NATIVE_FP ) {
+  	    cntxtPtr->swap->ConvertFLOAT =  (ConvFunction)SwapFLOAT;
+--- 120,126 ----
+  	cntxtPtr->pexSwapRequestOC  =  cPEXOutputCmd; 
+  	cntxtPtr->pexSwapReply	    =  uPEXReply;
+  	cntxtPtr->pexSwapReplyOC    =  uPEXOutputCmd;
+! 	SWAPSHORTC(&(strmPtr->fpFormat), &fp);
+  
+  	if ( fp == SERVER_NATIVE_FP ) {
+  	    cntxtPtr->swap->ConvertFLOAT =  (ConvFunction)SwapFLOAT;
+*** /tmp/,RCSt1a04896	Mon Dec 30 18:24:29 1991
+--- extensions/server/PEX/dipex/swap/floatconv.c	Mon Dec 30 18:24:00 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: floatconv.c,v 5.4 91/07/01 16:39:12 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: floatconv.c,v 5.5 91/12/30 18:23:51 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 114,138 ****
+   * 	brute force BITMASKS and shifts.
+   */
+  
+! PEXFLOAT 
+  ConvertVaxToIEEE(VaxnumR)
+      PEXFLOAT *VaxnumR;
+  {
+      register CARD32 Vaxnum = *(CARD32 *)VaxnumR;
+!     CARD32 result=0;
+  
+      if ((VAX_SIGN_MASK & Vaxnum)==MAX_VAX_POSITIVE)
+      {
+! 	result = MAX_IEEE_POSITIVE |
+  	    (((0x00008000)&Vaxnum) ? 0x80000000 : 0L);
+! 	return *(PEXFLOAT *)(&result);
+!     };
+      
+      if ((VAX_SIGN_MASK & Vaxnum)==MIN_VAX_POSITIVE)
+      {
+! 	result = MIN_IEEE_POSITIVE;
+! 	return *(PEXFLOAT *)(&result);
+!     };
+  
+      /*
+       * these bitfields should OR into mutually exclusive fields in
+--- 114,139 ----
+   * 	brute force BITMASKS and shifts.
+   */
+  
+! void
+  ConvertVaxToIEEE(VaxnumR)
+      PEXFLOAT *VaxnumR;
+  {
+      register CARD32 Vaxnum = *(CARD32 *)VaxnumR;
+!     CARD32 *VaxnumP = (CARD32 *)VaxnumR;
+!     CARD32 result;
+  
+      if ((VAX_SIGN_MASK & Vaxnum)==MAX_VAX_POSITIVE)
+      {
+! 	*VaxnumP = MAX_IEEE_POSITIVE |
+  	    (((0x00008000)&Vaxnum) ? 0x80000000 : 0L);
+! 	return;
+!     }
+      
+      if ((VAX_SIGN_MASK & Vaxnum)==MIN_VAX_POSITIVE)
+      {
+! 	*VaxnumP = MIN_IEEE_POSITIVE;
+! 	return;
+!     }
+  
+      /*
+       * these bitfields should OR into mutually exclusive fields in
+***************
+*** 139,149 ****
+       * result field.
+       */
+      
+!     result |= ((((BITMASK(8)<<7) & Vaxnum)>>7)+VAX_TO_IEEE_BIAS)<<23;
+      result |= (((BITMASK(7) & Vaxnum)<<16) |
+  	       (((BITMASK(16)<<16) & Vaxnum)>>16));
+      result |= ( (0x00008000 & Vaxnum) ? 0x80000000 : 0L);
+!     return *(PEXFLOAT *)(&result);
+  }
+  
+  /*****************************************************************
+--- 140,151 ----
+       * result field.
+       */
+      
+!     result = ((((BITMASK(8)<<7) & Vaxnum)>>7)+VAX_TO_IEEE_BIAS)<<23;
+      result |= (((BITMASK(7) & Vaxnum)<<16) |
+  	       (((BITMASK(16)<<16) & Vaxnum)>>16));
+      result |= ( (0x00008000 & Vaxnum) ? 0x80000000 : 0L);
+!     *VaxnumP = result;
+!     return;
+  }
+  
+  /*****************************************************************
+***************
+*** 172,195 ****
+   * 	brute force BITMASKS and shifts.
+   */
+      
+! PEXFLOAT 
+  ConvertIEEEToVax(IEEEnumR)
+      PEXFLOAT *IEEEnumR;
+  {
+      register CARD32 IEEEnum = *(CARD32 *)IEEEnumR;
+      CARD32 result=0;
+  
+      if ((IEEE_SIGN_MASK & IEEEnum)==MAX_IEEE_POSITIVE)
+      {
+! 	result = MAX_VAX_POSITIVE |
+  	    (0x80000000&IEEEnum)>>16;
+! 	return *(PEXFLOAT *)(&result);
+      };
+      
+      if ((IEEE_SIGN_MASK & IEEEnum)==MIN_IEEE_POSITIVE)
+      {
+! 	result = MIN_VAX_POSITIVE;
+! 	return *(PEXFLOAT *)(&result);
+      };
+  
+      /*
+--- 174,198 ----
+   * 	brute force BITMASKS and shifts.
+   */
+      
+! void 
+  ConvertIEEEToVax(IEEEnumR)
+      PEXFLOAT *IEEEnumR;
+  {
+      register CARD32 IEEEnum = *(CARD32 *)IEEEnumR;
++     CARD32 *IEEEnumP = (CARD32 *)IEEEnumR;
+      CARD32 result=0;
+  
+      if ((IEEE_SIGN_MASK & IEEEnum)==MAX_IEEE_POSITIVE)
+      {
+! 	*IEEEnumP = MAX_VAX_POSITIVE |
+  	    (0x80000000&IEEEnum)>>16;
+! 	return;
+      };
+      
+      if ((IEEE_SIGN_MASK & IEEEnum)==MIN_IEEE_POSITIVE)
+      {
+! 	*IEEEnumP = MIN_VAX_POSITIVE;
+! 	return;
+      };
+  
+      /*
+***************
+*** 197,205 ****
+       * result field.
+       */
+  
+!     result |= ((((BITMASK(8)<<23) & IEEEnum)>>23)+IEEE_TO_VAX_BIAS)<<7;
+      result |= ((BITMASK(7)<<16)&IEEEnum)>>16;
+      result |= (BITMASK(16)&IEEEnum)<<16;
+      result |= (0x80000000&IEEEnum)>>16;
+!     return *(PEXFLOAT *)(&result);  /* hopefully the *& will not generate code */
+  }
+--- 200,209 ----
+       * result field.
+       */
+  
+!     result = ((((BITMASK(8)<<23) & IEEEnum)>>23)+IEEE_TO_VAX_BIAS)<<7;
+      result |= ((BITMASK(7)<<16)&IEEEnum)>>16;
+      result |= (BITMASK(16)&IEEEnum)<<16;
+      result |= (0x80000000&IEEEnum)>>16;
+!     *IEEEnumP = result;
+!     return;  
+  }
+*** /tmp/,RCSt1a04905	Mon Dec 30 18:24:31 1991
+--- extensions/server/PEX/dipex/swap/SwapConv.h	Mon Dec 30 18:24:03 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: SwapConv.h,v 5.1 91/02/16 09:57:22 rws Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: SwapConv.h,v 5.2 91/12/30 18:23:59 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 27,36 ****
+  #ifndef SWAPCONV_H
+  #define SWAPCONV_H 1
+  
+! #define SWAPINT(A)   if (swapPtr->ConvertCARD32) A = swapPtr->ConvertCARD32(&(A))
+  
+! #define SWAPSHORT(A) if (swapPtr->ConvertCARD16) A = swapPtr->ConvertCARD16(&(A))
+  
+! #define SWAPFLOAT(A) if (swapPtr->ConvertFLOAT)  A = swapPtr->ConvertFLOAT(&(A))
+  
+  #endif	/* SWAPCONV_H */
+--- 27,36 ----
+  #ifndef SWAPCONV_H
+  #define SWAPCONV_H 1
+  
+! #define SWAPINT(A)   if (swapPtr->ConvertCARD32) swapPtr->ConvertCARD32(&(A))
+  
+! #define SWAPSHORT(A) if (swapPtr->ConvertCARD16) swapPtr->ConvertCARD16(&(A))
+  
+! #define SWAPFLOAT(A) if (swapPtr->ConvertFLOAT)  swapPtr->ConvertFLOAT(&(A))
+  
+  #endif	/* SWAPCONV_H */
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

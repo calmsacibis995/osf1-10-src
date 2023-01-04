@@ -1,0 +1,264 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: auditd.8,v $ $Revision: 1.1.2.7 $ (DEC) $Date: 1994/01/14 23:21:54 $
+.\"
+.\" SCCSID: @(#)auditd.8 4.0 11/04/14/89
+.TH auditd 8
+.SH NAME
+.PP
+auditd \- audit daemon (Enhanced Security)
+.SH SYNOPSIS
+.PP
+\*L/usr/sbin/auditd\*O [
+\*Voptions ...\*O
+]
+.SH DESCRIPTION
+.PP
+.iX "audit daemon"
+The audit daemon,
+\*Lauditd\*O,
+operates as a server,
+monitoring
+\*L/dev/audit\*O
+for local audit
+data, monitoring a known port for data from remote cooperating audit
+daemons, and monitoring an AF_UNIX socket for input from the system
+administrator.
+.PP
+Local audit data is read from the
+\*L/dev/audit\*O
+device.
+Data read from
+\*L/dev/audit\*O
+is buffered by the audit daemon, and
+eventually output into the
+auditlog when the buffer nears capacity or the daemon receives an explicit
+instruction from the administrator to flush its buffer.
+.PP
+Local administrative data is read via the socket
+\*L/tmp/.audit/audS\*O.
+Input from the system administrator allows for
+changing of the daemon's configurable
+options.  The administrator communicates with the audit daemon by
+executing
+\*Lauditd\*O
+with the desired options.  The first invocation
+of
+\*Lauditd\*O
+spawns the daemon; subsequent invocations detect that an audit
+daemon already exists and will communicate with it, passing along
+directions for the selected options.  The first invocation of the daemon
+also turns on auditing for the system (\*Laudcntl\*O(2)).
+When the daemon is
+terminated, by the \*L\-k\*O
+option or
+the SIGTERM signal, auditing is turned off.
+It is important not to have system auditing turned on when there is no
+audit daemon running on the system (processes being audited will sleep
+until
+\*L/dev/audit\*O
+is read, which is typically done by the audit daemon).
+.PP
+Remote audit data is first detected
+when the remote audit daemon attempts
+to communicate with the local audit daemon.
+To establish a communications
+path between the remote and the local daemons,
+the remote audit daemon's
+hostname is first checked against a list of hosts allowed to transmit data
+to the local host. This list is maintained in
+\*L/etc/sec/auditd_clients\*O.
+If
+the remote host is allowed to transfer audit data to the local host, a
+child audit daemon dedicated to communicating with the remote host is
+spawned.
+.SH FLAGS
+.PP
+.iX "auditd command" "options"
+.\" .IP "\*L\-a\*O" 12
+.\" Toggle the KERBEROS switch.  If on, KERBEROS authentication routines will
+.\" be used to verify the identity of any audit daemons attempting to
+.\" communicate.  This occurs either when sending to a remote host (by
+.\" the \*L\-i\*O
+.\" option) or accepting from remote hosts
+.\" (by the \*L\-s\*O
+.\" option).
+.\" .IP "\*L\-b \*Valternate_pathname\*O" 12
+.\" Sets the pathname to which the audit daemon will write its data should the
+.\" location currently accepting data become unavailable.  This can happen should
+.\" the current location specify a remote host which is no longer available, or
+.\" when the filesystem of the current location reaches an overflow condition
+.\" (in this case, the alternate pathname must specify a partition other than
+.\" the currently overflowing partition).
+.SS "Audit Data and Messages"
+.IP "\*L\-c \*Vpathname\*O" 12
+Sets the pathname to which the audit daemon will post any warning or
+informational messages (such as "audit log change").  This may be either a
+device or local file.
+.IP "\*L\-h\*O" 12
+Outputs a brief help menu.
+.IP "\*L\-l \*Vhostname\*L:\*O" 12
+Causes the audit daemon to transfer its audit data to the audit daemon
+executing on the remote host
+\*Vhostname\*O.  If the remote site stops
+receiving, the local daemon will store its data
+locally as specified with the \*L\-o\*O and \*L\-r\*O options to
+\*Lauditd\*O.
+.IP "\*L\-l \*Vpathname\*O" 12
+Causes the audit daemon to output its audit data to the local
+file
+\*Vpathname\*O.
+.IP "\*L\-q\*O" 12
+Queries the audit daemon for the current location of the audit data.
+.SS "auditd Control"
+.IP "\*L\-d \*O[\*Vfreq\*O]" 12
+Causes the audit daemon to dump its currently buffered audit data out
+to
+\*L/dev/audit\*O.
+The audit daemon normally dumps its buffer only when it
+approaches capacity.
+.IP
+If a frequency (\*Vfreq\*O) is specified, the audit daemon dumps its
+data at the specified frequency. The \*Vfreq\*O is specified as \*Vn\*O[wdhms]
+for weeks, days, hours, minutes, and seconds.
+For example, to dump the audit daemon data
+every 36 hours use the \*L\-d 1d12h\*O option.
+.IP
+Specifying \*L0s\*O (zero seconds) disables the previously specified frequency.
+.IP "\*L\-k\*O" 12
+Kills the audit daemon (killing the local daemon turns audit off).
+.IP "\*L\-p \*Vdaemon id\*O" 12
+Specifies the id of the audit daemon to receive the current options.  When
+the local audit daemon accepts a connection to receive data from
+a remote audit
+daemon, a dedicated child audit daemon is spawned off from the
+local audit daemon to
+service that connection.  With this scenario, multiple audit daemons
+may exist on a single system.
+Specifying the id of the
+\*Lauditd\*O
+allows for communication with one of the child audit daemons.  The
+id for each daemon can be found by entering the following at the
+command line:
+.IP 12
+\*L# /usr/sbin/auditd \-w\*O
+.IP "" 12
+The previous command line displays
+the current options.  No id's are displayed unless at least one child
+audit daemon exists.
+If the \*L\-p\*O
+option is not specified when running with
+more than one audit daemon, the master daemon (accepting audit data for the
+local system) handles the request.  When the master daemon is killed,
+it kills all of its child daemons.
+.IP "\*L\-r\*O" 12
+Reads a list of directories into which \*Lauditd\*O may switch
+its audit log file when an overflow condition is reached.
+The list is maintained in
+\*L/etc/sec/auditd_loc\*O.
+The maximum size of the list (\*L/etc/sec/auditd_loc\*O) is 8 Kbytes.
+The \*L\-r\*O option is used when the overflow
+action is set to \*Lchangeloc\*O (\*Lauditd\*O \*L\-o\*O \*Lchangeloc\*O).
+.IP "\*L\-w\*O" 12
+Shows the current status of the audit daemons options.
+.IP "\*L\-x\*O" 12
+Auditlog pathnames are always appended with a suffix consisting of a
+generation number.  These generation numbers range from 000 to 999.
+(Generation numbers may be overridden with an explicit generation number
+specification on the pathname for the \*L\-l\*O option,
+for example
+\*Lauditlog.345\*O).
+The \*L\-x\*O
+option causes a change in
+auditlog to the next auditlog in the
+generation number sequence.  (If the current log was
+\*Lauditlog.345\*O,
+then \*L\-x\*O
+would change the log to
+\*Lauditlog.346\*O).
+Whenever an auditlog is
+closed, it is also compressed (by
+\*L/usr/ucb/compress\*O).
+.SS "Network"
+.IP "\*L\-n \*Vkbytes\*O" 12
+Sets the size of the audit daemons buffer for the audit data (minimum is 4).
+.IP "\*L\-s\*O" 12
+Toggles the network server switch.  If on, allows the audit daemon to
+accept audit data from other audit daemons whose hostnames are specified in
+the
+\*L/etc/sec/auditd_clients\*O
+file.
+.IP "\*L\-t \*Vtimeout_value\*O" 12
+Sets the timeout value used in establishing initial connections with remote
+audit daemons.
+.SS "Overflow Control"
+.IP "\*L\-f \*Vpercentage\*O" 12
+Sets the minimum percent free space on the current partition before
+an overflow
+condition is triggered.
+.IP "\*L\-o \*Vaction\*O" 12
+Sets the action that \*Lauditd\*O takes on an overflow condition.
+The following \*Vaction\*Os are the available for the \*L\-o\*O option:
+.RS 12
+.IP "\*Lchangeloc\*O" 12
+Change to the next logfile as specified in the \*L/etc/sec/auditd_loc\*O file.
+.IP "\*Lsuspend\*O" 12
+Suspend auditing.
+.IP "\*Loverwrite\*O" 12
+Overwrite the current audit log file.
+This \*Vaction\*O causes the loss of previously
+logged audit data.
+.IP "\*Lkill\*O" 12
+Terminates the audit daemon.
+.IP "\*Lhalt\*O" 12
+Immediately halts the system by doing a reboot.
+.RE
+.\"Sets the system action to take on a local overflow condition.  Alternatives
+.\"are a) use the alternate log specified via \-b option, b) shutdown the system,
+.\"c) switch to the root-mounted filesystem with the most free space, d)
+.\"suspend auditing until space is made available, and e) overwrite the
+.\"current auditlog.
+.\" .IP "\*L\-z\*O" 12
+.\" Removes any AF_UNIX sockets left by previous daemons.  This occurs
+.\" when the system shuts down abnormally.  This option is useful typically
+.\" only for the
+.\" .PN auditd
+.\" invocation from the
+.\" .PN /etc/rc.local
+.\" file.  If no
+.\" AF_UNIX socket is present, the next invocation of
+.\" .PN auditd
+.\" will start the
+.\" .PN audit
+.\" daemon.  If an AF_UNIX socket is present, the next invocation of
+.\" .PN auditd
+.\" will spawn a client process which will communicate with the system audit
+.\" daemon.  This \*L\-z\*O
+.\" option removes any leftover AF_UNIX sockets, forcing
+.\" a new audit daemon to start.  This should be used only when no audit daemon
+.\" is present on the system.
+.SH FILES
+.PP
+\*L/etc/sec/auditd_clients\*O
+.br
+\*L/etc/sec/auditd_loc\*O
+.SH RELATED INFORMATION
+.PP
+\*Laudcntl\*O(2), \*Laudit\*O(7), \*Laudit_setup\*O(8)
+.EQ
+delim off
+.EN

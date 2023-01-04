@@ -1,0 +1,1861 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203280046.AA12621@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2430) close XBUG #5009,4602,5011,4987,4985,4979,4978,4764: fontlib: misc. Type1 fixes
+Date: Fri, 27 Mar 92 19:46:31 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: IBM rasterizer cannot process the Adobe Type 1 font ZapfDingbats
+        ### bug number:   5009
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+Type1 code now uses the encoding in the Type1 font file if the xlfd
+CHARSET_REGISTRY and CHARSET_ENCODING is -adobe-fontspecific.
+
+        Subject: fontlib: Type1 font renderer crashes server
+        ### bug number:   4602
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+Bug 4602 was fixed in seq 2356.
+
+        Subject: fontlib: compile error in /fonts/lib/font/Type1/t1info.c
+        ### bug number:   5011
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontlib: Type 1 rasterizer errors in properties computation
+        ### bug number:   4987
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+The second part of bug 4987 (Type1GetInfoScalable() dereferences NULL
+or garbage pointer when call fails) was fixed in seq 2356.
+
+        Subject: fontlib: Type 1 code fails to recognize Weight object in font
+        ### bug number:   4985
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontlib: Type 1 memory management module incorrectly aborts
+        ### bug number:   4979
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontlib: t1_Unique() can dereference a null pointer
+        ### bug number:   4978
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+        Subject: fontlib:Type1 rasterizer puts random trash in the glyphs.
+        ### bug number:   4764
+        ### area:         fontlib
+        ### severity:     low
+        ### comments:     
+
+In addition, calls to free() where changed to xfree().
+
+
+*** /tmp/ddcCkR	Fri Mar 27 18:24:06 1992
+--- fonts/lib/font/Type1/objects.h	Fri Mar 20 14:35:57 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: objects.h,v 1.5 91/10/10 11:18:38 rws Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+--- 1,4 ----
+! /* $XConsortium: objects.h,v 1.6 92/03/20 14:35:56 keith Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+***************
+*** 55,61 ****
+  #define   abort(line)       t1_abort(line)
+  #define   Allocate(n,t,s)   t1_Allocate(n,t,s)
+  #define   Free(obj)         t1_Free(obj)
+! #define   NonObjectFree(a)  free(a)
+  #define   Consume           t1_Consume
+  #define   ArgErr(s,o,r)     t1_ArgErr(s,o,r)
+  #define   TypeErr(n,o,e,r)  t1_TypeErr(n,o,e,r)
+--- 55,61 ----
+  #define   abort(line)       t1_abort(line)
+  #define   Allocate(n,t,s)   t1_Allocate(n,t,s)
+  #define   Free(obj)         t1_Free(obj)
+! #define   NonObjectFree(a)  xiFree(a)
+  #define   Consume           t1_Consume
+  #define   ArgErr(s,o,r)     t1_ArgErr(s,o,r)
+  #define   TypeErr(n,o,e,r)  t1_TypeErr(n,o,e,r)
+*** /tmp/dugDM2	Fri Mar 27 18:24:10 1992
+--- fonts/lib/font/Type1/fontfcn.c	Fri Mar 27 18:17:22 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fontfcn.c,v 1.5 91/10/11 11:34:02 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: fontfcn.c,v 1.8 92/03/27 18:15:45 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 34,39 ****
+--- 34,40 ----
+  #include "t1imager.h"
+  #include "util.h"
+  #include "fontfcn.h"
++ #include "fontmisc.h"
+   
+  extern xobject Type1Char();
+  /***================================================================***/
+***************
+*** 79,85 ****
+  
+    if (!(vm_init(cnt))) return(FALSE);
+    vm_base = vm_next_byte();
+!   if (!(Init_StdEnc())) return(FALSE);
+    strcpy(CurFontName, "");    /* iniitialize to none */
+    FontP = &TheCurrentFont;
+    FontP->vm_start = vm_next_byte();
+--- 80,86 ----
+  
+    if (!(vm_init(cnt))) return(FALSE);
+    vm_base = vm_next_byte();
+!   if (!(Init_BuiltInEncoding())) return(FALSE);
+    strcpy(CurFontName, "");    /* iniitialize to none */
+    FontP = &TheCurrentFont;
+    FontP->vm_start = vm_next_byte();
+***************
+*** 118,124 ****
+    rcode = scan_font(FontP);
+    if (rcode == SCAN_OUT_OF_MEMORY) {
+      /* free the memory and start again */
+!     free(vm_base);
+      if (!(initFont(vm_size * 2))) {
+        /* we are really out of memory */
+        return(SCAN_OUT_OF_MEMORY);
+--- 119,125 ----
+    rcode = scan_font(FontP);
+    if (rcode == SCAN_OUT_OF_MEMORY) {
+      /* free the memory and start again */
+!     xfree(vm_base);
+      if (!(initFont(vm_size * 2))) {
+        /* we are really out of memory */
+        return(SCAN_OUT_OF_MEMORY);
+***************
+*** 130,137 ****
+    return(rcode);
+  }
+  /***================================================================***/
+! xobject fontfcnB(FontP,S,code,lenP,mode)
+! psfont  *FontP;
+  XYspace S;
+  unsigned char *code;
+  int  *lenP;
+--- 131,137 ----
+    return(rcode);
+  }
+  /***================================================================***/
+! xobject fontfcnB(S,code,lenP,mode)
+  XYspace S;
+  unsigned char *code;
+  int  *lenP;
+***************
+*** 149,173 ****
+   
+    path  charpath;   /* the path for this character              */
+   
+-   /* We parse the glyphname.  Multi-byte names are delimited by '|'; */
+-   /* all others are single-byte.  */
+-   --(*lenP);
+    charnameP = &CodeName;
+!     if (*code != '|') {
+!       charnameP->len = 1;
+!       charnameP->data.stringP = code;
+!     }
+!     else {
+!       for (s = ++code; *s++ != '|'; )
+!         if (--(*lenP) <= 0) {
+!           *mode = FF_PARSE_ERROR;
+!           return(NULL);
+!         }
+!       charnameP->len = s - code - 1;
+!       charnameP->data.stringP = code ;
+!       --(*lenP);
+!     }
+!  
+    CharStringsDictP =  FontP->CharStringsP;
+   
+    /* search the chars string for this charname as key */
+--- 149,158 ----
+   
+    path  charpath;   /* the path for this character              */
+   
+    charnameP = &CodeName;
+!   charnameP->len = *lenP;
+!   charnameP->data.stringP = code;
+! 
+    CharStringsDictP =  FontP->CharStringsP;
+   
+    /* search the chars string for this charname as key */
+***************
+*** 197,215 ****
+    return(charpath);
+  }
+  /***================================================================***/
+! /*   fontfcnA(env,S,code, len,mode)                                   */
+  /*                                                                    */
+  /*          env is a pointer to a string that contains the fontname.  */
+  /*                                                                    */
+  /*     1) initialize the font     - global indicates it has been done */
+  /*     2) load the font                                               */
+- /*     3) use the font to call fontfcnB to get the character pattern  */
+  /***================================================================***/
+! xobject fontfcnA(env,S,code,len,mode)
+  char *env;
+- XYspace S;
+- unsigned char *code;
+- int  *len;
+  int  *mode;
+  {
+    int rc;
+--- 182,196 ----
+    return(charpath);
+  }
+  /***================================================================***/
+! /*   fontfcnA(env, mode)                                              */
+  /*                                                                    */
+  /*          env is a pointer to a string that contains the fontname.  */
+  /*                                                                    */
+  /*     1) initialize the font     - global indicates it has been done */
+  /*     2) load the font                                               */
+  /***================================================================***/
+! Bool fontfcnA(env,mode)
+  char *env;
+  int  *mode;
+  {
+    int rc;
+***************
+*** 221,227 ****
+      if (!(initFont(VM_SIZE))) {
+        /* we are really out of memory */
+        *mode = SCAN_OUT_OF_MEMORY;
+!       return(NULL);
+      }
+    }
+   
+--- 202,208 ----
+      if (!(initFont(VM_SIZE))) {
+        /* we are really out of memory */
+        *mode = SCAN_OUT_OF_MEMORY;
+!       return(FALSE);
+      }
+    }
+   
+***************
+*** 234,243 ****
+      if (rc != 0 ) {
+        strcpy(CurFontName, "");    /* no font loaded */
+        *mode = rc;
+!       return(NULL);
+      }
+    }
+!   return(fontfcnB(FontP,S,code,len,mode));
+   
+  }
+  /***================================================================***/
+--- 215,224 ----
+      if (rc != 0 ) {
+        strcpy(CurFontName, "");    /* no font loaded */
+        *mode = rc;
+!       return(FALSE);
+      }
+    }
+!   return(TRUE);
+   
+  }
+  /***================================================================***/
+*** /tmp/dPkDM2	Fri Mar 27 18:24:13 1992
+--- fonts/lib/font/Type1/objects.c	Fri Mar 20 15:58:28 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: objects.c,v 1.4 91/10/10 11:18:29 rws Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+--- 1,4 ----
+! /* $XConsortium: objects.c,v 1.5 92/03/20 15:56:06 eswu Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+***************
+*** 725,731 ****
+         copy...Note also that if the object was not permanent, we must
+         consume the old handle! 3-26-91 PNM
+         NOTE : consumption of the old handle moved to Allocate. 4-18-91 */
+!     if (obj->references == 1)
+          return(obj);
+   
+      obj = Copy(obj);
+--- 725,731 ----
+         copy...Note also that if the object was not permanent, we must
+         consume the old handle! 3-26-91 PNM
+         NOTE : consumption of the old handle moved to Allocate. 4-18-91 */
+!     if (!obj || obj->references == 1)
+          return(obj);
+   
+      obj = Copy(obj);
+*** /tmp/dioDFW	Fri Mar 27 18:24:23 1992
+--- fonts/lib/font/Type1/t1funcs.c	Fri Mar 27 18:17:13 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1funcs.c,v 1.6 92/02/05 21:38:42 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1funcs.c,v 1.9 92/03/27 18:13:14 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 55,60 ****
+--- 55,61 ----
+   */
+   
+  #include    <string.h>
++ #include    "X11/Xfuncs.h"
+  #include    "fontfilest.h"
+  #include    "FSproto.h"
+  #include    "t1intf.h"
+***************
+*** 62,67 ****
+--- 63,71 ----
+  #include "objects.h"
+  #include "spaces.h"
+  #include "regions.h"
++ #include "t1stdio.h"
++ #include "util.h"
++ #include "fontfcn.h"
+   
+  int         Type1OpenScalable ();
+  static int  Type1GetGlyphs();
+***************
+*** 74,537 ****
+   
+  static void fillrun();
+   
+- char *ISO8859[] = {
+-  /* 32*/ "|space|",
+-  /* 33*/ "|exclam|",
+-  /* 34*/ "|quotedbl|",
+-  /* 35*/ "|numbersign|",
+-  /* 36*/ "|dollar|",
+-  /* 37*/ "|percent|",
+-  /* 38*/ "|ampersand|",
+-  /* 39*/ "|quoteright|",
+-  /* 40*/ "|parenleft|",
+-  /* 41*/ "|parenright|",
+-  /* 42*/ "|asterisk|",
+-  /* 43*/ "|plus|",
+-  /* 44*/ "|comma|",
+-  /* 45*/ "|minus|",
+-  /* 46*/ "|period|",
+-  /* 47*/ "|slash|",
+-  /* 48*/ "|zero|",
+-  /* 49*/ "|one|",
+-  /* 50*/ "|two|",
+-  /* 51*/ "|three|",
+-  /* 52*/ "|four|",
+-  /* 53*/ "|five|",
+-  /* 54*/ "|six|",
+-  /* 55*/ "|seven|",
+-  /* 56*/ "|eight|",
+-  /* 57*/ "|nine|",
+-  /* 58*/ "|colon|",
+-  /* 59*/ "|semicolon|",
+-  /* 60*/ "|less|",
+-  /* 61*/ "|equal|",
+-  /* 62*/ "|greater|",
+-  /* 63*/ "|question|",
+-  /* 64*/ "|at|",
+-  /* 65*/ "A",
+-  /* 66*/ "B",
+-  /* 67*/ "C",
+-  /* 68*/ "D",
+-  /* 69*/ "E",
+-  /* 70*/ "F",
+-  /* 71*/ "G",
+-  /* 72*/ "H",
+-  /* 73*/ "I",
+-  /* 74*/ "J",
+-  /* 75*/ "K",
+-  /* 76*/ "L",
+-  /* 77*/ "M",
+-  /* 78*/ "N",
+-  /* 79*/ "O",
+-  /* 80*/ "P",
+-  /* 81*/ "Q",
+-  /* 82*/ "R",
+-  /* 83*/ "S",
+-  /* 84*/ "T",
+-  /* 85*/ "U",
+-  /* 86*/ "V",
+-  /* 87*/ "W",
+-  /* 88*/ "X",
+-  /* 89*/ "Y",
+-  /* 90*/ "Z",
+-  /* 91*/ "|bracketleft|",
+-  /* 92*/ "|backslash|",
+-  /* 93*/ "|bracketright|",
+-  /* 94*/ "|asciicircum|",
+-  /* 95*/ "|underscore|",
+-  /* 96*/ "|quoteleft|",
+-  /* 97*/ "a",
+-  /* 98*/ "b",
+-  /* 99*/ "c",
+-  /*100*/ "d",
+-  /*101*/ "e",
+-  /*102*/ "f",
+-  /*103*/ "g",
+-  /*104*/ "h",
+-  /*105*/ "i",
+-  /*106*/ "j",
+-  /*107*/ "k",
+-  /*108*/ "l",
+-  /*109*/ "m",
+-  /*110*/ "n",
+-  /*111*/ "o",
+-  /*112*/ "p",
+-  /*113*/ "q",
+-  /*114*/ "r",
+-  /*115*/ "s",
+-  /*116*/ "t",
+-  /*117*/ "u",
+-  /*118*/ "v",
+-  /*119*/ "w",
+-  /*120*/ "x",
+-  /*121*/ "y",
+-  /*122*/ "z",
+-  /*123*/ "|braceleft|",
+-  /*124*/ "|bar|",
+-  /*125*/ "|braceright|",
+-  /*126*/ "|asciitilde|",
+-  /*127*/ NULL,
+-  /*128*/ NULL,
+-  /*129*/ NULL,
+-  /*130*/ NULL,
+-  /*131*/ NULL,
+-  /*132*/ NULL,
+-  /*133*/ NULL,
+-  /*134*/ NULL,
+-  /*135*/ NULL,
+-  /*136*/ NULL,
+-  /*137*/ NULL,
+-  /*138*/ NULL,
+-  /*139*/ NULL,
+-  /*140*/ NULL,
+-  /*141*/ NULL,
+-  /*142*/ NULL,
+-  /*143*/ NULL,
+-  /*144*/ NULL,
+-  /*145*/ NULL,
+-  /*146*/ NULL,
+-  /*147*/ NULL,
+-  /*148*/ NULL,
+-  /*149*/ NULL,
+-  /*150*/ NULL,
+-  /*151*/ NULL,
+-  /*152*/ NULL,
+-  /*153*/ NULL,
+-  /*154*/ NULL,
+-  /*155*/ NULL,
+-  /*156*/ NULL,
+-  /*157*/ NULL,
+-  /*158*/ NULL,
+-  /*159*/ NULL,
+-  /*160*/ NULL,
+-  /*161*/ "|exclamdown|",
+-  /*162*/ "|cent|",
+-  /*163*/ "|sterling|",
+-  /*164*/ "|currency|",
+-  /*165*/ "|yen|",
+-  /*166*/ "|brokenbar|",
+-  /*167*/ "|section|",
+-  /*168*/ "|dieresis|",
+-  /*169*/ "|copyright|",
+-  /*170*/ "|ordfeminine|",
+-  /*171*/ "|guillemotleft|",
+-  /*172*/ "|logicalnot|",
+-  /*173*/ "|hyphen|",
+-  /*174*/ "|registered|",
+-  /*175*/ "|macron|",
+-  /*176*/ "|degree|",
+-  /*177*/ "|plusminus|",
+-  /*178*/ "|twosuperior|",
+-  /*179*/ "|threesuperior|",
+-  /*180*/ "|acute|",
+-  /*181*/ "|mu|",
+-  /*182*/ "|paragraph|",
+-  /*183*/ "|periodcentered|",
+-  /*184*/ "|cedilla|",
+-  /*185*/ "|onesuperior|",
+-  /*186*/ "|ordmasculine|",
+-  /*187*/ "|guillemotright|",
+-  /*188*/ "|onequarter|",
+-  /*189*/ "|onehalf|",
+-  /*190*/ "|threequarters|",
+-  /*191*/ "|questiondown|",
+-  /*192*/ "|Agrave|",
+-  /*193*/ "|Aacute|",
+-  /*194*/ "|Acircumflex|",
+-  /*195*/ "|Atilde|",
+-  /*196*/ "|Adieresis|",
+-  /*197*/ "|Aring|",
+-  /*198*/ "|AE|",
+-  /*199*/ "|Ccedilla|",
+-  /*200*/ "|Egrave|",
+-  /*201*/ "|Eacute|",
+-  /*202*/ "|Ecircumflex|",
+-  /*203*/ "|Edieresis|",
+-  /*204*/ "|Igrave|",
+-  /*205*/ "|Iacute|",
+-  /*206*/ "|Icircumflex|",
+-  /*207*/ "|Idieresis|",
+-  /*208*/ "|Eth|",
+-  /*209*/ "|Ntilde|",
+-  /*210*/ "|Ograve|",
+-  /*211*/ "|Oacute|",
+-  /*212*/ "|Ocircumflex|",
+-  /*213*/ "|Otilde|",
+-  /*214*/ "|Odieresis|",
+-  /*215*/ "|multiply|",
+-  /*216*/ "|Oslash|",
+-  /*217*/ "|Ugrave|",
+-  /*218*/ "|Uacute|",
+-  /*219*/ "|Ucircumflex|",
+-  /*220*/ "|Udieresis|",
+-  /*221*/ "|Yacute|",
+-  /*222*/ "|Thorn|",
+-  /*223*/ "|germandbls|",
+-  /*224*/ "|agrave|",
+-  /*225*/ "|aacute|",
+-  /*226*/ "|acircumflex|",
+-  /*227*/ "|atilde|",
+-  /*228*/ "|adieresis|",
+-  /*229*/ "|aring|",
+-  /*230*/ "|ae|",
+-  /*231*/ "|ccedilla|",
+-  /*232*/ "|egrave|",
+-  /*233*/ "|eacute|",
+-  /*234*/ "|ecircumflex|",
+-  /*235*/ "|edieresis|",
+-  /*236*/ "|igrave|",
+-  /*237*/ "|iacute|",
+-  /*238*/ "|icircumflex|",
+-  /*239*/ "|idieresis|",
+-  /*240*/ "|eth|",
+-  /*241*/ "|ntilde|",
+-  /*242*/ "|ograve|",
+-  /*243*/ "|oacute|",
+-  /*244*/ "|ocircumflex|",
+-  /*245*/ "|otilde|",
+-  /*246*/ "|odieresis|",
+-  /*247*/ "|divide|",
+-  /*248*/ "|oslash|",
+-  /*249*/ "|ugrave|",
+-  /*250*/ "|uacute|",
+-  /*251*/ "|ucircumflex|",
+-  /*252*/ "|udieresis|",
+-  /*253*/ "|yacute|",
+-  /*254*/ "|thorn|",
+-  /*255*/ "|ydieresis|"
+- };
+   
+! char *SYMBOL[] = {
+! /*   32  */ "|space|",
+! /*   33  */ "|exclam|",
+! /*   34  */ "|universal|",
+! /*   35  */ "|numbersign|",
+! /*   36  */ "|existential|",
+! /*   37  */ "|percent|",
+! /*   38  */ "|ampersand|",
+! /*   39  */ "|suchthat|",
+! /*   40  */ "|parenleft|",
+! /*   41  */ "|parenright|",
+! /*   42  */ "|asteriskmath|",
+! /*   43  */ "|plus|",
+! /*   44  */ "|comma|",
+! /*   45  */ "|minus|",
+! /*   46  */ "|period|",
+! /*   47  */ "|slash|",
+! /*   48  */ "|zero|",
+! /*   49  */ "|one|",
+! /*   50  */ "|two|",
+! /*   51  */ "|three|",
+! /*   52  */ "|four|",
+! /*   53  */ "|five|",
+! /*   54  */ "|six|",
+! /*   55  */ "|seven|",
+! /*   56  */ "|eight|",
+! /*   57  */ "|nine|",
+! /*   58  */ "|colon|",
+! /*   59  */ "|semicolon|",
+! /*   60  */ "|less|",
+! /*   61  */ "|equal|",
+! /*   62  */ "|greater|",
+! /*   63  */ "|question|",
+! /*   64  */ "|congruent|",
+! /*   65  */ "|Alpha|",
+! /*   66  */ "|Beta|",
+! /*   67  */ "|Chi|",
+! /*   68  */ "|Delta|",
+! /*   69  */ "|Epsilon|",
+! /*   70  */ "|Phi|",
+! /*   71  */ "|Gamma|",
+! /*   72  */ "|Eta|",
+! /*   73  */ "|Iota|",
+! /*   74  */ "|theta1|",
+! /*   75  */ "|Kappa|",
+! /*   76  */ "|Lambda|",
+! /*   77  */ "|Mu|",
+! /*   78  */ "|Nu|",
+! /*   79  */ "|Omicron|",
+! /*   80  */ "|Pi|",
+! /*   81  */ "|Theta|",
+! /*   82  */ "|Rho|",
+! /*   83  */ "|Sigma|",
+! /*   84  */ "|Tau|",
+! /*   85  */ "|Upsilon|",
+! /*   86  */ "|sigma1|",
+! /*   87  */ "|Omega|",
+! /*   88  */ "|Xi|",
+! /*   89  */ "|Psi|",
+! /*   90  */ "|Zeta|",
+! /*   91  */ "|bracketleft|",
+! /*   92  */ "|therefore|",
+! /*   93  */ "|bracketright|",
+! /*   94  */ "|perpendicular|",
+! /*   95  */ "|underscore|",
+! /*   96  */ "|radicalex|",
+! /*   97  */ "|alpha|",
+! /*   98  */ "|beta|",
+! /*   99  */ "|chi|",
+! /*  100  */ "|delta|",
+! /*  101  */ "|epsilon|",
+! /*  102  */ "|phi|",
+! /*  103  */ "|gamma|",
+! /*  104  */ "|eta|",
+! /*  105  */ "|iota|",
+! /*  106  */ "|phi1|",
+! /*  107  */ "|kappa|",
+! /*  108  */ "|lambda|",
+! /*  109  */ "|mu|",
+! /*  110  */ "|nu|",
+! /*  111  */ "|omicron|",
+! /*  112  */ "|pi|",
+! /*  113  */ "|theta|",
+! /*  114  */ "|rho|",
+! /*  115  */ "|sigma|",
+! /*  116  */ "|tau|",
+! /*  117  */ "|upsilon|",
+! /*  118  */ "|omega1|",
+! /*  119  */ "|omega|",
+! /*  120  */ "|xi|",
+! /*  121  */ "|psi|",
+! /*  122  */ "|zeta|",
+! /*  123  */ "|braceleft|",
+! /*  124  */ "|bar|",
+! /*  125  */ "|braceright|",
+! /*  126  */ "|similar|",
+!  /*127*/ NULL,
+!  /*128*/ NULL,
+!  /*129*/ NULL,
+!  /*130*/ NULL,
+!  /*131*/ NULL,
+!  /*132*/ NULL,
+!  /*133*/ NULL,
+!  /*134*/ NULL,
+!  /*135*/ NULL,
+!  /*136*/ NULL,
+!  /*137*/ NULL,
+!  /*138*/ NULL,
+!  /*139*/ NULL,
+!  /*140*/ NULL,
+!  /*141*/ NULL,
+!  /*142*/ NULL,
+!  /*143*/ NULL,
+!  /*144*/ NULL,
+!  /*145*/ NULL,
+!  /*146*/ NULL,
+!  /*147*/ NULL,
+!  /*148*/ NULL,
+!  /*149*/ NULL,
+!  /*150*/ NULL,
+!  /*151*/ NULL,
+!  /*152*/ NULL,
+!  /*153*/ NULL,
+!  /*154*/ NULL,
+!  /*155*/ NULL,
+!  /*156*/ NULL,
+!  /*157*/ NULL,
+!  /*158*/ NULL,
+!  /*159*/ NULL,
+!  /*160*/ NULL,
+! /*  161  */ "|Upsilon1|",
+! /*  162  */ "|minute|",
+! /*  163  */ "|lessequal|",
+! /*  164  */ "|fraction|",
+! /*  165  */ "|infinity|",
+! /*  166  */ "|florin|",
+! /*  167  */ "|club|",
+! /*  168  */ "|diamond|",
+! /*  169  */ "|heart|",
+! /*  170  */ "|spade|",
+! /*  171  */ "|arrowboth|",
+! /*  172  */ "|arrowleft|",
+! /*  173  */ "|arrowup|",
+! /*  174  */ "|arrowright|",
+! /*  175  */ "|arrowdown|",
+! /*  176  */ "|degree|",
+! /*  177  */ "|plusminus|",
+! /*  178  */ "|second|",
+! /*  179  */ "|greaterequal|",
+! /*  180  */ "|multiply|",
+! /*  181  */ "|proportional|",
+! /*  182  */ "|partialdiff|",
+! /*  183  */ "|bullet|",
+! /*  184  */ "|divide|",
+! /*  185  */ "|notequal|",
+! /*  186  */ "|equivalence|",
+! /*  187  */ "|approxequal|",
+! /*  188  */ "|ellipsis|",
+! /*  189  */ "|arrowvertex|",
+! /*  190  */ "|arrowhorizex|",
+! /*  191  */ "|carriagereturn|",
+! /*  192  */ "|aleph|",
+! /*  193  */ "|Ifraktur|",
+! /*  194  */ "|Rfraktur|",
+! /*  195  */ "|weierstrass|",
+! /*  196  */ "|circlemultiply|",
+! /*  197  */ "|circleplus|",
+! /*  198  */ "|emptyset|",
+! /*  199  */ "|intersection|",
+! /*  200  */ "|union|",
+! /*  201  */ "|propersuperset|",
+! /*  202  */ "|reflexsuperset|",
+! /*  203  */ "|notsubset|",
+! /*  204  */ "|propersubset|",
+! /*  205  */ "|reflexsubset|",
+! /*  206  */ "|element|",
+! /*  207  */ "|notelement|",
+! /*  208  */ "|angle|",
+! /*  209  */ "|gradient|",
+! /*  210  */ "|registerserif|",
+! /*  211  */ "|copyrightserif|",
+! /*  212  */ "|trademarkserif|",
+! /*  213  */ "|product|",
+! /*  214  */ "|radical|",
+! /*  215  */ "|dotmath|",
+! /*  216  */ "|logicalnot|",
+! /*  217  */ "|logicaland|",
+! /*  218  */ "|logicalor|",
+! /*  219  */ "|arrowdblboth|",
+! /*  220  */ "|arrowdblleft|",
+! /*  221  */ "|arrowdblup|",
+! /*  222  */ "|arrowdblright|",
+! /*  223  */ "|arrowdbldown|",
+! /*  224  */ "|lozenge|",
+! /*  225  */ "|angleleft|",
+! /*  226  */ "|registersans|",
+! /*  227  */ "|copyrightsans|",
+! /*  228  */ "|trademarksans|",
+! /*  229  */ "|summation|",
+! /*  230  */ "|parenlefttp|",
+! /*  231  */ "|parenleftex|",
+! /*  232  */ "|parenleftbt|",
+! /*  233  */ "|bracketlefttp|",
+! /*  234  */ "|bracketleftex|",
+! /*  235  */ "|bracketleftbt|",
+! /*  236  */ "|bracelefttp|",
+! /*  237  */ "|braceleftmid|",
+! /*  238  */ "|braceleftbt|",
+! /*  239  */ "|braceex|",
+! /*  240  */ "|apple|",
+! /*  241  */ "|angleright|",
+! /*  242  */ "|integral|",
+! /*  243  */ "|integraltp|",
+! /*  244  */ "|integralex|",
+! /*  245  */ "|integralbt|",
+! /*  246  */ "|parenrighttp|",
+! /*  247  */ "|parenrightex|",
+! /*  248  */ "|parenrightbt|",
+! /*  249  */ "|bracketrighttp|",
+! /*  250  */ "|bracketrightex|",
+! /*  251  */ "|bracketrightbt|",
+! /*  252  */ "|bracerighttp|",
+! /*  253  */ "|bracerightmid|",
+! /*  254  */ "|bracerightbt|",
+! /*  255  */ NULL
+! };
+!  
+!  
+  extern unsigned long *Xalloc();
+  static void fill();
+- static void clearmemory();
+   
+  /*ARGSUSED*/
+  int Type1OpenScalable (fpe, ppFont, flags, entry, fileName, vals, format, fmask)
+--- 78,89 ----
+   
+  static void fillrun();
+   
+   
+! extern psfont *FontP;
+! extern psobj *ISOLatin1EncArrayP;
+! 
+  extern unsigned long *Xalloc();
+  static void fill();
+   
+  /*ARGSUSED*/
+  int Type1OpenScalable (fpe, ppFont, flags, entry, fileName, vals, format, fmask)
+***************
+*** 545,551 ****
+      fsBitmapFormatMask  fmask;
+  {
+         extern struct XYspace *IDENTITY;
+!        extern struct region *fontfcnA();
+   
+   
+         FontPtr     pFont;
+--- 97,104 ----
+      fsBitmapFormatMask  fmask;
+  {
+         extern struct XYspace *IDENTITY;
+!        extern Bool fontfcnA();
+!        extern struct region *fontfcnB();
+   
+   
+         FontPtr     pFont;
+***************
+*** 565,572 ****
+         int len,rc;
+         struct type1font *type1;
+         char *p;
+!        char **codepage;
+!  
+         /* set up default values */
+         FontDefaultFormat(&bit, &byte, &glyph, &scan);
+         /* get any changes made from above */
+--- 118,125 ----
+         int len,rc;
+         struct type1font *type1;
+         char *p;
+!        psobj *fontencoding = NULL;
+! 
+         /* set up default values */
+         FontDefaultFormat(&bit, &byte, &glyph, &scan);
+         /* get any changes made from above */
+***************
+*** 588,598 ****
+                 xfree(pFont);
+                 return AllocError;
+         }
+!        clearmemory(type1, sizeof(struct type1font));
+   
+         /* heuristic for "maximum" size of pool we'll need: */
+         size = 200000 + 120 * vals->pixel * sizeof(short);
+!        if (size < 0 || NULL == (pool = xalloc(size))) {
+                 xfree(type1);
+                 xfree(pFont);
+                 return AllocError;
+--- 141,151 ----
+                 xfree(pFont);
+                 return AllocError;
+         }
+!        bzero(type1, sizeof(struct type1font));
+   
+         /* heuristic for "maximum" size of pool we'll need: */
+         size = 200000 + 120 * vals->pixel * sizeof(short);
+!        if (size < 0 || NULL == (pool = (unsigned long *) xalloc(size))) {
+                 xfree(type1);
+                 xfree(pFont);
+                 return AllocError;
+***************
+*** 605,629 ****
+   
+         glyphs = type1->glyphs;
+   
+         p = entry->name.name + entry->name.length - 19;
+-        
+         if (entry->name.ndashes == 14 &&
+  	   p >= entry->name.name &&
+  	   !strcmp (p, "-adobe-fontspecific"))
+!                codepage = SYMBOL;
+!        else
+!                codepage = ISO8859;
+!  
+!  
+         for (i=0; i < 256-FIRSTCOL; i++) {
+                 long h,w;
+                 long paddedW;
+!  
+!                if (codepage[i] == NULL)
+!                        continue;
+!                len = strlen(codepage[i]);
+                 rc = 0;
+!                area = fontfcnA(fileName, S, codepage[i], &len, &rc);
+                 if (rc < 0) {
+                         rc = BadFontName;
+                         break;
+--- 158,190 ----
+   
+         glyphs = type1->glyphs;
+   
++        /* load font if not already loaded */
++        if (!fontfcnA(fileName, &rc))
++ 	   return (rc);
++ 
+         p = entry->name.name + entry->name.length - 19;
+         if (entry->name.ndashes == 14 &&
+  	   p >= entry->name.name &&
+  	   !strcmp (p, "-adobe-fontspecific"))
+!        {
+! 	   fontencoding = FontP->fontInfoP[ENCODING].value.data.arrayP;
+!        }
+! 
+!        if (!fontencoding)
+! 	   fontencoding = ISOLatin1EncArrayP;
+! 
+         for (i=0; i < 256-FIRSTCOL; i++) {
+                 long h,w;
+                 long paddedW;
+! 	       char *codename;
+! 
+! 	       codename = fontencoding[i + FIRSTCOL].data.valueP;
+! 	       len = fontencoding[i + FIRSTCOL].len;
+! 	       if (len == 7 && strcmp(codename,".notdef")==0)
+! 		   continue;
+! 
+                 rc = 0;
+!                area = fontfcnB(S, codename, &len, &rc);
+                 if (rc < 0) {
+                         rc = BadFontName;
+                         break;
+***************
+*** 655,665 ****
+                 glyphs[i].metrics.leftSideBearing  = area->xmin;
+                 glyphs[i].metrics.characterWidth   = NEARESTPEL(area->ending.x - area->origin.x);
+                 glyphs[i].metrics.rightSideBearing = w + area->xmin;
+!                glyphs[i].metrics.descent          = area->ymax - NEARESTPEL(area->origin.x);
+                 glyphs[i].metrics.ascent           = h - glyphs[i].metrics.descent;
+   
+                 if (h > 0 && w > 0) {
+!                        clearmemory(glyphs[i].bits, size);
+                         fill(glyphs[i].bits, h, paddedW, area, byte, bit, wordsize );
+                 }
+   
+--- 216,226 ----
+                 glyphs[i].metrics.leftSideBearing  = area->xmin;
+                 glyphs[i].metrics.characterWidth   = NEARESTPEL(area->ending.x - area->origin.x);
+                 glyphs[i].metrics.rightSideBearing = w + area->xmin;
+!                glyphs[i].metrics.descent          = area->ymax - NEARESTPEL(area->origin.y);
+                 glyphs[i].metrics.ascent           = h - glyphs[i].metrics.descent;
+   
+                 if (h > 0 && w > 0) {
+!                        bzero(glyphs[i].bits, size);
+                         fill(glyphs[i].bits, h, paddedW, area, byte, bit, wordsize );
+                 }
+   
+***************
+*** 823,836 ****
+   
+   
+   
+- static void clearmemory(addr, size)
+-        long *addr;
+-        int size;
+- {
+-        while (0 <= (size -= sizeof(long)))
+-                *addr++ = 0;
+- }
+-  
+  static void fill(dest, h, w, area, byte, bit, wordsize)
+         register char *dest;  /* destination bitmap                           */
+         int h,w;              /* dimensions of 'dest', w padded               */
+--- 384,389 ----
+***************
+*** 957,970 ****
+      T1InitStdProps();
+      for (i=0; i < sizeof(renderers) / sizeof(FontRendererRec); i++)
+              FontFileRegisterRenderer(&renderers[i]);
+- }
+-  
+- /*
+- Synonym for xalloc() so type1 scanner doesn't have to know about X stuff:
+- */
+-  
+- unsigned long *type1alloc(size)
+-        unsigned size;
+- {
+-        return xalloc(size);
+  }
+--- 510,513 ----
+*** /tmp/dUwDFW	Fri Mar 27 18:24:33 1992
+--- fonts/lib/font/Type1/t1malloc.c	Fri Mar 20 16:00:05 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1malloc.c,v 1.3 91/10/10 11:19:43 rws Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+--- 1,4 ----
+! /* $XConsortium: t1malloc.c,v 1.4 92/03/20 15:58:05 eswu Exp $ */
+  /* Copyright International Business Machines, Corp. 1991
+   * All Rights Reserved
+   * Copyright Lexmark International, Inc. 1991
+***************
+*** 36,41 ****
+--- 36,44 ----
+  &author. Jeffrey B. Lotspiech (lotspiech@almaden.ibm.com)
+   
+  */
++ 
++ #include "objects.h"	/* get #define for abort() */
++ 
+  static combine();
+  static freeuncombinable();
+  static unhook();
+*** /tmp/dX0CkR	Fri Mar 27 18:24:42 1992
+--- fonts/lib/font/Type1/t1imager.h	Fri Mar 20 14:36:06 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1imager.h,v 1.4 91/10/10 11:19:33 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1imager.h,v 1.5 92/03/20 14:36:05 keith Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 27,41 ****
+   * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+   * SOFTWARE.
+   */
+! #ifndef  pointer
+!  
+! #if __STDC__
+! #define pointer void *
+! #else
+! #define pointer char *
+! #endif
+!  
+! #endif
+   
+  typedef  pointer xobject;
+  typedef  pointer location;
+--- 27,34 ----
+   * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+   * SOFTWARE.
+   */
+! 
+! #include "fontmisc.h"
+   
+  typedef  pointer xobject;
+  typedef  pointer location;
+*** /tmp/dZ4DFW	Fri Mar 27 18:24:48 1992
+--- fonts/lib/font/Type1/t1info.c	Fri Mar 20 16:03:32 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1info.c,v 1.8 92/02/04 21:36:48 keith Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1info.c,v 1.9 92/03/20 16:00:13 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 53,59 ****
+   * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   */
+!  
+  #include "fontfilest.h"
+  #include "FSproto.h"
+  #include "t1intf.h"
+--- 53,60 ----
+   * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   */
+! 
+! #include <stdio.h> 
+  #include "fontfilest.h"
+  #include "FSproto.h"
+  #include "t1intf.h"
+***************
+*** 74,80 ****
+      enum scaleType type;
+  }           fontProp;
+   
+! static fontProp fontNamePropTable[] = {  /* Example:
+      "FOUNDRY", 0, atom,                  /* adobe */
+      "FAMILY_NAME", 0, atom,              /* times roman */
+      "WEIGHT_NAME", 0, atom,              /* bold */
+--- 75,81 ----
+      enum scaleType type;
+  }           fontProp;
+   
+! static fontProp fontNamePropTable[] = {  /* Example: */
+      "FOUNDRY", 0, atom,                  /* adobe */
+      "FAMILY_NAME", 0, atom,              /* times roman */
+      "WEIGHT_NAME", 0, atom,              /* bold */
+*** /tmp/dq8DFW	Fri Mar 27 18:24:52 1992
+--- fonts/lib/font/Type1/scanfont.c	Fri Mar 27 18:17:19 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: scanfont.c,v 1.3 91/10/10 11:19:10 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: scanfont.c,v 1.6 92/03/27 18:15:39 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 48,63 ****
+   
+   
+  /**********************************************************************/
+! /*   Init_StdEnc()                                                    */
+  /*                                                                    */
+! /*          Initializes the Standard Encoding vector.                 */
+  /*                                                                    */
+  /**********************************************************************/
+! static struct {              /* Builtin Standard Encoding */
+     int  index;
+     char *name;
+! } StdEnc[] = {
+!      0 , ".notdef",
+     040 , "space",
+     041 , "exclam",
+     042 , "quotedbl",
+--- 48,65 ----
+   
+   
+  /**********************************************************************/
+! /*   Init_BuiltInEncoding()                                           */
+  /*                                                                    */
+! /*     Initializes the StandardEncoding and ISOLatin1Encoding vector. */
+  /*                                                                    */
+  /**********************************************************************/
+! typedef struct				/* Builtin Standard Encoding */
+! {
+     int  index;
+     char *name;
+! } EncodingTable;
+! 
+! static EncodingTable StdEnc[] = {
+     040 , "space",
+     041 , "exclam",
+     042 , "quotedbl",
+***************
+*** 209,239 ****
+    0373 , "germandbls",
+      0,      0
+  };
+! static psobj *StdEncArrayP = NULL;
+   
+! boolean Init_StdEnc()
+  {
+    int i;
+   
+!   StdEncArrayP = (psobj *)vm_alloc(256*(sizeof(psobj)));
+!   if (StdEncArrayP) {
+!     for (i=0; i<256;i++) {
+!       /* initialize everything to .notdef */
+!       objFormatName(&(StdEncArrayP[i]),strlen(StdEnc[0].name),
+!                                           StdEnc[0].name);
+!     }
+!     for (i=0; StdEnc[i].name; i++) {
+!       objFormatName(&(StdEncArrayP[StdEnc[i].index]),
+!                    strlen(StdEnc[i].name),
+!                    StdEnc[i].name);
+!     }
+!     return(TRUE);
+    }
+!   return(FALSE);
+  }
+   
+   
+-  
+  /********************************************************************/
+  /***================================================================***/
+  int getNextValue(valueType)
+--- 211,479 ----
+    0373 , "germandbls",
+      0,      0
+  };
+! 
+! static EncodingTable ISO8859Enc[] = {
+!   32, "space",
+!   33, "exclam",
+!   34, "quotedbl",
+!   35, "numbersign",
+!   36, "dollar",
+!   37, "percent",
+!   38, "ampersand",
+!   39, "quoteright",
+!   40, "parenleft",
+!   41, "parenright",
+!   42, "asterisk",
+!   43, "plus",
+!   44, "comma",
+!   45, "minus",
+!   46, "period",
+!   47, "slash",
+!   48, "zero",
+!   49, "one",
+!   50, "two",
+!   51, "three",
+!   52, "four",
+!   53, "five",
+!   54, "six",
+!   55, "seven",
+!   56, "eight",
+!   57, "nine",
+!   58, "colon",
+!   59, "semicolon",
+!   60, "less",
+!   61, "equal",
+!   62, "greater",
+!   63, "question",
+!   64, "at",
+!   65, "A",
+!   66, "B",
+!   67, "C",
+!   68, "D",
+!   69, "E",
+!   70, "F",
+!   71, "G",
+!   72, "H",
+!   73, "I",
+!   74, "J",
+!   75, "K",
+!   76, "L",
+!   77, "M",
+!   78, "N",
+!   79, "O",
+!   80, "P",
+!   81, "Q",
+!   82, "R",
+!   83, "S",
+!   84, "T",
+!   85, "U",
+!   86, "V",
+!   87, "W",
+!   88, "X",
+!   89, "Y",
+!   90, "Z",
+!   91, "bracketleft",
+!   92, "backslash",
+!   93, "bracketright",
+!   94, "asciicircum",
+!   95, "underscore",
+!   96, "quoteleft",
+!   97, "a",
+!   98, "b",
+!   99, "c",
+!  100, "d",
+!  101, "e",
+!  102, "f",
+!  103, "g",
+!  104, "h",
+!  105, "i",
+!  106, "j",
+!  107, "k",
+!  108, "l",
+!  109, "m",
+!  110, "n",
+!  111, "o",
+!  112, "p",
+!  113, "q",
+!  114, "r",
+!  115, "s",
+!  116, "t",
+!  117, "u",
+!  118, "v",
+!  119, "w",
+!  120, "x",
+!  121, "y",
+!  122, "z",
+!  123, "braceleft",
+!  124, "bar",
+!  125, "braceright",
+!  126, "asciitilde",
+!  127, NULL,
+!  128, NULL,
+!  129, NULL,
+!  130, NULL,
+!  131, NULL,
+!  132, NULL,
+!  133, NULL,
+!  134, NULL,
+!  135, NULL,
+!  136, NULL,
+!  137, NULL,
+!  138, NULL,
+!  139, NULL,
+!  140, NULL,
+!  141, NULL,
+!  142, NULL,
+!  143, NULL,
+!  144, NULL,
+!  145, NULL,
+!  146, NULL,
+!  147, NULL,
+!  148, NULL,
+!  149, NULL,
+!  150, NULL,
+!  151, NULL,
+!  152, NULL,
+!  153, NULL,
+!  154, NULL,
+!  155, NULL,
+!  156, NULL,
+!  157, NULL,
+!  158, NULL,
+!  159, NULL,
+!  160, NULL,
+!  161, "exclamdown",
+!  162, "cent",
+!  163, "sterling",
+!  164, "currency",
+!  165, "yen",
+!  166, "brokenbar",
+!  167, "section",
+!  168, "dieresis",
+!  169, "copyright",
+!  170, "ordfeminine",
+!  171, "guillemotleft",
+!  172, "logicalnot",
+!  173, "hyphen",
+!  174, "registered",
+!  175, "macron",
+!  176, "degree",
+!  177, "plusminus",
+!  178, "twosuperior",
+!  179, "threesuperior",
+!  180, "acute",
+!  181, "mu",
+!  182, "paragraph",
+!  183, "periodcentered",
+!  184, "cedilla",
+!  185, "onesuperior",
+!  186, "ordmasculine",
+!  187, "guillemotright",
+!  188, "onequarter",
+!  189, "onehalf",
+!  190, "threequarters",
+!  191, "questiondown",
+!  192, "Agrave",
+!  193, "Aacute",
+!  194, "Acircumflex",
+!  195, "Atilde",
+!  196, "Adieresis",
+!  197, "Aring",
+!  198, "AE",
+!  199, "Ccedilla",
+!  200, "Egrave",
+!  201, "Eacute",
+!  202, "Ecircumflex",
+!  203, "Edieresis",
+!  204, "Igrave",
+!  205, "Iacute",
+!  206, "Icircumflex",
+!  207, "Idieresis",
+!  208, "Eth",
+!  209, "Ntilde",
+!  210, "Ograve",
+!  211, "Oacute",
+!  212, "Ocircumflex",
+!  213, "Otilde",
+!  214, "Odieresis",
+!  215, "multiply",
+!  216, "Oslash",
+!  217, "Ugrave",
+!  218, "Uacute",
+!  219, "Ucircumflex",
+!  220, "Udieresis",
+!  221, "Yacute",
+!  222, "Thorn",
+!  223, "germandbls",
+!  224, "agrave",
+!  225, "aacute",
+!  226, "acircumflex",
+!  227, "atilde",
+!  228, "adieresis",
+!  229, "aring",
+!  230, "ae",
+!  231, "ccedilla",
+!  232, "egrave",
+!  233, "eacute",
+!  234, "ecircumflex",
+!  235, "edieresis",
+!  236, "igrave",
+!  237, "iacute",
+!  238, "icircumflex",
+!  239, "idieresis",
+!  240, "eth",
+!  241, "ntilde",
+!  242, "ograve",
+!  243, "oacute",
+!  244, "ocircumflex",
+!  245, "otilde",
+!  246, "odieresis",
+!  247, "divide",
+!  248, "oslash",
+!  249, "ugrave",
+!  250, "uacute",
+!  251, "ucircumflex",
+!  252, "udieresis",
+!  253, "yacute",
+!  254, "thorn",
+!  255, "ydieresis",
+!     0,      0
+! };
+! 
+! psobj *StdEncArrayP = NULL;
+! psobj *ISOLatin1EncArrayP = NULL; 
+   
+! psobj *MakeEncodingArrayP(encodingTable)
+!     EncodingTable *encodingTable;
+  {
+    int i;
++   psobj *encodingArrayP;
+   
+!   encodingArrayP = (psobj *)vm_alloc(256*(sizeof(psobj)));
+!   if (!encodingArrayP)
+!       return NULL;
+! 
+!   /* initialize everything to .notdef */
+!   for (i=0; i<256;i++)
+!       objFormatName(&(encodingArrayP[i]),7, ".notdef");
+! 
+!   for (i=0; encodingTable[i].name; i++)
+!   {
+!       objFormatName(&(encodingArrayP[encodingTable[i].index]),
+! 		    strlen(encodingTable[i].name),
+! 		    encodingTable[i].name);
+    }
+! 
+!   return(encodingArrayP);
+  }
+   
++ boolean Init_BuiltInEncoding()
++ {
++     StdEncArrayP = MakeEncodingArrayP(StdEnc);
++     ISOLatin1EncArrayP = MakeEncodingArrayP(ISO8859Enc);
++     return (StdEncArrayP && ISOLatin1EncArrayP);
++ }
+   
+  /********************************************************************/
+  /***================================================================***/
+  int getNextValue(valueType)
+***************
+*** 262,267 ****
+--- 502,625 ----
+   
+  }
+  /***================================================================***/
++ /*
++  * See Sec 10.3 of ``Adobe Type 1 Font Format'' v1.1,
++  * for parsing Encoding.
++  */
++ int getEncoding(arrayP)
++ psobj *arrayP;
++ {
++ 
++   scan_token(inputP);
++   if ((tokenType == TOKEN_NAME)
++                 &&
++      (((tokenLength==16) && (!strncmp(tokenStartP,"StandardEncoding",16))) ||
++       (((tokenLength==17) && (!strncmp(tokenStartP,"ISOLatin1Encoding",17))))))
++   {
++       /* Adobe Standard Encoding */
++ 
++       if (tokenLength == 16)
++ 	  arrayP->data.valueP = (char *) StdEncArrayP;
++       else
++ 	  arrayP->data.valueP = (char *) ISOLatin1EncArrayP;
++ 
++       arrayP->len = 256;
++       return(SCAN_OK);
++   }
++   else if ( (tokenType == TOKEN_LEFT_BRACE) ||
++        (tokenType == TOKEN_LEFT_BRACKET) )
++   {
++       /* Array of literal names */
++ 
++       psobj *objP;
++       int i;
++ 
++       objP = (psobj *)vm_alloc(256*(sizeof(psobj)));
++       if (!(objP)) return(SCAN_OUT_OF_MEMORY);
++ 
++       arrayP->data.valueP = (char *) objP;
++       arrayP->len = 256;
++ 
++       for (i=0; i<256; i++, objP++)
++       {
++ 	  scan_token(inputP);
++ 	  
++ 	  if (tokenType != TOKEN_LITERAL_NAME)
++ 	      return(SCAN_ERROR);
++ 
++ 	  if (!(vm_alloc(tokenLength)) ) return(SCAN_OUT_OF_MEMORY);
++ 	  objFormatName(objP,tokenLength,tokenStartP);
++       }
++ 
++       scan_token(inputP);
++       if ( (tokenType == TOKEN_RIGHT_BRACE) ||
++ 	  (tokenType == TOKEN_RIGHT_BRACKET) )
++ 	  return(SCAN_OK);
++   }
++   else
++   {
++       /* Must be sequences of ``dup <index> <charactername> put" */
++ 
++       psobj *objP;
++       int i;
++ 
++       objP = (psobj *)vm_alloc(256*(sizeof(psobj)));
++       if (!(objP)) return(SCAN_OUT_OF_MEMORY);
++ 
++       arrayP->data.valueP = (char *) objP;
++       arrayP->len = 256;
++ 
++       for (i=0; i<256; i++)
++ 	  objFormatName(objP + i, 7, ".notdef");
++ 
++       while (TRUE)
++       {
++ 	  scan_token(inputP);
++ 
++ 	  switch (tokenType)
++ 	  {
++ 	  case TOKEN_NAME:
++ 	      if (tokenLength == 3)
++ 	      {
++ 		  if (strncmp(tokenStartP,"dup",3) == 0)
++ 		  {
++ 		      /* get <index> */
++ 		      scan_token(inputP);
++ 		      if (tokenType != TOKEN_INTEGER ||
++ 			  tokenValue.integer < 0 ||
++ 			  tokenValue.integer > 255)
++ 			  return (SCAN_ERROR);
++ 		      i = tokenValue.integer;
++ 
++ 		      /* get <characer_name> */
++ 		      scan_token(inputP);
++ 		      if (tokenType != TOKEN_LITERAL_NAME)
++ 			  return(SCAN_ERROR);
++ 
++ 		      if (!(vm_alloc(tokenLength)) )
++ 			  return(SCAN_OUT_OF_MEMORY);
++ 		      objFormatName(objP + i,tokenLength,tokenStartP);
++ 
++ 		      /* get "put" */
++ 		      scan_token(inputP);
++ 		      if (tokenType != TOKEN_NAME)
++ 			  return(SCAN_ERROR);
++ 		  }
++ 		  else if (strncmp(tokenStartP,"def",3) == 0)
++ 		      return (SCAN_OK);
++ 	      }
++ 	      break;
++ 	  case TOKEN_EOF:
++ 	  case TOKEN_NONE:
++ 	  case TOKEN_INVALID:
++ 	      return (SCAN_ERROR);
++ 	  }
++       }
++   }
++ 
++   return (SCAN_ERROR);
++ }
++ /***================================================================***/
+  int getArray(arrayP)
+  psobj *arrayP;
+  {
+***************
+*** 516,532 ****
+    if (!(dictP)) return(SCAN_OUT_OF_MEMORY);
+   
+    fontP->fontInfoP = dictP;
+!   fontP->fontInfoP[0].key.len = 16;  /* number of actual entries */
+    objFormatName(&(dictP[FONTNAME].key),8,"FontName");
+    objFormatName(&(dictP[FONTNAME].value),0,NULL);
+    objFormatName(&(dictP[PAINTTYPE].key),9,"PaintType");
+    objFormatInteger(&(dictP[PAINTTYPE].value),0);
+!   objFormatName(&(dictP[FONTTYPE].key),8,"FontType");
+!   objFormatInteger(&(dictP[FONTTYPE].value),0);
+    objFormatName(&(dictP[FONTMATRIX].key),10,"FontMatrix");
+    objFormatArray(&(dictP[FONTMATRIX].value),0,NULL);
+    objFormatName(&(dictP[FONTBBOX].key),8,"FontBBox");
+    objFormatArray(&(dictP[FONTBBOX].value),0,NULL);
+    objFormatName(&(dictP[UNIQUEID].key),8,"UniqueID");
+    objFormatInteger(&(dictP[UNIQUEID].value),0);
+    objFormatName(&(dictP[STROKEWIDTH].key),11,"StrokeWidth");
+--- 874,892 ----
+    if (!(dictP)) return(SCAN_OUT_OF_MEMORY);
+   
+    fontP->fontInfoP = dictP;
+!   fontP->fontInfoP[0].key.len = 17;  /* number of actual entries */
+    objFormatName(&(dictP[FONTNAME].key),8,"FontName");
+    objFormatName(&(dictP[FONTNAME].value),0,NULL);
+    objFormatName(&(dictP[PAINTTYPE].key),9,"PaintType");
+    objFormatInteger(&(dictP[PAINTTYPE].value),0);
+!   objFormatName(&(dictP[FONTTYPENUM].key),8,"FontType");
+!   objFormatInteger(&(dictP[FONTTYPENUM].value),0);
+    objFormatName(&(dictP[FONTMATRIX].key),10,"FontMatrix");
+    objFormatArray(&(dictP[FONTMATRIX].value),0,NULL);
+    objFormatName(&(dictP[FONTBBOX].key),8,"FontBBox");
+    objFormatArray(&(dictP[FONTBBOX].value),0,NULL);
++   objFormatName(&(dictP[ENCODING].key),8,"Encoding");
++   objFormatEncoding(&(dictP[ENCODING].value),0,NULL);
+    objFormatName(&(dictP[UNIQUEID].key),8,"UniqueID");
+    objFormatInteger(&(dictP[UNIQUEID].value),0);
+    objFormatName(&(dictP[STROKEWIDTH].key),11,"StrokeWidth");
+***************
+*** 539,545 ****
+    objFormatString(&(dictP[FULLNAME].value),0,NULL);
+    objFormatName(&(dictP[FAMILYNAME].key),10,"FamilyName");
+    objFormatString(&(dictP[FAMILYNAME].value),0,NULL);
+!   objFormatName(&(dictP[WEIGHT].key),8,"Weight");
+    objFormatString(&(dictP[WEIGHT].value),0,NULL);
+    objFormatName(&(dictP[ITALICANGLE].key),11,"ItalicAngle");
+    objFormatReal(&(dictP[ITALICANGLE].value),0.0);
+--- 899,905 ----
+    objFormatString(&(dictP[FULLNAME].value),0,NULL);
+    objFormatName(&(dictP[FAMILYNAME].key),10,"FamilyName");
+    objFormatString(&(dictP[FAMILYNAME].value),0,NULL);
+!   objFormatName(&(dictP[WEIGHT].key),6,"Weight");
+    objFormatString(&(dictP[WEIGHT].value),0,NULL);
+    objFormatName(&(dictP[ITALICANGLE].key),11,"ItalicAngle");
+    objFormatReal(&(dictP[ITALICANGLE].value),0.0);
+***************
+*** 945,950 ****
+--- 1305,1314 ----
+     if ( N > 0 ) {
+       /* what type */
+       switch (dictP[N].value.type) {
++        case OBJ_ENCODING:
++          V = getEncoding(&(dictP[N].value));
++          if ( V != SCAN_OK ) return(V);
++          break;
+         case OBJ_ARRAY:
+           V = getArray(&(dictP[N].value));
+           if ( V != SCAN_OK ) return(V);
+*** /tmp/dTACkR	Fri Mar 27 18:25:22 1992
+--- fonts/lib/font/Type1/fontfcn.h	Thu Mar 26 16:43:59 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: fontfcn.h,v 1.2 91/10/10 11:18:06 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: fontfcn.h,v 1.3 92/03/26 16:42:23 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 62,68 ****
+   
+  #define FONTNAME 1
+  #define PAINTTYPE 2
+! #define FONTTYPE  3
+  #define FONTMATRIX 4
+  #define FONTBBOX   5
+  #define UNIQUEID  6
+--- 62,68 ----
+   
+  #define FONTNAME 1
+  #define PAINTTYPE 2
+! #define FONTTYPENUM 3
+  #define FONTMATRIX 4
+  #define FONTBBOX   5
+  #define UNIQUEID  6
+***************
+*** 76,81 ****
+--- 76,82 ----
+  #define ISFIXEDPITCH  14
+  #define UNDERLINEPOSITION 15
+  #define UNDERLINETHICKNESS 16
++ #define ENCODING 17
+  /***================================================================***/
+  /*  Name of Private values                                            */
+  /***================================================================***/
+*** /tmp/dREDmb	Fri Mar 27 18:26:10 1992
+--- fonts/lib/font/Type1/t1stub.c	Fri Mar 20 16:00:19 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: t1stub.c,v 1.2 91/10/10 11:19:51 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: t1stub.c,v 1.3 92/03/20 15:58:40 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 27,40 ****
+   * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+   * SOFTWARE.
+   */
+   
+  xiStub()
+  {
+         printf("xiStub called\n");
+!        abort();
+  }
+   
+! t1_DumpText()
+  {
+         xiStub();
+  }
+--- 27,42 ----
+   * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+   * SOFTWARE.
+   */
++ 
++ #include "objects.h"	/* get #define for abort() */
+   
+  xiStub()
+  {
+         printf("xiStub called\n");
+!        abort("xiStub called");
+  }
+   
+! void t1_DumpText()
+  {
+         xiStub();
+  }
+*** /tmp/dXkCDM	Fri Mar 27 18:26:36 1992
+--- fonts/lib/font/Type1/util.c	Thu Mar 26 16:44:02 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: util.c,v 1.4 91/10/10 11:20:12 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: util.c,v 1.6 92/03/26 16:42:26 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 31,39 ****
+   
+  #include <stdio.h>
+  #include "util.h"
+   
+- extern unsigned long *type1alloc();
+-  
+  static char *vm_base = NULL;  /* Start of virtual memory area */
+         char *vm_next = NULL;  /* Pointer to first free byte */
+         long  vm_free = 0;     /* Count of free bytes */
+--- 31,38 ----
+   
+  #include <stdio.h>
+  #include "util.h"
++ #include "fontmisc.h"
+   
+  static char *vm_base = NULL;  /* Start of virtual memory area */
+         char *vm_next = NULL;  /* Pointer to first free byte */
+         long  vm_free = 0;     /* Count of free bytes */
+***************
+*** 45,51 ****
+  boolean vm_init(cnt)
+  int cnt;
+  {
+!   vm_next = vm_base = (char *)type1alloc(cnt);
+   
+    if (vm_base != NULL) {
+      vm_free = cnt;
+--- 44,50 ----
+  boolean vm_init(cnt)
+  int cnt;
+  {
+!   vm_next = vm_base = (char *)xalloc (cnt);
+   
+    if (vm_base != NULL) {
+      vm_free = cnt;
+***************
+*** 116,121 ****
+--- 115,135 ----
+      objP->type         = OBJ_BOOLEAN;
+      objP->len          = 0;
+      objP->data.boolean = value;
++   }
++ }
++  
++ /*
++  * Format an Encoding object
++  */
++ void objFormatEncoding(objP,length,valueP)
++   psobj *objP;
++   int length;
++   psobj *valueP;
++ {
++   if (objP != NULL) {
++     objP->type        = OBJ_ENCODING;
++     objP->len         = length;
++     objP->data.arrayP = valueP;
+    }
+  }
+   
+*** /tmp/dYoCkR	Fri Mar 27 18:26:38 1992
+--- fonts/lib/font/Type1/util.h	Thu Mar 26 16:44:06 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: util.h,v 1.2 91/10/10 11:20:14 rws Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+--- 1,4 ----
+! /* $XConsortium: util.h,v 1.3 92/03/26 16:42:29 eswu Exp $ */
+  /* Copyright International Business Machines,Corp. 1991
+   * All Rights Reserved
+   *
+***************
+*** 95,100 ****
+--- 95,101 ----
+  #define OBJ_STRING     (4)
+  #define OBJ_NAME       (5)
+  #define OBJ_FILE       (6)
++ #define OBJ_ENCODING   (7)
+   
+  /***================================================================***/
+  /* Value of PostScript objects */

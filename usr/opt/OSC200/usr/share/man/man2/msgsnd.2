@@ -1,0 +1,276 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: msgsnd.2,v $ $Revision: 3.5.5.3 $ (DEC) $Date: 1994/01/17 14:59:03 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 Release 1.0.4
+.\"build rmifdef
+.\"
+.\"
+.TH msgsnd 2
+.SH NAME
+\*Lmsgsnd\*O \- Sends a message to a message queue
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include\*O <\*Lsys/types.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/ipc.h\*O>\*L
+.nL
+\*L#include\*O <\*Lsys/msg.h\*O>\*L
+.sp .4v
+\*Lint msgsnd\*O(\*L
+.nL
+	\*Lint\*O \*Vmsqid\*O,\*L
+.nL
+	\*Lconst void *\*Vmsgp\*L,
+.nL
+	\*Lsize_t \*Vmsgsz\*L,
+.nL
+	\*Lint\*O \*Vmsgflg\*O);\*L
+.sE
+.SH PARAMETERS
+.VL 1i
+.LI "\*Vmsqid\*O"
+Specifies the ID of the message queue on which to place the message.  The ID is
+typically returned by a previous
+\*Lmsgget(\|)\*O
+function.
+.\"from TP "  
+.LI "\*Vmsgp\*O"
+Specifies a pointer to the
+\*Lmsgbuf\*O
+structure that contains the message.  See \*LNOTES\*O.
+.\"from TP "  
+.LI "\*Vmsgsz\*O"
+Specifies the size of the data array in the
+\*Lmsgbuf\*O
+structure.
+.\"from TP "  
+.LI "\*Vmsgflg\*O"
+Specifies the action to be taken by the kernel if it runs out of
+internal buffer space.
+.LE
+.SH DESCRIPTION
+.iX "msgsnd function"
+.iX "message queue" "sending a message to"
+.iX "message" "sending to a message queue"
+.PP
+The
+\*Lmsgsnd()\*O
+function sends a message to the queue associated with the
+\*Vmsqid\*O parameter.
+.PP
+The \*Vmsgp\*O parameter
+points to a user-defined
+\*Lmsgbuf\*O
+structure.  The structure identifies the
+message type and contains a data array with the message text.
+.PP
+The size of the data array is specified by the
+\*Vmsgsz\*O parameter.
+The
+\*Vmsgsz\*O
+value can be from zero to a system-defined maximum.
+.PP
+The \*Vmsgflg\*O parameter
+specifies the action that the kernel should take if either or both of
+the following are true:
+.\"from TP 4"  
+.ML
+.LI
+The current number of bytes in the message queue is equal to
+\*Vmsg_qbytes\*O
+(in the
+\*Lmsqid_ds\*O
+structure).
+.\"from TP "  
+.LI
+The total number of messages on all message queues is equal to the
+system-defined limit.
+.LE
+.PP
+Either of two kernel actions can be specified, as follows:
+.\"from TP 4"  
+.ML
+.LI
+If IPC_NOWAIT is set, the kernel does not send the message and returns
+to the calling process immediately.
+.\"from TP "  
+.LI
+If IPC_NOWAIT is not set, the kernel suspends the calling process.
+The process remains suspended until one of the following occurs:
+.wH .RS  Can not be used in nested lists
+.\"from TP .3i"  
+.ML
+.LI
+The blocking condition is removed.  In this case, the kernel sends the
+message.
+.\"from TP "  
+.LI
+The specified message queue ID is removed from the
+system.  In this case, the kernel sets \*Lerrno\*O to
+[EIDRM] and returns -1 to the calling process.
+.\"from TP "  
+.LI
+The process catches a signal.  In this case, the message is not sent
+and the process resumes execution as directed by the
+\*Lsignal(\|)\*O
+function.
+.wH .RE
+.LE
+.LE
+.PP
+If the
+\*Lmsgsnd(\|)\*O function
+completes successfully, the kernel updates the
+\*Lmsqid_ds\*O
+structure associated with the
+\*Vmsgid\*O parameter.
+Specifically, it:
+.\"from TP 4"  
+.ML
+.LI
+Increments
+\*Vmsg_qnum\*O
+by 1.
+.\"from TP "  
+.LI
+Increments
+\*Vmsg_cbytes\*O
+by the message text size.
+.\"from TP "  
+.LI
+Sets
+\*Vmsg_lspid\*O
+equal to the process ID of the calling process.
+.\"from TP "  
+.LI
+Sets
+\*Vmsg_stime\*O
+equal to the current time.
+.LE
+.PP
+.SH NOTES
+.PP
+The user-specified
+\*Lmsgbuf\*O
+structure is defined as follows:
+.RS
+\*Lstruct msgbuf {
+.nL
+	mtyp_t \*Vmtype\*L;
+.nL
+	char \*Vmtext\*L[];
+}\*O
+.RE
+.PP
+The \*Vmytpe\*O field
+is a user-chosen positive integer.  A receiving process can use the
+message type to select only those messages it wants to receive from the
+queue.  See the
+\*Lmsgrcv(\|)\*O function.
+.PP
+The \*Vmtext\*O field
+is any text of length
+\*Vmsgsz\*O.
+.PP
+When the kernel sends a message, it allocates space for the message
+and copies the data from user space.  The kernel then allocates a
+\*Lmsg\*O
+(message header) structure, sets its fields, and inserts the structure at the tail of the message queue
+associated with the message queue ID.  The
+\*Lmsg\*O
+structure is defined as follows:
+.RS
+\*Lstruct msg {
+.nL
+        struct msg     *\*Vmsg_next\*L;
+.nL
+        long            \*Vmsg_type\*L;
+.nL
+        long            \*Vmsg_ts\*L;
+.nL
+        caddr_t         \*Vmsg_addr\*L;
+.nL
+};\*O
+.RE
+.PP
+The \*Vmsg_next\*O field
+is a pointer to the next message in the queue.
+The \*Vmsg_type\*O field
+is the message type supplied in the user-specified
+\*Lmsgbuf\*O
+structure.
+The \*Vmsg_ts\*O field
+is the size of the message text.
+The \*Vmsg_addr\*O field
+is the address of the message text.
+.SH RETURN VALUES
+.PP
+Upon successful completion, a value of 0 (zero) is returned.  Otherwise, a
+value of -1 is returned and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the
+\*Lmsgsnd(\|)\*O
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EINVAL]"
+The \*Vmsqid\*O parameter
+is not a valid message queue ID,
+\*Vmtype\*O
+is less than 1, or
+\*Vmsgsz\*O
+is less than 0 (zero) or greater
+than the system-defined limit.
+.\"from TP 1i"  
+.LI "[EACCES]"
+The calling process does not have permission for the operation.
+.\"from TP 1i"  
+.LI "[EAGAIN]"
+If the maximum number of message headers has been allocated or if the
+bytes for the message exceed the maximum number of bytes on the queue,
+the message cannot be sent and the IPC_NOWAIT flag is set.
+.\"from TP 1i"  
+.LI "[EINTR]"
+The operation was interrupted by a signal.
+.\"from TP 1i"  
+.LI "[EIDRM]"
+The \*Vmsqid\*O parameter
+has been removed from the system.
+.LI "[ENOSYS]"
+The requested operation is not supported by this implementation.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lmsgctl\*O(2),
+\*Lmsgget\*O(2),
+\*Lmsgrcv\*O(2),
+\*Lsigaction\*O(2)
+.PP
+Data Structures:
+\*Lmsqid_ds\*O(4)
+.iX "msgsnd function"
+.EQ
+delim off
+.EN

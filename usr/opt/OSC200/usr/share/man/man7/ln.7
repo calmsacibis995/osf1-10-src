@@ -1,0 +1,161 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ln.7,v $ $Revision: 3.2.6.3 $ (DEC) $Date: 1993/08/27 18:46:27 $
+.\"
+.TH ln 7
+.SH NAME
+\*Lln\*O \- Lance Ethernet interface
+.SH SYNOPSIS
+.PP
+.iX "ln interface" "Lance Ethernet interface"
+.iX "Lance Ethernet interface"
+.iX "Ethernet interface" "Lance Ethernet interface"
+.sS
+\*Ldevice ln0 at ibus? vector lnintr\*O
+.sE
+.\"\*Ldevice ln0 at vba0 csr 0x200e0000 vector lnintr\*O
+.\".fi
+.\".PP
+.\"The second line is used for busless small VAX processors.  Other
+.\"processors would use the first line.
+.SH DESCRIPTION
+.PP
+The \*Lln\*O interface provides access to a 10 Mb/s Ethernet network through
+the Lance controller.
+.PP
+The host's Internet address is specified at boot time with
+an SIOCSIFADDR ioctl.
+The \*Lln\*O interface employs the address resolution protocol described in
+\*Larp\*O(7) to map dynamically between Internet and Ethernet addresses on
+the local network.
+.PP
+The interface normally tries to use a trailer encapsulation
+to minimize copying data on input and output.  This can be
+disabled for an interface by setting the IFF_NOTRAILERS
+flag with an SIOCSIFFLAGS ioctl.
+Trailers are only used for packets destined for Internet hosts.
+.PP
+The SIOCSPHYSADDR ioctl can be used to change
+the physical address of the Lance.  The SIOCRPHYSADDR ioctl can
+be used to read the physical address of the Lance.
+.PP
+The SIOCADDMULTI and SIOCDELMULTI ioctls can be used to add or delete
+multicast addresses.
+The Lance recognizes a maximum of 12 multicast addresses.
+.PP
+The SIOCRDCTRS and SIOCRDZCTRS ioctls can be used to read or
+``read and clear'' the Ethernet driver counters.
+The argument to these two ioctls is a pointer to a counter
+structure, \*Lctrreq\*O, found in \*L<net/if.h>\*O.
+.PP
+The SIOCENABLBACK and SIOCDISABLBACK ioctls can be used to enable
+and disable the interface loopback mode respectively.
+.SH EXAMPLES
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"ln0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"ln0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+The diagnostic error messages contain relevant information provided
+by the Lance.
+.PP
+\*Lln%d: can't handle af%d\*O
+.br
+The interface was handed
+a message with addresses formatted in an unsuitable address
+.oS
+family, and the packet was dropped.
+.nL
+\*Lln%d: memory error (MERR)\*O
+.nL
+A memory parity error has occurred.
+.nL
+\*Lln%d: lnalloc: cannot alloc memory ... \*O
+.nL
+The \*Lln\*O driver was unable to allocate memory for internal data structures.
+.nL
+\*Lln%d: initialization error\*O
+.nL
+The \*Lln\*O driver was unable to initialize the network interface.
+.nL
+\*Lln%d: SIOCADDMULTI fail, multicast list full\*O
+.nL
+Too many multicast requests have been made.
+.oE
+.SH RELATED INFORMATION
+.PP
+\*Larp\*O(7), \*Linet\*O(7), \*Lnetintro\*O(7)
+.EQ
+delim off
+.EN

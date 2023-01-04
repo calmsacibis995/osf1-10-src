@@ -1,0 +1,223 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: flock.2,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1992/10/08 16:32:09 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.\" Copyright (c) 1983 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)flock.2	6.6 (Berkeley) 6/23/90
+.\" 
+.TH flock 2
+.SH NAME
+\*Lflock\*O \- Applies or removes an advisory lock on an open file
+.SH SYNOPSIS 
+.sS
+\*L#include <sys/file.h>
+.sp .4v
+\*L\c
+#define	LOCK_SH	1	/* shared lock */
+.nL
+#define	LOCK_EX	2	/* exclusive lock */
+.nL
+#define	LOCK_NB	4	/* don't block when locking */
+.nL
+#define	LOCK_UN	8	/* unlock */
+.sp .4v
+\*Lint flock(
+.nL
+	int \*Vfiledes\*L,
+.nL
+	int \*Voperation \*L);
+.sE 
+.SH PARAMETERS
+.\" from TP  
+.VL 
+.LI "\*Vfiledes\*O"
+\*OSpecifies a file descriptor returned by a successful\*L
+open(\|)\*O or \*Lfcntl(\|)\*O function, identifying the file to which
+the lock is to be applied or removed.
+.\" from TP  
+.LI "\*Voperation\*O" 
+Specifies one of the following constants for
+\*Lflock(\|)\*O,
+defined in the
+\*Lfcntl.h\*O
+file:
+.wH .RS  Can not be used in nested lists
+.\" from TP 1i  
+.VL
+.LI "LOCK_SH" 
+Apply a shared lock.
+.\" from TP  
+.LI "LOCK_EX" 
+Apply an exclusive lock.
+.\" from TP  
+.LI "LOCK_NB" 
+Do not block when locking. This value can
+be logically ORed with either LOCK_SH or LOCK_EX.
+.\" from TP  
+.LI "LOCK_UN" 
+Remove a lock.
+.wH .RE
+.LE
+.LE 
+.SH DESCRIPTION
+.iX "flock function"
+.iX "file" "setting or removing a lock"
+.iX "file" "advisory lock"
+.iX "file locking"
+.iX "lock" "advisory on a file"
+.iX "lock" "setting or removing on a file"
+The
+\*Lflock(\|)\*O
+function
+applies or removes an
+advisory
+lock on the file associated with the
+\*Vfiledes\*O
+file descriptor.
+Advisory locks allow cooperating processes to perform
+consistent operations on files, but do not guarantee
+consistency (that is, processes may still access files
+without using advisory locks, possibly resulting in
+inconsistencies).
+.PP 
+The locking mechanism allows two types of locks:
+shared
+locks and
+exclusive
+locks.
+At any time multiple shared locks may be applied to a file,
+but at no time are multiple exclusive, or both shared and exclusive,
+locks allowed simultaneously on a file.
+.PP 
+A shared lock may be
+upgraded
+to an exclusive lock, and vice versa, simply by specifying
+the appropriate lock type.  This results in the previous
+lock being released and the new lock applied (possibly
+after other processes have gained and released the lock).
+.PP 
+Requesting a lock on an object that is already locked
+normally causes the caller to be blocked until the lock may be
+acquired.  If LOCK_NB is included in
+\*Voperation\*O,
+then this will not happen; instead, the call will fail and
+\*Lerrno\*O
+will be set to [EWOULDBLOCK].
+.SH NOTES
+Locks are on files, not file descriptors.  That is, file descriptors
+duplicated using the
+\*Ldup(\|)\*O
+or
+\*Lfork(\|)\*O
+functions
+do not result in multiple instances of a lock, but rather multiple
+references to a single lock.  If a process holding a lock on a file
+forks and the child explicitly unlocks the file, the parent will
+lose its lock.
+.PP 
+Processes blocked awaiting a lock may be awakened by signals.
+.PP 
+The file locks set by the
+\*Lflock(\|)\*Ofunction
+do not interact in any way with the file locks set by the
+\*Lfcntl(\|)\*O
+and
+\*Llockf(\|)\*O
+functions.  If a process sets an exclusive
+lock on a file using the
+\*Lflock(\|)\*O
+function, the lock will not affect any process that is setting or
+clearing locks on the same file using the
+\*Lfcntl(\|)\*O
+or
+\*Llockf(\|)\*O
+functions.  It is therefore possible for an inconsistency to arise if
+a file is locked by different processes using
+\*Lflock(\|)\*O
+and
+\*Lfcntl(\|)\*O.
+(The
+\*Lfcntl(\|)\*O
+and
+\*Llockf(\|)\*O
+functions use the same mechanism for record locking.)
+.SH RETURN VALUES
+Upon successful completion, 0 (zero)
+is returned.  Otherwise,
+\-1 is returned and
+\*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+If the \*Lflock(\|)\*O function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.\" from TP 20  
+.VL
+.LI "[EWOULDBLOCK]"
+The file is locked and the LOCK_NB option was specified.
+.\" from TP 20  
+.LI "[EBADF]" 
+.\" Begin Digital-specific information CORRECTION
+.\" Removed extra 'the' per QAR 6887.
+The \*Vfiledes\*O argument is not a valid open file descriptor.
+.\" End Digital-specific information CORRECTION
+.\" from TP 20  
+.LI "[EINVAL]" 
+The \*Voperator\*O is not valid.
+.\" from TP  
+.LI "[ENOLCK]" 
+The lock table is full.  Too many regions are already locked.
+.\" from TP  
+.LI "[EDEADLK]" 
+\*OThe lock is blocked by some lock from another
+process.  Putting the calling process to sleep while waiting for that
+lock to become free would cause a deadlock.
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Functions:
+\*Lopen\*O(2),
+\*Lclose\*O(2),
+\*Lexec\*O(2),
+\*Lfcntl\*O(2),
+\*Lfork\*O(2),
+\*Llockf\*O(3)
+.iX "flock function"
+.EQ
+delim off
+.EN

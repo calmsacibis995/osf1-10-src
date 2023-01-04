@@ -1,0 +1,236 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sigaction.2,v $ $Revision: 3.2.5.5 $ (DEC) $Date: 1994/01/11 22:19:35 $
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.TH sigaction 2
+.SH NAME
+.PP
+\*Lsigaction\*O \- Specifies the action to take upon delivery of a signal
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <signal.h>
+.nL
+int sigaction (
+.nL
+	int \*Vsignal\*L,
+.nL
+	const struct sigaction \*V*action\*L,
+.nL
+	struct sigaction \*V*o_action \*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vsignal"
+\*ODefines the signal.
+.\"from TP "  
+.LI "\*Vaction"
+\*OPoints to a \*Lsigaction\*O structure that
+describes the action to be taken upon receipt of the signal
+specified by the \*Vsignal\*O parameter.
+.\"from TP "  
+.LI "\*Vo_action"
+\*OPoints to a \*Lsigaction\*O structure.  When the \*Lsigaction\*O function returns
+from a call, the action previously attached to the specified \*Vsignal\*O is stored
+in this structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "sigaction function"
+.iX "signal" "taking action upon receipt"
+.iX "process" "examining and changing actions"
+.iX "process" "receiving signals"
+When a process requests the \*Lsigaction\*O function, the process can both examine
+or specify what action is to be performed when the specified signal is delivered.
+The parameters determine the behavior of the \*Lsigaction\*O function as follows:
+.ML
+.LI
+Specifying the \*Vsignal\*O parameter identifies the signal that is to be affected.
+.LI
+Specifying the \*Vaction\*O parameter, if not null, points to a \*Lsigaction\*O
+structure that defines what action is to be performed when the signal is
+received.  If the \*Vaction\*O parameter is null, signal handling remains unchanged;
+thus the call can be used to inquire about the current handling of the signal.
+.LI
+Specifying the \*Vo_action\*O parameter, if not null, points to a \*Lsigaction\*O
+structure that contains the action previously attached to the specified signal.
+.LE
+.PP
+The \*Lsigaction\*O structure consists of the following members:
+.PP
+.sS
+\*Lvoid	     (\*V*sa_handler\*L)(\|);
+.nL
+sigset_t   \*Vsa_mask\*L;
+.nL
+int        \*Vsa_flags;\*O
+.sE
+.PP
+The members are defined as follows:
+.VL
+.LI "\*Vsa_handler\*O"
+This field can contain a value of SIG_DFL or SIG_IGN, or it
+can point to a function.  A SIG_DFL value specifies the default
+action is to be taken when the signal is delivered.
+A value of SIG_IGN specifies that the signal has no effect
+on the receiving process. A pointer to a function requests that the
+signal be caught; that is, the signal should cause the function to
+be called. These actions are more fully described in the
+\*L<signal.h>\*O
+file.
+.LI "\*Vsa_mask\*O"
+This field can request that individual signals,
+in addition to those in the process signal mask, are blocked from being
+delivered while the signal handler function specified by the
+\*Vsa_handler\*O field is executing.
+.LI "\*Vsa_flags\*O"
+This field can set the following flags to enable further control
+over the actions taken when a signal is delivered:
+.VL
+.LI "\*LSA_ONSTACK\*O"
+Setting this bit causes the system to run the signal-catching function
+on the signal stack specified by the \*Lsigaltstack\*O(2) and \*Lsigstack\*O(2)
+functions.  If this bit is not set, the function runs on the stack of the process to
+which the signal is delivered.
+.LI "\*LSA_RESETHAND\*O"
+Setting this bit causes the signal to be reset to SIG_DFL.
+Note that SIGILL,
+SIGTRAP, and SIGPWR cannot be automatically reset.
+.LI "\*LSA_NODEFER\*O"
+Setting this bit causes the signal not to be blocked automatically
+by the kernel as it is being caught.
+.LI "\*LSA_RESTART\*O"
+Setting this bit enables a function that has been interrupted by
+the execution of this signal's handler to be restarted transparently
+by the system.  The affected functions include \*Lwait\*O, and the
+the \*Lread\*O and \*Lwrite\*O functions on a slow device (such as
+a terminal, but not a regular file). If this bit is not set and one
+of the previously mentioned functions is interrupted by a signal
+which is caught, the function returns the value -1 and sets \*Lerrno\*O
+to indicate error.
+.LI "\*LSA_SIGINFO\*O"
+If this bit is set and the signal is caught, the argument
+defined by the \*Vsignal\*O parameter
+and two additional arguments are passed to the signal
+catching function.  Should the second argument
+not be equal to NULL, it points to a \*Lsiginfo_t\*O structure that
+contains the reason the signal was generated.  Under \*Llibsys5\*O,
+the third argument points to a \*Lucontext_t\*O structure that contains
+the receiving process's context where it was interrupted by the signal.
+Under \*Llibc\*O, the third argument points to a \*Lsigcontext\*O
+structure containing context information in a different format.  See
+\*Lsiginfo\*O(5), \*Lucontext\*O(5), and \*L<sys/signal.h>\*O for more
+information.
+.IP
+If this bit is cleared and the signal is caught, the argument specified by the
+\*Vsignal\*O parameter is passed as the only argument to the signal
+catching function.  Two additional arguments are also available.  The
+second argument provides an exception-specific code defined in
+\*L<sys/signal.h>\*O; this value is always zero (0) for nonexception
+signals.  The third argument is a pointer to a \*Lsigcontext\*O
+structure.
+.LI "\*LSA_NOCLDWAIT\*O"
+If this bit is set and the \*Lsignal\*O parameter is equal to
+SIGCHLD, zombie processes are not created by the system when the
+child process of the calling process exits.  If the \*Lwait\*O
+function is subsequently issued by the calling process, it blocks
+until all of its child processes terminate.  It
+then returns a value of -1 and \*Lerrno\*O is set to ECHLD to indicate the
+error.
+.LI "\*LSA_NOCLDSTOP\*O"
+If this bit is set and the \*Lsignal\*O parameter is equal to
+SIGCHLD, and a chld process of the calling process stops, a SIGCHLD
+signal is sent to the calling process if, and only if \*LSA_NOCLDSTOP\*O
+is not set for SIGCHLD.
+.LE
+.LE
+.PP
+The \*Vsignal\*O parameter can be any one of the signal values defined in the
+\*Lsignal.h\*O header file, except SIGKILL.
+.SH NOTES
+.PP
+In a multi-threaded environment, the
+\*Lsigaction\*O
+function should only be used for the synchronous signals.
+.PP
+The \*Lsigvec\*O and \*Lsignal\*O functions are provided
+for compatibility to old UNIX systems; their function is a subset
+of that available with the\*L sigaction\*O function.
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Full use
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion of the
+\*Lsigaction\*O
+function, a value of zero (0) is returned. If the
+\*Lsigaction\*O function fails, a value of -1 is returned and
+\*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If the \*Lsigaction\*O function fails, no new signal handler
+is installed and
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EFAULT]"
+The \*Vaction\*O or \*Vo_action\*O parameter
+points to a location outside of the allocated address space of the
+process.
+.\"from TP 1i"  
+.LI "[EINVAL]"
+The \*Vsignal\*O parameter is not a valid signal
+number.
+.\"from TP 1i"  
+.LI "[EINVAL]"
+An attempt was made to ignore or supply a handler
+for the SIGKILL, SIGSTOP, and SIGCONT signals.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lacct\*O(2),
+\*Lexit\*O(2),
+\*Lkill\*O(2),
+\*Lpause\*O(3),
+\*Lptrace\*O(2),
+\*Lsetjmp\*O(3),
+\*Lsigblock\*O(2),
+\*Lsigpause\*O(3),
+\*Lsigprocmask\*O(2),
+\*Lsigstack\*O(2),
+\*Lsigsuspend\*O(2),
+\*Lsigvec\*O(2),
+\*Lumask\*O(2),
+\*Lwait\*O(2).
+.PP
+Commands:
+\*Lkill\*O(1).
+.PP
+Files:
+\*Lsignal\*O(4).
+.iX "sigaction function"
+.iX "signal function"
+.EQ
+delim off
+.EN

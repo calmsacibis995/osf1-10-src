@@ -1,0 +1,276 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+...\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 1.2
+...\"	[91/10/02  14:59:41  steto]
+...\"
+...\"build rmifdef
+.TH strlog 7
+.SH NAME
+.PP
+\*Lstrlog\*O, \*Llog\*O \- STREAMS log driver driver
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/strlog.h>
+.sp 0.4v
+\*Lint strlog(
+.nL
+	short \*Vmid\*L,
+.nL
+	short \*Vsid\*L,
+.nL
+	char \*Vlevel\*L,
+.nL
+	ushort \*Vflags\*L
+.nL
+	char \*Vfmt\*L,
+.nL
+        \*O[\*L,\*Vvalue\*O]\|.\|.\|.\*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vmid\*L"
+Specifies the STREAMS module ID number for the driver or module
+submitting the log message.
+.LI "\*Vsid\*L"
+Specifies the sub-ID number of a  minor device associated
+with the STREAMS module or driver identified by \*Vmid\*L.
+.LI "\*Vlevel\*L"
+Specifies a level for screening lower-level event messages
+from a tracer.
+.LI "\*Vflags\*L"
+Contains several flags that can be set in various
+combinations.  The flags are as follows:
+.VL
+.LI "\*LSL_ERROR\*O"
+The message is for the error logger.
+.LI "\*LSL_TRACE\*O"
+The message is for the tracer.
+.LI "\*LSL_CONSOLE\*O"
+The message is for the console logger.
+.LI "\*LSL_FATAL\*O"
+Provides a notification of a fatal error.
+.LI "\*LSL_NOTIFY\*O"
+Makes a request to
+mail a copy of a message to the system administrator.
+.LE
+.sp 0.4v
+The following are additional flags.  The \*Lstrlog\*O interface does
+not use these flags:
+.VL
+.LI "\*LSL_WARN\*O"
+The message is a warning.
+.LI "\*LSL_NOTE\*O"
+The message is a note.
+.LE
+.LI "\*Vfmt\*L"
+A \*Lprintf\*O style format string.  This accepts the \*L%x\*O,
+\*L%l\*O, \*L%o\*O, \*L%u\*O, \*L%d\*O, \*L%c\*O, and \*L%s\*O
+conversion specifications.
+.LI "\*Vvalue\*L"
+Numeric or character arguments for process-specific information.
+There is no maximum number of arguments that can be specified.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "STREAMS" "log driver"
+.iX "STREAMS drivers" "strlog"
+.iX "STREAMS" "strlog"
+The STREAMS log driver allows user-level processes, and STREAMS drivers
+and modules, to perform error logging and event tracing.  This is done
+via a user interface and a kernel interface.
+.PP
+The interface that this driver presents to user-level processes is
+a subset of the \*Lioctl(\|)\*O system calls and STREAMS message formats.
+These processes can be error loggers, trace loggers, or other user
+processes, that generate error
+or event messages.  The user interface collects log messages from the
+log driver, and also generates log messages from user processes.
+.PP
+The driver also accepts log messages from STREAMS drivers and modules in the
+kernel via its function call interface.  The kernel interface enters
+requests or calls from STREAMS drivers and modules into log messages.
+.SS Kernel Interface
+STREAMS drivers and modules generate log messages by calls to the
+\*Lstrlog(\|)\*O function.
+Definitions used in these calls are contained in the \*Llog_ctl\*O structure
+in the <\*L/sys/strlog.h\*O> header file.  The SYNOPSIS section
+describes the kernel interface.
+.SS User Interface
+User processes access the log driver with an \*Lopen(\|)\*O call to
+\*L/dev/streams/log\*O.
+Each open to the device will obtain a separate stream.
+After a process opens \*L/dev/streams/log\*O, it indicates whether
+it is an error logger or trace logger.
+It does this by issuing an \*LI_STR ioctl(\|)\*O system call containing
+the appropriate data and control information in a \*Ltrace_ids\*O structure.
+.ML
+.LI
+For an error logger, the \*LI_STR ioctl(\|)\*O contains an \*Lic_cmd\*O field
+of \*LI_ERRLOG\*O with no data.
+.LI
+For a trace logger, the \*LI_STR ioctl(\|)\*O contains an \*Lic_cmd\*O field
+of \*LI_TRCLOG\*O
+and a data buffer consisting of an array of one
+or more \*Ltrace_ids\*O structures.
+.LE
+.PP
+If any of the fields of the \*Ltrace_ids\*O structure contain a value of -1,
+\*L/dev/streams/log\*O will accept whatever value it receives in that
+field.  Otherwise, \*Lstrlog\*O only accepts messages only if the
+values of \*Vmid\*O and \*Vsid\*O are the same as their counterparts
+in the \*Ltrace_ids\*O structure, and if the message's level is equal
+to or less than the \*Llevel\*O value in the \*Ltrace_ids\*O structure.
+.PP
+Once the logger process has sent the \*LI_STR ioctl(\|)\*O call, the STREAMS
+log driver begins to send log messages matching the restrictions to the
+logger process.  The logger process obtains the log messages via
+the \*Lgetmsg(2)\*O system call.
+The control part of the messages passed in this call includes
+a \*Llog_ctl\*O structure,
+which indicates the \*Vmid\*O, \*Vsid\*O and \*Vlevel\*O, time in ticks
+since the boot time that the message was submitted, the corresponding time
+in seconds since January 1, 1970, and a sequence number.
+The time in seconds since January 1, 1970 is provided so that the date and time
+of the message can be easily computed.
+The time in ticks since boot time is provided so that the relative timing
+of log messages can be determined.  In addition to the information
+contained in the \*Llog_ctl\*O
+structure, there is also a priority indication.
+.PP
+The priority indication consists of a priority code and a facility code
+(found in \*L/sys/syslog.h\*O). The valid values for priority codes
+are the following, based on the setting(s) in \*Vflags\*O:
+.VL 15
+.LI "\*LLOG_INFO\*O"
+If \*LSL_CONSOLE\*O is set in \*Vflags\*O.
+.LI "\*LLOG_WARNING\*O"
+If \*LSL_CONSOLE\*O and \*LSL_WARN\*O are set in \*Vflags\*O.
+.LI "\*LLOG_CRIT\*O"
+If \*LSL_CONSOLE\*O and \*LSL_FATAL\*O are set in \*Vflags\*O.
+.LI "\*LLOG_ERR\*O"
+If \*LSL_CONSOLE\*O and \*LSL_ERROR\*O are set in \*Vflags\*O.
+.LI "\*LLOG_NOTICE\*O"
+If \*LSL_CONSOLE\*O and \*LSL_NOTE\*O are set in \*Vflags\*O.
+.LI "\*LLOG_DEBUG\*O"
+If \*LSL_CONSOLE\*O and \*LSL_TRACE\*O are set in \*Vflags\*O.
+.LE
+.PP
+The valid values for facility codes are the following:
+.VL
+.LI "\*LLOG_KERN\*O"
+If the message originates from the kernel.
+.LI "\*LLOG_USER\*O"
+If the message originates from a user process.
+However, these processes may sometimes set another facility code value
+instead.
+.LE
+.PP
+A user process, other than an error or trace logger,
+can send a log message to \*Lstrlog(\|)\*O.
+The driver will accept only the \*Lflags\*O and \*Llevel\*O
+fields of the \*Llog_ctl\*O structure in the control part of the message,
+and a properly formatted data part of the message.
+The data part of the message is properly formatted if it contains
+a null-terminated format string,
+followed by any arguments packed one word each
+after the end of the string.
+.PP
+A different
+series of sequence numbers is provided for error and trace
+logging streams.
+These sequence numbers
+are intended to help track the delivery of the messages.
+A gap in a sequence of numbers indicates that the logger process did not
+successfully deliver them. This can happen if the logger process stops
+sending messages for one reason or another (see the \*Lstrace\*O and
+\*Lstrerr\*O command reference pages for more information).
+The data part of messages contains unexpanded text of the format
+string (null terminated), followed by any arguments packed one word each
+after the end of the string.
+.SH EXAMPLES
+.PP
+The following examples illustrate how to use the \*Lstrlog\*O
+interface for some basic uses.
+.AL
+.LI
+This code example segment illustrates how a STREAMS module
+can generate a
+console log message:
+.oS
+strlog(TMUX,minor(mydev),0,SL_CONSOLE|SL_FATAL,
+       "TMUX driver (minor:%d) suffers resource shortage.",
+       minor(mydev));
+.oE
+.LI
+This code example illustrates how a user process can register itself
+with the STREAMS log driver
+using the \*Lioctl(\|)\*O command, \*LI_ERRLOG\*O.
+.oS
+struct strioctl iocerr:
+iocerr.ic_cmd = I_ERRLOG;
+iocerr.ic_timout = 0;
+iocerr.ic_len = 0;
+iocerr.ic_dp = NULL;
+ioctl(logfd, I_STR, &iocerr)
+.oE
+.LE
+.\"#ifdef LICENSEE
+.SH NOTES
+.PP
+DEC OSF/1
+does not provide a console logger.  Note, however, that other
+systems may provide console loggers.
+.\"#endif /* LICENSEE */
+.SH FILES
+.PP
+.VL
+.LI "\*L/dev/streams/log\*O"
+Specifies the clone interface.
+.LI "<\*L/sys/strlog.h\*O>"
+Specifies the header file for STREAMS logging.
+.LI "<\*L/sys/stropts.h\*O>"
+Specifies the header file for STREAMS options and \*Lioctl(\|)\*O commands.
+.LE
+.SH ERRORS
+.PP
+If any of the following conditions occurs,
+\*Lstrlog(\|)\*O driver's \*Lioctl(\|)\*O command sets \*Lerrno\*O to
+the corresponding value:
+.VL
+.LI "[ENXIO]"
+The \*LI_TRCLOG ioctl(\|)\*O call did not contain any \*Ltrace_ids\*O
+structures.
+.LI "[ENXIO]"
+The \*LI_STR ioctl(\|)\*O call could not be recognized.
+.LE
+.PP
+The driver does not return any errors for incorrectly formatted messages
+that user processes send.
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lstrace(8)\*O, \*Lstrerr(8)\*O.
+.PP
+Interfaces \*Lclone(7)\*O, \*Lstreamio(7)\*O.
+.PP
+Functions: \*Lgetmsg(2)\*O, \*Lputmsg(2)\*O, \*Lwrite(2)\*O.
+.EQ
+delim off
+.EN

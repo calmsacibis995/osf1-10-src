@@ -1,0 +1,182 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203132314.AA29401@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2410) close XBUG #5032 & #5033: xterm menu updating
+Date: Fri, 13 Mar 92 18:14:50 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xterm: ESC seq not updating App Cursor Keys menu
+        ### bug number:   5032
+        ### area:         xterm
+        ### severity:     low
+
+        Subject: xterm: restore ESC seq not updating Margin Bell menu
+        ### bug number:   5033
+        ### area:         xterm
+        ### severity:     low
+
+Patch also includes some type corrections suggested by
+the IBM ANSI C compiler.
+
+
+*** /tmp/da29210	Fri Mar 13 18:01:49 1992
+--- clients/xterm/charproc.c	Fri Mar 13 18:01:33 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: charproc.c,v 1.173 91/07/22 11:32:49 gildea Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: charproc.c,v 1.176 92/03/13 18:00:30 gildea Exp $
+   */
+  
+  /*
+***************
+*** 1253,1259 ****
+  	if (select_mask & pty_mask && eventMode == NORMAL) {
+  	    if (screen->logging)
+  		FlushLog(screen);
+! 	    bcnt = read(screen->respond, bptr = buffer, BUF_SIZE);
+  	    if (bcnt < 0) {
+  		if (errno == EIO)
+  		    Cleanup (0);
+--- 1253,1259 ----
+  	if (select_mask & pty_mask && eventMode == NORMAL) {
+  	    if (screen->logging)
+  		FlushLog(screen);
+! 	    bcnt = read(screen->respond, (char *)(bptr = buffer), BUF_SIZE);
+  	    if (bcnt < 0) {
+  		if (errno == EIO)
+  		    Cleanup (0);
+***************
+*** 1508,1513 ****
+--- 1508,1514 ----
+  		switch (param[i]) {
+  		case 1:			/* DECCKM			*/
+  			(*func)(&termw->keyboard.flags, CURSOR_APL);
++ 			update_appcursor();
+  			break;
+  		case 2:			/* ANSI/VT52 mode		*/
+  			if (func == bitset) {
+***************
+*** 1587,1593 ****
+  				screen->send_mouse_pos = 0;
+  			break;
+  		case 38:		/* DECTEK			*/
+! 			if(func == bitset & !(screen->inhibit & I_TEK)) {
+  				if(screen->logging) {
+  					FlushLog(screen);
+  					screen->logstart = Tbuffer;
+--- 1588,1594 ----
+  				screen->send_mouse_pos = 0;
+  			break;
+  		case 38:		/* DECTEK			*/
+! 			if(func == bitset && !(screen->inhibit & I_TEK)) {
+  				if(screen->logging) {
+  					FlushLog(screen);
+  					screen->logstart = Tbuffer;
+***************
+*** 1812,1818 ****
+  		case 44:		/* margin bell			*/
+  			if(!(screen->marginbell = screen->save_modes[12]))
+  				screen->bellarmed = -1;
+! 			update_visualbell();
+  			break;
+  		case 45:		/* reverse wraparound	*/
+  			termw->flags &= ~REVERSEWRAP;
+--- 1813,1819 ----
+  		case 44:		/* margin bell			*/
+  			if(!(screen->marginbell = screen->save_modes[12]))
+  				screen->bellarmed = -1;
+! 			update_marginbell();
+  			break;
+  		case 45:		/* reverse wraparound	*/
+  			termw->flags &= ~REVERSEWRAP;
+***************
+*** 2149,2158 ****
+  }
+  
+  
+! static void VTInitialize (request, new)
+!    XtermWidget request, new;
+  {
+     int i;
+     /* Zero out the entire "screen" component of "new" widget,
+        then do field-by-field assigment of "screen" fields
+        that are named in the resource list. */
+--- 2150,2165 ----
+  }
+  
+  
+! /* ARGSUSED */
+! static void VTInitialize (wrequest, wnew, args, num_args)
+!    Widget wrequest, wnew;
+!    ArgList args;
+!    Cardinal *num_args;
+  {
++    XtermWidget request = (XtermWidget) wrequest;
++    XtermWidget new     = (XtermWidget) wnew;
+     int i;
++ 
+     /* Zero out the entire "screen" component of "new" widget,
+        then do field-by-field assigment of "screen" fields
+        that are named in the resource list. */
+***************
+*** 2402,2408 ****
+  	screen->bot_marg = screen->max_row = Height(screen) /
+  				screen->fullVwin.f_height - 1;
+  
+! 	screen->sc.row = screen->sc.col = screen->sc.flags = NULL;
+  
+  	/* Mark screen buffer as unallocated.  We wait until the run loop so
+  	   that the child process does not fork and exec with all the dynamic
+--- 2409,2415 ----
+  	screen->bot_marg = screen->max_row = Height(screen) /
+  				screen->fullVwin.f_height - 1;
+  
+! 	screen->sc.row = screen->sc.col = screen->sc.flags = 0;
+  
+  	/* Mark screen buffer as unallocated.  We wait until the run loop so
+  	   that the child process does not fork and exec with all the dynamic
+***************
+*** 2411,2417 ****
+  	if (!tekWidget)			/* if not called after fork */
+  	  screen->buf = screen->allbuf = NULL;
+  
+! 	screen->do_wrap = NULL;
+  	screen->scrolls = screen->incopy = 0;
+  	set_vt_box (screen);
+  
+--- 2418,2424 ----
+  	if (!tekWidget)			/* if not called after fork */
+  	  screen->buf = screen->allbuf = NULL;
+  
+! 	screen->do_wrap = 0;
+  	screen->scrolls = screen->incopy = 0;
+  	set_vt_box (screen);
+  
+***************
+*** 2641,2647 ****
+  	term->flags &= ~ORIGIN;
+  	if(full) {
+  		TabReset (term->tabs);
+! 		term->keyboard.flags = NULL;
+  		update_appcursor();
+  		update_appkeypad();
+  		screen->gsets[0] = 'B';
+--- 2648,2654 ----
+  	term->flags &= ~ORIGIN;
+  	if(full) {
+  		TabReset (term->tabs);
+! 		term->keyboard.flags = 0;
+  		update_appcursor();
+  		update_appkeypad();
+  		screen->gsets[0] = 'B';

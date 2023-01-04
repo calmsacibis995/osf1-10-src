@@ -1,0 +1,615 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: bpf.7,v $ $Revision: 1.1.4.6 $ (DEC) $Date: 1994/01/20 13:51:19 $
+.\"
+.\"
+.\" Copyright (c) 1990 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that: (1) source code distributions
+.\" retain the above copyright notice and this paragraph in its entirety, (2)
+.\" distributions including binary code include the above copyright notice and
+.\" this paragraph in its entirety in the documentation or other materials
+.\" provided with the distribution, and (3) all advertising materials mentioning
+.\" features or use of this software display the following acknowledgement:
+.\" ``This product includes software developed by the University of California,
+.\" Lawrence Berkeley Laboratory and its contributors.'' Neither the name of
+.\" the University nor the names of its contributors may be used to endorse
+.\" or promote products derived from this software without specific prior
+.\" written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\"
+.\" This document is derived in part from the BPF man page (bpf.4)
+.\" distributed tcpdump; that document is derived in part from the
+.\" enet man page (enet.4) distributed with 4.3BSD Unix.
+.\"
+.\"Had to change the .TH line to pass tman.
+.\".TH BPF 7 "17 July 1991"
+.TH bpf 7
+.SH NAME
+.PP
+\*Lbpf\*O \- BSD Packet Filter Extensions
+.SH DESCRIPTION
+.PP
+.iX "bpf" "BSD Packet Filter"
+.iX "packet filter" "bpf"
+The BSD Packet Filter (BPF) is similar to the DEC OSF/1 Packet Filter
+facility (see \*Lpacketfilter\*O(7)), but provides a slightly different
+programming interface.  The \*VBPF Extensions\*O
+to the DEC OSF/1 packet filter provide nearly complete
+source-level compatibility with BPF.
+.PP
+The reader should be familiar with the \*Lpacketfilter\*O(7) reference
+page before reading this reference page.
+.PP
+The most useful feature of the \*VBPF Extensions\*O
+is that packet filter programs may be written in the BPF filter language,
+which is more efficient and more flexible than the original packet filter
+language.  The original language uses a stack-machine model, deals
+only in 16-bit quantities, has minimal control flow primitives.  It
+also does not support indirect loads, which are necessary for parsing
+variable-length headers.  The BPF language uses a register-machine model,
+supports 1, 2, and 4 byte data, has a rich set of control flow primitives,
+and supports indirection.
+.SH IOCTLS
+.PP
+The \*VBPF Extensions\*O consist of a set of \*Vioctl\*O
+commands that may be applied to a \*Lpacketfilter\*O(7)
+file descriptor.  The command codes below are defined in <net/bpf.h>.
+All commands require these header files:
+.iS
+	#include <sys/types.h>
+	#include <sys/time.h>
+	#include <sys/ioctl.h>
+	#include <net/bpf.h>
+.iE
+Additionally, BIOCGETIF and BIOCSETIF require \*L<net/if.h>\*O.
+.PP
+For the following commands, the third argument to the \*Lioctl\*O(2)
+system call should be a pointer to the type indicated.
+.VL 4m
+.LI "\*LBIOCGBLEN (u_int)\*O"
+Returns the required buffer length for reads on \*Vbpf\*O files.
+[Provided for compatibility only; on DEC OSF/1  this may be ignored.]
+.LI "\*LBIOCSBLEN (u_int)\*O"
+Sets the buffer length for reads on \*Lbpf\*O
+files.  If the requested buffer size cannot be accommodated, the closest
+allowable size will be set and returned in the argument.
+A read call will result in EIO if it is passed a buffer that is not this size.
+[Provided for compatibility only; on DEC OSF/1 this command has no
+effect, and reads may specify any buffer size large enough to hold at
+least one packet.]
+.LI "\*LBIOCGDLT (u_int)\*O"
+Returns the type of the data link layer underlying the attached interface.
+EINVAL is returned if no interface has been specified.
+The device types are defined in \*L<net/bpf.h>\*O.
+.LI "\*LBIOCPROMISC\*O"
+Forces the interface into promiscuous mode.
+All packets, not just those destined for the local host, are processed.
+Since more than one file can be listening on a given interface,
+on some operating systems a listener that opened its interface
+non-promiscuously may receive packets promiscuously.  This problem can be
+remedied with an appropriate filter.
+[This problem does not occur on DEC OSF/1 systems, but by assuming that
+it might happen you will make your programs more portable.]
+.IP
+The interface remains in promiscuous mode until all files listening
+promiscuously are closed.
+.LI "\*LBIOCFLUSH\*O"
+Flushes the buffer of incoming packets,
+and resets the statistics that are returned by BIOCGSTATS.
+.LI "\*LBIOCGETIF (struct ifreq)\*O"
+Returns the name of the hardware interface that file is listening on.
+The name is returned in the if_name field of \*Vifr\*O.
+All other fields are undefined.
+.LI "\*LBIOCSETIF (struct ifreq)\*O"
+Sets the hardware interface associate with the file.  This
+command must be performed before any packets can be read.
+The device is indicated by name using the \*Vif_name\*O
+field of the \*Vifreq\*O.  Additionally, performs the actions of BIOCFLUSH.
+.LI "\*LBIOCSRTIMEOUT, BIOCGRTIMEOUT (struct timeval)\*O"
+Set or get the read timeout parameter.
+The \*Vtimeval\*O specifies the length of time to wait before timing
+out on a read request.  This parameter is initialized to zero by \*Lopen\*O(2),
+indicating no timeout.  [See the description of EIOCSRTIMEOUT in
+\*Lpacketfilter\*O(7) for more details on timeout values.]
+.LI "\*LBIOCGSTATS (struct bpf_stat)\*O"
+Returns the following structure of packet statistics:
+.iS
+struct bpf_stat {
+	u_int bs_recv;
+	u_int bs_drop;
+};
+.iE
+.IP
+The fields are:
+.VL 4m
+.LI "\*Vbs_recv\*O"
+The number of packets received by the descriptor since opened or reset
+(including any buffered since the last read call).
+.LI "\*Vbs_drop\*O"
+The number of packets which were accepted by the filter but dropped by the
+kernel because of buffer overflows (i.e., because
+the application's reads are not keeping up with the packet traffic).
+.LE
+.LI "\*LBIOCIMMEDIATE (u_int)\*O"
+Enable or disable ``immediate mode'', based on the truth value of the argument.
+When immediate mode is enabled, reads return immediately upon packet
+reception.  Otherwise, a read will block until either the kernel buffer
+becomes full or a timeout occurs.
+.\"The following was commented out for Ag/Maint as per 
+.\"John Dustin's request. This will be included in a future release.
+.\"This is useful for programs like \*Lrarpd\*O(8c), which must respond
+.\"to messages in real time.
+The default for a new file is off.
+[On DEC OSF/1 systems, this command has no effect.  ``Immediate mode'' is always
+in effect; a read will never block if there is a received packet available.]
+.LI "\*LBIOCSETF (struct bpf_program)\*O"
+Sets the filter program used by the kernel to discard uninteresting
+packets.  An array of instructions and its length is passed in using
+the following structure:
+.iS
+struct bpf_program {
+	int bf_len;
+	struct bpf_insn *bf_insns;
+};
+.iE
+.IP
+The filter program is pointed to by the \*Vbf_insns\*O
+field while its length in units of `struct bpf_insn' is given by the
+\*Vbf_len\*O field.
+Also, the actions of BIOCFLUSH are performed.
+.IP
+See section \*LFILTER MACHINE\*O for an explanation of the filter language.
+.IP
+In addition, the SIOCGIFADDR ioctl may be applied to packet filter
+file descriptors.
+.LE
+.SH BPF HEADER
+.PP
+By default, the DEC OSF/1 Packet Filter does not prepend a header to
+each packet, while the BSD Packet Filter does.  To request that
+the BPF header be prepended to each packet returned by \*Lread\*O(2),
+use the EIOCMBIS \*Lioctl\*O command to set the ENBPFHDR mode bit (see
+\*Lpacketfilter\*O(7) for details on the use of EIOCMBIS).
+If the ENBPFHDR and ENTSTAMP mode bits are simultaneously set, the
+ENBPFHDR takes precedence.  If the ENBPFHDR mode bit is set, batch mode
+(see the description of ENBATCH in \*Lpacketfilter\*O(7)) is enabled,
+and the following structure is prepended to each packet returned by
+\*Lread\*O(2):
+.iS
+struct bpf_hdr {
+	struct timeval bh_tstamp;
+	u_int bh_caplen;
+	u_int bh_datalen;
+	u_short bh_hdrlen;
+};
+.iE
+.PP
+The fields, whose values are stored in host byte order, and are:
+.VL 4m
+.LI "\*Lbh_tstamp\*O"
+The time at which the packet was processed by the packet filter.
+.LI "\*Lbh_caplen\*O"
+The length of the captured portion of the packet.  This is the minimum of
+the truncation amount specified by the filter and the length of the packet.
+[On DEC OSF/1 systems, the truncation amount specified by the filter is ignored,
+and the one specified by EIOCTRUNCATE (see \*Lpacketfilter\*O(7)) is used.]
+.LI "\*Lbh_datalen\*O"
+The length of the packet off the wire.
+This value is independent of the truncation amount specified by the filter.
+.LI "\*Lbh_hdrlen\*O"
+The length of the BPF header, which may not be equal to
+\*Vsizeof(struct bpf_hdr)\*O.
+.LE
+.PP
+The \*Vbh_hdrlen\*O field exists to account for
+padding between the header and the link level protocol.
+The purpose here is to guarantee proper alignment of the packet
+data structures, which is required on alignment-sensitive
+architectures and improves performance on many other architectures.
+The packet filter insures that the \*Vbpf_hdr\*O
+and the \*Vnetwork layer\*O header will be word-aligned.  Suitable precautions
+must be taken when accessing the link layer protocol fields on alignment
+restricted machines.  (This isn't a problem on an Ethernet, since
+the type field is a short falling on an even offset,
+and the addresses are probably accessed in a bytewise fashion).
+.PP
+Additionally, individual packets are padded so that each BPF
+header starts on a word boundary.  This requires that an application
+has some knowledge of how to get from packet to packet.
+The macro BPF_WORDALIGN is defined in <net/bpf.h> to facilitate
+this process.  It rounds up its argument
+to the nearest word aligned value (where a word is BPF_ALIGNMENT bytes wide).
+.PP
+For example, if `p' points to the start of a packet (i.e., the
+start of the prepended BPF header), this expression
+will advance it to the next packet (BPF header):
+.sp
+.EQ
+p = (char *)p + BPF_WORDALIGN(p->bh_hdrlen + p->bh_caplen)
+.EN
+.PP
+For the alignment mechanisms to work properly, the
+buffer passed to \*Lread\*O(2) must itself be word aligned.
+\*Lmalloc\*O(3) will always return an aligned buffer.
+.SH FILTER MACHINE
+.PP
+A filter program is an array of instructions, with all branches forwardly
+directed, terminated by a \*Lreturn\*O instruction.
+Each instruction performs some action on the pseudo-machine state,
+which consists of an accumulator, index register, scratch memory store,
+and implicit program counter.
+.PP
+The following structure defines the instruction format:
+.iS
+struct bpf_insn {
+	u_short	code;
+	u_char 	jt;
+	u_char 	jf;
+	int k;
+};
+.iE
+The \*Vk\*O field is used in different ways by different instructions,
+and the \*Vjt\*O and \*Vjf\*O fields are used as offsets
+by the branch instructions.  The opcodes are encoded in a
+semi-hierarchical fashion.  There are eight classes of instructions:
+BPF_LD, BPF_LDX, BPF_ST, BPF_STX, BPF_ALU, BPF_JMP, BPF_RET, and BPF_MISC.
+Various other mode and operator bits are or'd with the class bits to give
+the actual instructions.  The classes and modes are defined in <net/bpf.h>.
+.PP
+Below is given the semantics for each defined BPF instruction.
+We use the convention that A is the accumulator, X is the index register,
+P[] packet data, and M[] scratch memory store.
+P[i:n] gives the data at byte offset ``i'' in the packet,
+interpreted as a word (n=4), unsigned halfword (n=2), or unsigned byte (n=1).
+M[i] gives the i'th word in the scratch memory store, which is only
+addressed in word units.  The memory store is indexed from 0 to BPF_MEMWORDS-1.
+\*Vk\*O, \*Vjt\*O, and \*Vjf\*O are the corresponding fields in the
+instruction definition.  ``len'' refers to the length of the packet.
+.VL 4m
+.LI "\*LBPF_LD\*O"
+These instructions copy a value into the accumulator.  The type of the
+source operand is specified by an ``addressing mode'' and can be
+a constant (\*LBPF_IMM\*O), packet data at a fixed offset (\*LBPF_ABS\*O),
+packet data at a variable offset (\*LBPF_IND\*O), the packet length
+(\*LBPF_LEN\*O), or a word in the scratch memory store (\*LBPF_MEM\*O).
+For \*LBPF_IND\*O and \*LBPF_ABS\*O, the data size must be specified as a word
+(\*LBPF_W\*O), halfword (\*LBPF_H\*O), or byte (\*LBPF_B\*O).
+The semantics of all the recognized BPF_LD instructions followings:
+.VL 4m
+.LI "\*LBPF_LD+BPF_W+BPF_ABS\*O"
+A <- P[k:4]
+.LI "\*LBPF_LD+BPF_H+BPF_ABS\*O"
+A <- P[k:2]
+.LI "\*LBPF_LD+BPF_B+BPF_ABS\*O"
+A <- P[k:1]
+.LI "\*LBPF_LD+BPF_W+BPF_IND\*O"
+A <- P[X+k:4]
+.LI "\*LBPF_LD+BPF_H+BPF_IND\*O"
+A <- P[X+k:2]
+.LI "\*LBPF_LD+BPF_B+BPF_IND\*O"
+A <- P[X+k:1]
+.LI "\*LBPF_LD+BPF_W+BPF_LEN\*O"
+A <- len
+.LI "\*LBPF_LD+BPF_IMM\*O"
+A <- k
+.LI "\*LBPF_LD+BPF_MEM\*O"
+A <- M[k]
+.LE
+.LI "\*LBPF_LDX\*O"
+These instructions load a value into the index register.  Note that
+the addressing modes are more restricted than those of the accumulator loads,
+but they include \*LBPF_MSH\*O, a hack for efficiently loading the IP header
+length.
+.VL 4m
+.LI "\*LBPF_LDX+BPF_W+BPF_IMM\*O"
+X <- k
+.LI "\*LBPF_LDX+BPF_W+BPF_MEM\*O"
+X <- M[k]
+.LI "\*LBPF_LDX+BPF_W+BPF_LEN\*O"
+X <- len
+.LI "\*LBPF_LDX+BPF_B+BPF_MSH\*O"
+X <- 4*(P[k:1]&0xf)
+.LE
+.LI "\*LBPF_ST\*O"
+This instruction stores the accumulator into the scratch memory.
+We do not need an addressing mode since there is only one possibility
+for the destination.
+.VL 2m
+.LI "\*LBPF_ST\*O"
+M[k] <- A
+.LE
+.LI "\*LBPF_STX\*O"
+This instruction stores the index register in the scratch memory store.
+.VL 4m
+.LI "\*LBPF_STX\*O"
+M[k] <- X
+.LE
+.LI "\*LBPF_ALU\*O"
+The alu instructions perform operations between the accumulator and
+index register or constant, and store the result back in the accumulator.
+For binary operations, a source mode is required (\*LBPF_K\*O or
+\*LBPF_X\*O).
+.VL 4m
+.LI "\*LBPF_ALU+BPF_ADD+BPF_K\*O"
+A <- A + k
+.LI "\*LBPF_ALU+BPF_SUB+BPF_K\*O"
+A <- A - k
+.LI "\*LBPF_ALU+BPF_MUL+BPF_K\*O"
+A <- A * k
+.LI "\*LBPF_ALU+BPF_DIV+BPF_K\*O"
+A <- A / k
+.LI "\*LBPF_ALU+BPF_AND+BPF_K\*O"
+A <- A & k
+.LI "\*LBPF_ALU+BPF_OR+BPF_K\*O"
+A <- A | k
+.LI "\*LBPF_ALU+BPF_LSH+BPF_K\*O"
+A <- A << k
+.LI "\*LBPF_ALU+BPF_RSH+BPF_K\*O"
+A <- A >> k
+.LI "\*LBPF_ALU+BPF_ADD+BPF_X\*O"
+A <- A + X
+.LI "\*LBPF_ALU+BPF_SUB+BPF_X\*O"
+A <- A - X
+.LI "\*LBPF_ALU+BPF_MUL+BPF_X\*O"
+A <- A * X
+.LI "\*LBPF_ALU+BPF_DIV+BPF_X\*O"
+A <- A / X
+.LI "\*LBPF_ALU+BPF_AND+BPF_X\*O"
+A <- A & X
+.LI "\*LBPF_ALU+BPF_OR+BPF_X\*O"
+A <- A | X
+.LI "\*LBPF_ALU+BPF_LSH+BPF_X\*O"
+A <- A << X
+.LI "\*LBPF_ALU+BPF_RSH+BPF_X\*O"
+A <- A >> X
+.LI "\*LBPF_ALU+BPF_NEG\*O"
+A <- -A
+.LE
+.LI "\*LBPF_JMP\*O"
+The jump instructions alter flow of control.  Conditional jumps
+compare the accumulator against a constant (\*LBPF_K\*O) or
+the index register (\*LBPF_X\*O).  If the result is true (or non-zero),
+the true branch is taken, otherwise the false branch is taken.
+Jump offsets are encoded in 8 bits so the longest jump is 256 instructions.
+However, the jump always (\*LBPF_JA\*O) opcode uses the 32 bit \*Vk\*O
+field as the offset, allowing arbitrarily distant destinations.
+All conditionals use unsigned comparison conventions.
+.VL 4m
+.LI "\*LBPF_JMP+BPF_JA\*O"
+pc += k
+.LI "\*LBPF_JMP+BPF_JGT+BPF_K\*O"
+pc += (A > k) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JGE+BPF_K\*O"
+pc += (A >= k) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JEQ+BPF_K\*O"
+pc += (A == k) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JSET+BPF_K\*O"
+pc += (A & k) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JGT+BPF_X\*O"
+pc += (A > X) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JGE+BPF_X\*O"
+pc += (A >= X) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JEQ+BPF_X\*O"
+pc += (A == X) ? jt : jf
+.LI "\*LBPF_JMP+BPF_JSET+BPF_X\*O"
+pc += (A & X) ? jt : jf
+.LE
+.LI "\*LBPF_RET\*O"
+The return instructions terminate the filter program and specify the amount
+of packet to accept (i.e., they return the truncation amount).  A return
+value of zero indicates that the packet should be ignored.
+The return value is either a constant (\*LBPF_K\*O) or the accumulator
+(\*LBPF_A\*O).
+.VL 4m
+.LI "\*LBPF_RET+BPF_A\*O"
+accept A bytes
+.LI "\*LBPF_RET+BPF_K\*O"
+accept k bytes
+.LE
+[On DEC OSF/1 systems, the entire packet is accepted if and only if the
+return value is non-zero; the truncation amount is controlled using
+EIOCTRUNCATE.]
+.LI "\*LBPF_MISC\*O"
+The miscellaneous category was created for anything that doesn't
+fit into the above classes, and for any new instructions that might need to
+be added.  Currently, these are the register transfer instructions
+that copy the index register to the accumulator or vice versa.
+.VL 4m
+.LI "\*LBPF_MISC+BPF_TAX\*O"
+X <- A
+.LI "\*LBPF_MISC+BPF_TXA\*O"
+A <- X
+.LE
+.LE
+The BPF interface provides the following macros to facilitate
+array initializers:
+.VL 4m
+.LI "\*LBPF_STMT\*V(opcode, operand)\*O"
+.LI "\*LBPF_JUMP\*V(opcode, operand, true_offset, false_offset)\*O"
+.LE
+.SH RESTRICTIONS
+.PP
+If BPF headers are used, data link protocols with variable length headers
+are not properly supported.
+.SH EXAMPLES
+.PP
+The following filter is taken from the Reverse ARP Daemon.  It accepts
+only Reverse ARP requests.
+.iS
+struct bpf_insn insns[] = {
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_REVARP, 0, 3),
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 20),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, REVARP_REQUEST, 0, 1),
+	BPF_STMT(BPF_RET+BPF_K, sizeof(struct ether_arp) +
+		 sizeof(struct ether_header)),
+	BPF_STMT(BPF_RET+BPF_K, 0),
+};
+.iE
+.PP
+This filter accepts only IP packets between host 128.3.112.15 and
+128.3.112.35.
+.iS
+struct bpf_insn insns[] = {
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_IP, 0, 8),
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 26),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x8003700f, 0, 2),
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 30),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x80037023, 3, 4),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x80037023, 0, 3),
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 30),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 0x8003700f, 0, 1),
+	BPF_STMT(BPF_RET+BPF_K, (u_int)-1),
+	BPF_STMT(BPF_RET+BPF_K, 0),
+};
+.iE
+.PP
+Finally, this filter returns only TCP finger packets.  We must parse
+the IP header to reach the TCP header.  The \*LBPF_JSET\*O instruction
+checks that the IP fragment offset is 0 so we are sure
+that we have a TCP header.
+.iS
+struct bpf_insn insns[] = {
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_IP, 0, 10),
+	BPF_STMT(BPF_LD+BPF_B+BPF_ABS, 23),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, IPPROTO_TCP, 0, 8),
+	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 20),
+	BPF_JUMP(BPF_JMP+BPF_JSET+BPF_K, 0x1fff, 6, 0),
+	BPF_STMT(BPF_LDX+BPF_B+BPF_MSH, 14),
+	BPF_STMT(BPF_LD+BPF_H+BPF_IND, 14),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 79, 2, 0),
+	BPF_STMT(BPF_LD+BPF_H+BPF_IND, 16),
+	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, 79, 0, 1),
+	BPF_STMT(BPF_RET+BPF_K, (u_int)-1),
+	BPF_STMT(BPF_RET+BPF_K, 0),
+};
+.iE
+.\" tcpdump is not supported in Ag/Maint.
+.\"One way to obtain BPF filter programs is to use the \*L\-d\*O option of
+.\"\*Ltcpdump\*O(1) to translate expressions into programs.  For example,
+.\"to accept all packets to or from IP host 192.67.67.20, the following command:
+.\".iS
+.\"
+.\"# tcpdump \-d ip host 192.67.67.20
+.\"
+.\".iE
+.\"This command prints the following:
+.\".iS
+.\"
+.\"(000) ldh      [12]
+.\"(001) eq       #0x800           jt 2    jf 7
+.\"(002) ld       [26]
+.\"(003) eq       #0xc0434314      jt 6    jf 4
+.\"(004) ld       [30]
+.\"(005) eq       #0xc0434314      jt 6    jf 7
+.\"(006) ret      #0x44
+.\"
+.\".iE
+.\"With a little thought, this can be translated into the appropriate
+.\"BPF_STMT and BPF_JUMP macros.  (Note that \*Ltcpdump\*O
+.\"prints jump targets as absolute addresses rather than offsets.)
+.SH INCOMPATIBILITIES
+.PP
+The \*VBSD Packet Filter Extensions\*O for the DEC OSF/1 Packet Filter
+are intended to provide nearly complete source-level compatibility
+with the BSD Packet Filter (BPF), but in some details this is not possible.
+To summarize the significant differences:
+.VL 4m
+.LI "\*LOpening packet filter file descriptors\*O"
+In BPF, pseudo-devices are named \*L/dev/bpf0\*O, \*L/dev/bpf1\*O,
+and so on. Applications open them directly.
+On DEC OSF/1 systems, pseudo-devices are named
+\*L/dev/pf/pfilt0\*O, \*L/dev/pf/pfilt1\*O,
+and so on.
+.\"Removed for Ag/Maint. No pfopen.
+.\"and applications should open them using the \*Lpfopen\*O(3)
+.\"library routine rather than specifying the pseudo-device name.
+.LI "\*LObtaining BPF headers"
+In BPF, the BPF header is always prepended to packets.
+On DEC OSF/1  this behavior must be specifically requested by setting
+the ENBPFHDR mode bit.
+.LI "\*LSpecifying packet truncation\*O"
+In BPF, the number of packet bytes returned by the kernel is
+specified by the return value from the BPF filter program.  This can
+thus vary from packet to packet (since a BPF filter program may have more
+than one return statement).
+On DEC OSF/1 the size returned by a BPF filter program is ignored, and
+the number of returned packet bytes is set using EIOCTRUNCATE.  This means
+that it cannot vary from packet to packet.  By default, DEC OSF/1
+returns
+the entire packet, which means that programs not using EIOCTRUNCATE
+will probably operate correctly, but perhaps not efficiently.
+.LI "\*LCOPYALL mode\*O"
+In BPF, packet filter applications see packets to or from their own host.
+On DEC OSF/1 packet filter applications do not see packets to or from
+their own host, unless the ENCOPYALL mode bit is set.
+.LI "\*LBuffering control\*O"
+In BPF, the number of queued packets is limited to what will fit in
+one page (after truncation).
+On DEC OSF/1 the limit on the number of queued packets defaults to 2.
+This limit may be increased using EIOCSETW.  Not doing so may result in
+many lost packets.
+.LE
+.SH RELATED INFORMATION
+.PP
+.\"The following were commented out by John Dustin for Ag/Maint.
+.\" tcpdump(1), pfopen(3), ethers(3)
+Commands: \*Lpfconfig\*O(8) \*Lpfstat\*O(1)
+.PP
+Files: \*Lpacketfilter\*O(7)
+.\" .LP
+.\" Steven McCanne & Van Jacobson,
+.\" .I "The BSD Packet Filter: A New Architecture for User-level Packet Capture",
+.\" Proc. Winter 1993 USENIX Conf., San Diego, Jan. 1993, pp. 259-269.
+.\" .SH HISTORY
+.\" .PP
+.\" The Enet packet filter was created in 1980 by Mike Accetta and
+.\" Rick Rashid at Carnegie-Mellon University.  Jeffrey Mogul, at
+.\" Stanford, ported the code to BSD and continued its development from 
+.\" 1983 on.  Since then, it has evolved into the ULTRIX Packet Filter
+.\" at Digital, a STREAMS NIT module under SunOS 4.1, and BPF.
+.\" Steven McCanne, of Lawrence Berkeley Laboratory, implemented BPF in
+.\" Summer 1990.  Much of the design is due to Van Jacobson.
+.\" .SH COPYRIGHT
+.\" Copyright (c) 1990 The Regents of the University of California.
+.\" All rights reserved.
+.\" .PP
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that: (1) source code distributions
+.\" retain the above copyright notice and this paragraph in its entirety, (2)
+.\" distributions including binary code include the above copyright notice and
+.\" this paragraph in its entirety in the documentation or other materials
+.\" provided with the distribution, and (3) all advertising materials mentioning
+.\" features or use of this software display the following acknowledgement:
+.\" ``This product includes software developed by the University of California,
+.\" Lawrence Berkeley Laboratory and its contributors.'' Neither the name of
+.\" the University nor the names of its contributors may be used to endorse
+.\" or promote products derived from this software without specific prior
+.\" written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.EQ
+delim off
+.EN

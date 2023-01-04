@@ -1,0 +1,129 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9206081920.AA06490@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2589) close XBUG #4842: Xt: release of passive grab not recognized
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Mon, 08 Jun 92 15:20:41 EDT
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: release of passive grab not recognized
+        ### bug number:   4842
+        ### area:         Xt
+        ### severity:     low
+        ### comments:     
+        ### status:       fixed, Shell.c 1.127, PassivGrab.c 1.20
+
+
+*** /tmp/,RCSt1a06385	Mon Jun  8 15:17:15 1992
+--- lib/Xt/Shell.c	Mon Jun  8 14:31:17 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Shell.c,v 1.126 92/05/13 16:51:42 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Shell.c,v 1.127 92/06/08 14:28:33 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 1356,1361 ****
+--- 1356,1391 ----
+  	        }
+  		return;
+  
++ 	      case UnmapNotify:
++ 		{
++ 		    XtPerDisplayInput	pdi;
++ 		    XtDevice		device;
++ 		    Widget		p;
++ 
++ 		    pdi = _XtGetPerDisplayInput(event->xunmap.display);
++ 
++ 		    device = &pdi->pointer;
++ 		    if (device->grabType == XtPassiveServerGrab) {
++ 			p = device->grab.widget;
++ 			while (p && !(XtIsShell(p)))
++ 			    p = p->core.parent;
++ 			if (p == wid)
++ 			    device->grabType = XtNoServerGrab;
++ 		    }
++ 
++ 		    device = &pdi->keyboard;
++ 		    if (IsEitherPassiveGrab(device->grabType)) {
++ 			p = device->grab.widget;
++ 			while (p && !(XtIsShell(p)))
++ 			    p = p->core.parent;
++ 			if (p == wid) {
++ 			    device->grabType = XtNoServerGrab;
++ 			    pdi->activatingKey = 0;
++ 			}
++ 		    }
++ 
++ 		    return;
++ 		}
+  	      default:
+  		 return;
+  	 } 
+*** /tmp/,RCSt1a06412	Mon Jun  8 15:17:20 1992
+--- lib/Xt/PassivGrab.c	Mon May 11 17:46:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: PassivGrab.c,v 1.19 91/07/21 16:04:41 converse Exp $ */
+  
+  /********************************************************
+  
+--- 1,4 ----
+! /* $XConsortium: PassivGrab.c,v 1.20 92/05/11 17:44:00 converse Exp $ */
+  
+  /********************************************************
+  
+***************
+*** 536,544 ****
+  
+  /*
+   * This handler is needed to guarantee that we see releases on passive
+!  * grabs for widgets that haven't selected for keyrelease. Also
+!  * potentially for tracking focusOuts in order to know that the grab
+!  * widget has been unmapped.
+   */
+  
+  /*ARGSUSED*/
+--- 536,542 ----
+  
+  /*
+   * This handler is needed to guarantee that we see releases on passive
+!  * button grabs for widgets that haven't selected for button release.
+   */
+  
+  /*ARGSUSED*/
+***************
+*** 562,573 ****
+      XtPerDisplayInput	pdi;
+      XtPerWidgetInput	pwi;
+  {
+!     if (!pwi->active_handler_added)
+!     {
+! 	Mask mask = (isKeyboard ? 
+! 		     (KeyPressMask | KeyReleaseMask) :
+! 		     (ButtonPressMask | ButtonReleaseMask));
+! 	XtAddEventHandler(grab->widget, mask, FALSE,
+  			  ActiveHandler, (XtPointer)pdi);
+  	pwi->active_handler_added = TRUE;
+      }
+--- 560,567 ----
+      XtPerDisplayInput	pdi;
+      XtPerWidgetInput	pwi;
+  {
+!     if (!isKeyboard && !pwi->active_handler_added) {
+! 	XtAddEventHandler(grab->widget, ButtonReleaseMask, FALSE,
+  			  ActiveHandler, (XtPointer)pdi);
+  	pwi->active_handler_added = TRUE;
+      }

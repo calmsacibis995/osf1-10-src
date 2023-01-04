@@ -1,0 +1,91 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.23 91/09/09 16:09:09 rws Exp $
+        RGB_DB = DefaultRGBDatabase
+   SITE_RGB_DB = -DRGB_DB=\"$(RGB_DB)\"
+      DEPLIBS = 
+      DEFINES = NdbmDefines $(SITE_RGB_DB)
+     INCLUDES = -I$(SERVERSRC)/include
+ INSTALLFLAGS = $(INSTLIBFLAGS)
+        SRCS1 = rgb.c
+        OBJS1 = rgb.o
+        SRCS2 = showrgb.c
+        OBJS2 = showrgb.o
+         SRCS = $(SRCS1) $(SRCS2)
+         OBJS = $(OBJS1) $(OBJS2)
+     PROGRAMS = rgb showrgb
+    DATAFILES = rgb.pag rgb.dir
+      DATADEP = rgb.dir		/* just want one run of rgb */
+#if !(defined(SGIArchitecture) || SystemV4)
+       DBMLIB = -ldbm
+#endif
+#if defined(SparcArchitecture) && HasGcc
+           CC = cc
+    CCOPTIONS = /**/
+    EXTRA_LOAD_FLAGS = /**/
+#endif
+#if defined(i386SVR4Architecture)
+       DBMLIB = -ldbm -lucb
+#endif
+
+all:: $(PROGRAMS) $(DATADEP)
+
+SingleProgramTarget(rgb,$(OBJS1),NullParameter,$(DBMLIB))
+SingleProgramTarget(showrgb,$(OBJS2),NullParameter,$(DBMLIB))
+SpecialObjectRule(rgb.o,$(ICONFIGFILES),$(_NOOP_))
+SpecialObjectRule(showrgb.o,$(ICONFIGFILES),$(_NOOP_))
+InstallMultiple($(DATAFILES) rgb.txt,$(LIBDIR))
+InstallProgramWithFlags(showrgb,$(BINDIR),)
+InstallManPage(showrgb,$(MANDIR))
+
+#
+# For cross: this will build with the native ultrix cc command
+# For native: this will build non-shared so we can run the command to
+# 		build rgb.txt and then build shared to deliver command.
+#
+$(DATADEP):  rgb_local rgb.txt
+	$(RM) $(DATAFILES) 
+	./rgb_local rgb < rgb.txt
+
+rgb_local: 
+	RemoveTargetProgram(rgb_local)						
+	$(LOCCC) $(LOCCFLAGS) -o $@ rgb_local.c -ldbm
+
+clean::				
+	$(RM) program
+
+Makefiles:: Locals
+
+Locals::
+	ln -sf rgb.c rgb_local.c
+
+$(DATADEP):  rgb rgb.txt
+	$(RM) $(DATAFILES)
+	./rgb rgb < rgb.txt
+
+clean::
+	$(RM) $(DATAFILES)
+
+DependTarget()

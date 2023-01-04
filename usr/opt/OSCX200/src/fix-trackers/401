@@ -1,0 +1,228 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207291843.AA01239@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2629) close XBUG #5352: Xlib: Xsi has some unfreed areas
+Date: Wed, 29 Jul 92 14:43:31 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5352
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d00924	Wed Jul 29 13:56:57 1992
+--- lib/X/Xsi/XCrIC.c	Wed Jul 29 13:55:35 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCrIC.c,v 1.33 92/07/28 17:49:25 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCrIC.c,v 1.34 92/07/29 13:54:58 rws Exp $
+   */
+  
+  /*
+***************
+*** 88,93 ****
+--- 88,95 ----
+      _XUnregisterFilter(im->core.display, ic->core.focus_window,
+  		       ic->prototype_filter, (XPointer)ic);
+  
++     if (ic->mb) _XlcFreeLocale(ic->mb);
++     if (ic->wc) _XlcFreeLocale(ic->wc);
+  #ifdef	XML
+      if (ic->xlc_num > 0) {
+  	int i;
+***************
+*** 97,104 ****
+--- 99,112 ----
+  	    _XlcFreeLocale(ic->wc_temp[i]);
+  	}
+      }
++     if (ic->mb_temp) Xfree(ic->mb_temp);
++     if (ic->wc_temp) Xfree(ic->wc_temp);
+      if (ic->values.using_language) Xfree(ic->values.using_language);
++     if (ic->values.current_language) Xfree(ic->values.current_language);
+  #endif	/* XML */
++     if (ic->ct_buf) Xfree(ic->ct_buf);
++     if (ic->wc_buf) Xfree(ic->wc_buf);
++     (void) _XipFreeAllICQueue(ic);
+  }
+  
+  static RConst XICMethodsRec ic_methods = {
+***************
+*** 438,445 ****
+      for (;;) {
+  	if ((_XipReadFromIM(im, (char *)&reply1, sz_ximEventReply) < 0) ||
+  	    (reply1.state == 0xffff)) {
+! 	    Xfree((char *)ic);
+! 	    return(NULL);
+  	}
+  	if (reply1.detail == XIM_CALLBACK) {
+  	    /*
+--- 446,452 ----
+      for (;;) {
+  	if ((_XipReadFromIM(im, (char *)&reply1, sz_ximEventReply) < 0) ||
+  	    (reply1.state == 0xffff)) {
+! 	    goto _err_ret;
+  	}
+  	if (reply1.detail == XIM_CALLBACK) {
+  	    /*
+***************
+*** 446,462 ****
+  	     * Call the callback routines.
+  	     */
+  	    if (_XipCallCallbacks(ic) < 0) {
+! 		Xfree((char *)ic);
+! 		return(NULL);
+  	    }
+  	} else if (reply1.detail == XIM_IC) {
+  	    if (_XipReadFromIM(im, (char *)&reply, sz_ximCreateICReply) < 0) {
+! 		Xfree((char *)ic);
+! 		return(NULL);
+  	    }
+  	    if (reply.state != 0) {
+! 		Xfree((char *)ic);
+! 		return(NULL);
+  	    }
+  	    ic->icid = reply.xic;
+  	    break;
+--- 453,466 ----
+  	     * Call the callback routines.
+  	     */
+  	    if (_XipCallCallbacks(ic) < 0) {
+! 		goto _err_ret;
+  	    }
+  	} else if (reply1.detail == XIM_IC) {
+  	    if (_XipReadFromIM(im, (char *)&reply, sz_ximCreateICReply) < 0) {
+! 		goto _err_ret;
+  	    }
+  	    if (reply.state != 0) {
+! 		goto _err_ret;
+  	    }
+  	    ic->icid = reply.xic;
+  	    break;
+***************
+*** 487,492 ****
+--- 491,513 ----
+      }
+  #endif	/* XML */
+      return((XIC)ic);
++ 
++ _err_ret:
++     if (ic->mb) _XlcFreeLocale(ic->mb);
++     if (ic->wc) _XlcFreeLocale(ic->wc);
++ #ifdef  XML
++     if (ic->xlc_num > 0) {
++ 	for (i = 0; i < ic->xlc_num; i++) {
++ 	    _XlcFreeLocale(ic->mb_temp[i]);
++ 	    _XlcFreeLocale(ic->wc_temp[i]);
++ 	}
++     }
++     if (ic->mb_temp) Xfree(ic->mb_temp);
++     if (ic->wc_temp) Xfree(ic->wc_temp);
++     if (ic->values.using_language) Xfree(ic->values.using_language);
++ #endif  /* XML */
++     Xfree((char *)ic);
++     return(NULL);
+  }
+  
+  /*
+*** /tmp/d00943	Wed Jul 29 13:57:10 1992
+--- lib/X/Xsi/XConnIM.c	Wed Jul 29 13:55:41 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XConnIM.c,v 1.17 92/03/03 10:02:09 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XConnIM.c,v 1.18 92/07/29 13:55:35 rws Exp $
+   */
+  
+  /*
+***************
+*** 104,109 ****
+--- 104,110 ----
+      im->major_version = (long)ntohl(i);
+      bcopy((char *)(prop + offset_of_minor_version), (char *)&i, version_size);
+      im->minor_version = (long)ntohl(i);
++     Xfree((char *)prop);
+      if (im->major_version != XIM_MAJOR_VERSION) return(False);
+      if (!(im->minor_version >= XIM_MINOR_VERSION)) return(False);
+  
+*** /tmp/d00962	Wed Jul 29 13:57:21 1992
+--- lib/X/Xsi/XIMQueue.c	Wed Jul 29 13:55:46 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.10 92/07/29 11:57:14 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.11 92/07/29 13:55:40 rws Exp $
+   */
+  
+  /*
+***************
+*** 182,187 ****
+--- 182,203 ----
+  	}
+      } else {
+  	*type = 0;
++     }
++ }
++ 
++ void
++ _XipFreeAllICQueue(ic)
++     XipIC ic;
++ {
++     register XIMQueue *start = ic->in;
++     register XIMQueue *p, *f;
++     for (p = ic->in; p;) {
++ 
++ 	if (p->buf_max > 0) Xfree((char *)p->ptr);
++ 	f = p;
++ 	p = p->next;
++ 	Xfree((char *)f);
++ 	if (p == start) break;
+      }
+  }
+  
+*** /tmp/d00981	Wed Jul 29 13:57:32 1992
+--- lib/X/Xsi/XIMlibint.h	Wed Jul 29 13:55:51 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMlibint.h,v 1.12 92/07/29 11:58:24 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMlibint.h,v 1.13 92/07/29 13:55:45 rws Exp $
+   */
+  
+  /*
+***************
+*** 60,65 ****
+--- 60,66 ----
+  extern void	_XipFreeNextICQueue();
+  extern int	_XipPutICQueue();
+  extern void	_XipGetNextICQueue();
++ extern void	_XipFreeAllICQueue();
+  extern void	_XipSaveOverflowICQueue();
+  extern void	_XipGetOverflowICQueue();
+  extern int	_XipWriteToIM();

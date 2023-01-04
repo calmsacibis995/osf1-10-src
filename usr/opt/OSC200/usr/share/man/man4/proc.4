@@ -1,0 +1,1360 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.TH proc 4
+.PP
+.SH NAME
+.PP
+\*Lproc\*O \- Process file system
+.SH SYNOPSIS
+.PP
+.iX "/proc file system"
+.sS
+\*L/proc\*O
+.sE
+.PP
+.SH DESCRIPTION
+.PP
+The
+\*L/proc\*O
+file system enables running processes to be accessed and manipulated
+as files by the system calls
+\*Lopen\*O,
+\*Lclose\*O,
+\*Lread\*O,
+\*Lwrite\*O,
+\*Llseek\*O,
+and
+\*Lioctl\*O.
+While the
+\*L/proc\*O
+file system is most useful for debuggers, the
+\*L/proc\*O
+file system enables any process with the correct permissions to
+control another running process.  Thus, a parent/child relationship
+does not have to exist between a debugger and the process that is
+being debugged.
+.PP
+For all running and zombie processes, there is an entry in the
+system process table which appears as a filename
+in the \*L/proc\*O directory.  The filename is the
+decimal representation of the process id.  Filenames are padded
+with leading zeros (0) so that each filename is a minimum of
+5 decimal digits.  For example, if the process on the system has
+a process id of 123, the filename would be specified as 00123.
+You do not have to specify the leading zeros when specifying the
+filename.  For example, specifying \*Lls -l /proc/123\*O is
+acceptable.
+.PP
+The only files that appear to exist in the \*L/proc\*O directory
+correspond to valid (active or zombie) processes in the system
+\*Lproc\*O table.  Other than creating or terminating a process,
+you cannot create or remove files in the \*L/proc\*O directory.
+The permissions for a file in the \*L/proc\*O directory are
+0600 which indicates read and write permissions for the owner
+only.  The \*Luid\*O and \*Lgid\*O for a file in the \*L/proc\*O
+directory are the \*Luid\*O and \*Lgid\*O of the user
+who is running the process.  Attempts to manipulate the characteristics
+of a file in this directory through any of the administrator's commands
+return an error.
+.SS Setting Up the /proc Filesystem
+The
+\*L/proc\*O
+file system is layered beneath the Virtual File System (VFS).
+It is a pseudo-file system, and it is mounted by default at
+startup to make it
+visible to the operating system.  You can use the \*Lmount\*O and
+\*Lumount\*O commands to manually mount and dismount the file system,
+or you can define an entry for the \*L/proc\*O file system in your
+\*L/etc/fstab\*O file.
+.PP
+To mount the \*L/proc\*O file system using the \*Lmount\*O
+command, enter the following:
+.sp
+.iS
+mount -t procfs /proc /proc
+.iE
+To dismount the file system, use the
+\*Lumount\*O
+command as follows:
+.sp
+.iS
+umount /proc
+.iE
+Because this is a pseudo-file system, this file system cannot be
+backed up, nor can you use the
+\*Lfsck\*O command to perform file system checks.  Remove the
+following entry in your \*L/etc/fstab\*O file if you do not
+want the \*L/proc\*O
+file system mounted automatically:
+.sp
+.iS
+/proc /proc procfs rw 0 0
+.iE
+This mounts the pseudodevice
+\*L/proc\*O
+on the
+\*L/proc\*O
+directory as read/write.  The file system type is \*Lprocfs\*O and the
+zeros (0) specify that the file system is not to be dumped or checked
+by the
+\*Lfsck\*O
+command.
+.\" .PP
+.\" You can also automatically mount the file system by adding
+.\" \*L/proc\*O
+.\" to
+.\" \*L/sbin/bcheckrc\*O
+.\" as follows:
+.\" .oS
+.\" #
+.\" # mount procfs
+.\" #
+.\" echo 'Mounting /proc filesystem'
+.\" /sbin/mount -a -v -t procfs
+.\" .oE
+.PP
+The
+\*L/proc\*O
+file system should not be mounted if an entire system is to be
+backed up, starting from its root directory.
+.PP
+.SS Security Considerations
+All auditing requirements for
+\*L/proc\*O
+file system are handled at the Virtual File System (VFS).
+The
+\*L/proc\*O
+file system is read only.  Only
+\*Lroot\*O
+or the
+\*Lsuperuser\*O
+can open all processes using the
+\*L/proc\*O
+file system.
+.iX "/proc file system" "security features"
+If you are a nonprivileged user, a debugging process may only open
+an active process if the following conditions are met:
+.ML
+.LI
+Both the
+\*Luid\*O
+and the
+\*Lgid\*O
+of the debugging (opening) process matches those of the running process.
+.LI
+The debugging (opening) process has read permission for the executable
+file from which the active process was created.
+.LI
+The executable file, from which the active process was created, must not
+have
+\*Lsetuid\*O
+or
+\*Lsetgid\*O
+permission unless the opening process has \*Lroot\*O or
+\*LSEC_DEBUG\*O privilege
+established.
+.LE
+.PP
+If a debugging process opens an active process, and the active process
+calls \*Lexec\*O(2) to start another image that has
+\*Lsuid\*O
+or
+\*Lsgid\*O
+permissions or if the debugging process does not have read permission for
+the image that the active process invokes, the debugging process is
+denied access to the process information for the new image with the
+exception of performing a close operation.  Hence, a file descriptor
+is not always valid after the active process executes another image.
+This is also true when you have
+\*Lroot\*O
+or
+\*Lsuperuser\*O
+privileges.
+.SS Manipulating Processes: System Calls and ioctl
+Files are manipulated using the \*Lopen\*O, \*Lclose\*O, \*Lread\*O
+\*Lwrite\*O, and \*Lioctl\*O system calls.  Once a process has been
+opened, its user virtual address space can be examined or written
+using the \*Llseek\*O system call followed by the \*Lread\*O or
+\*Lwrite\*O system calls.  Likewise, as long as a process is opened
+for both \*Lread\*O and \*Lwrite\*O, the \*Lioctl\*O system calls
+can be used to control, trace, or get status for a process that has
+been opened.  The \*Lclose\*O system call should be used when
+interaction with a process is complete.
+.PP
+Note that any number of number of opens for read and write are
+allowed; however, to prevent confusion, if several processes are
+trying to control another process, an exclusive open for \*Lwrite\*O
+can be requested.  An open for \*Lwrite\*O that includes the
+\*LO_EXCL\*O specifier only succeeds if the process is not already
+open for a \*Lwrite\*O, even if you are \*Lroot\*O or an otherwise
+privileged user.  However, an open for \*Lwrite\*O that does not
+specify \*LO_EXCL\*O always succeeds for \*Lroot\*O or an otherwise
+privileged user.
+.PP
+When a file
+is closed, any tracing flags that were set are left
+on, unless the Run on Last Close (RLC) flag was set by an \*Lioctl\*O
+call.  If RLC is set, and the last file descriptor pertaining to
+the process is closed, all tracing flags are cleared and the
+process is set to run (if it was stopped).  Breakpoints are
+not affected by RLC because breakpoints are written into the
+text area of a running process by a debugger; the debugger is
+therefore always responsible for replacing the original instructions.
+.PP
+Information and control operations are provided through \*Lioctl\*O.
+The operations have the form:
+.sp
+.sS
+\*L#include <sys/types.h>
+.nL
+#include <sys/signal.h>
+.nL
+#include <sys/fault.h>
+.nL
+#include <sys/syscall.h>
+.nL
+#include <sys/procfs.h>
+.nL
+ioctl (fd, COMMAND, p);\*O
+.sE
+.PP
+The \*Vp\*O argument is a generic pointer whose use depends on a
+specific \*Lioctl\*O code.  Where not mentioned in the description
+of the \*Lioctl\*O calls, the value should be zero.
+\*L<sys/procfs.h>\*O contains definitions of \*Lioctl\*O codes
+and data structures used by the operations.  Certain operations can be
+performed only if the process file is open for writing; these
+include all operations that affect process control.
+.PP
+Process and control operations involve the use of a set of flags.
+The set types \*Lsigset_t\*O, \*Lfltset_t\*O, and \*Lsysset_t\*O
+are masks.  The values used to set these masks correspond respectively
+to the signal, fault, and system call numbers defined in \*L<sys/signal.h>\*O,
+\*L<sys/fault.h>\*O, and \*L<sys/syscall.h>\*O.  Each set type is
+large enough to hold the masks bits for all legal values of the related
+action.  Although they are of different
+sizes, they have a common structure and can be manipulated by the
+following macros:
+.sp
+.sS
+\*Lprfillset(&set);      /*turns on all flags in set*/
+.nL
+premptyset(&set);     /*turns off all flags in set*/
+.nL
+praddset(&set,flag);  /*turns on the specified flag*/
+.nL
+prdelset(&set,flag);  /*turns off the specified flag*/
+.nL
+r = prismember(&set,flag); /*returns true if flag
+.nL
+                             is turned on*/\*O
+.sE
+.PP
+Either \*Lprfilset\*O or \*Lpremptset\*O must be used to
+initialize \*Vset\*O before it is used in any operation.  The
+argument \*Vflag\*O must be a member of the enumeration
+corresponding to the set.
+.PP
+Note that the above macros must be used for signal tracing and that
+the macros in
+\*Lsys/signal.h\*O
+must not be used.
+.SS Ioctl Codes
+The IOCTL codes are divided into eight groups:
+process requests, signal interaction, fault trap interaction,
+system call interaction, traced process control, general registers,
+miscellaneous
+mapping control, and
+DEC OSF/1
+specific requests.
+The following subsections describe these IOCTL codes.
+.SS Process Requests
+The following ioctls specify process requests:
+.\" .VL 4m
+.\" .LI "PIOCSTATUS"
+.sp
+\*LPIOCSTATS\*O
+.rS
+Returns status information for the process.  The argument
+\*Vp\*O points to the \*Lprstatus\*O structure as follows:
+.sp
+.sS
+\*Ltypedef struct prstatus {
+.sp
+  long  pr_flags;  /*specifies process flags*/
+.sp
+  short pr_why;    /*reason process is stopped*/
+.sp
+  long  pr_what;   /*specifies detailed reasons*/
+.sp
+  struct siginfo pr_info;  /*data related to signal
+.nL
+                             or fault*/
+.sp
+  short pr_cursig;  /*specifies current signal*/
+.sp
+  sigset_t pr_sigpend;  /*set of other pending
+.nL
+                          signals*/
+.sp
+  sigset_t pr_sighold;  /*set of held signals*/
+.sp
+  struct sigaltstack pr_altstack; /*alternate
+.nL
+                           signal stack data*/
+.sp
+  struct sigaction pr_action;  /*signal action of
+.nL
+                                 current signal*/
+.sp
+  pid_t  pr_pid;      /*specifies process id*/
+.sp
+  pid_t  pr_ppid; /*specifies parent process id*/
+.sp
+  pid_t  pr_pgrp; /*specifies group process id*/
+.sp
+  pid_t  pr_sid       /*specifies session id*/
+.sp
+  timestruc_t pr_utime; /*specifies process user
+.nL
+                            cpu time*/
+.sp
+  timestruc_t pr_stime; /*specifies process
+.nL
+                            system cpu time*/
+.sp
+  timestruc_t pr_cutime;  /*sum child processes
+.nL
+                            user time*/
+.sp
+  timestruc_t pr_cstime;  /*sum child processes
+.nL
+                            system time*/
+.sp
+  char  pr_clname[8];  /*scheduling class name*/
+.sp
+  long  pr_filler[20]  /*filler area for future
+.nL
+                         expansion*/
+.sp
+  long  pr_instr;   /*specifies current
+.nL
+                      instruction*/
+.sp
+  gregset_t pr_reg;   /*specifies general
+.nL
+                        registers*/
+.sp
+  u_long  pr_subcode;  /*trap subcode
+.nL
+                         instructions*/
+.sp
+  long   pr_nthreads;  /*number of threads*/
+.sp
+  struct vnode *pr_exvp;  /*kernel address of vnode
+.nL
+                            for executable file*/
+.sp
+  tid_t  pr_tid;     /*thread id output by
+.nL
+                       PIOCSTATUS*/
+.sp
+} prstatus_t;\*O
+.sE
+.rE
+.rS 2p
+.sp
+The following list describes each member of the structure:
+.VL 1m
+.LI "\*Lpr_flags\*O"
+The \*Lpr_flags\*O bit-mask has the following flags:
+.ML
+.LI
+\*LPR_STOPPED\*O specifies that the process is stopped.
+.LI
+\*LPR_ISTOP\*O specifies that the process stopped on an event of interest (see
+\*LPIOCSTOP\*O)
+.LI
+\*LPR_DSTOP\*O specifies that the process will stop before entering user
+code (see
+\*LPIOCSTOP\*O).
+.LI
+\*LPR_ASLEEP\*O specifies that a process is in an interrutible sleep within a system call.
+.LI
+\*LPR_RLC\*O specifies that  a process has its run-on-last-close flag set.
+.LI
+\*LPR_TRACE\*O specifies that a process is being traced using \*Lptrace\*O.
+.LI
+\*LPR_PCINVAL\*O specifies that a process program counter refers to an invalid address
+.LI
+\*LPR_ISSYS\*O specifies that a process is a system process (see the
+\*LPIOCSTOP\*O ioctl).
+.LE
+.LI "\*Lpr_why\*O and \*Lpr_what\*O"
+The \*Lpr_why\*O and \*Lpr_what\*O fields describe why
+a process is stopped and what stopped it.  The possible values for \*Lpr_why\*O
+follow.  Included in the description of the \*Lpr_why\*O
+values is an explanation of what \*Lpr_what\*O holds. The
+\*Lpr_why\*O values are:
+.ML
+.LI
+\*LPR_REQUESTED\*O indicates that \*LPIOCSTOP\*O was specified, hence
+the process was
+stopped.  In this instance, the \*Lpr_what\*O field is not used.
+.LI
+\*LPR_SIGNALLED\*O indicates that a process stopped upon receiving a signal (see
+\*LPIOCSTRACE\*O).  The \*Lpr_what\*O field holds the signal
+number that caused the stop.  If this is a newly stopped process,
+the signal number is placed in \*Lpr_cursig\*O.
+.LI
+\*LPR_FAULTED\*O specifies that a process stopped upon encountering a fault
+(see \*LPIOCSFAULT\*O).  The \*Lpr_what\*O field holds the number
+of the fault that stopped the process.
+.LI
+\*LPR_SYSENTRY\*O and \*LPR_SYSEXIT\*O specify that a stop is to occur on an entry to or an exit from a system call (see \*LPIOCSENTRY\*O and \*LPIOCSEXIT\*O). The \*Lpr_what\*O field holds the number of the system call, including the
+habitat number, if any.
+.LI
+\*LPR_JOBCONTROL\*O specifies that a process stopped because of the
+default action specified by a job control stop signal (see \*Lsigaction\*O).
+The \*Lpr_what\*O field holds the stopping signal number.
+.LI
+\*LPR_DEAD\*O specifies that a process has terminated.  At this point, the
+process and memory context are considered invalid.  The \*Lpr_what\*O
+field holds the exist status of the process.  This function provides
+the debugger with the ability to determine that the process being
+debugged has terminated, and to see its exit status.
+To trace this condition, use \*LPRFS_STOPTERM\*O
+in the \*LPIOCSSPCACT\*O \*Lioctl\*O.
+.LE
+.LI "\*Lpr_info\*O"
+Contains additional information specific to
+a signal or fault when a process has been stopped by either
+\*LPR_SIGNALLED\*O or \*LPR_FAULTED\*O (see \*L<sys/siginfo.h>\*O).
+.LI "\*Lpr_cursig\*O"
+Identifies the number of the next signal to
+be delivered to a process.
+.LI "\*Lpr_sigpend\*O"
+Is a mask of pending signals that are to be sent to a process.
+.LI "\*Lpr_sighold\*O"
+Is a mask of those signals whose delivery will be delayed if sent to a process.
+Note that this mask is 0 to (N-1), as opposed to
+\*Lpr_sigpend\*O, which is 1 to N, where N is the max signal number.
+The following macros:
+\*LPRFILLSRT\*O, \*LPREMPTYSET\*O, \*LPRADDSET\*O,
+\*LPRDELSET\*O, and \*LPRISMEMBER\*O must be used in conjunction
+with this field.
+.LI "\*Lpr_alstack\*O"
+Provides alternate signal stack information for a process
+(see \*Lsigaltstack\*O).
+.LI "\*Lpr_action\*O"
+Contains any signal action related to the current signal (see \*Lsigaction\*O). The signal action is not defined if \*Lpr_cursig\*O is zero.
+.LI "\*Lpr_pid\*O"
+Contains the process identification number.
+.LI "\*Lpr_ppid\*O"
+Contains the process identification number of the parent process.
+.LI "\*Lpr_pgrp\*O"
+Contains the group identification number of the process.
+.LI "\*Lpr_sid\*O"
+Contains the session identification number of the process.
+.LI "\*Lpr_utime\*O and \*Lpr_stmine\*O"
+Contain the user and system time (in seconds and nanoseconds) used by
+the process.
+.LI "\*Lpr_cutime\*O and the \*Lpr_cstime\"
+Contain the total user and system time (in seconds and nanoseconds) used by
+the child processes of the indicated parent process.
+.LI "\*Lpr_clname\*O"
+Contains the name of the scheduling class that a process is using.
+.LI "\*Lpr_filler\*O"
+Is not currently used.  It is reserved for future use.
+.LI "\*Lpr_instr\*O"
+Holds the machine instruction that is
+used by the program counter.  The amount of information retrieved
+from the process is typically the size of a machine's smallest
+instruction; it is machine dependent.  If the machine instruction
+is an invalid address, \*Lpr_instr\*O is not defined, and the
+\*LPR_PCINVAL\*O flag is set.
+.LI "\*Lpr_reg\*O"
+Is an array that contains the contents of the general registers.
+.LI "\*Lpr_subcode\*O"
+Contains the trap subcode for the breakpoint
+instruction.
+.\" commented out as per dave scoda This is not valid for all architectures.
+.LI "\*Lpr_nthreads\*O"
+Is currently unused.
+.LI "\*Lpr_exvp\*O"
+Contains the kernel address of the vnode
+structure that identifies the on-disk executable file from which
+the process was created.
+.LI "\*Lpr_tid\*O"
+Is not currently used.
+.LE
+.rE
+.PP
+\*LPIOCSTOP\*O and \*LPIOCWSTOP\*O
+.rS
+Both of these ioctls specify that process is to stop on an event
+of interest.  For both ioctls, if the \*Vp\*O argument is of a nonzero
+value, it points to \*Lprstatus_t\*O structure which holds status
+information on a stopped process.
+.sp
+The \*LPIOCSTOP\*O ioctl requires write access.  This IOCTL code
+requests that a process stop on an event of interest and remains in
+effect until the process does stop.  The \*LPIOCWSTOP\*O ioctl waits for a
+process to stop on an event of interest.
+.sp
+If \*LPIOCSTOP\*O is specified with a process that is stopped, but not stopped
+on an event of interest, the stop directive only takes affect when
+the process is restarted by the competing mechanism; the process
+will enter a \*LPR_REQUESTED\*O stop before executing any
+user level code.  If an attempt is ever made to interrupt a
+\*LPIOCSTOP\*O using a signal such as an alarm, the stop directive
+remains in effect even though it returns an error.  A signal or
+alarm is typically issued to avoid waiting forever for process to stop on
+event of interest that never occurs.
+.sp
+An event of interest occurs when either a \*LPR_REQUESTED\*O
+stop has been specified or when a stop has been specified in
+tracing flag of a process which can be set by \*LPIOCSTRACE\*O,
+\*LPIOCSFAULT\*O, \*LPIOCSENTRY\*O, or \*LPIOCSEXIT\*O.
+Of these tracing flags, \*LPR_SIGNALLED\*O is only considered to
+stop on an event of interest when it is controlled by \*Lptrace\*O
+and only if the signal is set in the traced signal set.  A
+\*LPR_JOBCONTROL\*O flag is not considered an event of interest.
+.sp
+Note that a process can halt twice because of a stop signal.  If
+the signal is traced, it displays \*LPR_SIGNALLED\*O on the
+first stop.  If the process runs without clearing the signal, it
+shows \*LPR_JOBCONTROL\*O.
+.sp
+A system process (indicated by the PR_ISSYS flag) never executes
+at user level, does not have a user level address space visible
+through
+\*L/proc\*O, and cannot be stopped.  Applying \*LPIOCSTOP\*O or
+\*LPIOCWSTOP\*O to a system process returns the error \*LEBUSY\*O.
+.rE
+.PP
+\*LPIOCRUN\*O
+.rS
+Starts a traced process again after it has been stopped. This
+ioctl requires write access.  \*LPIOCRUN\*O fails with an \*LEBUSY\*O
+error if it is applied to a process that is not stopped on an event
+of interest--even if stopped due to a competing mechanism, it remains stopped.
+The \*Vp\*O argument points to a \*Lprrun\*O structure which provides
+additional directives or actions that can be performed:
+.sp
+.sS
+\*Ltypedef struct prrun {
+.nL
+   long  pr_flags;   /*specifies process flags*/
+.nL
+   sigset_t pr_trace;  /*specifies set of signals
+.nL
+                         to trace*/
+.nL
+   sigset_t  pr_sighold;  /*specifies set of
+.nL
+                            signals to hold*/
+.nL
+   fltset_t  pr_fault;  /*specifies set of faults
+.nL
+                          to trace*/
+.nL
+   caddr_t   pr_vaddr;  /*specifies virtual address
+.nL
+                          at which to resume*/
+.nL
+   long      pr_filler[8]; /*area to be used for
+.nL
+                             future expansion*/
+.nL
+   tid_t     pr_tid;     /*Thread to resume for
+.nL
+                     PIOCRUN, ignored by PIOCRUN */
+.nL
+}  prrun_t;\*O
+.sE
+.sp
+The fields in the \*Lprrun\*O structure are only meaningful if the
+appropriate flags are set in \*Lpr_flags\*O bit-mask.
+The \*Lpr_flags\*O bit-mask has the following flags:
+.ML
+.LI
+\*LPRCSIG\*O specifies that the current signal, if any, be
+cleared (see the \*LPIOCSSIG\*O ioctl).
+.LI
+\*LPRCFAULT\*O specifies that the current fault, if any, be
+cleared (see the \*LPIOCCFAULT\*O ioctl).
+.LI
+\*LPRSTRACE\*O specifies that the traced signal set is set to
+\*Lpr_trace\*O (see the \*LPIOCSTRACE\*O ioctl).
+.LI
+\*LPRSHOLD\*O specifies that the held signal set is set to
+\*Lpr_sighold\*O (see the \*LPIOCSHOLD\*O ioctl).
+.LI
+\*LPRSFAULT\*O specifies that the traced fault set is set to
+\*Lpr_fault\*O (see the \*LPIOCSFAULT\*O ioctl).
+.LI
+\*LPRSVADDR\*O specifies the address at which execution resumes to
+\*Lpr_vaddr\*O.
+.LI
+\*LPRSTEP\*O tells the process to run and execute a single machine instruction.
+When execution has completed, a hardware trace trap occurs.  If
+\*LFLTTRACE\*O is being traced, the process stops, otherwise it is
+sent \*LSIGTRAP\*O.  If \*LSIGTRAP\*O is being traced and not held,
+the process stops.  This operation requires hardware support and may not
+be implemented on all processors.  The \*LPRSTEP\*O flag is only
+allowed if the "traced" process is stopped at a breakpoint such as
+stopped on a trace of fault \*LEXC_BREAK\*O or signal \*LSIGTRAP\*O.
+.LI
+\*LPRSABORT\*O specifies that the process is to abort execution of a system call
+if the process is in a \*LPR_SYSENTRY\*O stop or it is marked
+\*LPR_ASLEEP\*O (see \*LPIOCSENTRY\*O and \*LPIOCEXIT\*O).
+.LI
+\*LPRSTOP\*O specifies that a process stop again soon after it has
+resumed execution (see \*LPIOCSTOP\*O).  Specifically, when a process
+is stopped on \*LPR_SIGNALLED\*O or \*LPR_FAULTED\*O, the next stop displays
+\*LPR_REQUESTED\*O, no other stop has intervened, and the
+process will not have executed any user-level code.
+.LE
+.rE
+.PP
+\*LPIOCSRLC\*O
+.rS
+This ioctl sets the run-on-last-close flag in the traced process.
+When the last \*L/proc\*O file descriptor referring to the
+traced process is closed, all of the process's tracing flags are
+cleared, any outstanding stop directive is canceled, and if the
+process is stopped, it is set running as though \*LPIOCRUN\*O had been
+applied to it.  This ioctl requires write access.
+The flag \*Lrun-on-last-close\*O is off by default.
+.rE
+.PP
+\*LPIOCRRLC\*O
+.rS
+This ioctl turns the run-on-last-close flag off.  The tracing flags
+of a process are retained and the process is not restarted
+when the process file is closed.  This ioctl requires write access.
+.rE
+.PP
+\*LPIOCNICE\*O
+.rS
+The traced process's nice priority is incremented by the amount
+contained in the \*Lint\*O addressed by the \*Vp\*O argument.
+Only the superuser can increase the priority of a process in
+this manner, but any user can decrease the priority.
+This ioctl requires write access.
+.rE
+.SS Signal Interaction
+The following ioctls specify signal interaction.
+.VL 4m
+.LI "\*LPIOCSTRACE\*O"
+This defines a set of signals to be traced and the receipt of
+one of these signals causes the traced process to stop. The set of
+signals is defined through the \*Lsigset_t\*O structure which is
+pointed to by the argument \*Vp\*O.
+Receipt of \*LSIGKILL\*O cannot be traced.  This ioctl requires
+write access. The \*Lsigset_t\*O structure must be manipulated
+via the \*Lprfillset\*O and related macros, which are defined
+in \*L/usr/include/sys/procfs.h\*O.
+.sp
+If a signal that is included in the held signal set is sent to
+the traced process, the signal is not received and does not
+cause a process stop until it is removed from the held signal
+set, either by the process itself or by setting the held signal
+set with the \*LPIOCSHOLD\*O ioctl or using the \*LPRSHOLD\*O option
+defined by the \*LPIOCRUN\*O ioctl.
+.LI "\*LPIOCGTRACE\*O"
+The current traced signal set is returned in an instance of
+\*Lsigset_t\*O structure pointed to by the \*Vp\*O argument.
+.LI "\*LPIOCSSIG\*O"
+The current signal and its associated signal information are set
+according to the contents of the \*Lsiginfo\*O structure
+addressed by \*Vp\*O (see <\*Lsys/siginfo.h\*O>). If the specified signal
+number is zero or if \*Vp\*O is zero, the current signal is cleared.
+This ioctl requires write access.
+.sp
+The semantics of this ioctl are different from those of \*Lkill\*O
+or \*LPIOCKILL\*O in that the signal is delivered to the process
+immediately after execution is resumed (even if it is being
+held) and an additional \*LPR_SIGNALLED\*O stop does not intervene
+even if the signal is traced. Setting the current signal to
+\*LSIGKILL\*O terminates the process immediately, even if it is
+stopped.
+.LI "\*LPIOCKILL\*O"
+A signal is sent to the process with semantics identical to
+those of  kill; p points to an   int naming the signal. Sending
+\*LSIGKILL\*O terminates the process immediately.  This ioctl
+requires write access.
+.LI "\*LPIOCUNKILL\*O"
+A signal is deleted (removed from the set of pending signals);
+the current signal, if any, is unaffected.  The \*Vp\*O
+argument points to an \*Lint\*O naming the signal. It is an error
+to attempt to delete \*LSIGKILL\*O.  This ioctl requires write
+access.
+.LI "\*LPIOCGHOLD\*O"
+This ioctl returns the set of held signals (signals whose
+delivery is delayed if sent to the process) in an instance
+of \*Lsigset_t\*O addressed by the \*Vp\*O argument.  Signal
+number 0 is always returned if not held.
+.LI "\*LPIOCSHOLD\*O"
+This ioctl sets the held signal set but does not allow
+\*LSIGKILL\*O or \*LSIGSTOP\*O to be held.  It requires write
+access.  See \*LPIOCGHOLD\*O.  Signal number 0 cannot be
+held; it is ignored if specified.
+.LI "\*LPIOCMAXSIG\*O"
+This ioctl, with the \*LPIOCACTION\*O ioctl, provides information
+about the signal actions associated with the traced process
+(see \*Lsigaction\*O).  In the \*Lint\*O returned by the \*Vp\*O argument,
+this ioctl returns the  maximum signal number understood by the system.
+This must be used to allocate storage for use with the \*LPIOCACTION\*O
+ioctl.
+.br
+.ne 9P
+.LI "\*LPIOCACTION\*O"
+This ioctl, with the \*LPIOMAXSIG\*O ioctl, provides information
+about the signal actions associated with the traced process.  This
+ioctl returns the traced process's signal actions in an array of \*Lsigaction\*O
+structures addressed by the \*Vp\*O argument.  Signal numbers are displaced
+by 1 from array indices, so that the action for signal number \*Vn\*O
+appears in position \*Vn\*O-1 of the array.
+Note that \*LPIOCMAXSIG\*O should be called before invoking the \*LPIOCACTION\*O
+or \*LPIOCTACTION\*O ioctls.
+.sp
+The definition of the \*Lsigaction\*O structure follows:
+.sp
+.sS
+  \*Ltypedef struct sigaction {
+.nL
+  int  sa_flags;       /* currently set to 0 */
+.nL
+  void (*sa_handler)(); /* signal handler
+.nL
+                           address*/
+.nL
+  sysset_t sa_mask;      /* currently set to 0 */
+.nL
+  int   sa_resv[2];      /* unused */
+.nL
+ } sigaction_t;\*O
+.sE
+.LE
+.SS Fault Trap Interaction
+The following ioctls specify fault trap interaction.
+.PP
+\*LPIOCSFAULT\*O
+.rS
+This defines a set of hardware faults to be traced. When incurring
+one of these faults the traced process stops. This ioctl
+requires write access. The set is defined
+via an instance of \*Lfltset_t\*O addressed by \*Vp\*O.
+This structure must be manipulated by the \*Lprfillset\*O and related
+macros, defined in \*L/usr/include/sys/procfs.h\*O.
+Fault names
+are defined in <\*Lsys/fault.h\*O> and include the following.  Some of
+these may not occur on all processors; there may be processor-specific
+faults in addition to the following:
+.ML
+.LI
+\*LFTTILL\*O specifies an illegal instruction
+.LI
+\*LFLTPRIV\*O specifies a privileged instruction
+.LI
+\*LFLTBPT\*O specifies a breakpoint trap
+.LI
+\*LFLTTRACE\*O specifies a trace trap
+.LI
+\*LFLTACCESS\*O specifies a memory access fault
+.LI
+\*LFLTBOUNDS\*O specifies a memory bounds violation
+.LI
+\*LFLTIOVF\*O specifies an integer overflow
+.LI
+\*LFLTIZDIV\*O specifies  an integer zero divide
+.LI
+\*LFLTFPE\*O specifies a floating-point exception
+.LI
+\*LFLTSTACK\*O specifies an unrecoverable stack fault
+.LI
+\*LFLTPAGE\*O specifies a recoverable page fault
+.LE
+.sp
+When not traced, a fault normally results in the posting of a
+signal to the process that incurred the fault. If the process
+stops on a fault, the signal is posted to the process when
+execution is resumed unless the fault is cleared by \*LPIOCCFAULT\*O
+or by the \*LPRCFAULT\*O option of \*LPIOCRUN\*O.  \*LFLTPAGE\*O
+is an exception (no pun intended); no signal is posted. There may
+be additional processor-specific faults like this.  The \*Lpr_info\*O
+structure member in the \*Lprstatus\*O structure identifies the
+signal to be sent and contains machine-specific information about the fault.
+.sp
+.sS
+   \*Ltypedef struct {
+.nL
+       unsigned long    word[FLTSET_SZ];
+.nL
+   } fltset_t;\*O
+.sE
+.sp
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 5
+Out of the above set of hardware faults, the
+Alpha architecture only supports \*LFLTILL\*O, \*LFLTBPT\*O,
+\*LFLTIOVF\*O, \*LFLTIZDIV\*O, and \*LFLTPAGE\*O.  The complete
+list of faults supported by the Alpha architecture is in
+\*L/usr/include/machine/trap.h\*O.
+For some faults, the trap subcode must also be examined. This subcode
+is available in the \*LPR_SUBCODE\*O field of the \*LPRSTATUS\*O
+structure. The Alpha architecture does not allow the AST fault,
+\*T_AST\*O, to be traced.
+.sp 6p
+.rE
+.rE
+.PP
+\*LPIOCGFAULT\*O
+.rS
+The current traced fault set is returned in the
+\*Lfltset_t\*O structure which is pointed to by the \*Vp\*O argument.
+This structure must be manipulated by the \*Lprfillset\*O and related
+macros defined in \*L/usr/include/sys/procfs.h\*O.
+.rE
+.PP
+\*LPIOCCFAULT\*O
+.rS
+The current fault (if any) is cleared; the associated signal is
+not sent to the process.  This ioctl requires write access.
+.rE
+.SS System Call Interaction
+The following ioctls specify system call interaction.
+.VL 4m
+.LI "\*LPIOCSENTRY\*O"
+This ioctl instructs the process to stop on entry
+to the specified system calls.
+The set of syscalls to be
+traced is defined in the \*Lsysset_t\*O structure addressed by
+the \*Vp\*O argument.  See the \*LPIOCEXIT\*O ioctl for
+a description of the \*Lsysset_t\*O structure.  This ioctl
+requires write access.
+This structure must be manipulated using the \*Lprfillset\*O
+and related macros defined in \*L/usr/include/sys/procfs.h\*O.
+.sp
+When an entry to a system call is being traced, the traced
+process stops after beginning the call to the system.  The
+system call arguments have been fetched from the
+process but are still in the user saved registers and/or the
+user stack space.  Their location is architecture dependent.
+.LI "\*LPIOCSEXIT\*O"
+This ioctl instructs the process to stop on exit from the specified
+system calls.  The set of syscalls to be
+traced is defined in the \*Lsysset_t\*O structure addressed by
+the \*Vp\*O argument.  This ioctl requires write access.
+This structure must be manipulated using the \*LPRFILLSET\*O
+and related macros defined in \*L/usr/include/sys/procfs.h\*O.
+.sp
+When exit from a system call is being traced, the
+traced process stops on completion of the system call prior
+to checking for signals and returning to user level.  All
+return values are stored into the traced process's saved registers.
+.sp
+If the traced process is stopped on an entry to a system call
+by \*LPR_SYSENTRY\*O, or if it is in an interruptable system call with
+\*LPR_ASLEEP\*O set, it may be instructed to go directly to system call exit by
+specifying the \*LPRSABORT\*O flag in a \*LPIOCRUN\*O request. Unless exit
+from the system call is being traced, the process returns to the user
+level with the \*LEINTR\*O error.
+.sp
+.sS
+    \*Ltypedef struct {
+.nL
+            unsigned long    word[SYSSET_SZ];
+.nL
+    } sysset_t;\*O
+.sE
+.sp
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 10
+Because of the user level loader, it is not always
+possible to trace on exit from the \*Lexec\*O system call.  The
+\*LPIOCSSPCACT\*O ioctl must be used to trace on exit from the \*Lexec\*O
+system call.
+.sp 6p
+.rE
+.LI "\*LPIOCGENTRY\*O"
+This ioctl returns the entry of the currently traced system call in
+the \*Lsysset_t\*O structure pointed to by the \*Vp\*O argument.
+This structure must be interrogated using the \*Lprismember\*O
+and related macros defined in \*L/usr/include/sys/procfs.h\*O.
+.LI "\*LPIOCEXIT\*O"
+This ioctl returns the exit set of the currently traced system call
+in the \*Lsysset_t\*O structure pointed to by the \*Vp\*O argument.
+This structure must be interrogated using the \*Lprismember\*O
+and related macros defined in \*L/usr/include/sys/procfs.h\*O.
+.LE
+.SS Traced Process Control
+The following ioctls specify traced process control.
+.VL 4m
+.LI "\*LPIOCSFORK\*O"
+This ioctl sets the inherit-on-fork-flag in the traced process.  The
+tracing flag of a process are inherited by the child of a fork. This
+ioctl requires write access.
+.LI "\*LPIOCRFORK\*O"
+This ioctl turns the inherit-on-fork flag off.  Each child process starts
+with all tracing flags cleared.  This ioctl requires write access.
+.LE
+.SS General Registers
+The following ioctls are the general registers.
+.VL 4m
+.LI "\*LPIOCGREG\*O"
+This ioctl retrieves the registers of the saved process
+from the \*Lgregset_t\*O structure which is pointed by the \*Vp\*O
+argument.  The register contents are accessible using a set of
+predefined indices as described under the \*LPIOCSTATUS\*O
+ioctl.
+.sp
+The \*Lgregset_t\*O structure is described under the \*LPIOCSREG\*O
+ioctl.
+.LI "\*LPIOCSREG\*O"
+This ioctl sets the registers of the saved process
+in the \*Lgregset_t\*O structure pointed to by the \*V\*p\*O argument.
+It requires write access.  The register contents are accessible
+using a set of predefined indices as described under the \*LPIOCSTATUS\*O
+ioctl.  Only the condition-code and trace-enable bits of the processor-status
+word (PSW) can be modified by this ioctl.
+Other privileged registers cannot be modified at all.
+This ioctl fails with an \*LEBUSY\*O error if applied to a process
+that is not stopped on an event of interest.
+.sp
+.sS
+  \*Lstruct gregset {
+.nL
+               long    regs[PRC_NREGS];
+.nL
+  };
+  typedef struct gregset gregset_t;\*O
+.sE
+.IP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 5
+On some architectures, the processor status word (PSW)
+does not exist.  To use this ioctl, do the
+following: ensure that the traced process is stopped on a trace point,
+apply the \*LPIOCGREG\*O ioctl, modify the needed registers
+in the copy returned by the \*LPIOCGREG\*O ioctl, and then apply
+this ioctl.
+.sp 6p
+.rE
+.LI "\*LPIOCGFPREG\*O"
+This ioctl retrieves the floating-point registers of a saved process
+from the \*Lfpregset_t\*O structure pointed to by the \*Vp\*O
+argument.  The \*LEINVAL\*O error is returned if floating-point
+hardware is not present on the machine.
+.sp
+The \*Lfpregset_t\*O structure is displayed under the \*LPIOCSFPREG\*O
+ioctl.  Note that this ioctl is architecture dependent.
+.LI "\*LPIOCSFPREG*\*O"
+This ioctl sets the floating-point registers of a saved process
+in a \*Lfpregset_t\*O structure pointed to by the \*Vp\*O argument.
+It requires write access.
+The \*LEINVAL\*O error is returned if floating-point hardware is not
+present on the machine.  This ioctl fails with an \*LEBUSY\*O error if it is
+applied to a process that is not stopped on an event of interest.
+.sp/
+.sS
+  \*Lstruct fpregset {
+.nL
+                long    regs[PRC_NREGS];
+.nL
+  };
+.nL
+  typedef struct fpregset fpregset_t;\*O
+.sE
+.LE
+Note that this ioctl is architecture dependent.
+.SS Miscellaneous Requests
+The following ioctls perform a variety of requests.
+.PP
+\*LPIOCPSINFO\*O
+.rS
+This ioctl returns miscellaneous information about a process similar
+to the information returned by the \*Lps\*O command.  The \*Vp\*O argument
+is a pointer to a \*Lprpsinfo\*O structure containing at least the
+following fields:
+.sp
+.sS
+  \*Ltypedef struct prpsinfo  {
+.nL
+     char  pr_state:  /* numeric process state
+.nL
+                        (see pr_sname) */
+.nL
+     char  pr_sname;  /* printable character
+.nL
+                        representing pr_state */
+.nL
+     char  pr_zomb;   /* !=0: process terminated
+.nL
+                         but not waited for */
+.nL
+     char  pr_nice;   /* nice for cpu usage */
+.nL
+     u_long  pr_flag;    /* process flags */
+.nL
+     uid_t   pr_uid;     /* real user id */
+.nL
+     gid_t   pr_gid;     /* real group id */
+.nL
+     pid_t   pr_pid;     /* unique process id */
+.nL
+     pid_t   pr_ppid;    /* process id of parent*/
+.nL
+     pid_t   pr_pgrp:    /* process id of process
+.nL
+                            group leader */
+.nL
+     pid_t   pr_sid;     /* session id */
+.nL
+     caddr_t pr_addr; /*process physical address*/
+.nL
+     long   pr_size;  /* size of process image
+.nL
+                           in pages */
+.nL
+     long   pr_rssize;  /* resident set size
+.nL
+                           in pages */
+.nL
+     caddr_t  pr_wchan;   /* wait addr for sleeping
+.nL
+                             process */
+.nL
+     timestruc_t pr_start;   /* process start time,
+.nL
+                            sec+nsec since epoch */
+.nL
+     timestruc_t pr_time;  /* usr+sys time for this
+.nL
+                              process */
+.nL
+     long   pr_pri;     /* priority, high value is
+.nL
+                           high priority */
+.nL
+     char   pr_oldpri;  /* old style priority,
+.nL
+                      low value is high priority */
+.nL
+     char   pr_cpu;   * cpu usage for scheduling */
+.nL
+     dev_t  pr_ttydev;  /* controlling tty device
+.nL
+                           (PRNODEV if none) */
+.nL
+     char   pr_clname[8]; /*Scheduling class name*/
+.nL
+     char pr_fname[16];  /* last component of
+.nL
+                           execed pathname */
+.nL
+     char  pr_psargs[PRARGSIZ]; /* initial
+.nL
+                         characters of arg list */
+.nL
+     long  pr_filler[20]; /*for future expansion*/
+.nL
+  } prpsinfo_t;\*O
+.sE
+.sp
+Some fields in the \*Lprpsinfo\*O structure, such as the \*Lpr_state\*O and
+the \*Lpr_flag\*O fields, are system-specific and may not the same
+meaning on each version of the operating system.
+The \*Lpr_addr\*O field is not used.
+.sp
+\*LPIOCPSINFO\*O can be applied to a zombie process, but not all fields
+are filled in.
+.rE
+.br
+.ne 9P
+.PP
+\*LPIOCNMAP\*O
+.rS
+This operation, like the \*LPIOCMAP\*O ioctl, provides information
+about the memory mappings (virtual address ranges) associated with
+the traced process.  In the \*Lint\*O returned
+by the \*Vp\*O argument, this ioctl returns the number of mappings
+that are currently active. This information can be used to allocate
+storage that can be used with the \*LPIOCMAP\*O ioctl.
+.rE
+\*LPIOCMAP\*O
+.rS
+This memory mapping operation returns the list of currently active
+mappings. For \*LPIOCMAP\*O, the \*Vp\*O argument addresses an
+array of elements of type \*Lprmap_t\*O; one array element
+(structure) is returned for each mapping with an
+additional element that contains all zeroes to mark the end of the
+list.
+.sS
+  \*Ltypedef_t struct prmap  {
+.nL
+    caddr_t pr_vaddr; /* Virtual address base */
+.nL
+    u_long  pr_size; /* Size of mapping in bytes */
+.nL
+    off_t   pr_off; /* Offset into mapped object,
+.nL
+                       if any */
+.nL
+    long    pr_mflags; /* Protection and attribute
+.nL
+                          flags */
+.nL
+    long    pr_filler[4]; /* Filler for future
+.nL
+                             expansion */
+.nL
+  }  prmap_t;\*O
+.sE
+.sp
+The following list describes structure members:
+.ML
+.LI
+The \*Lpr_vaddr\*O contains the virtual address base (the
+lower limit) of the mapping within the traced process and the \*Lpr_size\*O
+field contains its size in bytes.  The \*Lpr_off\*O field specifies
+the offset within the mapped object (if any) to which the address
+base is mapped.
+.LI
+The \*Lpr_mflags\*O field is a bit-mask of protection and
+attribute flags as follows:
+.sp
+\*LMA_READ\*O specifies that mapping is readable by traced process
+.sp
+\*LMA_WRITE\*O specifies that mapping is writable by the traced process
+.sp
+\*LMA_EXEC\*O specifies that mapping is executable by the traced process
+.\" these 3 flags not supported in OSF/1 as per dave scoda 1/14/94
+.\".sp
+.\"\*LMA_SHARED\*O specifies that mapping changes are shared by the mapped object
+.\".sp
+.\"\*LMA_BREAK\*O specifies that mapping is grown by the \*Lbrk\*O system call
+.\".sp
+.\"\*LMA_STACK\*O specifies that mapping is grown automatically on stack faults
+.LE
+.sp
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.rS 15
+The \*LPIOCNMAP\*O ioctl must be called immediately before the \*LPIOCMAP\*O
+ioctl.
+.sp 6p
+.rE
+.rE
+.PP
+\*LPIOCOPENM\*O
+.rS
+If this ioctl is called with a NULL value for p, it returns a
+read-only file descriptor to the disk file from which the process
+was created.
+.sS
+new_fd = ioctl(fd, PIOCOPEM, NULL)
+.sE
+.rE
+.PP
+\*LPIOCCRED\*O
+.rS
+This operation obtains the set of credentials associated
+with the process.  The \*Vp\*O argument points to the \*Lprcred_t\*O
+structure where the information from this operation s is placed.
+The \*Lpr_ngroups\*O value determines the size
+of the field that the user must allocate and pass to the
+\*LPIOCGROUPS\*O ioctl.
+.sS
+ \*Ltypedef struct prcred   {
+.nL
+   uid_t  pr_euid; /*contains effective user id*/
+.nL
+   uid_t  pr_ruid;   /*contains real user id*/
+.nL
+   uid_t  pr_suid;   /*contains saved user id
+.nL
+                      (from exec)*/
+.nL
+   uid_t  pr_egid; /*contains effective group id*/
+.nL
+   uid_t  pr_rgid;   /*contains real group id*/
+.nL
+   uid_t  pr_sgid;   /*contains the saved group id
+.nL
+                      (from exec)*/
+.nL
+   u_int  pr_ngroups;  /*number of supplementary
+.nL
+                        groups*/
+.nL
+  }  prcred_t;\*O
+.sE
+.rE
+.PP
+\*LPIOCGROUPS\*O
+.rS
+Fetch the set of supplementary group IDs that are associated with the
+process. The \*Vp\*O argument points to an array of elements of
+type \*Luid_t\*O that are to be filled by the operation.
+Note that the \*LPIOCCRED\*O ioctl must be applied beforehand
+to determine the number
+of groups (\*Lpr_ngroups\*O) that are returned and the amount of storage
+that should be allocated to hold them.
+.rE
+.PP
+\*LPIOCGETPR\*O
+.rS
+This operation copies the \*Lproc structure\*O of the traced process
+into the buffer addressed by the \*Vp\*O argument.  It can be
+applied to a zombie process (see the \*LPIOCPSINFO\*O ioctl).
+.rE
+.PP
+\*LPIOCGETU\*O
+.rS
+This operation copies the user are of the traced process
+into the buffer addressed by the \*Vp\*O argument.
+Note that this ioctl returns \*LEINVAL\*O.
+In
+DEC OSF/1
+the \*Vu\*O area does
+not physically exist; it is dispersed throughout several other structures.
+.rE
+.SS Operating System Specific Ioctls
+The following ioctls have been created for use on
+DEC OSF/1 systems.
+.VL 4m
+.LI "\*LPIOCSSPCACT\*O"
+This IOCTL is referred to as "set special action" and requires write
+access.  It is used to enable or disable tracing
+of certain process control functions.  The \*Vp\*O argument contains a
+mask that consists of the following values (note that a zero value disables
+all tracing).  The \*Lpr_why\*O and \*Lpr_what\*O values are the same as
+those described under the \*LPIOCSTATUS\*O ioctl.
+.sp
+\*LPRFS_STOPEXEC\*O enables a trace on any exec call.  This causes a
+trace (or stop on event of interest) after the kernel
+exec routine  regardless of which actual system call (from
+any habitat) was invoked by the user code.
+.sp
+When the process stops, if a \*LPIOCSTATUS\*O IOCTL is applied,
+\*Lpr_flags\*O is set to \*LPR_STOPPED\*O and \*LPR_ISTOP\*O (if it is
+stopped on an event of interest).  The \*Lpr_why\*O field is set to
+\*LPR_SIGNALLED\*O and both \*Lpr_what\*O and \*Lpr_cursig\*O are
+set to \*LSIGTRAP\*O.
+.sp
+If a trace on signal \*LSIGTRAP\*O is not set, \*LPRFS_STOPEXEC\*O
+sets it and leaves it set.  \*LPRFS_STOPEXEC\*O causes the process to
+stop in user contenxt.  To continue, issue a \*LPIOCRUN\*O ioctl with
+\*LPRCSIG\*O set in the \*Lpr_flags\*O field of \*Lprrun\*O
+structure.
+.sp
+.\" this is placed here with the hope it is in the right place,ask scoda
+The stop on exec function is intended to be used by a parent that needs
+to get control of a child process before the child has begun to execute
+any user code. This function is usually used as follows:
+.AL
+.LI
+The parent opens itself with \*L\/proc\*O, sets \*LPRFS_STOPEXEC\*O and
+also sets \*Linherit-on-fork\*O using the \*LPIOCSFORK\*O ioctl,
+then forks a child which in turn calls \*Lexec(\|)\*O.
+.LI
+The parent waits for the child to stop on signal \*LSIGTRAP\*O. The
+parent must then clear its signal trace map, and \*LPRFS_STOPEXEC\*O,
+and close itself.
+.LI
+The child can then be handled as explained above depending on whether
+or not it is being loaded with the user level loader.
+.LE
+.sp
+If the user level loader is invoked by \*Lexec(\|)\*O, a stop will
+occur in the context of the loader.  None of the expected user program
+text addresses will be valid.  Issuing a \*LPIOCRUN\*O ioctl with
+\*lprrun.pr_flags\*O set to \*LPRCSIG\*O will allow the user level
+loader to run the completion.  A second stop will now occur in the
+context of the actual user program.  At this time, any additional
+tracing flags or breakpoints may be set.  A \*LPIOCRUN\*O ioctl
+with \*Lprrun.pr_flags\*O set to \*LPRCSIG\*O should be issued when
+the user program is started.
+.sp
+\*LPRFS_STOPTERM\*O enables a trace on a task terminate.  This causes a
+trace (stop on event of interest) to occur when the task, or process, is
+in the process of terminating.
+.LI "\*LPIOCGSPCACT\*O"
+This IOCTL is referred to as "get special actions".  It
+is used to return, in the address pointed to by the \*Vp\*O argument,
+the latest mask value that was set by the \*LPIOCSSPCACT\*O ioctl.
+User code can invoke this ioctl to get the current mask setting.
+It can then \*LOR\*O in bits to be set, and/or \*LAND\*O out bits to
+be cleared; the \*LPIOCSSPCACT\*O can then be called with the modified
+mask to affect the desired change in tracing.
+.sp
+The \*Lselect\*O(2) system call can be used with files that have been
+opened using \*L/proc\*O with some restrictions.  The \*Lselect\*O
+parameters are as follows:
+.sp
+.sS
+\*Lselect(fd_set *readfds, fd_set
+.nL
+    *writefds, fd_set *exceptfds,
+.nL
+    struct  timeval  *timeout)\*O
+.sE
+.sp
+As restrictions, \*Lreadfds\*O and \*Lwritefds\*O must be NULL,
+\*Lexceptfds\*O must be a valid pointer, and \*Ltimeout\*O must
+be a valid pointer\*O.
+.sp
+The \*Lexceptfds\*O paramater is used to specify which file descriptors
+are to be checked.  A positive indication is returned if the process,
+corresponding to the open file descriptor, has stopped on an event of
+interest.  (That is, a \*LPIOCSTATUS\*O ioctl would return
+\*Lprstatus.pr_flags\*O with \*LPR_ISTOP\*O set.
+.sp
+The \*Ltimeout\*O structure pointed to by \*Ltimeout\*O can contain
+either a NULL value (which causes the \*Lselect\*O to behave in
+a "polling" mode) or \*Ltimeout\*O value.  Any \*Otimeout\*O value
+should be kept very small.  The logical behavior of \*Lselect\*O(2) with
+a \*Ltimeout\*O value is: if the first specified process is not
+stopped on an event of interest, delay for the \*Ltimeout\*O
+value, and then check the next process.  When all specified processes
+have been checked, return the modified \*Lexceptfds\*O to the user.
+.LE
+.SH FILES
+.PP
+.VL 11m
+.LI "\*L/proc\*O"
+Contains the directory listing of active processes
+.LI "\*L/proc/\*O\*Vnnnnn\*O"
+Contains the process image
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lopen\*O(2), \*Lptrace\*O(2), \*Lsigaction\*O(2),
+\*Lsignal\*O(2).
+.EQ
+delim off
+.EN

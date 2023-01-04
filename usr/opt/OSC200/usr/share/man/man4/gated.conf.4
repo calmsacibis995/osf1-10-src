@@ -1,0 +1,935 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: gated.conf.4,v $ $Revision: 3.2.7.2 $ (DEC) $Date: 1993/12/16 17:41:02 $
+.\" 
+...\"
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\"
+.TH gated.conf 4
+.SH NAME
+.PP
+\*Lgated.conf\*O \- Contains configuration information for the \*Lgated \*Odaemon
+.SH SYNOPSIS
+.PP
+.iX "gated.conf"
+.iX "file" "gated daemon"
+.iX "gated daemon"
+.iX "daemon" "gated"
+.sS
+\*L/etc/gated.conf
+.sE
+.SH DESCRIPTION
+.PP
+The \*L/etc/gated.conf\*O file contains configuration information
+that is read by the
+\*Lgated\*O daemon at initialization
+time. This file contains stanzas that
+control tracing options, select routing protocols, manage routing information,
+and manage independent system routing.
+.PP
+Stanzas can appear in any order in the \*Lgated.conf\*O file.
+The following sections describe the format of each stanza.
+.SS Controlling Trace Output
+The option that controls trace output is read during the initialization
+of the \*Lgated\*O daemon and whenever the \*Lgated\*O daemon receives a
+\*LSIGHUP\*O signal. This
+option is overridden at initialization time if trace flags are specified
+to the \*Lgated\*O daemon on the command line.
+.PP
+The \*Ltraceflags\*O stanza is in the following format;
+it tells the \*Lgated\*O daemon what level of trace output you want.
+.iS
+traceflags \*VFlag\*O [\*VFlag Flag\*O \&...]
+.iE
+.PP
+The valid flags for tracing are as follows:
+.VL 4m
+.LI "\*Linternal\*O"
+Logs all internal errors and interior routing
+errors
+.LI "\*Lexternal\*O"
+Logs all external errors due to Exterior Gateway Protocol (EGP), exterior
+routing errors, and EGP state changes
+.LI "\*Lroute\*O"
+Logs all routing changes
+.LI "\*Legp\*O"
+Traces all EGP packets sent and received
+.LI "\*Lupdate\*O"
+Logs all routing updates sent
+.LI "\*Lrip\*O"
+Traces all Routing Information Protocol (RIP) packets received
+.LI "\*Lhello\*O"
+Traces all HELLO packets received
+.LI "\*Ltimestamp\*O"
+Prints a timestamp to the log file every 10
+minutes
+.LI "\*Lgeneral\*O"
+Combines the \*Linternal\*O, \*Lexternal\*O,\*L
+route\*O, and \*Legp\*O flags
+.LI "\*Lall\*O"
+Enables all of the listed trace flags
+.LE
+.PP
+If more than one \*Ltraceflags\*O stanza is used, the trace
+flags specified in all stanzas are enabled.
+.SS "Selecting Routing Protocols"
+This section explains the configuration options for routing protocols.
+These options provide the
+\*Lgated\*O daemon with
+instructions on how to manage routing for each protocol.
+.PP
+All references to point-to-point interfaces
+in the \*Lgated\*O configuration file must use the address specified
+by the \*VDestination\*O parameter.
+.PP
+\f(HBUsing the gated Daemon with the RIP Protocol\fP
+.PP
+The following stanza tells the \*Lgated\*O daemon how to
+perform the RIP routing protocol.
+.iS
+RIP \*VArgument\*O
+.iE
+Only one of the following RIP \*VArguments\*O is allowed after
+the \*LRIP\*O keyword. Since only the first argument is recognized
+if more than one is specified, choose the argument that describes
+the type of RIP routing you need.
+A list of the arguments to the \*LRIP\*O stanza follows:
+.VL 4m
+.LI "\*Lyes\*O"
+Performs the RIP protocol, processing all incoming
+RIP packets and supplying RIP information every 30 seconds only if
+there are two or more network interfaces.
+.LI "\*Lno\*O"
+Specifies that the RIP protocol not be performed.
+.LI "\*Lsupplier\*O"
+Performs the RIP protocol, processing all incoming
+RIP packets and forcing the supply of RIP information every 30 seconds
+no matter how many network interfaces are present.
+.LI "\*Lpointopoint\*O"
+Performs the RIP protocol, processing all
+incoming RIP packets and forcing the supply of RIP information every
+30 seconds no matter how many network interfaces are present. When
+this argument is specified, RIP information is not sent out in a broadcast
+packet. The RIP information is sent directly to the gateways listed
+in the \*Lsourceripgateways\*O stanza.
+.LI "\*Lquiet\*O"
+Processes all incoming RIP packets, but does not
+supply any RIP information no matter how many network interfaces are
+present.
+.LI "\*Lgateway \*VHopCount\*O"
+Processes all incoming RIP
+packets, supplying RIP information every 30 seconds and announcing
+the default route (network 0.0.0.0) with a metric specified by the
+\*VHopCount\*O variable. The metric should be specified in a value
+that represents
+a RIP hop count.
+.LE
+.PP
+With this option set, all other default routes coming from other
+RIP gateways are ignored. The default route is only announced when
+actively peering with at least one EGP
+neighbor and therefore should
+only be used when EGP is used.
+.PP
+If no \*LRIP\*O stanza is specified, RIP routing is not performed.
+.PP
+\f(HBUsing the gated Daemon with the HELLO Protocol\fP
+.PP
+The following stanza configures the Defense Communications Network
+Local Network Protocol (HELLO) routing protocol
+for the \*Lgated\*O  daemon:
+.iS
+HELLO \*VArgument\*O
+.iE
+The \*VArgument \*Ovariable parallels the RIP arguments, with
+some minor differences.
+.PP
+As with RIP, only one of the following HELLO \*VArguments\*O
+is allowed after the \*LHELLO\*O keyword. Since only the first
+argument is recognized if more than one is specified, choose the argument
+that describes the type of RIP routing you need.
+.PP
+A list of the arguments to the \*LHELLO\*O stanza follows:
+.VL 4m
+.LI "\*Lyes\*O"
+Performs the HELLO protocol, processing all incoming
+HELLO packets and supplying HELLO information every 15 seconds only
+if there are two or more network interfaces.
+.LI "\*Lno\*O"
+Specifies that this gateway does not perform the HELLO
+protocol.
+.LI "\*Lsupplier\*O"
+Performs the HELLO protocol, processing all
+incoming HELLO packets and forcing a supply of HELLO information every
+15 seconds no matter how many network interfaces are present.
+.LI "\*Lpointopoint\*O"
+Performs the HELLO protocol, processing all
+incoming HELLO packets and forcing a supply of HELLO information every
+15 seconds no matter how many network interfaces are present.
+.IP
+When this argument is specified, HELLO information is not sent
+out in a broadcast packet. The HELLO information is sent directly
+to the gateways listed in the \*Lsourcehellogateways\*O
+stanza.
+.LI "\*Lquiet\*O"
+Processes all incoming HELLO packets, but does
+not supply any HELLO information regardless of the number of network
+interfaces present.
+.LI "\*Lgateway \*VMilliSeconds\*O"
+Processes all incoming HELLO
+packets, supplying HELLO information every 15 seconds and announcing
+the default route (network 0.0.0.0) with a time delay specified by the
+\*VMilliSeconds\*O variable. The time delay should be a numeric value
+specified in milliseconds.
+.LE
+.PP
+The default route is only announced when actively peering with
+at least one EGP neighbor.  Therefore, this stanza should only be
+used when running EGP.
+.PP
+If no \*LHELLO\*O stanza is specified, HELLO routing is not
+performed.
+.PP
+\f(HBUsing the gated Daemon with the EGP Protocol\fP
+.PP
+The following stanzas specify the information necessary for the
+\*Lgated\*O  daemon to use EGP.
+.VL 4m
+.LI "\*LEGP yes | no \*O"
+This stanza allows the processing of EGP by the \*Lgated\*O daemon to
+be turned on or off. The arguments are interpreted as follows:
+.VL 4m
+.LI "\*Lyes\*O"
+Performs all EGP operations.
+.LI "\*Lno\*O"
+Specifies that no EGP processing should be performed.
+.IP
+Note that EGP processing takes place by default.  If no \*LEGP\*O
+stanza is specified, all EGP operations take place.
+.LE
+.LI "\*Lautonomous system\*O"
+When the \*Lgated\*O daemon performs the EGP protocol, this stanza
+must be used to
+specify the independent (autonomous) system number. If this number
+is not specified, the \*Lgated\*O daemon exits immediately with
+an error message.
+.LI "\*Legpmaxacquire\*O" \*VNumber\*O
+When the \*Lgated\*O daemon performs the EGP protocol,
+this stanza specifies the number of EGP
+peers with whom the \*Lgated\*O daemon performs EGP. The \*VNumber\*O
+variable must be a value greater than zero and less than or equal to
+the number of EGP neighbors specified, or the \*Lgated\*O daemon
+exits immediately. If this stanza is omitted, all EGP neighbors are
+acquired.
+.LE
+.PP
+When the \*Lgated\*O daemon performs the EGP protocol, this
+stanza specifies with whom the \*Lgated\*O daemon is to perform
+EGP.  The gateway specified by the\*V Gateway\*O variable can be
+either a host address in Internet dotted-decimal notation or a symbolic
+name from the\*L /etc/hosts \*Ofile.
+.PP
+Each EGP neighbor should have its own\*L egpneighbor\*O stanza
+and is acquired in the order listed in the \*Lgated.conf\*O file.
+.PP
+The arguments to the \*Legpmaxacquire\*VNumber\*O stanza have
+the following definitions:
+.VL 4m
+.LI "\*Lmetricin \*VDelay\*O"
+Specifies the internal time delay
+to be used as a metric for all of the routes learned from this neighbor.
+The \*VDelay\*O variable should be specified as a time delay from
+0 to 30,000. If this keyword and the \*Lvalidate\*O keyword are
+not used, the internal metric used is the EGP distance multiplied
+by 100.
+.LI "\*Legpmetricout \*VEGPMetric\*O"
+Sets the EGP distance used
+for all networks advertised to this neighbor. The \*VEGPMetric\*O variable
+should be specified as an EGP distance in the range of 0 to 255. If
+this keyword is not specified, the internal time delay for each route
+is converted to an EGP distance divided by 100, with distances
+greater than 255 being set to 255.
+.LI "\*LASin \*VAutonomousSystem\*O"
+Verifies the autonomous
+system number of this neighbor. If the \*VAutonomousSystem\*O number
+specified in neighbor acquisition packets does not verify, an error
+message is generated refusing the connection. If this keyword is not
+specified, no verification of autonomous system numbers is done.
+.LI "\*LASout \*VAutonomousSystem\*O"
+Specifies the autonomous
+system number in EGP packets sent to this neighbor. If an \*LASout\*O
+stanza is not specified, the\*V AutonomousSystem\*O number specified
+in the \*Lautonomoussystem \*Ostanza is used. This stanza is reserved
+for a special situation that occurs between the ARPANET network and
+National Science Foundation (NSF)
+networks, and is not normally used.
+.LI "\*Lnogendefault\*O"
+Specifies that this neighbor should
+not be considered for the internal generation of a default when the \*LRIP
+gateway\*O or the\*L HELLO gateway \*Oargument is used. If not
+specified, the internal default is generated when actively peering
+with this neighbor.
+.LI "\*Lacceptdefault\*O"
+Indicates that the default route (network 0.0.0.0) should
+be considered valid when received from this neighbor.
+If this keyword is not specified, on reception of the default route,
+the \*Lgated\*O daemon displays a warning message and ignores the
+route.
+.LI "\*Ldefaultout \*VEGPMetric\*O"
+Specifies that the internally
+generated default may be passed to this EGP neighbor at the specified
+distance. The distance should be specified as an EGP distance from
+0 to 255. A default route learned from another gateway is not propagated
+to an EGP neighbor.
+.IP
+Without this keyword, no default route is passed through EGP.
+The \*Lacceptdefault\*O keyword should not be specified when
+the \*Ldefaultout\*O
+keyword is used.  The EGP metric specified in the \*Legpmetricout\*O
+keyword does not apply when the\*L defaultout\*O keyword is used.
+The default route always uses the metric specified by the \*Ldefaultout\*O
+keyword.
+.LI "\*Lvalidate\*O"
+Specifies that all networks received from this
+EGP neighbor must be defined in a \*LvalidAS\*O stanza that also
+specifies the autonomous system of this neighbor. Networks without
+a \*LvalidAS\*O stanza are ignored after a warning message is printed.
+.LI "\*Lintf \*VInterface\*O"
+Defines the interface used to
+send EGP packets to this neighbor. This keyword is only used when
+there is no common net or subnet with this EGP neighbor. This keyword
+is present for testing purposes and does not imply correct operation
+when peering with an EGP neighbor that does not share a common net
+or subnet.
+.LI "\*Lsourcenet \*VNetwork\*O"
+Specifies the source network
+to be used in EGP poll packets sent to this neighbor. If this keyword
+is not specified, the network (not subnet) of the interface used to
+communicate with this neighbor is used. This keyword is present for
+testing purposes and does not imply correct operation when used.
+.LE
+.SS Managing Routing Information
+The following configuration file stanzas determine how the \*Lgated\*O
+daemon handles both incoming and outgoing routing information.
+.PP
+\f(HBSpecifying RIP or HELLO Gateways to Which the gated Daemon Listens\fP
+.PP
+When the following stanzas are specified, the \*Lgated\*O daemon only listens
+to RIP or HELLO information, respectively, from these RIP or HELLO
+gateways:
+.iS
+trustedripgateways\*O \*VGateway\*O [\*VGateway\*O \*VGateway\*O \&...]
+trustedhellogateways\*O \*VGateway\*O [\*VGateway\*O \*VGateway\*O \&...]
+.iE
+.PP
+The \*VGateway\*O variable may be either an Internet address
+in dotted-decimal notation, which avoids confusion, or a symbolic
+name from\*L \*Othe \*L/etc/hosts\*O file.  Note that the propagation
+of routing information is not restricted by this stanza.
+.PP
+\f(HBSpecifying Gateways for the gated Daemon to Send RIP or HELLO Information\fP
+.PP
+With the following stanzas, the \*Lgated\*O daemon sends RIP
+or HELLO information directly to the gateways specified:
+.iS
+sourceripgateways\*O \*VGateway\*O [\*VGateway\*O \*VGateway\*O \&...]
+sourcehellogateways\*O \*VGateway\*O [\*VGateway\*O \*VGateway\*O \&...]
+.iE
+.PP
+If the \*Lpointopoint\*O argument is specified in the \*LRIP\*O
+or \*LHELLO\*O stanzas defined earlier, the \*Lgated\*O daemon
+sends only RIP or HELLO information to the specified gateways and
+does \*Vnot\*O send out any information using the broadcast address.
+.PP
+If the \*Lpointopoint\*O argument is not specified in those
+stanzas and the \*Lgated\*O daemon is supplying RIP or HELLO information,
+the \*Lgated\*O daemon sends information to the specified gateways
+and also broadcasts information using a broadcast address.
+.PP
+\f(HBTurning Routing Protocols On and Off by Interface\fP
+.PP
+The following stanzas turn routing protocols on and off by interface:
+.iS
+noripoutinterface\*O \*VInterfaceAddress\*O 
+                    [\*VInterfaceAddressInterfaceAddress\*O \&...]
+nohellooutinterface\*O \*VInterfaceAddress\*O 
+                    [\*VInterfaceAddressInterfaceAddress\*O \&...]
+noripfrominterface\*O \*VInterfaceAddress\*O 
+                    [\*VInterfaceAddress\*VInterfaceAddress\*O \&...]
+nohellofrominterface\*O \*VInterfaceAddress\*O 
+                    [\*VInterfaceAddress\*VInterfaceAddress\*O \&...]
+.iE
+.PP
+A \*Lnoripfrominterface\*O or \*Lnohellofrominterface\*O
+stanza means that no RIP or HELLO information is accepted coming into
+the listed interfaces from another gateway.
+.PP
+A \*Lnoripoutinterface\*O or \*Lnohellooutinterface\*O stanza
+means that no RIP or HELLO knowledge is sent out of the listed interfaces.
+The \*VInterfaceAddress\*O variable should be an Internet address
+in dotted-decimal notation.
+.PP
+\f(HBStopping the gated Daemon from Timing Out Interfaces\fP
+.PP
+The following stanza stops the \*Lgated\*O daemon from timing
+out the interfaces whose addresses are listed in Internet dotted-decimal
+notation by the\*V InterfaceAddress\*O arguments. These interfaces
+are always considered up and working.
+.iS
+passiveinterfaces\*O \*VInterfaceAddress\*O 
+                    [\*VInterfaceAddressInterfaceAddress\&... \*O]
+.iE
+.PP
+This stanza is used because the \*Lgated\*O daemon times out
+an interface when no RIP, HELLO, or EGP packets are being received
+on that particular interface, in order to dynamically determine if
+an interface is functioning properly.
+.PP
+Packet Switch Node (PSN) interfaces send a RIP or HELLO packet to themselves to
+determine if the interface is properly functioning, since the delay
+between EGP packets may be longer than the interface time-out. Interfaces
+that have timed out automatically have their routes reinstalled when
+routing information is again received over the interface.
+.PP
+If the \*Lgated\*O daemon is not a RIP or HELLO supplier, no
+interfaces are aged and the \*Lpassiveinterfaces\*O stanza automatically
+applies to all interfaces.
+.PP
+\f(HBSpecifying an Interface Metric\fP
+.PP
+The following stanza allows the specification of an interface
+metric for the listed interface:
+.iS
+interfacemetric\*O \*VInterfaceAddress\*O \*VMetric\*O
+.iE
+.PP
+On systems that support interface metrics, this stanza overrides
+the kernel's metric. On systems that do not support an interface metric,
+this feature allows one to be specified.
+.PP
+The interface metric is added to the true metric of each route
+that comes in with routing information from the listed interface.
+The interface metric is also added to the true metric of any information
+sent out through the listed interface. The metric of directly attached
+interfaces is also set to the interface metric, and routing information
+broadcast about directly attached networks is based on the interface metric
+specified.
+.PP
+The \*Linterfacemetric\*O stanza is required for each interface
+on which an interface metric is desired.
+.PP
+\f(HBProviding Hooks for Fallback Routing\fP
+.PP
+The following stanza provides hooks for fallback routing in the
+\*Lgated\*O daemon:
+.iS
+reconstmetric\*O \*VInterfaceAddress\*O \*VMetric\*O
+.iE
+.PP
+If this stanza is used, the metrics of the routes contained in
+any RIP information coming into the listed interface are set to the
+metric specified by the\*V Metric \*Ovariable. Metric reconstitution
+should be used carefully, since it could be a major contributor in
+the formation of routing loops. Any route that has a metric of infinity
+is not reconstituted and is left as infinity.
+.PP
+Note that the \*Lreconstmetric\*O stanza should
+be used with extreme caution.
+.PP
+The following stanza also provides hooks for fallback routing
+for the \*Lgated \*Odaemon:
+.iS
+fixedmetric\*O \*VInterfaceAddress\*O \*VProtocol\*O \*Lrip\*O | \*Lhello\*O \*VMetric\*O
+.iE
+.PP
+If this stanza is used, all routing information sent out by the
+specified interface has a metric specified by the \*VMetric \*Ovariable.
+For RIP, specify the metric as a RIP hop count from 0 to infinity.
+For HELLO, specify the metric as a HELLO delay in milliseconds from
+0 to infinity. Any route that has a metric of infinity is left as
+infinity.
+.PP
+Note that fixed metrics should be used with extreme caution.
+.PP
+\f(HBSpecifying Information to Be Ignored\fP
+.PP
+The following stanza indicates that any information regarding
+the \*VNetwork\*O variable that comes in by means of the specified
+protocols\*V \*Oand from the specified interfaces is ignored:
+.iS
+donotlisten\*O \*VNetwork\*O \*Lintf\*O \*VAddress\*O [\*VAddress\&... \*O] \*Lproto\*O \*Lrip\*O | \*Lhello
+donotlistenhost\*O \*VHost\*O \*Lintf\*O \*VAddress\*O [\*VAddress\&... \*O] \*Lproto\*O \*Lrip\*O | \*Lhello\*O
+.iE
+.PP
+The \*Ldonotlisten\*O stanza contains the following information:
+the keyword \*Ldonotlisten\*O, followed by a network number specified
+by the \*VNetwork\*O variable, which should be in dotted-decimal
+notation, followed by the\*L intf \*Okeyword.  Next is a list of
+interfaces in dotted-decimal notation, then the\*L proto \*Okeyword,
+followed by the\*L rip\*O or \*Lhello \*Okeyword.
+.PP
+The \*Lall \*Okeyword can be used after the \*Lintf\*O keyword
+to specify all interfaces on the system. For example:
+.iS
+donotlisten 10.0.0.0 intf 128.84.253.200 proto rip
+.iE
+.PP
+means that any RIP information about network \*L10.0.0.0\*O
+coming in by interface \*L128.84.253.200\*O will be ignored.
+One stanza is required for each network on which this restriction
+is desired.  In addition:
+.iS
+donotlisten 26.0.0.0 intf all proto rip hello
+.iE
+.PP
+means that any RIP and HELLO information about network \*L26.0.0.0\*O
+coming in through any interface is ignored.
+.PP
+The \*Ldonotlistenhost\*O stanza is defined in the same way,
+except that a host address is provided instead of a network address.
+Restrictions on routing updates are applied to the specified host
+route learned through the specified routing or protocols.
+.PP
+\f(HBSpecifying Network or Host Information to Which the gated Daemon Listens\fP
+.PP
+The following stanzas indicate that the \*Lgated\*O daemon
+should listen to specified protocols and gateways:
+.iS
+listen\*O \*VNetwork\*O \*Lgateway\*O \*VAddress\*O [\*VAddress\&... \*O] \*Lproto\*O \*Lrip\*O | \*Lhello
+listenhost\*O \*VHost\*O \*Lgateway\*O \*VAddress\*O [\*VAddress\&... \*O] \*Lproto\*O \*Lrip\*O | \*Lhello\*O
+.iE
+.PP
+The \*Llisten\*O and \*Llistenhost\*O stanzas specify to
+listen only to information about a network or host on the specified
+protocol or protocols and from the listed gateways.
+.PP
+These stanzas read as follows: the \*Llisten\*O or\*L listenhost\*O
+keyword is followed by a network or host address, respectively,
+in dotted-decimal notation.  Next is the \*Lgateway\*O keyword
+with a list of gateways in dotted-decimal notation, and then the \*Lproto\*O
+keyword followed by\*L \*Othe \*Lrip\*O or \*Lhello\*O
+keyword.  For example:
+.iS
+listen 128.84.0.0 gateway 128.84.253.3 proto hello\*O
+.iE
+.PP
+indicates that any HELLO information about network \*L128.84\*O
+that comes in through gateway \*L128.84.253.3\*O is accepted.
+Any other information about network \*L128.84\*O from any other
+gateway is rejected.  One stanza is needed for each net to be restricted.
+.PP
+Also, the stanza:
+.iS
+listenhost 26.0.0.15 gateway 128.84.253.3 proto rip\*O
+.iE
+.PP
+means that any information about host \*L26.0.0.15\*O must
+come through RIP from gateway \*L128.84.253.3\*O. All other information
+regarding this host is ignored.
+.PP
+\f(HBRestricting Announcements of Networks and Hosts\fP
+.PP
+The following stanzas allow restriction of the networks and hosts
+that are announced and the protocols that announce them:
+.iS
+announce\*O \*VNetwork\*O \*VInterfaceAddress\*O [\*VAddress\&... \*O]
+                         \*VProtocol\*O \*VType\*O [\*VEGPMetric\*O]
+announcehost\*O \*VHost\*O \*VInterfaceAddress\*O \*VProtocol\*O
+                         \*VType\*O [\*VEGPMetric\*O]
+noannounce\*O \*VNetwork\*O \*VInterfaceAddress\*O [\*VAddress\ \&.\ .\ .\ \*O]
+                         \*VProtocol\*O \*VType\*O [\*VEGPMetric\*O]
+noannouncehost\*O \*VHost\*O \*VInterfaceAddress\*O \*VProtocol\*O
+                         \*VType\*O [\*VEGPMetric\*O]
+.iE
+.PP
+The \*Lannounce{host}\*O and \*Lnoannounce{host}\*O stanzas cannot be
+used together on the same interface. With
+the \*Lannounce{host}\*O stanza, the \*Lgated\*O daemon
+only announces the networks or hosts that have an associated\*L announce\*O
+or \*Lannouncehost\*O stanza with the appropriate protocol.
+.PP
+With the \*Lnoannounce{host}\*O stanza, the \*Lgated\*O
+daemon announces everything, except those networks or hosts that
+have an associated \*Lnoannounce\*O or \*Lnoannouncehost\*O
+stanza. These stanzas provide a choice of announcing only what is
+on the announce list or everything, except those networks on the
+\*Lnoannounce\*O list on an individual basis.
+.PP
+The arguments are the same as in the \*Ldonotlisten\*O stanza,
+except that \*Legp\*O may be specified in the \*VProto\*O field.
+The \*VType\*O can be \*Lrip\*O, \*Lhello\*O,\*L egp\*O,
+or any combination of the three.
+When \*Legp\*O is specified in the \*VProto\*O field,
+an EGP metric must be specified.  This is the metric at which the
+\*Lgated \*Odaemon announces the listed network through EGP.
+.PP
+\*ONote that these are not static route entries.  These restrictions
+only apply if the network or host is learned through one of the routing
+protocols.  If a restricted network suddenly becomes unreachable and
+goes away, announcement of this network stops until it is learned again.
+.PP
+Only one \*Lannounce{host}\*O or \*Lnoannounce{host}\*O stanza may
+be specified for each network or host.  A network
+or host cannot, for instance, be announced through HELLO for one interface
+and through RIP for another.
+.PP
+Some sample \*Lannounce\*O stanzas might include:
+.oS
+announce 128.84 intf all proto rip hello egp egpmetric 0
+announce 10.0.0.0 intf all proto rip
+announce 0.0.0.0 intf 128.84.253.200 proto rip
+announce 35.0.0.0 intf all proto rip egp egpmetric 3
+.oE
+.PP
+With only these four \*Lannounce\*O stanzas in the configuration
+file, the \*Lgated\*O process only announces these four networks.
+Network \*L.84.0.0\*O is announced through RIP and HELLO to
+all interfaces and through EGP with a metric of 0 (zero).
+Network \*L.0.0.0\*O is announced through RIP to all interfaces.
+.PP
+Network \*L0.0.0.0\*O (default) is announced by RIP through interface \*L128.84.253.200\*O
+only.  Network \*L35.0.0.0\*O is
+announced through RIP to all interfaces and announced through EGP
+with a metric of 3. These are the only networks that are broadcast
+by this gateway.
+.PP
+Once the first \*Lannounce\*O stanza is specified, only the
+networks with \*Lannounce\*O stanzas are broadcast, including local
+subnetworks.  Once an \*Lannounce\*O{\*Lhost\*O} or\*L
+noannounce\*O{\*Lhost\*O}
+stanza has an \*Lall\*O keyword specified after
+an \*Lintf\*O keyword, that stanza is applied globally and the
+option of having individual interface restrictions is lost.
+.PP
+If no routing announcement restrictions are desired, \*Lannounce\*O
+stanzas should not be used.  All information learned is then propagated
+out.  That announcement has no affect on the information to which
+the \*Lgated \*Odaemon listens.
+.PP
+Any network that does not have an\*L announce\*O stanza is
+still added to the kernel routing tables, but it is not announced
+through any of the routing protocols.  To stop networks from being
+added to the kernel, the\*L donotlisten\*O stanza may be used.
+.PP
+As another example:
+.iS
+announce 128.84 intf 128.59.2.1 proto rip
+noannounce 128.84 intf 128.59.1.1 proto rip
+.iE
+.PP
+indicates that on interface \*L128.59.2.1\*O, only information
+about network \*L128.84.0.0\*O is announced through RIP, but on
+interface \*L128.59.1.1\*O, all information is announced, except
+\*L128.84.0.0\*O through RIP.
+.PP
+The stanzas:
+.iS
+noannounce 128.84 intf all proto rip hello egp egpmetric 0
+noannounce 10.0.0.0 intf all proto hello
+.iE
+.PP
+mean that except for the two specified networks, all networks are
+propagated.  Specifically, network \*L128.84.0.0\*O is not announced
+on any interface through any protocols.  Knowledge of network \*L128.84.0.0\*O
+is not sent anywhere.  Network \*L10.0.0.0\*O is not
+announced through HELLO to any interface.
+.PP
+The second stanza also implies that network \*L10.0.0.0\*O
+is announced to every interface through RIP.  This network is also broadcast
+through EGP with the metric specified in the \*Ldefaultegpmetric\*O
+stanza.
+.PP
+\f(HBDefining a Default EGP Metric\fP
+.PP
+The following stanza defines a default EGP metric to use when there are
+no routing restrictions:
+.iS
+defaultegpmetric\*O \*VNumber\*O
+.iE
+Without routing restrictions, the \*Lgated\*O daemon
+announces all networks learned through HELLO or RIP through EGP with
+this specified default EGP metric.  If this stanza is not used, the
+default EGP metric is set to 255, which causes any EGP advertised
+route of this nature to be ignored.
+.PP
+When there are no routing restrictions, any network with a direct
+interface is announced through EGP with a metric of 0 (zero).  Note that
+this does not include subnetworks, but only the nonsubnetworked network.
+.PP
+\f(HBDefining a Default Gateway\fP
+.PP
+The following stanza defines a default gateway, which is installed
+in the kernel routing tables during initialization and reinstalled
+whenever information about the default route is lost:
+.br
+.ne 9P
+.iS
+defaultgateway\*O \*VGateway\*O [\*VMetric\*O] \*VProtocol\*O
+                                   [\*Lactive\*O | \*Lpassive\*O]
+.iE
+.PP
+This route is installed with a time delay equivalent to a RIP
+metric of 15, unless another metric is specified with the\*V Metric\*O
+variable.
+.PP
+If the \*LRIP gateway\*O or \*LHELLO gateway\*O is in use, this
+default route is deleted.
+.PP
+An \*Lactive\*O default route is overridden by any other default
+route learned through another routing protocol.  A\*L passive\*O
+default route is only overridden by a default route with a lower metric.
+In addition, an \*Lactive\*O default route is not propagated in
+routing updates, while a \*Lpassive\*O default route is propagated.
+.PP
+The gateway specified by the \*VGateway\*O variable should
+be an address in Internet dotted-decimal notation.  The \*VMetric\*O
+variable is optional and should be a time delay from 0 to 30,000.
+If a \*VMetric\*O is not specified, a time delay equivalent to
+a RIP metric of 15 is used.
+.PP
+The \*VProtocol\*O variable should be either \*Lrip\*O, \*Legp\*O,
+or \*Lhello\*O.  The \*VProtocol\*O variable initializes
+the protocol by which the route was learned. In this case the \*VProtocol\*O
+variable is unused but remains for consistency.
+.PP
+\f(HBInstalling a Static Route\fP
+.PP
+The following stanzas install static routes:
+.iS
+net\*O \*VNetworkAddress\*O \*Lgateway\*O \*VAddress\*O \*Lmetric\*O \*VHopCount\*O \*Lrip\*O | \*Legp\*O | \*Lhello
+host\*O \*VHostAddress\*O \*Lgateway\*O \*VAddress\*O \*Lmetric\*VHopCount\*O \*Lrip\*O | \*Legp\*O | \*Lhello\*O
+.iE
+.PP
+The \*Lnet\*O and \*Lhost\*O stanzas install a static route
+to the network specified by the \*VNetworkAddress\*O variable or
+the host specified by the \*VHostAddress\*O variable. The route is through a
+gateway specified by the \*VAddress\*O variable at a metric specified
+by the \*VHopCount\*O variable learned through RIP, HELLO, or EGP.
+Again, dotted-decimal notation should be used for the addresses.
+These routes are installed in the kernel's routing table and are never
+affected by any other gateway's RIP or HELLO announcements.  The protocol
+by which they were learned is important if the route is to be announced
+through EGP.
+.PP
+If the protocol is RIP or HELLO and there are no routing restrictions,
+then this route is announced by EGP with a metric of \*Ldefaultegpmetric\*O\&.
+If the protocol keyword is \*Legp\*O and there are no routing
+restrictions, then this route is announced by EGP with a metric specified
+by the \*VHopCount \*Ovariable.
+.PP
+\f(HBRestricting EGP Announcements\fP
+.PP
+The following stanza provides a \*Vsoft restriction\*O to the \*Lgated\*O
+daemon:
+.iS
+egpnetsreachable\*O \*VNetwork\*O [\*VNetwork\*O \*VNetwork\ \&.\ .\ .\ \*O]
+.iE
+.PP
+It cannot be used when the \*Lannounce\*O or \*Lnoannounce\*O
+stanzas are used.  With no restrictions, the \*Lgated\*O daemon
+announces all routes learned from RIP and HELLO through EGP.  The
+\*Legpnetsreachable\*O stanza restricts EGP announcement to those networks
+listed in the stanza.
+.PP
+The metric used for routes learned through HELLO and RIP  is the
+value given in the \*Ldefaultegpmetric\*O stanza.  If this stanza
+does not specify a value, the value is set to 255.  With the \*Legpnetsreachable\*O
+stanza, unique EGP metrics cannot be set for each network.
+The \*Ldefaultegpmetric\*O is used for all networks, except those
+that are directly connected, which use a metric of 0 (zero).
+.PP
+\f(HBSpecifying Invalid Networks\fP
+.PP
+The following stanza appends to the \*Lgated\*O daemon's list
+of martian networks, which are those that are known to be invalid
+and should be ignored:
+.iS
+martiannets\*O \*VNetwork\*O [\*VNetwork\*O \*VNetwork\ .\ \&.\ .\ \*O]
+.iE
+.PP
+When the \*Lgated\*O daemon receives information about one
+of these networks through any means, it immediately ignores it.  If
+\*Lexternal\*O tracing is enabled, a message is printed to the trace
+log.  Multiple occurrences of the \*Lmartiannets\*O stanza accumulate.
+.PP
+The initial list of martian networks provided by the \*Lgated\*O
+daemon contains the following networks:  127.0.0.0, 128.0.0.0,
+191.253.0.0, 192.0.0.0, 223.255.255.0, and 224.0.0.0.
+.SS Managing Autonomous System Routing
+In the internal routing tables, the \*Lgated\*O daemon maintains
+the autonomous system number from which each route was learned. Independent
+(autonomous) systems are used only when an exterior routing protocol
+is in use, in this case EGP.
+.PP
+Routes are tagged with the autonomous system number of the EGP
+peer from which they were learned.  Routes learned through the interior
+routing protocols, RIP and HELLO, are
+tagged with the autonomous system number specified in the \*Lautonomoussystem\*O
+stanza of the \*Lgated.conf\*O file.
+.PP
+The \*Lgated\*O server does not normally
+propagate routes learned from exterior routing protocols to interior
+routing protocols, since some gateways do not have adequate validation
+of routing information they receive.  Some of the following stanzas
+allow exterior routes to be propagated through interior protocols.
+Therefore, it is imperative that utmost care be taken when allowing
+the propagation of exterior routes.
+.PP
+The following stanzas provide limited control over routing based
+on autonomous system numbers.
+.PP
+\f(HBValidating Networks from an Independent (Autonomous) System\fP
+.PP
+The following stanza is used for validation of networks from a
+certain independent system:
+.iS
+validAS\*O \*VNetwork\*O \*LAS\*O \*VSystem\*O \*Lmetric\*O \*VNumber\*O
+.iE
+.PP
+When an EGP update is received from a neighbor that has the \*Lvalidate\*O
+keyword specified in the associated \*Legpneighbor\*O stanza,
+a search is made for a \*LvalidAS\*O stanza that defines the network
+and the autonomous system number of the EGP neighbor.
+.PP
+If the appropriate \*LvalidAS\*O stanza is located, the network
+is considered for addition to the routing table with the specified
+metric.  If a \*LvalidAS\*O stanza is not located, a warning message
+is printed and the network is ignored.
+.PP
+A network may be specified in several \*LvalidAS\*O stanzas
+as being associated with several different autonomous systems.
+.PP
+\f(HBControlling Exchange of Routing Information Between Autonomous Systems\fP
+.PP
+The following stanzas control routing information exchange:
+.iS
+announcetoAS\*O \*VAutonomousSystem1\*O \*LASlist\*O \*VAutonomousSystem2\*O
+                                     [\*VAutonomousSystem3\&... \*O]
+noannouncetoAS\*O \*VAutonomousSystem1\*O \*LASlist\*O \*VAutonomousSystem2\*O
+                                     [\*VAutonomousSystem3\&... \*O]
+.iE
+.PP
+The \*LannouncetoAS\*O and \*LnoannouncetoAS\*O stanzas
+control the exchange of routing information between different autonomous
+(independent) systems.  Normally, the \*Lgated\*O daemon does not
+propagate routing information between independent systems.
+.PP
+The exception to this is that routes learned from the \*Lgated\*O
+daemon's own independent system through RIP and HELLO are propagated
+through EGP. These stanzas allow information learned through EGP from
+one autonomous system to be propagated through EGP to another autonomous
+system or through RIP and HELLO to the \*Lgated\*O daemon's own
+autonomous system.
+.PP
+If the \*LannouncetoAS\*O stanza is specified, information
+learned through EGP from autonomous systems \*VAS1\*O,\*V AS2\*O, \*VAS3\*O,
+and so on, is propagated to autonomous system \*VAS0\*O.
+If the \*Lgated\*O daemon's own autonomous system, as specified
+in the \*Lautonomoussystem \*Ostanza, is specified as \*VAS0\*O,
+this information is propagated through
+RIP and HELLO.  Routing information from autonomous systems
+not specified in the \*LASlist\*O are not propagated to autonomous
+system \*VAS0\*O.
+.PP
+If the \*LnoannouncetoAS\*O stanza is specified, information
+learned through EGP from all autonomous systems, except \*VAS1\*O,\*V
+AS2\*O, \*VAS3\*O, and so on, is propagated to autonomous system \*VAS0\*O\&.
+If the \*Lgated\*O daemon's own autonomous system
+is specified as \*VAS0\*O, this information is not propagated through
+RIP and HELLO.
+.PP
+Only one \*LannouncetoAS\*O or \*LnoannounceAS\*O stanza
+may be specified for each target autonomous system.
+.SH EXAMPLES
+.PP
+An example \*Lgated.conf\*O file for a
+\*Lgated\*O server that performs
+only EGP routing might contain the following entries.
+The following three lines specify which protocol will be running.
+RIP and HELLO do not run.  EGP does run.
+.oS
+RIP     no
+HELLO   no
+EGP     yes
+#
+.oE
+.PP
+The \*Ltraceflags\*O stanza tells what level of trace output
+is desired:
+.VL 4m
+.LI "\*Linternal\*O"
+Logs all internal error and interior routing errors.
+.LI "\*Lexternal\*O"
+Logs all external errors due to EGP, exterior routing
+errors, and EGP state changes.
+.LI "\*Lroute\*O"
+Logs all routing changes.
+.LI "\*Legp\*O"
+Traces all EGP packets sent and received.
+.LI "\*Lupdate\*O"
+Logs all routing updates.
+.LE
+.PP
+The autonomous system stanza specifies the autonomous system number.
+This must be specified if running EGP.
+.iS
+traceflags      internal external route egp update
+autonomoussystem        178
+.iE
+.PP
+The following \*Legpneighbor\*O stanza specifies with whom
+you are going to perform EGP.  This line says that your EGP neighbor
+is the host \*L192.100.9.1\*O.
+The \*Ldefaultegpmetric\*O stanza specifies that when there
+are no routing restrictions, the default EGP metric is \*L132\*O.
+.oS
+egpneighbor             192.100.9.1
+defaultegpmetric        132
+#
+.oE
+.PP
+The next line indicates that for network \*L192.200.9\*O the
+gateway is \*L192.101.9.3\*O with a hop count of 50
+when using RIP protocol.  This is a static route.
+.PP
+The \*Legpnetsreachable\*O stanza restricts EGP announcements
+to those networks listed:
+.oS
+net 192.200.9 gateway 192.101.9.3 metric 50 rip
+egpnetsreachable 192.200.9 192.101.9
+.oE
+.PP
+The following lists the static routes, showing the host
+address, gateway address, hop count, and protocol used:
+.oS
+# Static routes
+host 129.140.46.1       gateway 192.100.9.1    metric 5 rip
+host 192.102.9.2        gateway 192.100.9.1    metric 5 rip
+host 192.104.9.2        gateway 192.100.9.1    metric 5 rip
+host 149.140.3.12       gateway 192.100.9.1    metric 5 rip
+host 129.140.3.12       gateway 192.100.9.1    metric 5 rip
+host 129.140.3.13       gateway 192.100.9.1    metric 5 rip
+host 129.140.3.14       gateway 192.100.9.1    metric 5 rip
+host 192.3.3.54         gateway 192.101.9.3    metric 5 rip
+.oE
+.SH RELATED INFORMATION
+.PP
+Daemons: \*Lgated\*O(8)
+.EQ
+delim off
+.EN

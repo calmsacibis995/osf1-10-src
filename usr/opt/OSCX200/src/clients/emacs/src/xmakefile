@@ -1,0 +1,121 @@
+dot = .
+lispdir = $(dot)$(dot)/lisp/
+etcdir = $(dot)$(dot)/etc/
+shortnamesdir = $(dot)$(dot)/shortnames/
+cppdir = $(dot)$(dot)/cpp/
+oldXMenudir = $(dot)$(dot)/oldXMenu/
+SHELL = /bin/sh
+MAKE=make
+STARTFILES = 
+LD=ld
+LDFLAGS =  
+CFLAGS= -g -Demacs $(MYCPPFLAG)  -D_BSD
+OLDXMENU = libXMenu11.a
+XOBJ = x11term.o x11fns.o xmenu.o
+LIBX = $(OLDXMENU) -lX11  
+GNULIB_VAR = 
+obj=    dispnew.o scroll.o xdisp.o window.o \
+	term.o cm.o $(XOBJ) \
+	emacs.o keyboard.o macros.o keymap.o sysdep.o \
+	buffer.o filelock.o insdel.o marker.o \
+	minibuf.o fileio.o dired.o filemode.o \
+	cmds.o casefiddle.o indent.o search.o regex.o undo.o \
+	alloc.o data.o doc.o editfns.o callint.o \
+	eval.o fns.o print.o lread.o \
+	abbrev.o syntax.o unexmips.o mocklisp.o bytecode.o \
+	process.o callproc.o $(environobj) \
+	doprnt.o
+termcapobj = termcap.o tparam.o
+otherobj= $(termcapobj) lastfile.o $(mallocobj)
+lisp=	${lispdir}simple.elc ${lispdir}help.elc \
+	${lispdir}files.elc ${lispdir}window.elc \
+	${lispdir}indent.elc ${lispdir}loaddefs.el ${lispdir}paths.el \
+	${lispdir}startup.elc ${lispdir}lisp.elc \
+	${lispdir}page.elc ${lispdir}register.elc \
+	${lispdir}paragraphs.elc ${lispdir}lisp-mode.elc \
+	${lispdir}text-mode.elc ${lispdir}fill.elc \
+	${lispdir}c-mode.elc ${lispdir}isearch.elc \
+	${lispdir}replace.elc ${lispdir}abbrev.elc \
+	${lispdir}buff-menu.elc ${lispdir}subr.elc
+SHELL=/bin/sh
+LIBES =  $(LIBX) -lbsd   $(GNULIB_VAR) -lc
+all: xemacs 
+xemacs: temacs ${etcdir}DOC ${lisp}
+	./temacs -batch -l inc-vers
+	./temacs -batch -l loadup.el dump
+${etcdir}DOC: ${etcdir}make-docfile ${obj} ${lisp}
+	rm -f ${etcdir}DOC
+	${etcdir}make-docfile ${obj} ${lisp} ${lispdir}version.el > ${etcdir}DOC
+${etcdir}make-docfile:
+	cd ${etcdir}; ${MAKE} ${MFLAGS} make-docfile
+temacs:  $(LOCALCPP) $(SHORT) $(STARTFILES) $(OLDXMENU) ${obj} ${otherobj}  
+	$(LD) ${STARTFLAGS} ${LDFLAGS} -o temacs ${STARTFILES} ${obj} ${otherobj}   ${LIBES}
+CPP = $(CC) -E
+$(OLDXMENU):
+	cd ${oldXMenudir}; ${MAKE} ${MFLAGS} 
+	ln ${oldXMenudir}libXMenu11.a $(OLDXMENU) || cp ${oldXMenudir}libXMenu11.a $(OLDXMENU)
+paths.h: paths.h-dist
+	echo paths.h needs to be set up from paths.h-dist
+	exit 1
+config.h: config.h-dist
+	echo config.h needs to be set up from config.h-dist
+	exit 1
+abbrev.o : abbrev.c buffer.h commands.h config.h 
+buffer.o : buffer.c syntax.h buffer.h commands.h window.h config.h 
+callint.o : callint.c window.h commands.h buffer.h config.h 
+callproc.o : callproc.c paths.h buffer.h commands.h config.h 
+casefiddle.o : casefiddle.c syntax.h commands.h buffer.h config.h 
+cm.o : cm.c cm.h termhooks.h config.h
+cmds.o : cmds.c syntax.h buffer.h commands.h config.h 
+crt0.o : crt0.c config.h
+	$(CC) -c $(CFLAGS)  crt0.c
+dired.o : dired.c commands.h buffer.h config.h 
+dispnew.o : dispnew.c commands.h window.h buffer.h dispextern.h termchar.h termopts.h cm.h config.h
+doc.o : doc.c buffer.h config.h paths.h
+doprnt.o : doprnt.c
+editfns.o : editfns.c window.h buffer.h config.h 
+emacs.o : emacs.c commands.h config.h 
+fileio.o : fileio.c window.h buffer.h config.h 
+filelock.o : filelock.c buffer.h paths.h config.h
+filemode.o : filemode.c 
+indent.o : indent.c window.h indent.h buffer.h config.h termchar.h termopts.h
+insdel.o : insdel.c window.h buffer.h config.h 
+keyboard.o : keyboard.c termchar.h termhooks.h termopts.h buffer.h commands.h window.h macros.h config.h 
+keymap.o : keymap.c buffer.h commands.h config.h 
+lastfile.o : lastfile.c 
+macros.o : macros.c window.h buffer.h commands.h macros.h config.h
+malloc.o : malloc.c config.h
+marker.o : marker.c buffer.h config.h 
+minibuf.o : minibuf.c syntax.h window.h buffer.h commands.h config.h 
+mocklisp.o : mocklisp.c buffer.h config.h
+process.o : process.c process.h buffer.h window.h termhooks.h termopts.h commands.h dispextern.h config.h 
+regex.o : regex.c syntax.h buffer.h config.h regex.h 
+scroll.o : scroll.c termchar.h config.h dispextern.h termhooks.h
+search.o : search.c regex.h commands.h buffer.h syntax.h config.h 
+syntax.o : syntax.c syntax.h buffer.h commands.h config.h 
+sysdep.o : sysdep.c config.h dispextern.h termhooks.h termchar.h termopts.h window.h
+term.o : term.c termchar.h termhooks.h termopts.h config.h cm.h
+termcap.o : termcap.c config.h
+terminfo.o : terminfo.c config.h
+tparam.o : tparam.c config.h
+undo.o : undo.c buffer.h commands.h config.h 
+unexmips.o : config.h
+window.o : window.c indent.h commands.h window.h buffer.h config.h termchar.h
+xdisp.o : xdisp.c macros.h commands.h indent.h buffer.h dispextern.h termchar.h window.h config.h 
+xfns.o : xfns.c xterm.h window.h config.h
+xmenu.o : xmenu.c xterm.h window.h config.h
+xterm.o : xterm.c xterm.h termhooks.h termopts.h termchar.h \
+	dispextern.h config.h sink.h sinkmask.h
+x11fns.o : x11fns.c window.h x11term.h dispextern.h termchar.h config.h
+x11term.o : x11term.c x11term.h termhooks.h termopts.h termchar.h \
+	dispextern.h config.h sink.h sinkmask.h
+alloc.o : alloc.c window.h buffer.h config.h 
+bytecode.o : bytecode.c buffer.h config.h 
+data.o : data.c buffer.h config.h 
+eval.o : eval.c commands.h config.h
+fns.o : fns.c buffer.h commands.h config.h
+print.o : print.c process.h window.h buffer.h dispextern.h termchar.h config.h 
+lread.o : lread.c buffer.h paths.h config.h 
+sunfns.o  : sunfns.c buffer.h config.h
+${etcdir}emacstool: ${etcdir}emacstool.c
+	cd ${etcdir}; ${MAKE} ${MFLAGS} emacstool

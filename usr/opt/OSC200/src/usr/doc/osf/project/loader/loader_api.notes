@@ -1,0 +1,652 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+						11/15/89
+					updated: 6/27/90
+
+		Loader Application Program Interface
+		------------------------------------
+
+   WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+            IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+            IT IS PROVIDED FOR INFORMATION ONLY.
+
+This is the interface exported by the loader for program loading,
+dynamically loadable kernel modules and for debugging purposes.
+
+loader data types
+-----------------
+
+The primary data type exported by the loader to the application layer
+is the loader module handle type called ldr_module_t.  A module handle
+is used to identify a module that is loaded in a process's address
+space. Module handles are similar to file descriptors in Unix in that they
+are assigned per task. A module handle with value zero is reserved to
+signify an error.
+
+A data type exported by the module specifically for the debugger
+is the region handle ldr_region_t. The region handle is used to
+identify a region within a loaded module.  The region handle
+value zero is reserved for error conditions.
+
+loader data structures used by the debugger
+-------------------------------------------
+
+The loader debugger support functions use two data structures: ldr_module_info
+and ldr_region_info.  These are used for storing and transferring module and 
+region specific loader information and are defined as structures.
+
+Other data types and support procedures
+---------------------------------------
+
+PROCESS IDENTIFIERS
+
+The ldr_process_t data type identifies a process uniquely. 
+
+To access the current process the following function is defined :
+
+ldr_process_t ldr_my_process();
+
+Although the kernel is not a separate process it is also uniquely identified
+by a ldr_process_t which can be obtained by using the following function :
+
+ldr_process_t ldr_kernel_process();
+
+ENTRY POINTS
+
+In order to simplify the definition of functions returning pointers to
+functions we define the following :
+
+typedef		int	(*entry_pt_t)();
+
+
+LOAD FLAGS
+
+To make the loader code more portable, the flags used by the loader
+interfaces are of the type ldr_load_flags_t which is defined as :
+
+typedef unsigned ldr_load_flags_t;
+
+
+operations on the current process
+---------------------------------
+
+A process can load and unload modules.  Besides this, it can
+retrieve entry points and lookup addresses of symbols in the
+loaded modules.
+
+int load(char *file_pathname, ldr_load_flags_t load_flags, 
+	 ldr_module_t *module);
+
+where,
+	file_pathname		is the pathname of the object module to be
+				loaded.
+
+	load_flags		the load flags that affect the loading of 
+				the object module.
+
+				Possible load flags include :
+
+		LDR_WIRE	will pin the module in physical memory, so 
+				that it will not be paged out.
+
+		LDR_NOUNREFS	no unresolved references are allowed after 
+				resolving shared library references.
+
+		LDR_NOPREXST	return error if module pre-exists i.e. it
+				has been previously loaded.
+
+	module			is a pointer to a ldr_module_t data structure
+				in which the module handle of the loaded 
+				module will be returned.  The ldr_module_t
+				must be allocated by caller.
+	
+
+	The load routine returns a handle to the loaded module in argument
+	module.  The return code is 0 (zero) on success.
+	If the load fails, a negative value is returned and the module handle
+	(argument module) is not valid. If the file identified by file_pathname
+	is already loaded in the address space, it is not loaded again but
+	a module handle for it is returned.  However, by using the LDR_NOPREXST
+	flag you can force an error to be returned if an attempt is made to
+	reload a previously loaded module.
+
+	The possible error return codes include :
+
+	ENOEXEC		the file pointed at by file_pathname is not an object 
+			module or shared library.
+
+	ENOMEM		the available address space reserved for loading 
+			modules is not large enough to satisfy request.
+
+	EINVAL		invalid option flag as argument.
+
+	EACCES		insufficient permission to load module. (file
+			access violation)
+
+	EIO		I/O error.
+
+	EADDR		address space needed by non-relocatable object is
+			not available.
+
+	EPREXST		module previously loaded (occurs with LDR_NOPREXST
+			flag).
+
+	EUNREFS		unresolved external symbol(s) (in conjunction with
+			LDR_NOUNREFS flag).
+
+	EDEP		error loading a dependency module.
+
+
+
+	
+int unload(ldr_module_t handle);
+
+where
+
+	handle			is a handle to the previously loaded object
+				module which is now being unloaded.
+
+	Unload simply unloads the image from the address space of the process
+	and does not attempt to unsnap any links.  This means that any 
+	references to the unloaded module will be left as dangling references.
+	Referring to addresses through these references is undefined and would
+	lead to indeterminate errors. The unload() call returns a zero if
+	successful. Otherwise it returns a negative error number.
+	After the module has been unloaded, the module handle is no longer
+	valid.
+
+	Possible error return codes :
+
+	EINVAL		module handle provided is invalid.
+
+
+int ldr_entry(ldr_module_t handle, ldr_entry_pt_t *entry_pt);
+
+where
+
+	handle		is a module handle.
+
+	entry_pt	entry point of loaded module will be returned here.
+			This ldr_entry_pt_t must be allocated by caller.
+
+	This call returns the entry point for a loaded module through argument
+	entry_pt.  On success the value returned is 0 (zero) otherwise a 
+	negative error number is returned.
+
+	Possible error return codes :
+
+	EINVAL			module handle provided is invalid.
+
+	ENOENTRY		no entry point in loaded module.
+
+
+int ldr_lookup(ldr_module_t handle, char* symbol_name, void **symbol_addr);
+
+where
+
+	handle		is a module handle.
+
+	symbol_name	is the name of the symbol whose address is required.
+
+	symbol_addr	is where the address of the symbol name is returned.
+			The address represented by symbol_name in the loaded
+			module is returned here as a void*. This void* must
+			be allocated by the caller.
+
+	The ldr_lookup() call returns the address represented by the 
+	symbol_name in the loaded module in argument symbol_addr.  
+	On success the procedure returns a 0 (zero); on error a negative 
+	error number is returned.
+
+	Possible error return codes:
+
+	ENOENTRY	no such exported symbol name in module.
+
+	EINVAL		invalid module handle.
+
+
+
+int ldr_lookup_package(char *package, char *symbol_name, void **symbol_addr);
+
+where
+	package		is the name of the package.
+
+	symbol_name	is the name of the symbol.
+
+	symbol_addr	is where the address of the named symbol is returned.
+			Symbol_addr must point at a void* allocated by caller.
+
+	The ldr_lookup_package routine returns in argument symbol_addr the 
+	address represented by the symbol_name in the package.  
+	The module associated with the package name should have been loaded.
+	On success a 0 (zero) is returned; On error a negative error number
+	is returned.
+
+	Possible error return values :
+
+	ENOENTRY	no such exported symbol name in module associated 
+			with package. No package with this name is installed.
+
+
+int ldr_install(char *file_pathname)
+
+where
+	file_pathname	is the name of the library to be installed.
+
+	The ldr_install routine installs the specified shared library
+	in the private list of installed libraries of the current process.
+	This makes the library available for symbol resolutions for
+	all future modules loaded into this process.  Moreover,
+	because the list of installed libraries is inherited by child
+	processes on fork(), and is retained across exec(), the
+	library is available for symbol resolutions in all the
+	descendants of this process as well.
+
+	On success, a 0 is returned; on error, a negative error number is
+	returned.
+
+	Possible error return values:
+
+	ENOENT		the specified file does not exist
+
+	ENOEXEC		the file pointed at by file_pathname is not an object 
+			module or shared library.
+
+	EACCES		insufficient permission to load module. (file
+			access violation)
+
+	EIO		I/O error.
+
+	EPREXST		module previously installed
+
+
+int ldr_remove(char *file_pathname)
+
+where
+	file_pathname	is the name of the library to be removed.
+
+	The ldr_remove routines removes the specified library from the
+	list of installed libraries in the current process.
+
+	On success, a 0 is returned; on error, a negative error number
+	is returned.
+
+	Possible error return values:
+
+	ENOENT		the specified file has not been installed.
+
+
+
+operations across process boundaries
+------------------------------------
+
+A process can load, unload, examine the entry point of a module and
+query the address of an exported symbol in another process given 
+sufficient privilege.  The cross process load and unload calls in
+conjunction with ldr_kernel_process() call allow for dynamic loading 
+and unloading of kernel modules.  First, however, a call must be
+made to ldr_xattach() in order to attach to the other process.
+
+
+int ldr_xattach(ldr_process_t process);
+
+where
+
+	process			identifies the process upon which
+				cross process operations are to be
+				performed.
+
+	The ldr_xattach() call performs any necessary initialization,
+	including communications channel set-up, for communication with
+	the process upon which cross process operations will be
+	performed.
+
+	Possible errors :
+
+	ESRCH		no process can be found corresponding to the
+			the specified ldr_process_t.
+
+	EEXIST		initialization with specified process has
+			already been performed.
+
+
+int ldr_xdetach(ldr_process_t process);
+
+where
+
+	process			identifies the process upon which
+				cross process operations will no
+				longer be performed.
+
+	The ldr_xdetach() call performs any necessary termination
+	processing, including destruction of communiations channel,
+	for terminating cross process operations to a process.
+
+	Possible errors :
+
+	EINVAL		No attach has been performed to the specified
+			process or the ldr_process_t is invalid.
+
+
+int ldr_xload(ldr_process_t process, char *file_pathname, 
+	      ldr_load_flags_t load_flags, ldr_module_t *module);
+
+where
+	process			identifies the process into whose address 
+				space the module is to be loaded.
+
+	file_pathname		is the name of the file to be loaded.
+
+	load_flags		the flags that control how the object module 
+				will be loaded. 
+
+	Possible flags are :
+
+		LDR_WIRE	will pin the module in physical memory, so 
+				that it will not be paged out.
+
+		LDR_NOUNREFS	no unresolved references are allowed after 
+				resolving shared library references.
+
+		LDR_NOPREXST	return error if module pre-exists i.e. it
+				has been previously loaded.
+
+	module			is where a handle to the loaded module will
+				be returned.  The ldr_module_t must be
+				allocated by the caller.
+
+
+	The ldr_xload() call is the more general case of the load() call
+	in that it allows for cross process loading (hence the name xload).
+	This will load both relocatable and absolute addressing modules into
+	a process's address space.  By using the ldr_kernel_process() call
+	ldr_xload() can be used to dynamically load kernel modules.
+	If the file identified by file_pathname is already loaded in the
+	address space, it is not loaded again but a module handle for it is
+	returned.  However, by using the LDR_NOPREXST flag you can force an
+	error to be returned if an attempt is made to reload a previously
+ 	loaded module.	
+	This call returns in argument module a module handle if successful and
+	a return code of 0 (zero).  On error a negative value is returned 
+	by the procedure and the module handle is invalid.
+
+
+	Possible errors :
+
+	ENOEXEC		the file pointed at by file_pathname is not an object 
+			module or shared library.
+
+	ENOMEM		the available address space reserved for loading 
+			modules is not large enough to satisfy request.
+			Unable to wire module into memory (occurs when
+			using LDR_WIRE flag).
+
+	EINVAL		invalid load_flags.
+
+	EACCES		insufficient permission to access file.
+
+	EIO		I/O error.
+
+	EADDR		address space needed by non-relocatable object is
+			not available.
+
+	EPERM		insufficient privilege to load module into address
+			space of specified process.
+
+	EPREXST		module previously loaded (occurs with LDR_NOPREXST
+			flag).
+
+	EUNREFS		unresolved external symbol(s) (in conjunction with
+			LDR_NOUNREFS flag).
+
+	EDEP		error loading a dependency module.
+
+	ENOENT		no file with the name file_pathname exits.
+
+
+int ldr_xunload(ldr_process_t process, ldr_module_t handle);
+
+where
+	process			is an identifier for the process from whose
+				address space the module is being unloaded.
+
+	handle			is a module handle to a previously loaded
+				module.
+
+	This call is used to unload modules loaded into a process's address
+	space using the ldr_xload() and load() calls.  No attempt is made
+	to clean up references to the module being unloaded.  It returns a zero
+	on success and a negative value on error. 
+
+	Possible errors :
+
+	EPERM		insufficient privilege to unload the module.
+
+	EINVAL		the module handle provided is invalid.
+
+
+int ldr_xentry(ldr_process_t process, ldr_module_t handle, 
+	       ldr_entry_pt_t *entry_pt);
+
+where
+
+	process		identifies a particular process whose address
+			space is being probed.
+
+	handle		is a module handle to identify the loaded module.
+
+	entry_pt	is where the entry point for the module is to be
+			returned.  The ldr_entry_pt_t must be allocated by
+			caller.
+
+	The ldr_xentry() call returns the entry point for a module in the
+	address space of the named process in the argument entry_pt.  
+	On success the procedure returns a 0 (zero); On error it returns
+	a negative error value and entry_pt is invalid.
+
+	Possible error values :
+
+	ENOENTRY		no entry point in module.
+
+	EINVAL			invalid module handle provided.
+
+	ESRCH			invalid process identifier.
+
+	EPERM			insufficient privilege to access the process's
+				address space.
+
+int ldr_xlookup(ldr_process_t process, ldr_module_t handle, 
+		char* symbol_name, void **symbol_addr);
+
+where
+
+	process		identifies the process whose address space is
+			being examined.
+
+	handle		is the module handle for the loaded module.
+
+	symbol_name	is the name of the symbol whose address is
+			required.
+
+	symbol_addr	is a pointer to a void* in which the address of
+			the named symbol in module will be returned. This
+			void* must be allocated by the caller.
+
+	The ldr_xlookup() call is used to get the address of a symbol that
+	is exported by the named process's module.  On success a pointer to
+	the symbol is returned in argument symbol_addr and a 0 (zero) is 
+	returned.  On failure a negative error number is returned.
+
+	Possible error values :
+
+	ENOENTRY		no such symbol exported by module.
+
+	EINVAL			invalid module handle.
+
+	ESRCH			no such process.
+
+	EPERM			insufficient permission to access the process's
+				address space.
+
+int ldr_xlookup_package(ldr_process_t process, char* package_name,
+			char* symbol_name, void **symbol_addr);
+
+where
+
+	process		identifies the process whose address space is
+			being examined.
+
+	package_name	is the name of the package that exports the symbol.
+
+	symbol_name	is the name of the symbol whose address is required.
+
+	symbol_addr	is where the address of the symbol will be returned.
+			The caller must allocate the void* for symbol_addr.
+
+	The ldr_xlookup_package() call is used to get the address of a symbol
+	that is exported by the named package.  On success a pointer to the 
+	symbol is returned in argument symbol_addr and the procedure returns a
+	0 (zero).  On failure, a negative error value is returned and the 
+	contents of symbol_addr are invalid.
+
+	Possible error values :
+
+	ENOENTRY		no such symbol exported by package.  No package
+				with this name is installed.
+
+	ESRCH			no such process.
+
+	EPERM			insufficient permission to access the process's
+				address space.
+
+
+
+Debug functions
+---------------
+
+These are functions that a debugger may use.
+
+
+int ldr_inq_module(ldr_process_t process, ldr_module_t handle, 
+		struct ldr_module_info *info, int info_size, int *count);
+
+	where
+
+	process		is the id of the process whose module information
+			is required.
+
+	handle		is a handle for a module loaded in the
+			specified process's address space.
+
+	info		points to a ldr_module_info structure
+			allocated by the caller in which information
+			about the module will be returned. 
+
+	info_size	size of info in bytes.
+
+	count		is where number of bytes filled into ldr_module_info
+			structure is returned. The int for argument count must
+			be allocated by caller.
+
+	The ldr_inq_module() routine provides information about a loaded
+	module of a particular process. It returns information such as
+	the count of the number of regions and also other data
+	about the module.  A process that makes this call, must have 
+	sufficient privilege to access the other process's address
+	space.  The ldr_inq_module call requires that the ldr_module_info
+ 	data structure be allocated by the caller and its size in bytes
+	be provided as an input argument.  On success, the number of
+	bytes filled into this ldr_inq_module structure are returned in 
+	argument count and a return code of 0 (zero) is returned.  On
+	error, the procedure returns a negative error value.
+
+	Possible error values :
+
+	EPERM		insufficient privilege to access the address
+			space of the other process.
+	
+	ESRCH		no such process.
+
+	EINVAL		invalid module handle.
+
+
+int ldr_inq_region(ldr_process_t process, ldr_module_t handle,
+	ldr_region_t region, struct ldr_region_info *info, int info_size,
+	int *count);
+
+	where
+	
+	process		identifies the process whose address space is
+			being accessed for region information.
+
+	handle 		is a handle for a module loaded in a specified
+			process's address space.
+
+	region		is a region handle to the region for which
+			information is desired.
+
+	info		points to a ldr_region structure allocated by 
+			caller to be filled in with region information.
+
+	info_size	size in bytes of the structure pointed at by info.
+
+	count		number of bytes of ldr_region_info structure filled
+			in by this procedure call. The int for this argument
+			must be allocated by the caller.
+
+	The ldr_inq_region() call provides information about a 
+	region of a loaded module for a named process.  A process accessing
+	another process's address space must have sufficient privilege to
+	do so. This call returns the number of bytes of the structure 
+	(provided by the input argument info) that are filled in on success
+	in argument count.  On success a 0 (zero) is returned by this procedure
+	and on error a negative error number.
+
+	Possible error values :
+
+	EPERM		insufficient privilege to access the process's address
+			space.
+
+	EINVAL		invalid module handle or region handle.
+
+	ESRCH		no such process.
+
+int ldr_next_module(ldr_process_t process, ldr_module_t *handle_ptr);
+
+	where
+
+	process		identifies the process for which module handles are
+			required.
+
+	handle_ptr	is a pointer to a module handle allocated by the
+			caller.  For repeated calls this need be allocated
+			only once prior to the first call.  This serves as
+ 			both an input and an output argument.
+
+	The ldr_next_module() call returns the next module handle
+	for a particular process given the previous module handle.  To get
+	the first module handle associated with a process the handle
+	passed in should be LDR_NULL_MODULE.  The next call to this routine 
+	should be made using the handle returned from this call and so on.
+	After the last module, the handle returned is the LDR_NULL_MODULE.
+	On success the call returns a zero, on failure it returns a negative
+	error number.
+
+	Possible errors :
+
+	ESRCH			no such process.
+	
+	EINVAL			invalid module handle.
+
+	EPERM			insufficient privilege to access process's
+				address space.
+
+
+
+
+
+

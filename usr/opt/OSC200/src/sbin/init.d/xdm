@@ -1,0 +1,90 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+
+#
+# Read configuration for display type
+#
+DISPLAYTYPE=none
+if [ -f /etc/rc.config ] ; then
+	. /etc/rc.config
+else
+	echo "ERROR: /etc/rc.config defaults file MISSING"      >/dev/console
+fi
+export DISPLAYTYPE 
+
+HASDISPLAYS=`/usr/sbin/sizer -wu`
+GENERIC_CONS=`/usr/sbin/sizer -wc`
+CONFIGFILE=/usr/lib/X11/xdm/xdm-config
+if [ x$HASDISPLAYS = x0 ]; then
+    CONFIGFILE=/usr/lib/X11/xdm/xdm-config.fs
+fi
+if [ x$GENERIC_CONS = x2 ]; then
+    CONFIGFILE=/usr/lib/X11/xdm/xdm-config.fs
+fi
+
+export CONFIGFILE
+#
+# Control X Display Manager
+#
+case $1 in
+'start')
+        if [ -f /usr/bin/X11/xdm -a -s $CONFIGFILE ]; then
+                /usr/bin/X11/xdm -config $CONFIGFILE
+        else
+                echo "WARNING: X Display manager not configured."
+        fi
+        ;;
+'respawn')
+        if [ -f /usr/bin/X11/xdm -a -s $CONFIGFILE ]; then
+                exec /usr/bin/X11/xdm -nodaemon -config $CONFIGFILE
+        else
+                echo "WARNING: X Display manager not configured."
+        fi
+        #
+        # No display or error. Sleep and print message
+        #
+        sleep 120
+        echo "Retrying X display manager."
+        ;;
+'stop')
+        if [ -r /usr/lib/X11/xdm/xdm-pid ]; then
+                kill `cat /usr/lib/X11/xdm/xdm-pid`
+        else
+                echo "ERROR: cannot find /usr/lib/X11/xdm/xdm-pid to kill xdm."
+        fi
+        ;;
+esac
+     
+

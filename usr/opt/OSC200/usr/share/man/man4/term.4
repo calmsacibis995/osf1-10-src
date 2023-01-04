@@ -1,0 +1,211 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: term.4,v $ $Revision: 3.3.4.3 $ (DEC) $Date: 1993/12/15 20:03:08 $
+.\"
+.TH term 4
+.SH NAME
+.PP
+\*Lterm\*O \- Terminal driver tables for nroff
+.SH DESCRIPTION
+.PP
+.iX "term file" "format"
+.iX "nroff text processor" "term file"
+The \*Lnroff\*O(1) command uses driver tables to customize its output
+for various types of output devices.  These driver tables are written
+as C programs and compiled and installed in
+\*L/usr/share/lib/term/tab\*Vname\*O.
+The \*Vname\*O specifier is the name of a terminal type as used with
+\*Lnroff -T\*Vname\*O.  The structure of the tables is as follows:
+.PP
+.oS
+#define INCH 240
+struct {
+ int bset;
+ int breset;
+ int Hor;
+ int Vert;
+ int Newline;
+ int Char;
+ int Em;
+ int Halfline;
+ int Adj;
+ char *twinit;
+ char *twrest;
+ char *twnl;
+ char *hlr;
+ char *hlf;
+ char *flr;
+ char *bdon;
+ char *bdoff;
+ char *ploton;
+ char *plotoff;
+ char *up;
+ char *down;
+ char *right;
+ char *left;
+ char *codetab[256\-32];
+ char *zzz;
+} t;
+.oE
+.PP
+The fields have the following meanings:
+.iX "term file" "field definitions"
+.VL 13m
+.LI "\*Vbset\*O"
+Bits to set in the \*Vc_oflag\*O field of the \*Ltermio\*O structure
+before output.  For further information, see \*Ltty\*O(7).
+.LI "\*Vbreset\*O"
+Bits to reset in the \*Vc_oflag\*O field of the \*Ltermio\*O
+structure before output.
+.LI "\*VHor\*O"
+Horizontal resolution in fractions of an inch.
+.LI "\*VVert\*O"
+Vertical resolution in fractions of an inch.
+.LI "\*VNewline\*O"
+Space moved by a newline (linefeed) character in fractions of an inch.
+.LI "\*VChar\*O"
+Quantum of character sizes in fractions of an inch
+(that is, a character is a multiple of \*VChar\*O units wide).
+.LI "\*VEm\*O"
+Size of an em in fractions of an inch.
+.LI "\*LHalfline\*O"
+Space moved by a half-linefeed (or half-reverse-linefeed)
+character in fractions of an inch.
+.LI "\*VAdj\*O"
+Quantum of white space in fractions of an inch
+(that is, white spaces are a multiple of \*LAdj\*O units wide).
+.IP
+Note: if this value is less than the size of the space
+character (in units of \*VChar\*O; see the following
+fields for how the sizes of characters are defined),
+\*Lnroff\*O outputs fractional spaces using plot mode.
+Also, if \*Lnroff\*O is used with the \*L\-e\*O flag,
+it sets \*VAdj\*O to equal \*VHor\*O.
+.LI "\*Vtwinit\*O"
+The set of characters used to initialize the terminal in a mode suitable for
+\*Lnroff\*.
+.LI "\*Vtwrest\*O"
+The set of characters used to restore the terminal to normal mode.
+.LI "\*Vtwnl\*O"
+The set of characters used to move down one line.
+.LI "\*Vhlr\*O"
+The set of characters used to move up one-half line.
+.LI "\*Vhlf\*O"
+The set of characters used to move down one-half line.
+.LI "\*Vflr\*O"
+The set of characters used to move up one line.
+.LI "\*Vbdon\*O"
+The set of characters used to turn on hardware boldface mode, if any.
+.LI "\*Vbdoff\*O"
+The set of characters used to turn off hardware boldface mode, if any.
+.LI "\*Viton\*O"
+The set of characters used to turn on hardware italics mode, if any.
+.LI "\*Vitoff\*O"
+The set of characters used to turn off hardware italics mode, if any.
+.LI "\*Vploton\*O"
+The set of characters used to turn on hardware plot mode (for Diablo
+type mechanisms), if any.
+.LI "\*Vplotoff\*O"
+The set of characters used to turn off hardware plot mode (for Diablo
+type mechanisms), if any.
+.LI "\*Vup\*O"
+The set of characters used to move up one resolution unit (\*VVert\*O)
+in plot mode, if any.
+.LI "\*Vdown\*O"
+The set of characters used to move down one resolution unit (\*VVert\*O)
+in plot mode, if any.
+.LI "\*Vright\*O"
+The set of characters used to move right one resolution unit (\*VHor\*O)
+in plot mode, if any.
+.LI "\*Vleft\*O"
+The set of characters used to move left one resolution unit (\*VHor\*O)
+in plot mode, if any.
+.LI "\*Vcodetab\*O"
+Definition of characters needed to print an \*Lnroff\*O character
+on the terminal.  The first byte is the number of character units (\*VChar\*O)
+needed to hold the character; that is, ``\\001'' is one unit wide,
+``\\002'' is two units wide, and so on.  The high-order bit (0200) is on if
+the character is to be underlined in underline mode (\*L.ul\*O).
+The rest of the bytes are the characters used to produce the character in
+question.  If the character has the sign (0200) bit on, it is a code
+to move the terminal in plot mode.  It is encoded as follows:
+.VL 1.25i
+.LI "0100 bit on"
+Vertical motion
+.LI "0100 bit off"
+Horizontal motion
+.LI "040 bit on"
+Negative (up or left) motion
+.LI "040 bit off"
+Positive (down or right) motion
+.LI "037 bits"
+Number of such motions to make
+.LE
+.LI "\*Vzzz\*O"
+A zero terminator at the end.
+.LE
+.PP
+All quantities that are in units of fractions of an inch should
+be expressed as \*LINCH*\*Vnum\*O/\*Vdenom\*O, where \*Vnum\*O and
+\*Ldenom\*O are respectively the numerator and denominator of the fraction;
+that is, 1/48 of an inch would be written as ``INCH1/48''.
+.PP
+If any sequence of characters does not pertain to the output device,
+that sequence should be given as a null string.
+.PP
+The source code for the terminal \*Vname\*O is in
+\*L/usr/share/lib/term/tab\*Vname\*O.  When a new terminal type is added,
+the makefile \*LMakefile.install\*O in that directory should be updated.
+.SS Building New nroff Drivers
+The \*L/usr/share/lib/term/mktab.o\*O object module is an \*Lnroff\*O
+compiler-independent driver table generator tool.  It is intended
+to be used as follows:
+.iS
+\*Lcc \-o /tmp/mktab tab\*Vxxx\*L.c mktab.o, /tmp/mktab > tab\*Vxx\*O
+.iE
+.SS Default nroff Drivers
+The following \*Lnroff\*O drivers are provided by Digital Equipment
+Corporation:
+.VL 13m
+.LI "\*Llpr\*O (default)"
+Dumb 10-pitch printer with no halfline or upline capability.
+.LI "\*Lcrt\*O"
+Generic crt terminal (linked to \*Llpr\*O).
+.LI "\*Lln03\*O"
+Digital Equipment Corporation LN03S ASCII printer.
+.LI "\*Lvt100\*O"
+Digital Equipment Corporation VT100 crt terminal.
+.LI "\*Llp\*O"
+Default pseudo-printer device for the \*Lman\*O(1) and \*Lcatman\*O(8)
+commands.  NOTE:  the \*Llp\*O driver as supplied by Digital is linked
+to the \*Lvt100\*O device.  Your system administrator can change the
+definition of \*Llp\*O to another device.
+.LE
+.SH FILES
+.PP
+.VL 13m
+.LI "\*L/usr/share/lib/term/tab\*Vname\*O"
+Driver tables
+.LI "\*Ltab\*Vname\*L.c\*O"
+Source file for the driver tables
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Ltty\*O(7)
+.EQ
+delim off
+.EN

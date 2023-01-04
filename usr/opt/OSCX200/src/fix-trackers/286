@@ -1,0 +1,249 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204241733.AA21494@kanga.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2513) close XBUG #4705, #5068, #5099 f.warpto not checking WM_NAME
+Date: Fri, 24 Apr 92 13:33:38 EDT
+From: Dave Sternlicht <dave@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: twm bug in f.warpto
+        ### bug number:   4705
+        ### area:         twm
+        ### severity:     low
+        ### comments:     
+
+Refiling bug twm/5068 into closed/twm
+        Subject: twm: f.warpto doesn't check window names
+        ### bug number:   5068
+        ### area:         twm
+        ### severity:     low
+        ### comments:     
+
+        Subject: twm: f.warpto does not use WM_NAME property
+        ### bug number:   5099
+        ### area:         twm
+        ### severity:     low
+        ### comments:     
+
+Note this patch also fixes 2 other problems:
+1) f.warpto fails to warp to a second matching window in the window
+   list when the first match is iconified.
+2) conflicts with the IBM XLC (ANSI) compiler.
+
+*** /tmp/da21447	Fri Apr 24 13:20:46 1992
+--- clients/twm/menus.c	Fri Apr 24 13:20:46 1992
+***************
+*** 28,34 ****
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: menus.c,v 1.186 91/07/17 13:58:00 dave Exp $
+   *
+   * twm menu code
+   *
+--- 28,34 ----
+  
+  /***********************************************************************
+   *
+!  * $XConsortium: menus.c,v 1.188 92/04/24 13:18:03 dave Exp $
+   *
+   * twm menu code
+   *
+***************
+*** 54,60 ****
+  
+  extern XEvent Event;
+  
+! int RootFunction = NULL;
+  MenuRoot *ActiveMenu = NULL;		/* the active menu */
+  MenuItem *ActiveItem = NULL;		/* the active menu item */
+  int MoveFunction;			/* either F_MOVE or F_FORCEMOVE */
+--- 54,60 ----
+  
+  extern XEvent Event;
+  
+! int RootFunction = 0;
+  MenuRoot *ActiveMenu = NULL;		/* the active menu */
+  MenuItem *ActiveItem = NULL;		/* the active menu item */
+  int MoveFunction;			/* either F_MOVE or F_FORCEMOVE */
+***************
+*** 113,124 ****
+  	for (j = 0; j < NUM_CONTEXTS; j++)
+  	    for (k = 0; k < MOD_SIZE; k++)
+  	    {
+! 		Scr->Mouse[i][j][k].func = NULL;
+  		Scr->Mouse[i][j][k].item = NULL;
+  	    }
+  
+!     Scr->DefaultFunction.func = NULL;
+!     Scr->WindowFunction.func = NULL;
+  
+      if (FirstScreen)
+      {
+--- 113,124 ----
+  	for (j = 0; j < NUM_CONTEXTS; j++)
+  	    for (k = 0; k < MOD_SIZE; k++)
+  	    {
+! 		Scr->Mouse[i][j][k].func = 0;
+  		Scr->Mouse[i][j][k].item = NULL;
+  	    }
+  
+!     Scr->DefaultFunction.func = 0;
+!     Scr->WindowFunction.func = 0;
+  
+      if (FirstScreen)
+      {
+***************
+*** 1319,1325 ****
+--- 1319,1341 ----
+   ***********************************************************************
+   */
+  
++ /* for F_WARPTO */
++ #define true 1
++ #define false 0
+  int
++ WarpThere(t) 
++     TwmWindow* t; 
++ {
++     if (Scr->WarpUnmapped || t->mapped) {
++         if (!t->mapped) DeIconify (t);
++         if (!Scr->NoRaiseWarp) XRaiseWindow (dpy, t->frame);
++         WarpToWindow (t); 
++         return true; 
++     }    
++     return false;
++ }
++ 
++ int
+  ExecuteFunction(func, action, w, tmp_win, eventp, context, pulldown)
+      int func;
+      char *action;
+***************
+*** 1341,1347 ****
+      Bool fromtitlebar = False;
+      extern int ConstrainedMoveTime;
+  
+!     RootFunction = NULL;
+      if (Cancel)
+  	return TRUE;			/* XXX should this be FALSE? */
+  
+--- 1357,1363 ----
+      Bool fromtitlebar = False;
+      extern int ConstrainedMoveTime;
+  
+!     RootFunction = 0;
+      if (Cancel)
+  	return TRUE;			/* XXX should this be FALSE? */
+  
+***************
+*** 1465,1471 ****
+  
+      case F_POPUP:
+  	tmp_win = (TwmWindow *)action;
+! 	if (Scr->WindowFunction.func != NULL)
+  	{
+  	   ExecuteFunction(Scr->WindowFunction.func,
+  			   Scr->WindowFunction.item->action,
+--- 1481,1487 ----
+  
+      case F_POPUP:
+  	tmp_win = (TwmWindow *)action;
+! 	if (Scr->WindowFunction.func != 0)
+  	{
+  	   ExecuteFunction(Scr->WindowFunction.func,
+  			   Scr->WindowFunction.item->action,
+***************
+*** 2094,2121 ****
+  	    len = strlen(action);
+  
+  	    for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 		if (!strncmp(action, t->class.res_name, len)) break;
+  	    }
+  	    if (!t) {
+  		for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 		    if (!strncmp(action, t->class.res_name, len)) break;
+  		}
+  		if (!t) {
+  		    for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 			if (!strncmp(action, t->class.res_class, len)) break;
+  		    }
+  		}
+  	    }
+  
+! 	    if (t) {
+! 		if (Scr->WarpUnmapped || t->mapped) {
+! 		    if (!t->mapped) DeIconify (t);
+! 		    if (!Scr->NoRaiseWarp) XRaiseWindow (dpy, t->frame);
+! 		    WarpToWindow (t);
+! 		}
+! 	    } else {
+  		XBell (dpy, 0);
+- 	    }
+  	}
+  	break;
+  
+--- 2110,2133 ----
+  	    len = strlen(action);
+  
+  	    for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 		if (!strncmp(action, t->name, len)) 
+!                     if (WarpThere(t)) break;
+  	    }
+  	    if (!t) {
+  		for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 		    if (!strncmp(action, t->class.res_name, len)) 
+!                         if (WarpThere(t)) break;
+  		}
+  		if (!t) {
+  		    for (t = Scr->TwmRoot.next; t != NULL; t = t->next) {
+! 			if (!strncmp(action, t->class.res_class, len)) 
+!                             if (WarpThere(t)) break;
+  		    }
+  		}
+  	    }
+  
+! 	    if (!t) 
+  		XBell (dpy, 0);
+  	}
+  	break;
+  
+***************
+*** 2427,2433 ****
+      {
+  	if (tmp_win->icon_on)
+  	    Zoom(tmp_win->icon_w, tmp_win->frame);
+! 	else if (tmp_win->group != NULL)
+  	{
+  	    for (t = Scr->TwmRoot.next; t != NULL; t = t->next)
+  	    {
+--- 2439,2445 ----
+      {
+  	if (tmp_win->icon_on)
+  	    Zoom(tmp_win->icon_w, tmp_win->frame);
+! 	else if (tmp_win->group != (Window) 0)
+  	{
+  	    for (t = Scr->TwmRoot.next; t != NULL; t = t->next)
+  	    {
+***************
+*** 2507,2513 ****
+      iconify = ((!tmp_win->iconify_by_unmapping) || tmp_win->transient);
+      if (iconify)
+      {
+! 	if (tmp_win->icon_w == NULL)
+  	    CreateIconWindow(tmp_win, def_x, def_y);
+  	else
+  	    IconUp(tmp_win);
+--- 2519,2525 ----
+      iconify = ((!tmp_win->iconify_by_unmapping) || tmp_win->transient);
+      if (iconify)
+      {
+! 	if (tmp_win->icon_w == (Window) 0)
+  	    CreateIconWindow(tmp_win, def_x, def_y);
+  	else
+  	    IconUp(tmp_win);
+

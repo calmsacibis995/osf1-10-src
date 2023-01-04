@@ -1,0 +1,253 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: SCSI.7,v $ $Revision: 3.2.6.4 $ (DEC) $Date: 1993/09/17 20:55:12 $
+.\" 
+.TH SCSI 7
+.SH NAME
+.PP
+\*LSCSI\*O, \*LRAID\*O \- Small Computer System Interface
+.SH SYNOPSIS
+.PP
+\*Lnn#\*O
+.SH DESCRIPTION
+.PP
+The operating system interfaces to disk and tape devices through the
+Small Computer System Interface (SCSI).  Initial SCSI support is limited to the Digital-supplied mass storage devices.  The following devices are fully
+supported on the operating system:
+.iX "SCSI device driver"
+.iX "RAID device driver"
+.iX "Redundant Arrays of Independent Disks"
+.iX "Small Computer System Interconnect"
+.iX "device driver" "SCSI"
+.iX "device driver" "RAID"
+.ML
+.\" .LI
+.\" Winchester disks for MIPS-based systems: RZ23, RZ23L, RZ24, RZ24L, RZ25, 
+.\" RZ26, RZ55, RZ56, RZ57, RZ58, RX23, RX26, RX33
+.LI
+Winchester disks for Alpha AXP-based systems: RZ24L, RZ25, RZ26, RZ55,
+RZ56, RZ58, RZ73, RX23, RX26, RX33
+.LI
+RAID (Redundant Arrays of Independent Disks) SCSI controllers for Alpha
+AXP-based systems: HSZ10
+.\" .LI
+.\" Magnetic tapes for MIPS-based systems: TZ30, TZ85, TZK50, TLZ04, 
+.\" TLZ06, TSZ05, TSZ07, TKZ08, TKZ09
+.LI
+Magnetic tapes for Alpha AXP-based systems: TZ30, TZ85, TZK10, TLZ04,
+TLZ06, TSZ07, TKZ08, TKZ09 
+.LI
+Optical disks: RRD42
+.LE
+.PP
+Refer to your Software Product Description (SPD) for information on
+processor-specific device support.
+.PP
+Under the operating system, a SCSI
+device is referred to by its logical name.  Logical names take
+the following form:
+.oS
+nn#
+.oE
+The \*Vnn\*O argument is the two-character name; the number sign (#)
+represents the unit number.  The two-character names for SCSI devices are:
+.VL 4m
+.LI "\*Lrz\*O"
+RZ24L, RZ25, RZ26, RZ55, RZ56, RZ58, RZ73, RX23, RX26, RX33,
+and RRD42 disks
+.LI "\*Ltz\*O"
+TZ30, TZ85, TZK10, TLZ04, TLZ06, TSZ07, TKZ08, and TKZ09 tapes
+.LE
+.PP
+The unit number is a combination of the SCSI
+bus number (either 0, 1, and so on) and the device's target ID number.
+The unit number is eight times the bus number plus the
+target ID.  For example, an RZ23 disk at target ID 3 on bus
+0 would be referred to as rz3; a TZK50 tape at target ID 5 on the second
+SCSI bus would be referred to as 13.
+.PP
+The SCSI bus has eight possible target device IDs.  By default, one is
+allocated to the system.  This allows for a maximum of seven target devices
+connected to a SCSI bus.
+.SS "SCSI LUN support"
+The SCSI driver supports Logical Unit Numbers (LUNs) but there is no
+predefined logical naming scheme, so you must use the following
+procedure to create the device special files for devices that do not
+use a LUN of zero.  SCSI RAID controllers typically are capable of multiple
+LUNS per target identifier.
+.PP
+The \*L/dev/MAKEDEV\*O shell script creates device special files for
+all the devices that are attached to a maximum of 16 SCSI
+controllers that have a zero (0) LUN.
+.PP
+The following diagram describes the minor numbers for SCSI disk devices:
+.iS
+       ----------------------------------------------------------
+Bits: | 19      14 | 13         10 | 9         6 | 5           0 |
+       ----------------------------------------------------------
+      |  Bus no.   |  Target ID    |      LUN    | Partition no. |
+       ----------------------------------------------------------
+.iE
+.PP
+The following diagram describes the minor numbers for SCSI tape devices:
+.iS
+       -----------------------------------------------------------
+Bits: | 19    14 | 13      10 | 9       6 | 5       1 |     0     |
+       -----------------------------------------------------------
+      | Bus no.  | Target ID  |    LUN    |  Density  | No rewind |
+       -----------------------------------------------------------
+.iE
+.PP
+To create the device special files for the device you want to add, use
+the previous diagrams to calculate the minor number value.  If you
+want to add a disk device, you must create the character and block
+device files for each partition.  If you want to add a tape device, you
+must create the device special files for each density and for no
+rewind.
+.PP
+To add a disk device, you must use the following equation:
+.iS
+(LUN x 64) + (target ID x 1024) + (bus no. x 16384) + partition no.
+.iE
+.PP
+The following example uses the previous formula to add a SCSI disk
+device with bus number 2, target ID 4, and LUN 3:
+.iS
+Partition a: (3 x 64) + (4 x 1024) + (2 x 16384) + 0 = 37056
+Partition b: (3 x 64) + (4 x 1024) + (2 x 16384) + 1 = 37057
+Partition c: (3 x 64) + (4 x 1024) + (2 x 16384) + 2 = 37058
+Partition d: (3 x 64) + (4 x 1024) + (2 x 16384) + 3 = 37059
+Partition e: (3 x 64) + (4 x 1024) + (2 x 16384) + 4 = 37060
+Partition f: (3 x 64) + (4 x 1024) + (2 x 16384) + 5 = 37061
+Partition g: (3 x 64) + (4 x 1024) + (2 x 16384) + 6 = 37062
+Partition h: (3 x 64) + (4 x 1024) + (2 x 16384) + 7 = 37063
+.iE
+.PP
+Create the disk block special files as follows:
+.oS
+# mknod /dev/rz?a b 8 37056
+# mknod /dev/rz?b b 8 37057
+# mknod /dev/rz?c b 8 37058
+# mknod /dev/rz?d b 8 37059
+# mknod /dev/rz?e b 8 37060
+# mknod /dev/rz?f b 8 37061
+# mknod /dev/rz?g b 8 37062
+# mknod /dev/rz?h b 8 37063
+.oE
+.PP
+Create the disk character special files as follows:
+.oS
+# mknod /dev/rrz?a c 8 37056
+# mknod /dev/rrz?b c 8 37057
+# mknod /dev/rrz?c c 8 37058
+# mknod /dev/rrz?d c 8 37059
+# mknod /dev/rrz?e c 8 37060
+# mknod /dev/rrz?f c 8 37061
+# mknod /dev/rrz?g c 8 37062
+# mknod /dev/rrz?h c 8 37063
+.oE
+.PP
+To add a tape device, you must use the following equation:
+.iS
+(LUN x 64)+(target ID x 1024)+(bus no. x 16384)+(density x 2)+no_rewind
+.iE
+.PP
+The following example uses the previous formula to add a SCSI tape
+device with bus number 2, target ID 4, and LUN 3:
+.PP
+Perform the calculations for the rewind device files:
+.iS
+Density
+low:  (3x64) + (4x1024) + (2x16384) + (0x2) + 0 = 37056
+high: (3x64) + (4x1024) + (2x16384) + (1x2) + 0 = 37058
+med:  (3x64) + (4x1024) + (2x16384) + (2x2) + 0 = 37060
+aux:  (3x64) + (4x1024) + (2x16384) + (3x2) + 0 = 37062
+.iE
+.PP
+Perform the calculations for the no rewind device files:
+.iS
+Density
+low:  (3x64) + (4x1024) + (2x16384) + (0x2) + 1 = 37057
+high: (3x64) + (4x1024) + (2x16384) + (1x2) + 1 = 37059
+med:  (3x64) + (4x1024) + (2x16384) + (2x2) + 1 = 37061
+aux:  (3x64) + (4x1024) + (2x16384) + (3x2) + 1 = 37063
+.iE
+.PP
+Create the tape rewind device special files:
+.oS
+# mknod /dev/rmt?l c 9 37056
+# mknod /dev/rmt?h c 9 37058
+# mknod /dev/rmt?m c 9 37060
+# mknod /dev/rmt?a c 9 37062
+.oE
+.PP
+Create the tape no rewind device special files:
+.oS
+# mknod /dev/nrmt?l c 9 37057
+# mknod /dev/nrmt?h c 9 37059
+# mknod /dev/nrmt?m c 9 37061
+# mknod /dev/nrmt?a c 9 37063
+.oE
+.SH RESTRICTIONS
+.PP
+The SCSI device driver does not operate with optical disks other than the
+Digital-supplied devices.
+.PP
+The SCSI driver attempts to support, on a best-effort basis,
+non-Digital-supplied Winchester disks and magnetic tapes.
+.PP
+The following notes apply to the driver's handling of
+non-Digital-supplied disks:
+.ML
+.LI
+These disks are assigned a device type of RZxx instead of the
+Digital-supplied disk names listed previously (for example, RZ55).
+The RZxx disks follow the same logical device-naming scheme as the
+Digital-supplied disks.
+.LI
+During the autoconfigure phase of system startup, the driver displays
+the contents of the SCSI vendor ID, product ID, and the revision level
+fields of the inquiry data return by the SCSI device.  Also, the bus number,
+target ID, and LUN are displayed.
+.LI
+To configure an RZ device or RAID controller so that LUNS are displayed
+during the
+autoconfigure phase of system startup, the configuration file that
+your kernel is generated from must be modified to reflect LUNS other
+than zero. The following is an example of a SCSI HSZ10 RAID controller
+at bus number 3, target ID 1, LUNs 0, 1, and 2:
+.IP
+device disk             rz25    at asc3         drive 192
+.IP
+device disk             rz25    at asc3         drive 193
+.IP
+device disk             rz25    at asc3         drive 194
+.LI
+RZxx disks are assigned a default partition table. The
+default table can be modified by editing the \*Lccmn_rzxx_sizes[8]\*O entry in
+the \*L/usr/sys/data/cam_data.c\*O file.
+The \*Ldisklabel\*O
+command can also be used to modify the partition table on an RZxx disk.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lrz\*O(7),
+\*Ltz\*O(7),
+\*Ldisklabel\*O(8)
+.EQ
+delim off
+.EN

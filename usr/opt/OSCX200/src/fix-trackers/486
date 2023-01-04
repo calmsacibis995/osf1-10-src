@@ -1,0 +1,121 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211132347.AA21155@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2723) close XBUG #4890, #5635: Xt: SelectionClear event handler can erroneously clear ownership
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 13 Nov 92 18:47:02 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xaw: query-replace in Text widget broken
+        ### bug number:   4890
+        ### area:         Xaw
+        ### severity:     low
+        ### comments:     
+        ### status:       fixed, in Xt.  See Xt bug #5635
+
+        Subject: Xt: SelectionClear event handler can erroneously clear ownership
+        ### bug number:   5635
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     see below
+        ### status:       fixed, SelectionI.h 1.33 and Selection.c 1.74
+
+
+*** /tmp/da1059	Fri Nov 13 18:44:39 1992
+--- lib/Xt/SelectionI.h	Fri Nov 13 17:40:45 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: SelectionI.h,v 1.32 91/05/06 17:21:00 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: SelectionI.h,v 1.33 92/11/13 17:38:21 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 71,76 ****
+--- 71,77 ----
+      Display *dpy; 			/* constant */
+      Widget widget;
+      Time time;
++     unsigned long serial;
+      XtConvertSelectionProc convert;
+      XtLoseSelectionProc loses;
+      XtSelectionDoneProc notify;
+*** /tmp/da1092	Fri Nov 13 18:44:42 1992
+--- lib/Xt/Selection.c	Fri Nov 13 17:40:50 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: Selection.c,v 1.73 92/11/05 14:54:43 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: Selection.c,v 1.74 92/11/13 17:40:46 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 688,694 ****
+        case SelectionClear:
+  	/* if this event is not for the selection we registered for,
+  	 * don't do anything */
+! 	if (ctx->selection != event->xselectionclear.selection)
+  	    break;
+  	(void) LoseSelection(ctx, widget, event->xselectionclear.selection,
+  			event->xselectionclear.time);
+--- 688,695 ----
+        case SelectionClear:
+  	/* if this event is not for the selection we registered for,
+  	 * don't do anything */
+! 	if (ctx->selection != event->xselectionclear.selection ||
+! 	    ctx->serial > event->xselectionclear.serial)
+  	    break;
+  	(void) LoseSelection(ctx, widget, event->xselectionclear.selection,
+  			event->xselectionclear.time);
+***************
+*** 774,780 ****
+  {
+      Select ctx;
+      Select oldctx = NULL;
+-     Window window;
+  
+      if (!XtIsRealized(widget)) return False;
+  
+--- 775,780 ----
+***************
+*** 783,789 ****
+  	ctx->ref_count || ctx->was_disowned)
+      {
+  	Boolean replacement = FALSE;
+! 	window = XtWindow(widget);
+          XSetSelectionOwner(ctx->dpy, selection, window, time);
+          if (XGetSelectionOwner(ctx->dpy, selection) != window)
+  	    return FALSE;
+--- 783,790 ----
+  	ctx->ref_count || ctx->was_disowned)
+      {
+  	Boolean replacement = FALSE;
+! 	Window window = XtWindow(widget);
+! 	unsigned long serial = XNextRequest(ctx->dpy);
+          XSetSelectionOwner(ctx->dpy, selection, window, time);
+          if (XGetSelectionOwner(ctx->dpy, selection) != window)
+  	    return FALSE;
+***************
+*** 831,836 ****
+--- 832,838 ----
+  	}
+  	ctx->widget = widget;	/* Selection offically changes hands. */
+  	ctx->time = time;
++ 	ctx->serial = serial;
+      }
+      ctx->convert = convert;
+      ctx->loses = lose;

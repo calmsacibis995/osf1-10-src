@@ -1,0 +1,134 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203262258.AA18791@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2427) close XBUG #5087: empty strings confused with NULL atoms
+Date: Thu, 26 Mar 92 17:58:05 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: empty strings confused with NULL atoms
+        ### bug number:   5087
+        ### area:         fontlib
+        ### severity:     high
+
+
+*** /tmp/da18726	Thu Mar 26 17:55:36 1992
+--- fonts/lib/font/bitmap/bdfutils.c	Thu Mar 26 17:39:32 1992
+***************
+*** 22,28 ****
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfutils.c,v 1.3 91/07/17 20:43:53 rws Exp $ */
+  
+  #include <ctype.h>
+  
+--- 22,28 ----
+  
+  ************************************************************************/
+  
+! /* $XConsortium: bdfutils.c,v 1.5 92/03/26 17:38:18 gildea Exp $ */
+  
+  #include <ctype.h>
+  
+***************
+*** 142,147 ****
+--- 142,148 ----
+  {
+      register char *p,
+                 *pp;
++     char *orig_s = s;
+      Atom        atom;
+  
+      /* strip leading white space */
+***************
+*** 148,154 ****
+      while (*s && (*s == ' ' || *s == '\t'))
+  	s++;
+      if (*s == 0) {
+! 	return None;
+      }
+      if (*s != '"') {
+  	pp = s;
+--- 149,155 ----
+      while (*s && (*s == ' ' || *s == '\t'))
+  	s++;
+      if (*s == 0) {
+! 	return bdfForceMakeAtom(s, NULL);
+      }
+      if (*s != '"') {
+  	pp = s;
+***************
+*** 167,178 ****
+  	if (*s == '"') {
+  	    if (*(s + 1) != '"') {
+  		*p++ = 0;
+! 		if (strlen(pp)) {
+! 		    atom = bdfForceMakeAtom(pp, NULL);
+! 		} else {
+! 		    atom = None;
+! 		}
+! 		free(pp);
+  		return atom;
+  	    } else {
+  		s++;
+--- 168,175 ----
+  	if (*s == '"') {
+  	    if (*(s + 1) != '"') {
+  		*p++ = 0;
+! 		atom = bdfForceMakeAtom(pp, NULL);
+! 		xfree(pp);
+  		return atom;
+  	    } else {
+  		s++;
+***************
+*** 180,185 ****
+--- 177,184 ----
+  	}
+  	*p++ = *s++;
+      }
++     xfree (pp);
++     bdfError("unterminated quoted string property: %s\n", orig_s);
+      return None;
+  }
+  
+*** /tmp/da18743	Thu Mar 26 17:55:38 1992
+--- fonts/lib/font/bitmap/pcfwrite.c	Thu Mar 26 17:37:33 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: pcfwrite.c,v 1.2 91/05/10 15:58:16 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: pcfwrite.c,v 1.3 92/03/26 17:37:17 gildea Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 208,218 ****
+  pcfNameForAtom(a)
+      Atom        a;
+  {
+!     char       *name;
+! 
+!     if (!(name = NameForAtom(a)))
+! 	name = "";
+!     return name;
+  }
+  
+  pcfWriteFont(pFont, file)
+--- 208,214 ----
+  pcfNameForAtom(a)
+      Atom        a;
+  {
+!     return NameForAtom(a);
+  }
+  
+  pcfWriteFont(pFont, file)

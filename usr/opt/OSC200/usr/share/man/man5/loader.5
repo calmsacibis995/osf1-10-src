@@ -1,0 +1,419 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: loader.5,v $ $Revision: 1.1.6.7 $ (DEC) $Date: 1993/12/01 18:28:29 $
+.\"
+.\" |-----------------------------------------------------------|
+.\" | Copyright (c) 1991, 1990 MIPS Computer Systems, Inc.      |
+.\" | All Rights Reserved                                       |
+.\" |-----------------------------------------------------------|
+.\" |          Restricted Rights Legend                         |
+.\" | Use, duplication, or disclosure by the Government is      |
+.\" | subject to restrictions as set forth in                   |
+.\" | subparagraph (c)(1)(ii) of the Rights in Technical        |
+.\" | Data and Computer Software Clause of DFARS 252.227-7013.  |
+.\" |         MIPS Computer Systems, Inc.                       |
+.\" |         950 DeGuigne Avenue                               |
+.\" |         Sunnyvale, California 94088-3650, USA             |
+.\" |-----------------------------------------------------------|
+.\" 
+.\"
+.TH loader 5
+.SH NAME
+.PP
+\*Lloader\*O \- Runtime linker and loader.
+.SH DESCRIPTION
+.PP
+.iX "loader" "runtime linker and loader"
+The
+\*Lloader\*O
+is the runtime linker and shared object loader.
+You invoke \*Lloader\*O when you run a dynamic executable.  The loader maps
+in the main object and any shared libraries used by it,
+resolves relocations as
+\*Lld\*O
+does at static link time,
+and allocates common space in memory if required.  The loader is also
+referred to as \*Lrld\*O
+and some of the internal interfaces currently reflect this naming.
+.PP
+The loader constructs an explicit shared object list from the
+list of objects comprising the executable. You can override
+the dynamic executable's list at runtime by defining
+the \*L_RLD_LIST\*O environment variable to be a colon-separated list of
+objects and libraries.  To append new objects to the dynamic executable's list,
+specify the keyword DEFAULT at the beginning of the new object list;
+to prepend new objects, specify DEFAULT at the end of the new list.
+To add new objects to the middle of the dynamic executable's list,
+you must explicitly enter the full object list when defining \*L_RLD_LIST.
+.PP
+The default shared library search paths include:
+.AL
+.LI
+\*L/usr/shlib\*O
+.LI
+\*L/usr/ccs/lib\*O
+.LI
+\*L/usr/lib/cmplrs/cc\*O
+.LI
+\*L/usr/lib\*O
+.LI
+\*L/usr/local/lib\*O
+.LE
+.PP
+You can change and add to the shared library search paths
+by any of the following mechanisms:
+.ML
+.LI
+Using the \*L\-soname\*O option to the \*Lld\*O command when creating a shared
+object.
+.sp
+The \*Lld\*O command records shared library dependencies using shared object
+names (sonames).  By default, an object's soname is its filename (without
+a prepended pathname).  The \*L-soname\*O option allows you to specify an
+alternative soname.  If the soname you specify contains a pathname,
+the shared object loader searches for it only in the indicated location, exactly
+as specified.  If the soname contains a filename, the shared object loader
+constructs a search path for the object from the filename as described
+below.
+.LI
+Using the \*L\-rpath\*O option to the \*Lld\*O command.
+.sp
+The \*L\-rpath\*O option causes the linker to associate a list of shared library
+search directories (separated by colons)
+with a call shared or shared object.
+.LI
+Defining the \*L_RLD_ROOT\*O environment variable.
+.sp
+The
+\*L_RLD_ROOT\*O environment variable defines a list
+of root directory paths (separated by colons) that are, in turn,
+prepended to each directory specified in the main executable's rpath
+and to the default shared library search paths.
+The \*L_RLD_ROOT\*O environment variable does not, by itself,
+identify a list of directories to be searched. To search the system
+default library directories when \*L_RLD_ROOT\*O is defined, you must
+include the true root directory (/) as one of its entries.
+.LI
+Defining the \*LLD_LIBRARY_PATH\*O environment variable.
+.sp
+The \*LLD_LIBRARY_PATH\*O environment variable defines a list of
+shared library directories that are always searched as specified.
+The shared object loader does not prepend to these directories
+the root directory path prefixes defined by the \*L_RLD_ROOT\*O environment variable.
+.LE
+.PP
+As mentioned above, if the object's soname contains a pathname,
+the shared object loader searches for it only in the indicated location, exactly
+as specified.  If the soname contains a filename, the shared object loader
+constructs its search path for shared objects in the following manner:
+.AL
+.LI
+the list of shared library search directories indicated by the
+rpath of the main executable, each prepended by any root paths defined by
+the \*L_RLD_ROOT\*O environment variable
+.LI
+any list of shared library search directories defined by the
+\*LLD_LIBRARY_PATH\*O environment variable
+.LI
+the default shared library search paths, each prepended by any root paths defined by
+the \*L_RLD_ROOT\*O environment variable
+.LE
+.PP
+To ensure compatibility, applications may choose to disallow
+exec-time or run-time library replacement.  The
+\*Lld\*O(1)
+program supports a flag,
+\*L\-no_library_replacement\*O,
+to facilitate this feature.
+.PP
+Security also dictates that the loader will not allow library replacement for
+setuid and setgid programs unless the user is
+\*Lroot\*O.
+.SS Loader Entry Points
+The loader is invoked on the initial exec and is reentered via
+\*Llazy_text_resolve\*O
+This function implements lazy binding by
+resolving text symbols on the fly at runtime.  The symbol
+\*L_\|_istart\*O
+is bound to
+a handler for ".init" sections, and is called by \*Lcrt0\*O.
+Before exiting, programs or objects should call
+\*L\_rld_new_interface(_SHUT_DOWN)\*O
+to ensure that the program executes all of the ".fini" sections for
+all of the shared objects.
+The \*Lcrt0\*O and
+\*Lexit\*O(2)
+library routines
+call
+\*L\_rld_new_interface(_SHUT_DOWN)\*O ,
+so that programs
+linked using
+\*Lcc\*O(1)
+will have standard handling of .init and .fini sections.
+.PP
+Programmers are encouraged to use the higher level entry points
+\*Ldlopen\*O(3),
+\*Ldlsym\*O(3),
+\*Ldlclose\*O(3),
+and \*Ldlerror\*O(3)
+to perform runtime library loading and symbol resolution.
+The following facilities available through
+\*L\_rld_new_interface\*O
+are evolving and should not be used by portable programs.
+.\" **************** marker **********
+.PP
+.oS
+#include <rld_interface.h>
+void *_rld_new_interface(Elf32_Word operation, ...)
+.oE
+.PP
+This function returns different types of objects depending on the operation
+code, so casting is required as indicated below.  The following operation
+codes implement some basic functionalities that are superseded for the
+most part by
+\*Ldlopen\*O(3),
+etc.:
+.oS
+/* Run fini routines */
+(int)_rld_new_interface(_SHUT_DOWN)
+/* Return first pathname in object list */
+(char *)_rld_new_interface(_RLD_FIRST_PATHNAME)
+/* Return next pathname in object list */
+(char *)_rld_new_interface(_RLD_NEXT_PATHNAME)
+/* Modify the object list, see rld_interface.h */
+(char *)_rld_new_interface(_RLD_MODIFY_LIST,
+			Elf32_Word operation,
+			char *original_pathname,
+			char *name)
+/* Map a virtual address to a name */
+(char *)_rld_new_interface(_RLD_ADDR_TO_NAME, Elf32_Addr address)
+/* Map a name to a virtual address */
+(Elf32_Addr)_rld_new_interface(_RLD_NAME_TO_ADDR, char *name)
+.oE
+.PP
+The following operation codes are used to implement \*Ldlopen\*O(3), etc.:
+.oS
+/* See dlopen(3) for details */
+(void *)_rld_new_interface(_RLD_LDR_DLOPEN, char *libname, int mode)
+/* See dlsym(3) for details */
+(void *)_rld_new_interface(_RLD_LDR_DLSYM, void *handle, char *symname)
+/* See dlerror(3) for details */
+(char *)_rld_new_interface(_RLD_LDR_DLERROR)
+/* See dlclose(3) for details */
+(int)_rld_new_interface(_RLD_LDR_DLCLOSE, void *handle)
+.oE
+.PP
+The following operation codes are used internally by libc and dbx:
+.oS
+/* Support for sbrk(2) */
+(int)_rld_new_interface(_RLD_LDR_SBRK, int incr, char **p_oldbrk)
+/* Support for brk(2) */
+(int)_rld_new_interface(_RLD_LDR_BRK, char *addr)
+/* Run fini routines (the same as _RLD_SHUTDOWN) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_ATEXIT,
+			ldr_context_t ctxt)
+/* See ldr_inq_region(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_INQ_REGION,
+			ldr_context_t ctxt,
+			ldr_module_t mod_id,
+			ldr_region_t region_no,
+			ldr_region_info_t *infop,
+			size_t sizeasked,
+			size_t *sizegot)
+/* See ldr_inq_module(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_INQ_MODULE,
+			ldr_context_t ctxt,
+			ldr_module_t mod_id,
+			ldr_module_info_t *infop,
+			size_t sizeasked,
+			size_t *sizegot)
+/* See ldr_next_module(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_NEXT_MODULE,
+			ldr_context_t ctxt,
+			ldr_module_t *mod_id_ptr)
+.oE
+.PP
+The following operation codes provide compatibility with older
+loader interfaces and are not supported on DEC OSF/1 V1.2
+or on
+DEC OSF/1 .
+See
+\*Lload\*O(3)
+and
+\*Lunload\*O(3) ,
+for corresponding
+functions on earlier DEC OSF/1 systems:
+.oS
+/* See load(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_LOAD,
+			ldr_context_t ctxt,
+	 		char *path,
+			ldr_load_flags_t flags,
+			ldr_module_t *mod_id_ptr)
+/* See unload(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_UNLOAD,
+			ldr_context_t ctxt,
+			ldr_module_t mod_id)
+/* See ldr_install(3).  Implements inlib functionality */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_INSTALL,
+			ldr_context_t ctxt,
+			char *path)
+/* See ldr_remove(3).  Implements rmlib functionality */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_REMOVE,
+			ldr_context_t ctxt,
+			char *path)
+/* See ldr_lookup_package(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_LOOKUP_PACKAGE,
+			ldr_context_t ctxt,
+			char *package_name,
+			char *symbol_name,
+			void **psym_address)
+/* See ldr_lookup(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_LOOKUP,
+			ldr_context_t ctxt,
+			ldr_module_t mod_id,
+			char *symbol_name,
+			void **psym_address)
+/* See ldr_get_entry_pt(3) */
+(int)_rld_new_interface(_RLD_LDR_CONTEXT_GET_ENTRY_PT,
+			ldr_context_t ctxt,
+			ldr_module_t mod_id,
+			ldr_entry_pt_t *entry_ptr)
+.oE
+.PP
+In the above entry points,
+\*Lctxt\*O
+is a loader context, allowing the possibility of querying and manipulating
+various environments.
+Currently,
+\*Lctxt\*O
+must be set to
+\*Lldr_process_context\*O ,
+which is a symbol resolved by the loader to an internal data structure.
+This allows operations on the current process.
+.SH LOADER OPTIONS
+.PP
+Users may specify loader options by setting the _RLD_ARGS
+environment variable to a space separated list of any of
+the following options:
+.VL 8m
+.LI "\*L\-clearstack\*O"
+For programs that assume local variable to be initialized to zero upon
+entry, this option forces the loader to zero any stack it uses before
+returning to user code.
+.LI "\*L\-ignore_all_versions\*O"
+ignore interface versions on all objects.
+.LI "\*L\-ignore_version shared_object\*O"
+ignore the interface version checking on the object specified.
+.LI "\*L\-ignore_unresolved\*O"
+does not complain or abort when the loader
+cannot resolve unresolved data symbols.
+.LI "\*L\-interact\*O"
+the loader interactively prompts the user on
+stdin to fix problems in the link
+(the loader will ask the user to provide a full pathname for a missing
+shared object.)
+.LI "\*L\-log file\*O"
+prints all messages to a log file instead of \*L/dev/tty\*O.
+.LI "\*L\-pixie\*O"
+includes the loader in pixie statistics (see
+\*Lpixie\*O(1)
+for more
+info on how to profile shared objects with or without loader statistics.)
+.LI "\*L\-stat\*O"
+prints loader statistics to \*L/dev/tty\*O.
+.LI "\*L\-trace\*O"
+prints all actions done for the user by the loader.
+.LI "\*L\-v\*O"
+prints general actions (less verbose than \*L\-trace\*O.)
+.LI "\*L\-taso\*O"
+forces the loader to handle all objects as "truncated address space
+option" objects. These are objects whose dependencies must be loaded
+in the lower 31-bit-addressable virtual address range. Shared libraries
+which been linked outside of this range will be relocated by the loader.
+.LI "\*L\-depth_ring_search\*O"
+forces the loader to use a depth_first, ring search method for resolving
+symbol references between shared objects.
+.LE
+.PP
+For setuid programs not run by the superuser, _RLD_ARGS is ignored.
+.SH SYMBOL RESOLUTION
+.PP
+The loader's default symbol resolution policy uses a breadth-first
+search of the entire dependence graph to resolve symbol references
+between shared objects. The search starts from the call_shared
+executable, traverses dependencies left-to-right and ignores cycles
+or duplicates.
+.PP
+The \*Ldepth_ring_search\*O method is an alternative symbol resolution
+policy which can be selected for an individual executable at link time,
+or for all executables at runtime. See \*Lld\*O(1) for link time
+options. At run time the loader switch \*L\-depth_ring_search\*O is used
+to enable this symbol resolution policy.
+.PP
+The \*Ldepth_ring_search\*O order is a depth-first search starting from
+the referencing object, followed by a depth-first search starting from
+the root. Like the default search policy, the traversal of dependencies
+is performed left-to-right, cycles and duplicates are ignored.
+.PP
+To illustrate these differences, consider the dependence graph defined
+by the following dependencies:
+.oS
+a.out	    -->   libfoo.so   libbar.so    libc.so
+libfoo.so   -->   libc.so
+libbar.so   -->   libc.so
+libc.so     -->
+.oE
+.PP
+The default symbol resolution policy uses a single breadth-first search
+order to resolve symbol references for each of the objects in the
+preceding example. The order for this example is:
+.oS
+Referencing     Search
+Object          Order
+All             a.out    libfoo.so    libbar.so   libc.so
+.oE
+.PP
+The depth ring search order depends on which object a symbol reference
+is being resolved for. The search orders for resolving references from
+each object in the above example are as follows:
+.oS
+Referencing   Search
+Object        Order
+a.out         a.out       libfoo.so     libc.so    libbar.so
+libfoo.so     libfoo.so   libc.so       a.out      libbar.so
+libbar.so     libbar.so   libc.so       a.out      libfoo.so
+libc.so       libc.so     a.out         libfoo.so  libbar.so
+.oE
+.PP
+Depth ring search order should be used with caution. The default
+symbol resolution policy ensures that the same symbol is resolved
+for any object that references it. With depth ring search, you may have
+multiple instances of a symbol, referenced from different objects. This
+could introduce synchronization problems in execution, particularly if
+I/O buffers are duplicated across multiple shared libraries.
+.SH RELATED INFORMATION
+.PP
+\*Lld\*O(1),
+\*Ldlopen\*O(3),
+\*Ldlsym\*O(3),
+\*Ldlclose\*O(3) ,
+\*Ldlerror\*O(3)
+.EQ
+delim off
+.EN

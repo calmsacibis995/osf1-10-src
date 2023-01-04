@@ -1,0 +1,333 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!decvax.dec.com!pa.dec.com!nobody
+Message-Id: <9112231636.AA21287@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2286) close XBUG #4809, #4821: XImage function bugs
+Date: Mon, 23 Dec 91 11:36:03 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+Subject: Xlib: assumptions about depth 1 ZFormat having bits-per-pixel 1
+### bug number:   4809
+### area:         Xlib
+### severity:     low
+### comments:     
+
+Subject: Xlib: XCreateImage doesn't sanity check its arguments
+### bug number:   4821
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1018406	Mon Dec 23 09:48:19 1991
+--- lib/X/XCrBFData.c	Wed Dec 18 19:36:22 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XCrBFData.c,v 1.10 91/01/06 11:44:51 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1987	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XCrBFData.c,v 1.11 91/12/18 19:34:42 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1987	*/
+  
+  /*
+***************
+*** 57,64 ****
+      ximage.height = height;
+      ximage.width = width;
+      ximage.depth = 1;
+      ximage.xoffset = 0;
+!     ximage.format = ZPixmap;
+      ximage.data = (char *)data;
+      ximage.byte_order = LSBFirst;
+      ximage.bitmap_unit = 8;
+--- 57,65 ----
+      ximage.height = height;
+      ximage.width = width;
+      ximage.depth = 1;
++     ximage.bits_per_pixel = 1;
+      ximage.xoffset = 0;
+!     ximage.format = XYPixmap;
+      ximage.data = (char *)data;
+      ximage.byte_order = LSBFirst;
+      ximage.bitmap_unit = 8;
+*** /tmp/,RCSt1018463	Mon Dec 23 09:48:57 1991
+--- lib/X/XCrPFBData.c	Wed Dec 18 19:36:48 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XCrPFBData.c,v 1.6 91/02/01 16:33:55 gildea Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1987	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XCrPFBData.c,v 1.7 91/12/18 19:35:35 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1987	*/
+  
+  /*
+***************
+*** 55,60 ****
+--- 55,61 ----
+      ximage.height = height;
+      ximage.width = width;
+      ximage.depth = 1;
++     ximage.bits_per_pixel = 1;
+      ximage.xoffset = 0;
+      ximage.format = XYBitmap;
+      ximage.data = data;
+*** /tmp/,RCSt1018976	Mon Dec 23 09:53:23 1991
+--- lib/X/XGetImage.c	Mon Dec 23 09:33:48 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XGetImage.c,v 11.27 91/01/26 14:08:52 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XGetImage.c,v 11.28 91/12/23 09:31:46 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 54,60 ****
+  	req->planeMask = plane_mask;
+  	req->format = format;
+  	
+! 	if (_XReply (dpy, (xReply *) &rep, 0, xFalse) == 0) {
+  		UnlockDisplay(dpy);
+  		SyncHandle();
+  		return (XImage *)NULL;
+--- 54,61 ----
+  	req->planeMask = plane_mask;
+  	req->format = format;
+  	
+! 	if (_XReply (dpy, (xReply *) &rep, 0, xFalse) == 0 ||
+! 	    rep.length == 0) {
+  		UnlockDisplay(dpy);
+  		SyncHandle();
+  		return (XImage *)NULL;
+***************
+*** 79,84 ****
+--- 80,87 ----
+  		 rep.depth, ZPixmap, 0, data, width, height,
+  		  _XGetScanlinePad(dpy, (int) rep.depth), 0);
+  
++ 	if (!image)
++ 	    Xfree(data);
+  	UnlockDisplay(dpy);
+  	SyncHandle();
+  	return (image);
+***************
+*** 91,97 ****
+       int x, y;
+       unsigned int width, height;
+       unsigned long plane_mask;
+!      int format;	/* either XYFormat or ZFormat */
+       XImage *dest_image;
+       int dest_x, dest_y;
+  {
+--- 94,100 ----
+       int x, y;
+       unsigned int width, height;
+       unsigned long plane_mask;
+!      int format;	/* either XYPixmap or ZPixmap */
+       XImage *dest_image;
+       int dest_x, dest_y;
+  {
+*** /tmp/,RCSt1019187	Mon Dec 23 09:55:14 1991
+--- lib/X/XImUtil.c	Mon Dec 23 09:34:18 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XImUtil.c,v 11.52 91/12/10 20:22:09 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XImUtil.c,v 11.55 91/12/23 09:32:47 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 260,265 ****
+--- 260,271 ----
+  	register XImage *image;
+  	int bits_per_pixel = 1;
+  
++ 	if (depth == 0 || depth > 32 ||
++ 	    (format != XYBitmap && format != XYPixmap && format != ZPixmap) ||
++ 	    (format == XYBitmap && depth != 1) ||
++ 	    (xpad != 8 && xpad != 16 && xpad != 32) ||
++ 	    offset < 0 || image_bytes_per_line < 0)
++ 	    return (XImage *) NULL;
+  	if ((image = (XImage *) Xcalloc(1, (unsigned) sizeof(XImage))) == NULL)
+  	    return (XImage *) NULL;
+  
+***************
+*** 365,371 ****
+  	int bits, nbytes;
+  	long plane;
+       
+! 	if (ximage->depth == 1) {
+  		src = &ximage->data[XYINDEX(x, y, ximage)];
+  		dst = (char *)&pixel;
+  		pixel = 0;
+--- 371,377 ----
+  	int bits, nbytes;
+  	long plane;
+       
+! 	if ((ximage->bits_per_pixel | ximage->depth) == 1) {
+  		src = &ximage->data[XYINDEX(x, y, ximage)];
+  		dst = (char *)&pixel;
+  		pixel = 0;
+***************
+*** 503,509 ****
+  	unsigned char bit;
+  	int xoff, yoff;
+  
+! 	if ((ximage->depth == 1) &&
+  	    (ximage->byte_order == ximage->bitmap_bit_order)) {
+  	    xoff = x + ximage->xoffset;
+  	    yoff = y * ximage->bytes_per_line + (xoff >> 3);
+--- 509,515 ----
+  	unsigned char bit;
+  	int xoff, yoff;
+  
+! 	if (((ximage->bits_per_pixel | ximage->depth) == 1) &&
+  	    (ximage->byte_order == ximage->bitmap_bit_order)) {
+  	    xoff = x + ximage->xoffset;
+  	    yoff = y * ximage->bytes_per_line + (xoff >> 3);
+***************
+*** 554,560 ****
+          npixel = pixel;
+  	for (i=0, px=pixel; i<sizeof(unsigned long); i++, px>>=8)
+  	    ((unsigned char *)&pixel)[i] = px;
+! 	if (ximage->depth == 1) {
+  		src = &ximage->data[XYINDEX(x, y, ximage)];
+  		dst = (char *)&px;
+  		px = 0;
+--- 560,566 ----
+          npixel = pixel;
+  	for (i=0, px=pixel; i<sizeof(unsigned long); i++, px>>=8)
+  	    ((unsigned char *)&pixel)[i] = px;
+! 	if ((ximage->bits_per_pixel | ximage->depth) == 1) {
+  		src = &ximage->data[XYINDEX(x, y, ximage)];
+  		dst = (char *)&px;
+  		px = 0;
+***************
+*** 691,697 ****
+  	unsigned char bit;
+  	int xoff, yoff;
+  
+! 	if ((ximage->depth == 1) &&
+  	    (ximage->byte_order == ximage->bitmap_bit_order)) {
+  	    xoff = x + ximage->xoffset;
+  	    yoff = y * ximage->bytes_per_line + (xoff >> 3);
+--- 697,703 ----
+  	unsigned char bit;
+  	int xoff, yoff;
+  
+! 	if (((ximage->bits_per_pixel | ximage->depth) == 1) &&
+  	    (ximage->byte_order == ximage->bitmap_bit_order)) {
+  	    xoff = x + ximage->xoffset;
+  	    yoff = y * ximage->bytes_per_line + (xoff >> 3);
+***************
+*** 862,868 ****
+  
+  	if (!value)
+  	    return;
+! 	if (ximage->depth == 1) {
+  	    /* The only value that we can add here to an XYBitmap
+  	     * is one.  Since 1 + value = ~value for one bit wide
+  	     * data, we do this quickly by taking the ones complement
+--- 868,874 ----
+  
+  	if (!value)
+  	    return;
+! 	if ((ximage->bits_per_pixel | ximage->depth) == 1) {
+  	    /* The only value that we can add here to an XYBitmap
+  	     * is one.  Since 1 + value = ~value for one bit wide
+  	     * data, we do this quickly by taking the ones complement
+***************
+*** 926,932 ****
+  	if ((image->format == ZPixmap) && (image->bits_per_pixel == 8)) {
+  	    image->f.get_pixel = _XGetPixel8;
+  	    image->f.put_pixel = _XPutPixel8;
+! 	} else if ((image->depth == 1) &&
+  		   (image->byte_order == image->bitmap_bit_order)) {
+  	    image->f.get_pixel = _XGetPixel1;
+  	    image->f.put_pixel = _XPutPixel1;
+--- 932,938 ----
+  	if ((image->format == ZPixmap) && (image->bits_per_pixel == 8)) {
+  	    image->f.get_pixel = _XGetPixel8;
+  	    image->f.put_pixel = _XPutPixel8;
+! 	} else if (((image->bits_per_pixel | image->depth) == 1) &&
+  		   (image->byte_order == image->bitmap_bit_order)) {
+  	    image->f.get_pixel = _XGetPixel1;
+  	    image->f.put_pixel = _XPutPixel1;
+*** /tmp/,RCSt1019537	Mon Dec 23 09:58:16 1991
+--- lib/X/XPutImage.c	Sat Dec 21 16:12:15 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XPutImage.c,v 11.60 91/06/07 16:33:38 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+--- 1,4 ----
+! /* $XConsortium: XPutImage.c,v 11.62 91/12/21 16:11:56 rws Exp $ */
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+  /*
+***************
+*** 815,821 ****
+      req->height = req_height;
+      req->depth = image->depth;
+      req->format = image->format;
+!     if ((image->depth == 1) || (image->format != ZPixmap))
+  	SendXYImage(dpy, req, image, req_xoffset, req_yoffset);
+      else
+  	SendZImage(dpy, req, image, req_xoffset, req_yoffset,
+--- 815,821 ----
+      req->height = req_height;
+      req->depth = image->depth;
+      req->format = image->format;
+!     if (image->bits_per_pixel == 1)
+  	SendXYImage(dpy, req, image, req_xoffset, req_yoffset);
+      else
+  	SendZImage(dpy, req, image, req_xoffset, req_yoffset,
+***************
+*** 843,849 ****
+  						 : (dpy->max_request_size << 2))
+  		- SIZEOF(xPutImageReq);
+  
+!     if ((image->depth == 1) || (image->format != ZPixmap)) {
+  	left_pad = (image->xoffset + req_xoffset) & (dpy->bitmap_unit - 1);
+  	BytesPerRow = (ROUNDUP((long)req_width + left_pad,
+  			       dpy->bitmap_pad) >> 3) * image->depth;
+--- 843,849 ----
+  						 : (dpy->max_request_size << 2))
+  		- SIZEOF(xPutImageReq);
+  
+!     if (image->bits_per_pixel == 1) {
+  	left_pad = (image->xoffset + req_xoffset) & (dpy->bitmap_unit - 1);
+  	BytesPerRow = (ROUNDUP((long)req_width + left_pad,
+  			       dpy->bitmap_pad) >> 3) * image->depth;
+***************
+*** 916,922 ****
+      if ((width <= 0) || (height <= 0))
+  	return;
+  
+!     if ((image->depth == 1) || (image->format != ZPixmap)) {
+  	dest_bits_per_pixel = 1;
+  	dest_scanline_pad = dpy->bitmap_pad;
+      } else {
+--- 916,922 ----
+      if ((width <= 0) || (height <= 0))
+  	return;
+  
+!     if (image->bits_per_pixel == 1) {
+  	dest_bits_per_pixel = 1;
+  	dest_scanline_pad = dpy->bitmap_pad;
+      } else {

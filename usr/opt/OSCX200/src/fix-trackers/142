@@ -1,0 +1,113 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9202191951.AA07041@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2364) Close XBUG #4942:  server: ddx/mi backing store memory leak in ExposeCopy
+Date: Wed, 19 Feb 92 14:51:49 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4942
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da6955	Wed Feb 19 14:49:03 1992
+--- server/ddx/mi/mibstore.c	Thu Jan 30 19:40:32 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: mibstore.c,v 5.50 91/07/10 19:06:50 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by the Regents of the University of California
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: mibstore.c,v 5.51 92/01/30 19:40:07 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by the Regents of the University of California
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 3690,3696 ****
+      int	    	  	dstx, dsty;
+      unsigned long 	plane;
+  {
+!     RegionPtr	  	tempRgn;
+      miBSWindowPtr	pBackingStore;
+      RegionPtr	  	(*copyProc)();
+      GCPtr		pScratchGC;
+--- 3690,3696 ----
+      int	    	  	dstx, dsty;
+      unsigned long 	plane;
+  {
+!     RegionRec	  	tempRgn;
+      miBSWindowPtr	pBackingStore;
+      RegionPtr	  	(*copyProc)();
+      GCPtr		pScratchGC;
+***************
+*** 3707,3716 ****
+  	(pBackingStore->status == StatusBadAlloc))
+      	return;
+  
+!     tempRgn = (* pGC->pScreen->RegionCreate) (NULL, 1);
+!     (* pGC->pScreen->Intersect) (tempRgn, prgnExposed,
+  				 &pBackingStore->SavedRegion);
+!     (* pGC->pScreen->Subtract) (prgnExposed, prgnExposed, tempRgn);
+  
+      if (plane != 0) {
+  	copyProc = pGC->ops->CopyPlane;
+--- 3707,3716 ----
+  	(pBackingStore->status == StatusBadAlloc))
+      	return;
+  
+!     (* pGC->pScreen->RegionInit) (&tempRgn, NullBox, 0);
+!     (* pGC->pScreen->Intersect) (&tempRgn, prgnExposed,
+  				 &pBackingStore->SavedRegion);
+!     (* pGC->pScreen->Subtract) (prgnExposed, prgnExposed, &tempRgn);
+  
+      if (plane != 0) {
+  	copyProc = pGC->ops->CopyPlane;
+***************
+*** 3734,3740 ****
+  	    	gcMask |= GCPlaneMask;
+  	    if (gcMask)
+  	    	CopyGC (pGC, pScratchGC, gcMask);
+! 	    miBSFillVirtualBits (pDst, pScratchGC, tempRgn, dx, dy,
+  				 (int) pBackingStore->backgroundState,
+  				 pBackingStore->background,
+  				 ~0L);
+--- 3734,3740 ----
+  	    	gcMask |= GCPlaneMask;
+  	    if (gcMask)
+  	    	CopyGC (pGC, pScratchGC, gcMask);
+! 	    miBSFillVirtualBits (pDst, pScratchGC, &tempRgn, dx, dy,
+  				 (int) pBackingStore->backgroundState,
+  				 pBackingStore->background,
+  				 ~0L);
+***************
+*** 3742,3748 ****
+  	}
+  	break;
+      case StatusContents:
+! 	for (i = REGION_NUM_RECTS(tempRgn), pBox = REGION_RECTS(tempRgn);
+  	     --i >= 0;
+  	     pBox++)
+  	{
+--- 3742,3748 ----
+  	}
+  	break;
+      case StatusContents:
+! 	for (i = REGION_NUM_RECTS(&tempRgn), pBox = REGION_RECTS(&tempRgn);
+  	     --i >= 0;
+  	     pBox++)
+  	{
+***************
+*** 3754,3757 ****
+--- 3754,3758 ----
+  	}
+  	break;
+      }
++     (* pGC->pScreen->RegionUninit) (&tempRgn);
+  }

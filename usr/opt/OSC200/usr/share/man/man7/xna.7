@@ -1,0 +1,170 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: xna.7,v $ $Revision: 1.1.6.5 $ (DEC) $Date: 1994/01/19 23:40:05 $
+.\"
+.TH xna 7
+.SH NAME
+.PP
+\*Lxna\*O \- The DEMNA Ethernet interfaces
+.SH SYNOPSIS
+.PP
+.sS
+\*Lcontroller xna\*VIn\*O \*Lat * vector xnaintr\*O
+.sE
+.PP
+The variable \*VIn\*O can be 0 to 7.
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.RS 5
+There are many configuration options that are valid in a configuration file.
+The syntax shown here is the most common and generic. Other options are more
+specific to particular hardware configurations.
+.sp 6p
+.RE
+.SH DESCRIPTION
+.PP
+.iX "xna interface" "DEMNA interface"
+.iX "DEMNA interface"
+.iX "Ethernet address" "mapping to Internet address"
+.iX "Internet address" "mapping to Ethernet address"
+The \*Lxna\*O driver provides access to a 10-MB Ethernet network through
+the DEMNA adapter. The DEMNA is an Ethernet-to-XMI adapter.
+.PP
+The host's Internet address is specified at boot time with an
+SIOCSIFADDR ioctl.  The \*Lxna\*O
+driver employs the Address Resolution Protocol, as described in
+\*Larp\*O(7), to map dynamically between Internet and Ethernet addresses on
+the local network.
+.PP
+The \*Lxna\*O driver normally tries to use a trailer encapsulation
+to minimize copying data on input and output.  This can be
+disabled for an interface by setting the IFF_NOTRAILERS
+flag with an SIOCSIFFLAGS ioctl.
+Trailers are used only for packets destined for Internet hosts.
+.PP
+The SIOCSPHYSADDR ioctl can be used to change the physical address
+of the adapter and SIOCRPHYSADDR can
+be used to read its physical address.  SIOCADDMULTI
+and SIOCDELMULTI can be used to add or delete multicast addresses.
+The \*Lxna\*O driver supports a maximum of 12 multicast
+addresses. The argument to the latter ioctls is a pointer to an
+``ifreq'' structure found in \*L<net/if.h>\*O.
+.PP
+SIOCRDCTRS and SIOCRDZCTRS ioctls can be used to read or
+read and clear network counters. The argument to the latter
+two ioctls is a pointer to a counter structure ``ctrreq'' found in
+\*L<net/if.h>\*O.
+.PP
+The ioctls SIOCENABLBACK and SIOCDISABLBACK can be used to enable
+and disable the interface loopback mode.
+.SH RESTRICTIONS
+.PP
+The PUP protocol family is not supported.
+.SH EXAMPLES
+.PP
+To obtain the physical address of the adapter, use the SIOCRPHYSADDR
+ioctl as in the following program example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s,i;
+  static   struct  ifdevea  devea;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(devea.ifr_name,"xna0");
+  if (ioctl(s,SIOCRPHYSADDR,&devea) < 0) {
+     perror(&devea.ifr_name[0]);
+     exit(1);
+  }
+  printf(Address is ");
+  for (i = 0, i < 6, i++)
+     printf("%X ", devea.default_pa[1] & 0xff);
+  printf("\n");
+  close(s);
+}
+.oE
+.PP
+To reset the adapter, use the SIOCIFRESET ioctl as in the following program
+example:
+.oS
+#include <stdio.h>              /* standard I/O */
+#include <errno.h>              /* error numbers */
+#include <sys/socket.h>         /* socket definitions */
+#include <sys/ioctl.h>          /* ioctls */
+#include <net/if.h>             /* generic interface structures */
+
+main()
+{
+  int s;
+  struct  ifreq  data;
+  /* Get a socket */
+  s = socket(AF_INET,SOCK_DGRAM,0);
+  if (s < 0) {
+     perror("socket");
+     exit(1);
+  }
+  strcpy(data.ifr,"xna0");
+  if (ioctl(s,SIOCIFRESET,&data) < 0) {
+     perror("SIOCIFRESET:");
+     exit(1);
+  }
+  close(s);
+}
+.oE
+.SH ERRORS
+.PP
+The DEMNA errors are coded as follows:
+.VL
+.LI "\*Lxna%d: port self-test failed:\*O<\*Vregister list\*O>"
+Adapter did not pass the power-up self-test during autoconfiguration
+time. The port attachment fails.
+.LI "\*Lxna%d: couldn't allocate...\*O"
+The \*Lxna\*O driver was unable to allocate memory for adapter data structures.
+The port attachment fails.
+.LI "\*Lxna%d: svatophys failed for ...\*O"
+The \*Lxna\*O driver was unable to map memory for adapter data
+structures. The port attachment fails.
+.LI "\*Lxna%d: port probe failed:\*O<\*Vregister list\*O>"
+The \*Lxna\*O driver was unable to bring the adapter into the initialized
+state. The port attachment fails.
+.LI "\*Lxna%d: port init failed:\*O"
+The \*Lxna\*O driver failed to prepare the adapter for run-time use.
+.LI "\*Lxna%d: port reset failed\*O<\*Vregister list\*O>"
+The \*Lxna\*O driver was unable to bring the adapter into the
+initialized state during a port reset.
+.LI "\*Lxna%d: command failed, error code:\*O<\*Verror code\*O>"
+The adapter port command failed. The \*Verror code\*O
+gives reason for failure.
+.LI "\*Lxna%d: addmulti failed, multicast list full\*O"
+Too many multicast requests have been made.
+.LE
+.SH RELATED INFORMATION
+.PP
+Files: \*Larp\*O(7), \*Linet\*O(7), \*Lintro\*O(4), \*Lnetstat\*O(1)
+.EQ
+delim off
+.EN

@@ -1,0 +1,255 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_look.3,v $ $Revision: 3.2.7.2 $ (DEC) $Date: 1993/07/27 13:25:02 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.TH t_look 3
+.SH NAME
+\*Lt_look\*O \- Looks at the current event on a transport endpoint.
+.SH LIBRARY
+.PP
+XTI Library (\*Llibxti.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <xti.h>\\*O
+.PP
+\*Lint t_look(
+.nL
+\*Lint \*Vfd\*O) ;
+.sE
+.SH PARAMETERS
+.PP
+The \*Lt_look\*O(\|) function can be called in all transport provider
+states except T_UNINIT. The following table summarizes the
+relevance of the \*Vfd\*O parameter when \*Lt_look\*O(\|) is called:
+.sp
+.TS
+tab(@);
+lfHB lfHB lfHB
+c  c  c.
+Parameter@Before Call@After Call
+_
+.sp
+\*Vfd\*O@y@n
+.sp
+_
+.TE
+\*LNotes to Table\*O
+.VL 4m
+.LI "y"
+This is a meaningful parameter.
+.LI "n"
+This is not a meaningful parameter.
+.LI "\*Vfd\*O"
+Specifies a file descriptor returned by the \*Lt_open\*O(\|) function that
+identifies the local transport endpoint.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "t_look function"
+.iX "XTI" "t_look"
+.iX "networking" "t_look"
+.iX "event" "look"
+.iX "endpoint" "event"
+The \*Lt_look(\|)\*O XTI function is used in connectionless and
+connection-oriented
+transport service to monitor the current event at the transport
+endpoint specified by a file descriptor previously returned by the
+\*Lt_open\*O(\|) function. The \*Lt_look\*O(\|) function permits a transport
+provider to notify a transport user of any one of the nine asynchronous
+events listed in the \*LRETURN VALUE\*O section when the transport user is
+calling other XTI functions in synchronous mode.
+.PP
+During synchronous operation, all events at a transport endpoint are
+saved by XTI so that any current event may be known to a transport
+user. Each of the nine asynchronous events listed under the \*LRETURN
+VALUE\*O section
+is defined by a symbolic name in the \*Lxti.h\*O include file. This
+symbolic name can be retrieved when the \*Lt_look\*O(\|) function is called.
+.PP
+Some XTI functions fail unconditionally when they are called because
+the current event at the transport endpoint does not permit them to
+successfully execute. Four of the nine synchronous events listed in the
+Event column of the following table cause
+unconditional failure when any function listed in the Immediate
+T_LOOK Functions column is called. Any of these
+four synchronous events requires that the transport user be immediately
+notified. Unconditional failure returns a [T_LOOK] error during
+execution of the currently called function or the next called
+function when it is executed.  This function can then be used to
+determine which event occurred.
+.PP
+.TS
+tab(@);
+lfHB lfHB lfHB
+lfHB lfHB lfHB
+l  l  l.
+@Immediate T_LOOK@
+Event@Functions@Event Description
+_
+.sp
+T_LISTEN@T{
+t_accept(\|), t_connect(\|)*, t_unbind(\|)
+T}@T{
+Connection indication received
+T}
+.sp
+T_DISCONNECT@T{
+t_accept(\|), t_connect(\|),
+t_listen(\|)**, t_rcv(\|),
+t_rcvconnect(\|), t_rcvrel(\|), t_snd(\|),
+t_sndrel(\|)
+T}@T{
+Disconnect received
+T}
+.sp
+T_UDERR@T{
+t_rcvudata(\|), t_sndudata(\|)
+T}@T{
+Datagram error indication
+T}
+.sp
+T_ORDREL@T{
+t_rcvudata(\|), t_sndudata(\|)
+T}@T{
+Orderly release indication
+T}
+.sp
+_
+.TE
+.PP
+\*LNotes to Table\*O
+.VL 3m
+.LI "*"
+Connection indication received at a transport endpoint which has been
+bound with \*Lqlen\*O > 0 (zero) and for which a connection indication
+is pending (refer to the \*Lt_bind\*O(\|) function).
+.LI "**"
+Disconnect for an outstanding
+connect indication.
+.LE
+.PP
+When multiple events occur, the order in which their value is returned
+is implementation dependent. All together, there are 11 XTI functions
+that fail when a particular synchronous event requiring immediate
+notification is detected.
+.PP
+The following table lists transport endpoint events and corresponding
+functions to which a [T_LOOK] error is immediately returned when
+the event causes function failure:
+.PP
+.TS
+tab(@);
+lfHB lfHB lfHB
+lfHB lfHB lfHB
+l  l  l.
+Event@Cleared with@Event Consuming Functions
+@T_LOOK?
+_
+.sp
+T_LISTEN@No@t_listen(\|)
+.sp
+T_CONNECT@No@t_rcvconnect(\|)
+.sp
+T_DATA@No@t_rcv(\|),\ t_rcvudata(\|)
+.sp
+T_EXDATA@No@t_rcv(\|)
+.sp
+T_DISCONNECT@No@t_rcvdis(\|)
+.sp
+T_UDERR@No@t_rcvuderr(\|)
+.sp
+T_ORDREL@No@t_rcvrel(\|)
+.sp
+T_GODATA@Yes@t_snd(\|), t_sndudata(\|)
+.sp
+T_GOEXDATA@Yes@t_snd(\|)
+.sp
+_
+.TE
+.PP
+An event at a transport endpoint remains outstanding until a consuming
+function clears it. Every event has an associated consuming function
+that handles the event and clears it. The Event Consuming
+Function column of the preceding table lists these events and the
+function that clears each one when successfully executed.
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lt_look\*O(\|) function returns one of the
+following values.  Upon failure,
+0 (zero) is returned.
+.VL
+.LI "[T_LISTEN]"
+Connect indication received.
+.LI "[T_CONNECT]"
+Connect confirmation received.
+.LI "[T_DATA]"
+Normal data received.
+.LI "[T_EXDATA]"
+Expedited data received.
+.LI "[T_DISCONNECT]"
+Disconnect received.
+.LI "[T_UDERR]"
+Datagram error indication.
+.LI "[T_ORDREL]"
+Orderly release indication.
+.LI "[T_GODATA]"
+Flow control restrictions on normal data flow have been lifted.
+Normal data may be sent again.
+.LI "[T_GOEXDATA]"
+Flow control restrictions on expedited data flow have been lifted.
+Expedited data may be sent again.
+.LE
+.PP
+Upon failure, the value -1 is returned and \*Lt_errno\*O is set to indicate
+the error.
+.SH ERRORS
+.PP
+If the \*Lt_look(\|)\*O function fails, \*Lt_errno\*O is set to one of
+the following values:
+.VL 4m
+.LI "[TBADF]"
+The specified file descriptor does not refer to a transport endpoint.
+.LI "[TSYSERR]"
+A system error occurred during execution of this function.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lt_bind\*O(3),
+\*Lt_connect\*O(3),
+\*Lt_listen\*O(3),
+\*Lt_open\*O(3),
+\*Lt_rcv\*O(3),
+\*Lt_rcvconnect\*O(3),
+\*Lt_rcvdis\*O(3),
+\*Lt_rcvrel\*O(3),
+\*Lt_rcvudata\*O(3),
+\*Lt_rcvuderr\*O(3),
+\*Lt_snd\*O(3),
+\*Lt_sndudata\*O(3)
+.EQ
+delim off
+.EN

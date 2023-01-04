@@ -1,0 +1,281 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+#############################################################################
+#
+# 001 - 28-May-1991	Jon Wallace
+#	First Implementation
+#
+#############################################################################
+#
+##########################
+# Variables and Costants #
+##########################
+#
+PROG=$0
+IN="in"
+ITPATH="./sbin/it.d"
+ITBIN="${ITPATH}/bin"
+
+
+################
+# Sub Routines #
+################
+#############################################################################
+:	-Chunk
+#
+Chunk()
+{
+	case "$#" in
+	1)	echo $*
+		return 1
+		;;
+	2)	echo "$PROG: %%PARSER_ERROR...argc = 2%%"
+		return 2
+		;;
+	esac
+
+	HIPRI=3
+	LIST=$*
+	while [ $# -ge 3 ]
+	do
+		case "$2" in
+		and)	HIPRI=1
+			break
+			;;
+		or)	HIPRI=2
+			;;
+		,*)	;;
+		*)	echo "$PROG: %%PARSER_ERROR...unknown token%%...$2"
+			return 2
+		esac
+		shift 2
+	done
+
+	set $LIST
+	REWRITE=
+	REWROTE=0
+	while [ $# -ge 3 ]
+	do
+		case "$HIPRI$2" in
+		1and|3,and)
+			# reduce an AND operation
+			#
+			NEWTOK=$1+$3
+
+			# push reduction back onto stream
+			shift 3
+			set -- $NEWTOK $*
+			REWROTE=1
+			;;
+		2or|3,or)
+			# reduce an OR operation
+			#
+			NEWTOK=`Or $1 $3`
+
+			# push the reduction back onto the stream
+			shift 3
+			set -- $NEWTOK $*
+			REWROTE=1
+			;;
+		*)	# no operation possible, SHIFT
+			#
+			REWRITE="$REWRITE $1 $2"
+			shift 2
+			;;
+		esac
+	done
+	echo $REWRITE $1
+	case "$REWROTE" in
+	0)	return 1
+		;;
+	esac
+	return 0
+}
+
+
+#############################################################################
+:	-Or
+#
+Or()
+{( 
+	LEFT=$1
+	RIGHT=$2
+
+	set -- `(IFS=+;echo $LEFT)`
+	L_LEFT=$*
+	set -- `(IFS=+;echo $RIGHT)`
+	L_RIGHT=$*
+
+	OROUT=
+	ORCH=
+	for L in $L_LEFT
+	{
+		for R in $L_RIGHT
+		{
+			OROUT="$OROUT$ORCH$L$R"
+			ORCH=+
+		}
+	}
+	echo $OROUT
+) }
+
+
+#############################################################################
+:	-PreParse
+#
+PreParse()
+{
+	OUTPUT=
+	set -- `ReTokenize $*`
+	while [ $# -ne 0 ]
+	do
+		case "$1" in
+		,)
+			OUTPUT="$OUTPUT ,$2"
+			shift 2
+			;;
+		*)	OUTPUT="$OUTPUT $1"
+			shift
+		esac
+	done
+	echo $OUTPUT
+}
+
+
+#############################################################################
+:	-Parse
+#
+Parse()
+{
+	STRING=`PreParse $*` ||
+	{
+		echo "Parse Error"
+		return 1
+	}
+	while STRING=`Chunk $STRING`
+	do
+		:
+	done
+	echo $STRING
+}
+
+
+#############################################################################
+:	-ReTokenize
+#
+ReTokenize()
+{
+	for K in $*
+	{
+		case "$K" in
+		*,)
+			expr $K : '\(.*\),'
+			echo ,
+			;;
+		*)	echo $K
+		esac
+	}
+}
+
+
+#############################################################################
+:	-Set_It_Up
+#
+Set_It_Up()
+{
+	for D in $1
+	do
+		if [ ! -d ${ITPATH}/${D}.d ]
+		then
+			mkdir ${ITPATH}/${D}.d || exit 1
+		fi
+
+		for O in $2
+		do
+			if [ -f ${ITBIN}/$O ]
+			then
+				ln -s ../bin/$O ${ITPATH}/${D}.d/${O}
+			else
+				echo "$PROG: Cannot locate ${ITBIN}/$O!!"
+				exit 1
+			fi
+		done
+	done
+}
+
+
+
+#############################################################################
+#############################################################################
+# Procedure Area #
+##################
+
+for K in $*
+do
+	case $K in
+	*: )
+		K=`expr "$K" : '\(.*\):'`
+		EXP="$EXP $K"
+		DIR_LIST=`Parse $EXP | sed 's/+/ /g'`
+		case $DIR_LIST in 
+		*ERROR* )
+			echo $DIR_LIST
+			exit 1
+			;;
+		esac
+		Set_It_Up "$DIR_LIST" "$OPERATIONS"
+		EXP=
+		RS_FLAG=
+		DIR_LIST=
+		OPERATIONS=
+		;;
+	$IN )
+		RS_FLAG=1
+		;;
+	* )
+		case $RS_FLAG in
+		1 )
+			EXP="$EXP $K"
+			;;
+		* )
+			OPERATIONS="$OPERATIONS $K"
+			;;
+		esac
+		;;
+	esac
+done
+
+DIR_LIST=`Parse $EXP | sed 's/+/ /g'`
+case $DIR_LIST in 
+*ERROR* )
+	echo $DIR_LIST
+	exit 1
+	;;
+esac
+Set_It_Up "$DIR_LIST" "$OPERATIONS"
+
+exit 0

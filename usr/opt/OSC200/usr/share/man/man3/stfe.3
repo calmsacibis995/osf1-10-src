@@ -1,0 +1,203 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: stfe.3,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1993/02/01 18:28:03 $
+.\"
+.\" ---------------------------------------------------
+.\" | Copyright (c) 1986, MIPS Computer Systems, Inc. |
+.\" | All Rights Reserved.                            |
+.\" ---------------------------------------------------
+.\" $Header: /usr/doc/osf1doc/refpages/rcs/src/./BASE/DEC/man3/stfe.3,v 3.2.2.3 1993/02/01 18:28:03 Margaret_Barham Exp $
+.TH stfe 3
+.SH NAME
+\*Lstfe\*O \- Routines that provide a high-level interface to basic functions needed to access and add to the symbol table
+.SH SYNOPSIS
+.PP
+.iX "stfe routine"
+.iX "symbol table" "stfe routine"
+.nf
+\*L#include <syms.h>\*O
+.PP
+\*Llong st_filebegin (filename, lang, merge, glevel)\*O
+\*Lchar *filename;\*O
+\*Llong lang;\*O
+\*Llong merge;\*O
+\*Llong glevel;\*O
+.PP
+\*Llong st_endallfiles ()\*O
+.PP
+\*Llong st_fileend (idn)\*O
+\*Llong idn;\*O
+.PP
+\*Llong st_blockbegin(iss, value, sc)\*O
+\*Llong iss;\*O
+\*Llong value;\*O
+\*Llong sc;\*O
+.PP
+\*Llong st_textblock()\*O
+.PP
+\*Llong st_blockend(size)\*O
+\*Llong size;\*O
+.PP
+\*Llong st_procend(idn)\*O
+\*Llong idn\*O
+.PP
+\*Llong st_procbegin (idn)\*O
+\*Llong idn;\*O
+.PP
+\*Lchar *st_str_idn (idn)\*O
+\*Llong idn;\*O
+.PP
+\*Lchar *st_sym_idn (idn, value, sc, st, index)\*O
+\*Llong idn;\*O
+\*Llong *value;\*O
+\*Llong *sc;\*O
+\*Llong *st;\*O
+\*Llong *index;\*O
+.PP
+\*Llong st_abs_ifd_index (ifd, index)\*O
+\*Llong ifd;\*O
+\*Llong index;\*O
+.PP
+\*Llong st_fglobal_idn (idn)\*O
+\*Llong idn;\*O
+.PP
+\*LpSYMR st_psym_idn_offset (idn, offset)\*O
+\*Llong idn;\*O
+\*Llong offset;\*O
+.PP
+\*Llong st_pdadd_idn (idn)\*O
+\*Llong idn;\*O
+.fi
+.SH DESCRIPTION
+.PP
+The \*Lstfe\*O
+routines provide a high-level interface to the symbol table based on common
+needs of the compiler front-ends.
+.VL 4m
+.LI "\*Vst_filebegin \*O"
+Should be called upon encountering each cpp directive
+in the front end.
+It calls \*Lst_fileadd\*O to add symbols and will
+find the appropriate open file or start a new file.
+It takes a filename, language constant (see \*Lsymconst.h\*O), a merge
+flag (0 or 1) and the \*L-g\*O level constant (see \*Lsymconst.h\*O).
+It returns a dense number pointing to the file symbol to be used in line
+number directives.
+.LI "\*Vst_fileend\*O"
+Requires the dense number from the corresponding \*Vst_filebegin\*O call
+for the file in question. It then generates an end symbol and patches
+the references so that the index field of the begin file points to that
+of one beyond the end file. The end file points to the begin file.
+.LI "\*Vst_endallfiles\*O"
+Is called at the end of execution to close off all files that haven't been
+ended by previous calls to \*Vst_filebegin\*O. CPP directives might not
+reflect the return to the original source file; therefore, this routine can
+possibly close many files.
+.LI "\*Vst_blockbegin\*O"
+Supports both language blocks (for example,
+C's left curly brace blocks), beginning of
+structures, and unions. If the storage class is scText,
+it is the former; if it is scInfo, it is one of the latter.
+The iss (index into string space) specifies the name of the
+structure/etc, if any.
+.IP
+If the storage class is scText, we must check the result of \*Vst_blockbegin\*O.
+It returns a dense number for outer blocks and a zero for nested blocks.
+The non-zero block number should be used in the BGNB ucode.  Users of
+languages without nested blocks that provide variable declarations can ignore
+the rest of this paragraph.  Nested blocks are two-staged: one stage happens
+when we detect the language block and the other stage happens when we
+know the block has content. If the block has content (for example, local
+variables), the front-end must call \*Vst_textblock\*O to get
+a non-zero dense number for the block's BGNB ucode. If the block has no
+content and \*Vst_textblock\*O is not called, the block's
+\*Vst_blockbegin\*O and \*Vst_blockend\*O do not produce block and end symbols.
+.IP
+If the storage class is scInfo,
+\*Vst_blockbegin\*O creates a begin block symbol in
+the symbol table and returns a dense number referencing it.
+The dense number is necessary to build the auxiliary required to reference
+the structure/etc. It goes in the aux after the TIR along with
+a file index. This dense number is also noted in a stack of blocks used
+by \*Vst_blockend\*O.
+.IP
+The \*Vst_blockbegin\*O routine should not be called for
+language blocks when the front-end is not producing debugging
+symbols.
+.LI "\*Vst_blockend\*O"
+Requires that blocks occur in a nested fashion. It retrieves the
+dense number for the most recently started block and creates a
+corresponding end symbol. As in \*Vfileend\*O, both the begin and end
+symbol index fields point at the other end's symbol.
+If the symbol ends a structure/etc., as determined by the storage class of the
+begin symbol, the size parameter is assigned to the begin symbol's value field.
+It is usually the size of the structure or max value of a enum.
+We only know it at this point. The dense number of the end symbol
+is returned so that the ucode ENDB can be use it.
+If it is an ignored text block, the dense number is zero and no ENDB
+should be generated.
+.IP
+In general, defined external procedures or functions appear in the
+symbols table and the externals table. The external table definition must
+occur first through the use of a \*Vst_extadd\*O.  After that definition,
+\*Vst_procbegin\*O
+can be called with a dense number referring to the external
+symbol for that procedure. It checks to be sure we have a defined
+procedure (by checking the storage class). It
+adds a procedure symbol to the symbol table. The external's index
+should point at its auxiliary data type information (or if
+debugging is off, indexNil).
+This index is copied into
+the regular symbol's index field or a copy of its type is generated
+(if the external is in a different file than the regular symbol).
+Next, we put the index to symbol in the external's index field. The external's
+dense number is used as a block number in ucodes referencing it and
+is used to add a procedure when in the \*Vst_pdadd_idn\*O.
+.LI "\*Vst_procend\*O"
+Creates an end symbol and fixes the indices as in \*Vblockend\*O
+and \*Vfileend\*O,
+except that the end procedure reference is kept in the begin procedure's
+aux rather than in the index field (because the begin procedure has a type
+as well as an end reference). This must be called with the dense
+number of the procedure's external symbol as an argument and returns
+the dense number of the end symbol to be used in the END ucode.
+.LI "\*Vst_str_idn\*O"
+Returns the string associated with symbol or external referenced by the
+dense number argument. If the symbol was anonymous (for example,
+there was no symbol) a (char *), -1 is returned.
+.LI "\*Vst_sym_idn\*O"
+Returns the same result as \*Vst_str_idn\*O, except that the rest of the fields
+of the symbol specified by the \*Vidn\*O are returned in the arguments.
+.LI "\*Vst_fglobal_idn\*O"
+Returns a 1 if the symbol associated with the specified idn is non-static;
+otherwise, a 0 is returned.
+.LI "\*Vst_abs_ifd_index\*O"
+Returns the absolute offset for a dense number. If the symbol is
+global, the global's index is returned. If the symbol occurred in a
+file, the sum of all symbols in files occurring before that file
+and the symbol's index within the file is returned.
+.LI "\*Vst_pdadd_idn\*O"
+Adds an entry to the procedure table for the \*Vst_proc entry\*O generated by
+procbegin. This should be called when the front-end generates code
+for the procedure in question.
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lstcu\*O(3), \*Lstfd\*O(3)
+.EQ
+delim off
+.EN

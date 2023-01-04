@@ -1,0 +1,102 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getsvc.3,v $ $Revision: 1.1.2.2 $ (DEC) $Date: 1993/01/07 22:41:00 $
+.\"
+.TH getsvc 3
+.SH NAME
+\*Lgetsvc\*O \- Gets a pointer to the svcinfo structure.
+.SH SYNOPSIS
+.PP
+\*L#include <sys/svcinfo.h>\*O
+.PP
+\*Lstruct svcinfo *getsvc()\*O
+.SH DESCRIPTION
+.PP
+.iX "getsvc call"
+The \*Lgetsvc\*O call retrieves information from the system about the
+\*Lsvcinfo \*O structure by returning a pointer to the structure.  This
+structure is initialized the first time a \*Lgetsvc\*O call is made.
+The contents of the \*L/etc/svc.conf\*O file are parsed and stored in the
+\*Lsvcinfo\*O structure.  If the \*L/etc/svc.conf\*O file is modified, the
+contents of this structure will be updated upon the next \*Lgetsvc\*O call.
+.PP
+The \*L/etc/svc.conf\*O file contains the names of the databases that can be
+served by BIND or local files and the name service selection for
+each database.  It also has settings for four security parameters.
+The database service selection and security parameters are stored
+in the \*Lsvcinfo\*O structure.
+.PP
+The following structure exists in the \*L<svcinfo.h>\*O file:
+.oS
+#define SVC_DATABASES 20
+#define SVC_PATHSIZE 8
+struct svcinfo {
+    int svcdate;       /* Last mod date of /etc/svc.conf */
+
+    int svcpath[SVC_DATABASES][SVC_PATHSIZE];    /* indexed by
+                          databases and choice 0=first choice
+	                  1=second choice, etc value stored is
+			  source */
+
+       struct {
+           int passlenmin;
+           int passlenmax;
+           int softexp;
+           int seclevel;
+       } svcauth;
+};
+.oE
+.PP
+The \*Lsvcdate \*O field contains the date that the \*L/etc/svc.conf\*O
+file was last modified.  The \*Lsvcpath\*O array contains the name
+service choices for each database.  The \*Lsvcauth\*O
+structure contains the values for the four security parameters:
+password length minimum (\*Vpasslenmin\*O), password length maximum
+(\*Vpasslenmax\*O), soft expiration date of a password (\*Vsoftexp\*O),
+and security mode of a system (\*Vseclevel\*O).
+.SH EXAMPLES
+.PP
+The following programming example shows how to use the \*Lgetsvc\*O
+call to use the information in the \*Lsvcinfo\*O
+structure to process specific host information.
+.oS
+#include <sys/svcinfo.h>
+struct svcinfo *svcinfo;
+
+if ((svcinfo = getsvc()) != NULL)
+  for (i=0; (j = svcinfo->svcpath[SVC_HOSTS][i]) != SVC_LAST; i++)
+	 switch(j) {
+	     case SVC_BIND:
+	         /* process BIND hosts */
+	     case SVC_YP:
+	         /* process YP hosts */
+	     case SVC_LOCAL:
+		 /* process LOCAL hosts */
+	 }
+.oE
+.SH FILES
+.PP
+.VL 10m
+.LI "\*L/etc/svc.conf\*O"
+.LI "\*L/usr/include/sys/svcinfo.h\*O"
+.LE
+.SH RELATED INFORMATION
+.PP
+\*Lsvc.conf\*O(4), \*Lsvcsetup\*O(8)
+.EQ
+delim off
+.EN

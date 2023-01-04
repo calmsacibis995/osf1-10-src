@@ -1,0 +1,80 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+#
+# Save any system crash dumps
+#
+set `who -r`
+if [ $9 != "S" ]
+then
+        exit
+fi
+
+#
+# savecore flags:
+#
+#	M - Boot to multi-user even if savecore is unable to save a
+#	    good dump due to lack of space.  This will potentially
+#	    corrupt the dump due to swapping.  By default, the system
+#	    will return to single-user mode so that corrective action
+#	    may be taken.
+#
+
+SAVECORE_FLAGS=`rcmgr get SAVECORE_FLAGS`
+FLAGS=${SAVECORE_FLAGS:-""}
+
+SAVECORE_DIR=`rcmgr get SAVECORE_DIR`
+DIR=${SAVECORE_DIR:-"/var/adm/crash"}
+
+echo "Checking for crash dumps"
+/sbin/savecore $DIR
+case "$?" in
+1)
+    echo "The saving of the crash dump to $DIR failed."
+    ;;
+2)
+    case "$FLAGS" in
+    *M*)
+	echo "The saving of the crash dump to $DIR failed due to lack of space."
+	;;
+    *)
+	echo "The saving of the crash dump to $DIR failed due to lack of space."
+	echo "The system is returning to single-user.  Either free sufficient"
+	echo "space in the filesystem or change the crash dump directory with"
+	echo "'/usr/sbin/rcmgr set SAVECORE_DIR <directory>'.  This feature can"
+	echo "be disabled with '/usr/sbin/rcmgr set SAVECORE_FLAGS M'.  Once"
+	echo "this is done, execute '/sbin/init 3' to continue to multi-user."
+	kill -TERM 1
+	;;
+    esac
+    ;;
+esac

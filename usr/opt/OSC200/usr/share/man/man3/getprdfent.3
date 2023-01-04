@@ -1,0 +1,238 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getprdfent.3,v $ $Revision: 3.6.4.11 $ (DEC) $Date: 1994/01/15 01:53:33 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1988-90 SecureWare, Inc.
+.\" All rights reserved
+.\" @(#)getprdfent.3	1.2 17:53:25 3/28/90
+.\" #ifdef SEC_BASE
+.TH getprdfent 3
+.SH NAME
+.PP
+\*Lgetprdfent\*O, \*Lgetprdfnam\*O, \*Lsetprdfent\*O, \*Lendprdfent\*O, \*Lputprdfnam\*O \- Manipulate system default database entry (Enhanced Security)
+.SH LIBRARY
+.PP
+Security Library (\*Llibsecurity.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+#include <sys/security.h>
+.nL
+#include <prot.h>
+.sp 0.4v
+struct pr_default *getprdfent(void);
+.sp 0.4v
+struct pr_default *getprdfnam(
+.nL
+	char *\*Vname\*L);
+.sp 0.4v
+void setprdfent(void);
+.sp 0.4v
+void endprdfent(void);
+.sp 0.4v
+int putprdfnam(
+.nL
+	char *\*Vname\*L,
+.nL
+	struct pr_default *\*Vpr\*L);
+.sE
+.SH PARAMETERS
+.PP
+.VL 5m
+.LI "\*Vname\*O"
+Specifies a system default database entry name.
+.LI "\*Vpr\*O"
+Specifies a system default database control entry structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "database" "manipulating entry in system default"
+.iX "system default database" "defined"
+.iX "system default database" "manipulating entry in"
+.iX "getprdfent function"
+.iX "getprdfnam function"
+.iX "setprdfent function"
+.iX "endprdfent function"
+.iX "putprdfnam function"
+The
+\*Lgetprdfent(\|)\*O
+and
+\*Lgetprdfnam(\|)\*O
+functions
+each return a pointer to
+an object with the following structure containing the
+separated-out fields of a line in the system default database.
+Each line in the database contains a \*Lpr_default\*O structure, declared
+in the
+\*Lprot.h\*O
+header file:
+.oS
+struct   system_default_fields  {
+        time_t        fd_inactivity_timeout;
+        time_t        fd_pw_expire_warning;
+        char          fd_pw_site_callout[MAXPATHLEN];
+        mask_t        fd_secclass[AUTH_SECCLASSVEC_SIZE];
+        char          fd_boot_authenticate;
+        char          fd_audit_enable;
+} ;
+
+
+struct	system_default_flags {
+        unsigned short
+          fg_inactivity_timeout:1,
+          fg_pw_expire_warning:1,
+          fg_secclass:1,
+          fg_boot_authenticate:1,
+          fg_audit_enable,
+} ;
+
+
+struct   pr_default  {
+        char                            dd_name[20];
+        char                            dg_name;
+        struct pr_field                 prd;
+        struct pr_flag                  prg;
+        struct t_field                  tcd;
+        struct t_flag                   tcg;
+        struct dev_field                devd;
+        struct dev_flag                 devg;
+        struct system_default_fields    sfld;
+        struct system_default_flags     sflg;
+} ;
+.oE
+.PP
+Currently there is only one entry in the system
+default database, referenced by name "default."
+.PP
+The system default database contains default values for all
+parameters in the protected password, terminal control, and
+device assignment databases, as well as configurable system-wide
+parameters. The fields from the other databases are described in
+the corresponding reference pages.
+\*Lfd_pw_expire_warning\*O is the time, in seconds, before a
+password's expiration that the system begins printing
+expiration warnings when the user logs in.
+\*Lfd_secclass\*O, although not used in the software, is an
+indicator of the system's TCSEC (\*VOrange Book\*O) class of trust.
+\*Lfd_boot_authenticate\*O is a Boolean flag that indicates
+whether an authorized user must authenticate before the system
+begins operation.
+\*Lfd_audit_enable\*O is true if the system begins audit at system startup,
+and is 0 (zero) otherwise.
+.\" Obsolete per Spider
+.\" The \*Lauditcmd -E\*O option checks this flag
+.\" when enabling audit at system startup.
+.PP
+The
+\*Lgetprdfent(\|)\*O
+function
+returns a pointer to the first
+\*Vpr_default\*O structure in the database when first
+called.  Thereafter, it returns a
+pointer to the next \*Lpr_default\*O structure in the database, so
+successive calls can be used to search the database (not
+currently supported).
+The
+\*Lgetprdfnam(\|)\*O
+function
+searches from the beginning of the file until
+a default entry matching \*Vname\*O is found, and returns a pointer to
+the particular structure in which it was found.
+If an End-of-File or an error is encountered on reading, these
+functions return a
+null
+pointer. Currently, all programs access the default database by
+calling \*Lgetprdfnam(\|)\*O (the default).
+.PP
+A call to the
+\*Lsetprdfent(\|)\*O
+function
+has the effect of rewinding the default control
+file to allow repeated searches.
+The
+\*Lendprdfent(\|)\*O
+function
+can be called to
+close the database when processing is complete.
+.PP
+The
+\*Lputprdfnam(\|)\*O
+function
+puts a new or replaced default control entry
+\*Vpr\*O
+with key
+\*Vname\*O
+into the database.
+If the \*Lprg.fg_name\*O field contains a value of 0 (zero), the
+requested entry  is deleted from the system default database.
+The
+\*Lputprdfnam(\|)\*O
+function
+locks the database for all update operations,
+and performs an
+\*Lendprdfent(\|)\*O
+after the update or failed attempt.
+.SH NOTES
+.PP
+The value returned by \*Lgetprdfent(\|)\*O and \*Lgetprdfnam(\|)\*O
+refers to a structure that is overwritten by calls to these
+routines. To retrieve an entry, modify it, and replace it in the
+database, you must copy the entry using structure assignment and
+supply the modified buffer to \*Lputprdfnam(\|)\*O.
+.PP
+Programs using these routines must be compiled with
+\%\*L-lsecurity\*O.
+.SH CAUTIONS
+.PP
+Do not delete the system default entry. This renders the system unusable.
+.SH RETURN VALUES
+.PP
+The
+\*Lgetprdfent(\|)\*O and \*Lgetprdfnam(\|)\*O
+functions return null
+pointers on EOF or an error. The \*Lputprdfnam(\|)\*O
+function returns a value of 0 (zero) if it
+cannot add or update the entry.
+.SH FILES
+.PP
+.VL 28
+.LI "\*L/etc/auth/system/default\*O"
+System defaults database.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgetprpwent\*O(3),
+\*Lgetprtcent\*O(3),
+\*Lgetdvagent\*O(3).
+.PP
+Files:
+\*Ldefault\*O(4)
+.iX "getprdfent function"
+.iX "getprdfnam function"
+.iX "setprdfent function"
+.iX "endprdfent function"
+.iX "putprdfnam function"
+.\" #endif /* SEC_BASE */
+.EQ
+delim off
+.EN

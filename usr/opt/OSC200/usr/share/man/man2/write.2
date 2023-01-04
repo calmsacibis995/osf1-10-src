@@ -1,0 +1,535 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: write.2,v $ $Revision: 3.5.7.5 $ (DEC) $Date: 1993/12/21 16:02:29 $
+.\" 
+...\" (c) Copyright 1990, 1991, 1992 OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" OSF/1 Release 1.0.4
+...\"build rmifdef
+...\"
+...\"
+...\"build rmifdef tbl eqn
+.TH write 2
+.SH NAME
+.PP
+\*Lwrite\*O, \*Lwritev\*O \- Writes to a file.
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <unistd.h>
+.nL
+.\" Begin Digital-specific information CORRECTION
+.\" Changed BDEC-C and EDEC-C tags to comments.  No idea what was changed.
+\*Lssize_t write(
+.\" End Digital-specific information CORRECTION
+.nL
+	int \*Vfiledes \*L,
+.nL
+	const char \*V*buffer\*L,
+.nL
+	\*Lsize_t \*Vnbytes \*L);\*O
+.sp
+\*L#include <sys/types.h>
+.nL
+#include <sys/uio.h>
+.sp
+\*Lssize_t writev(
+.nL
+	int \*Vfiledes \*L,
+.nL
+	struct iovec *\*Viov\*L,
+.nL
+	int \*Viov_count \*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfiledes\*O"
+Identifies the file to which the data is to be written.
+.\" Begin Digital-specific information CORRECTION
+.LI "\*Vbuffer\*O"
+Points to the buffer containing the data to be
+written.
+.\" End Digital-specific information CORRECTION
+.LI "\*Vnbytes\*O"
+Specifies the number of bytes to write to the file
+associated with the \*Vfiledes\*O parameter\*V.
+.LI "\*Viov\*O"
+Points to an array of \*Liovec\*O structures,
+which identifies the buffers containing the data to be written. The
+\*Liovec\*O structure is defined in the \*Lsys/uio.h\*O header file
+and contains the following members:
+.RS
+.iS
+\*Lcaddr_t  iov_base;
+.nL
+int      iov_len;\*O
+.iE
+.RE
+.LI "\*Viov_count\*O"
+Specifies the number of \*Liovec\*O structures
+pointed to by the \*Viov\*O parameter.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "write function"
+.iX "writev function"
+.iX "file" "writing to"
+.iX "process" "suspending"
+The \*Lwrite(\|)\*O function attempts to write \*Vnbytes\*O
+of data to the file associated with the \*Vfiledes \*O parameter
+from the buffer pointed to by the\*V buffer\*O parameter.
+.PP
+If the \*Vnbyte\*O parameter is 0 (zero), the
+\*Lwrite(\|)\*O
+function returns 0
+(zero) and has no other results if the file is a regular file.
+.PP
+The \*Lwritev(\|)\*O function performs the same action as the
+\*Lwrite(\|)\*O function, but gathers
+the output data from the \*Viov_count\*O buffers specified by the
+array of \*Liovec\*O structures pointed to by the \*Viov\*O
+parameter. Each \*Liovec\*O entry specifies the base address and
+length of an area in memory from which data should be written.
+.\" Begin Digital-specific information
+The
+\*Viov_count\*O
+parameter is valid if greater than
+0 (zero) and less than or equal to
+UIO_MAXIOV, which is defined in the \*Lsys/uio.h\*O header file.
+.\" End Digital-specific information
+The
+\*Lwritev(\|)\*O
+function always writes a complete area before proceeding to
+the next.
+.PP
+The
+\*Lwrite(\|)\*O
+and
+\*Lwritev(\|)\*O
+functions, which suspend the calling process until the request is
+completed, are redefined so that only the calling thread is
+suspended.
+.PP
+With regular files and devices capable of seeking, the actual
+writing of data proceeds from the position in the file indicated by
+the file pointer.  If this incremented file pointer is greater
+than the length of the file,
+the length of the file is set to this file offset.
+Upon return from the \*Lwrite(\|)\*O function,
+the file pointer increments by the number of bytes actually written.
+.PP
+With devices incapable of seeking, writing always takes place
+starting at the current position. The value of a file pointer associated
+with such a device is undefined.
+.PP
+Fewer bytes than requested can be written if there is not enough
+room to satisfy the request. In this case the number of bytes written
+is returned. The next attempt to write a nonzero number of bytes fails
+(except as noted in the following text). The limit reached can be
+either the \*Lulimit(\|)\*O or the end of the physical medium.
+For example,
+suppose there is space for 20 bytes more in a file before reaching a limit.
+A
+write
+of 512 bytes returns 20.
+The next write of a nonzero number of bytes will give a failure return
+(except as noted below).
+.PP
+Upon successful completion, the
+\*Lwrite(\|)\*O
+function returns the number of bytes actually written
+to the file associated with
+the \*Vfildes\*O parameter.
+This number is never be greater than the
+\*Vnbyte\*O
+parameter.
+.PP
+If the O_APPEND flag of the file status is set, the file
+offset is set to the end of the file prior to each write.
+.PP
+If the O_SYNC
+flag of the file status flags is set and
+the \*Vfildes\*O parameter
+refers to a regular file, a successful
+\*Lwrite(\|)\*O function
+does not return until the data is delivered to the underlying
+hardware
+(as described in the
+\*Lopen(\|)\*O function).
+.PP
+Write requests to a pipe (or FIFO) are handled the same as a regular
+file with the following exceptions:
+.ML
+.LI
+There is no file offset associated with a pipe; hence each
+\*Lwrite(\|)\*O
+request appends to the end of the pipe.
+.LI
+If the size of the \*Lwrite(\|)\*O request is less than or equal
+to the value of the PIPE_BUF system variable,
+the\*L write(\|)\*O function is
+guaranteed to be atomic. The data is not interleaved with data from
+other processes doing writes on the same pipe.
+Writes of greater than
+PIPE_BUF bytes can have data interleaved, on arbitrary boundaries,
+with writes by other processes, whether or not O_NONBLOCK or O_NDELAY
+are set.
+.LI
+If neither O_NONBLOCK nor O_NDELAY are set,
+a \*Lwrite(\|)\*O request to a full pipe causes the process to block
+until enough space becomes available to handle the entire request.
+.LI
+If the
+O_NONBLOCK
+or
+O_NDELAY
+flag is set,
+\*Lwrite(\|)\*O
+requests are handled differently in the following ways:
+the
+\*Lwrite(\|)\*O
+function does block the process; \*Lwrite(\|)\*O requests for
+PIPE_BUF
+or fewer bytes either succeed completely and return
+\*Vnbyte\*O,
+or return \-1 and set
+\*Lerrno\^\*O
+to [EAGAIN].
+A
+\*Lwrite(\|)\*O
+request for greater than PIPE_BUF bytes either transfers what it can
+and returns the number of bytes written, or transfers no data and returns \-1 with
+\*Lerrno\*O
+set to [EAGAIN].
+Also, if a request is greater than PIPE_BUF bytes and all
+data previously written to the pipe has been read,
+\*Lwrite(\|)\*O
+transfers at least PIPE_BUF bytes.
+.LE
+.PP
+When attempting to write to a file descriptor (other than a pipe or a
+FIFO) that supports nonblocking writes and cannot accept data
+immediately:
+.ML
+.LI
+If O_NDELAY and O_NONBLOCK are clear, the \*Lwrite(\|)\*O function
+blocks until the data can be accepted.
+.LI
+If O_NDELAY or O_NONBLOCK are set, the \*Lwrite(\|)\*O function does
+not block the process. Instead, if some data can be written without
+blocking the process, it writes what it can and returns the number of
+bytes written. Otherwise, if O_NDELAY is set, it returns 0; if
+O_NONBLOCK is set, it returns -1 and \*Lerrno\*O is set to [EAGAIN].
+.LE
+.PP
+When attempting to write to a regular file with enforcement
+mode record locking enabled, and all or part of the region to be written is
+currently locked by another process:
+.ML
+.LI
+If O_NDELAY and O_NONBLOCK are clear (the
+default), the calling process blocks until
+all the blocking locks are removed, or the
+\*Lwrite(\|)\*O
+function
+is terminated by a signal.
+.LI
+If O_NDELAY or O_NONBLOCK is set, then the
+\*Lwrite(\|)\*O function
+returns -1 and sets \*Lerrno\*O to [EAGAIN].
+.LE
+.PP
+Upon successful completion, the
+\*Lwrite(\|)\*O
+function marks the \*Vst_ctime\*O
+and \*Vst_mtime\*O fields of the file for update, and clears its
+set-user ID and set-group ID attributes
+if the file is a regular file.
+.PP
+The \*Lfcntl(\|)\*O function provides more information about
+record locks.
+.PP
+The behavior of an interrupted \*Lwrite(\|)\*O function depends
+on how the handler for the arriving signal was installed:
+.ML
+.LI
+If a
+\*Lwrite(\|)\*O function
+is interrupted by a signal before it writes any data,
+it returns \-1 with
+\*Lerrno\*O
+set to [EINTR].
+.LI
+If a
+\*Lwrite(\|)\*O function
+is interrupted by a signal after it successfully writes some data,
+it returns
+the number of bytes written.
+A
+\*Lwrite(\|)\*O request
+to a pipe or FIFO never returns with
+\*Lerrno\^\*O
+set to
+[EINTR]
+if it has transferred any data and
+\*Vnbyte\^\*O
+is less than or equal to PIPE_BUF.
+.LI
+If the handler was installed with an indication that functions
+should not be restarted, the\*L write(\|)\*O function returns a
+value of -1 and sets \*Lerrno\*O to [EINTR]
+(even if some data was already written).
+.LI
+If the handler was installed with an indication that functions
+should be restarted:
+.RS 10
+.VL 5
+.LI "\- "
+If no data was written when the interrupt was handled,
+the \*Lwrite(\|)\*O function does not return a value (it is restarted).
+.LI "\- "
+If data was written when the interrupt was handled, the
+\*Lwrite(\|)\*O function returns the amount of data already written.
+.LE
+.RE
+.LE
+.PP
+For STREAMS files, the operation of
+\*Lwrite(\|)\*O
+is determined by the values of the minimum and maximum \*Lnbyte\*O range
+("packet size") accepted by the \*Lstream\*O.
+These values are contained in the topmost \*Lstream\*O module.
+Unless the user pushes [see I_PUSH in
+\*Lstreamio(\|)\*O]
+the topmost module, these values can not be set or tested from user level.
+If \*Lnbyte\*O falls within the packet size range, \*Lnbyte\*O bytes are written.
+If \*Lnbyte\*O does not fall within the range and the minimum packet size
+value is zero,
+\*Lwrite(\|)\*O
+breaks the buffer into maximum packet size segments prior to sending the data
+downstream (the last segment may contain less than the maximum packet size).
+If \*Lnbyte\*O does not fall within the range and the minimum value is non-zero,
+\*Lwrite(\|)\*O
+fails with \*Lerrno\*O set to ERANGE.
+Writing a zero-length buffer (\*Lnbyte\*O is zero) sends zero bytes with
+zero returned.
+.PP
+For STREAMS files, if either O_NDELAY or O_NONBLOCK is clear and the
+\*Lstream\*O can not accept data (the \*Lstream\*O write queue is full
+due to internal flow control conditions), \*Lwrite\*O blocks until
+data can be accepted.
+O_NDELAY or O_NONBLOCK
+prevents a process from blocking due to flow control conditions.
+If either O_NDELAY or O_NONBLOCK is set and the \*Lstream\*O can not
+accept data,
+\*Lwrite(\|)\*O
+fails.
+If either O_NDELAY or O_NONBLOCK is set and part of the buffer has
+been written when
+a condition in which the \*Lstream\*O can not accept additional data
+occurs,
+\*Lwrite(\|)\*O
+terminates and return the number of bytes
+written.
+.SH NOTES
+.PP
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Full use (\*Lwrite(\|)\*O)
+.\" Begin Digital-specific information
+.\" Commenting out per Mary Walker 
+.\"WHAT ABOUT WRITEV(\|)?
+.\" End Digital-specific information
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lwrite(\|)\*O and
+\*Lwritev(\|)\*O functions return the number
+of bytes that were actually written.
+.\" Begin Digital-specific information CORRECTION
+If the \*Lwrite\*O(\|) and \*Lwritev\*O(\|) functions fail,
+.\" End Digital-specific information CORRECTION
+a value of -1 is returned, \*Lerrno\*O
+is set to indicate the error, and the content of the buffer pointed to by the
+\*Vbuffer\*O parameter is indeterminate.
+.\" Begin Digital-specific information 
+.SS End-of-Media Handling for Tapes
+If writing goes beyond the "early warning" EOT indicator while this
+indicator is disabled,
+the \*Lwrite\*O(\|) and \*Lwritev\*O(\|) functions
+will return the number of
+bytes actually written and placed into the buffer.
+The \*Lwrite\*O(\|) and \*Lwritev\*O(\|)
+functions return a value of -1, if:
+.ML
+.LI
+Attempting to write past the "real EOT".
+.LI
+Attempting to write past
+"early warning" EOT indicator while this indicator is enabled.
+.LE
+.PP
+Refer to \*Lmtio\*O(7) for information on enabling and disabling "early
+warning" EOT.
+.SS End-of-Media Handling for Disks
+Disk End-of-Media handling is POSIX-compliant.  Attempting to write at or beyond
+the end of a partition returns a value of -1.  A partial write returns the
+number of bytes actually written.
+.sp
+Note:  A partial write is a request which spans the end of a partition.
+.\" End Digital-specific information  
+.SH ERRORS
+.PP
+If the \*Lwrite(\|)\*O or \*Lwritev(\|)\*O
+function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.VL 1i
+.LI "[EAGAIN]"
+Attempt to write to a \*Lstream\*O that can not accept data with either
+the O_NDELAY or O_NONBLOCK flag set.
+.IP
+The O_NONBLOCK flag is set on this file
+and the process would be delayed in the write operation.
+.IP
+An enforcement mode record lock is outstanding
+in the portion of the file that is to be written.
+.LI "[EBADF]"
+The \*Vfiledes\*O  parameter does not
+specify a valid file descriptor open for writing.
+.LI "[EDEADLK]"
+Enforced record locking is enabled, O_NDELAY is clear, and a deadlock
+condition is detected.
+.LI "[EDQUOT]"
+The write has failed because the user's disk block quota is exhausted.
+.LI "[EFAULT]"
+The \*Vbuffer\*O parameter or part of the \*Viov\*O
+parameter points to a location outside of the allocated address
+space of the process.
+.LI "[EFBIG]"
+An attempt was made to write a file that exceeds
+the maximum file size.
+.LI "[EINTR]"
+A signal was caught during the \*Lwrite(\|)\*O
+operation, and the signal handler was installed with an indication
+that functions are not to be restarted.
+.LI "[EINVAL]"
+Attempt to write to a \*Lstream\*O linked below a multiplexor.
+.IP
+The file position pointer associated with the \*Vfiledes\*O
+parameter was negative.
+.IP
+.\" Begin Digital-specific information CORRECTION
+The \*Viov_count\*O parameter value was less than or equal to 0
+or greater than UIO_MAXIOV.
+.\" End Digital-specific information
+.IP
+One of the
+\*Liov_len\*O
+values in
+the \*Viov\*O array was negative or the sum overflowed a 32-bit
+integer.
+.\" Begin Digital-specific information 
+.LI "[EIO]"
+A read or write physical I/O error.  These errors do not
+always occur with the associated function, but can occur with the
+subsequent function.
+.LI "[ENOLCK]"
+.\"Change per Diane Lebel in answer to QAR 13822
+.\"Enforced record locking is enabled and LOCK_MAX regions are already
+.\"locked in the system.
+The file has enforcement mode file locking set and allocating another locked
+region would exceed the configurable system limit of NLOCK_RECORD.
+.LI "[ENOSPC]"
+Attempted to write past the "early warning" EOT while
+this indicator was enabled.
+.IP
+Attempted to write at or beyond the end of a partition.
+.\" End Digital-specific information 
+.IP
+No free space is left on the file system containing
+the file.
+.LI "[ENXIO]"
+A hang up occurred on the \*Lstream\*O being written to.
+.IP
+The device associated with file descriptor (the \*Vfildes\*O parameter)
+is a block special device or character special file and the
+file pointer is out of range.
+.LI "[EPERM]"
+An attempt was made to write to a socket or type SOCK_STREAM
+that is not connected to a peer socket.
+.LI "[EPIPE]"
+An attempt was made to write to a pipe or FIFO that is
+not opened for reading by any process.
+A SIGPIPE signal is sent to the process.
+.IP
+An attempt was made to write to a pipe that has only one end open.
+.LI "[ERANGE]"
+Attempt to write to a \*Lstream\*O with \*Lnbyte\*O outside specified
+minimum
+and maximum write range, and the minimum value is non-zero.
+.IP
+A write to a STREAMS file can fail
+if an error message has been received at the stream head.
+In this case, \*Lerrno\*O is set to the value included
+in the error message.
+.LE
+.\" Begin Digital-specific information CORRECTION
+.PP
+If the \*Lwrite(\|)\*O or \*Lwritev(\|)\*O function fails while in
+the System V habitat, \*Lerrno\*O may also be set to one of the
+following errors:
+.\" End Digital-specific information 
+.VL 1i
+.LI "[EAGAIN]"
+A write to a pipe (FIFO) of {PIPE_BUF} bytes or less is requested,
+O_NONBLOCK is set, and less than \*Vnbytes\*O bytes of free space is
+available.
+.IP
+Enforced record locking was enabled, O_NDELAY or O_NONBLOCK was set
+and there were record-locks on the file, or O_NONBLOCK was
+set, and data cannot be accepted immediately.
+.LI "[EINVAL]"
+The sum of the \*Viov_len\*O values in the \*Viov\*O array overflowed
+an integer.
+.LI "[ERANGE]"
+Attempts to write to a stream with \*Vnbyte\*O are outside the
+specified minimum and maximum range, and the minimum value is non-zero.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lopen\*O(2),
+\*Lfcntl\*O(2),
+\*Llseek\*O(2),
+.\" Begin Digital-specific information
+\*Lmtio\*O(7),
+.\" End Digital-specific information
+\*Lopen\*O(2),
+.\"\*Lintro\*O(2),
+\*Lgetmsg\*O(2),
+\*Llockf\*O(3),
+\*Lpipe\*O(2),
+\*Lpoll\*O(2),
+\*Lselect\*O(2),
+\*Lulimit\*O(3)
+.iX "write function"
+.iX "writev function"
+.EQ
+delim off
+.EN

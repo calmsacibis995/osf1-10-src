@@ -1,0 +1,164 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: sigsend.2,v $ $Revision: 1.1.2.6 $ (DEC) $Date: 1994/01/11 23:37:35 $
+.\"
+.TH sigsend 2
+.SH NAME
+.PP
+\*Lsigsend\*O, \*Lsigsendset\*O \- Send a signal to one or more processes
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>\*O
+.PP
+\*L#include <sys/signal.h>\*O
+.PP
+\*L#include <sys/procset.h>\*O
+.PP
+\*Lint sigsend (
+.nL
+	idtype_t \*Vidtype\*L,
+.nL
+	id_t \*Vid\*L,
+.nL
+	int \*Vsig\*O );
+.PP
+\*Lint sigsendset (
+.nL
+	const procset_t *\*Vpsetp\*L,
+.nL
+	int \*Vsig\*L );
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vid\*O"
+Specifies a process or group of processes to which a signal is sent.
+.LI "\*Vidtype\*O"
+Specifies how the \*Vid\*O parameter is to be interpreted.
+.LI "\*Vsig\*O"
+Specifies the signal to be sent.
+.LI "\*Vpsetp\*O"
+Points to a \*Lprocset_t\*O structure that defines a set of processes.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "sigsend function"
+.iX "sigsendset function"
+.iX "send a signal to a group of processes"
+The \*Lsigsend\*O function sends a signal to a group of processes
+specified by the \*Vid\*O and \*Vidtype\*O parameters.
+The \*Vsig\*O parameter specifies the signal
+to be sent.  It contains either a valid signal or a zero (0),
+which indicates that no signal is to be sent, though the usual error
+checking will still be performed.
+.PP
+To send the signal, the real or effective user IDs of the sending process
+must match those of the receiving process, unless the sending process
+has appropriate privileges, or the \*Vsig\*O parameter is SIGCONT and the
+receiving process is in the same session as the sender.
+.PP
+The \*Vid\*O and the \*Vidtype\*O parameters together select the
+target process(es) according to the following rules:
+.ML
+.LI
+If the \*Vidtype\*O parameter is set to P_PID, the target process is
+the process whose process ID is equal to (\*Lpid_t\*O)\*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_GID, the target processes are
+those whose effective group ID is equal to (\*Lgid_t\*O)\*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_UID, the target processes are
+those whose effective user ID is equal to (\*Luid_t\*O)\*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_PGID, the target processes are
+those whose process group ID is equal to (\*Lpid_t\*O)\*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_SID, the target processes are
+those whose session ID is equal to (\*Lpid_t\*O)\*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_CID, \*Vsig\*O is sent to any
+process whose scheduling class ID is equal to \*Vid\*O.
+.LI
+If the \*Vidtype\*O parameter is set to P_ALL, all eligible processes
+are targets of this operation, and \*Vid\*O is ignored.
+.LI
+If the \*Vid\*O parameter is set to P_MYID, the value used for
+\*Vid\*O is taken from the calling process.
+.LE
+.PP
+The process having a process ID of (\*Lpid_t\*O)0 is never a target, and the
+process with a process ID of (\*Lpid_t\*O)1 is targeted only if
+the \*Vidtype\*O parameter is equal to P_PID.  In addition,
+certain system processes may not be signalled.
+.PP
+The \*Lsigsendset\*O function allows sending to a set of processes
+that is constructed by a boolean logic operation performed on two
+sets of potential target processes defined as described above for
+\*Lsigsend\*O.
+.PP
+For the \*Lsigsendset\*O function, the \*Vpsetp\*O parameter points
+the \*Lprocset_t\*O structure.  This structure is described in detail on the
+\*Lprocset\*O(4) reference page.
+.SH RETURN VALUES
+.PP
+Upon successful completion, both functions return the value zero (0).
+Otherwise, a value of -1 is returned, and
+\*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP
+If any of the following conditions occur, the \*Lsigsend\*O
+or \*Lsigsendset\*O function sets \*Lerrno\*O to
+the corresponding value:
+.VL
+.LI "[EINVAL]"
+The value specified by the \*Vidtype\*O parameter is not valid.
+.LI "[EINVAL]"
+The value specified by the \*Vsig\*O parameter is not zero and is not
+a valid signal.
+.LI "[EINVAL]"
+The \*Vsig\*O parameter is set to SIGKILL, the \*Vidtype\*O parameter is set to P_PID, and the
+\*Vid\*O parameter is set to the process ID of a special system process.
+.LI "[EINVAL]"
+The \*Vid\*O parameter specifies
+the process ID of a special system process.
+.LI "[EINVAL]"
+Either the \*Vid\*O parameter of the \*Lsigsend\*O function, or the
+\*Lp_lid\*O or \*Lp_rid\*O members of the structure pointed at by the
+\*Vpsetp\*O parameter for the
+\*Lsigsendset\*O function are out-of-range.
+.LI "[EPERM]"
+The calling process lacks sufficient privilege, the real or effective user
+IDs do not match, and this invocation is not sending SIGCONT to a process in
+the same session.
+.LI "[ESRCH]"
+The processes specified by the \*Vid\*O and \*Vidtype\*O, or the \*Lpsetp\*O
+parameters do not exist.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lkill\*O(2), \*Lsetpgid\*O(2), \*Lsetsid\*O(2), \*Lsigaction\*O(2).
+.PP
+Routines: \*Lsigset\*O(3).
+.PP
+File Formats: \*Lprocset\*O(4), \*Lsignal\*O(4).
+.EQ
+delim off
+.EN

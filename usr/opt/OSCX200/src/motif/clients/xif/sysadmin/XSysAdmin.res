@@ -1,0 +1,1 @@
+XSysAdmin.questionAllActions: false

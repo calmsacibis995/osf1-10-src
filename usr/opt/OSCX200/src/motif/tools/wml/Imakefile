@@ -1,0 +1,173 @@
+/**/# 
+/**/# *****************************************************************
+/**/# *                                                               *
+/**/# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+/**/# *                                                               *
+/**/# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+/**/# *   the copyright laws of the United States.                    *
+/**/# *                                                               *
+/**/# *   The software contained on this media  is  proprietary  to   *
+/**/# *   and  embodies  the  confidential  technology  of  Digital   *
+/**/# *   Equipment Corporation.  Possession, use,  duplication  or   *
+/**/# *   dissemination of the software and media is authorized only  *
+/**/# *   pursuant to a valid written license from Digital Equipment  *
+/**/# *   Corporation.                                                *
+/**/# *                                                               *
+/**/# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+/**/# *   by the U.S. Government is subject to restrictions  as  set  *
+/**/# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+/**/# *   or  in  FAR 52.227-19, as applicable.                       *
+/**/# *                                                               *
+/**/# *****************************************************************
+/**/#
+/**/# HISTORY
+/**/# 
+/*
+ * @DEC_FREE_COPYRIGHT@
+ */
+# BuildSystemHeader added automatically
+/**/# $Header: /usr/sde/osf1/rcs/x11/src/motif/tools/wml/Imakefile,v 1.1.5.12 1993/11/12 20:39:48 Kenneth_Miller Exp $
+#INCLUDES = -I. -I$(INCLUDESRC) -I$(MINCLUDESRC) -I$(MLIBSRC)
+INCLUDES = -I. -I$(INCLUDESRC) -I$(MLIBSRC)
+LOCAL_LIBRARIES = BuildClientLibs
+DEPLIBS = BuildClientDepLibs
+
+ 
+SRCS1 =	wml.c		wmlouth.c	wmloutmm.c \
+	wmloutp1.c	wmlresolve.c	wmlsynbld.c	wmlutils.c \
+	wmldbcreate.c
+ 
+OBJS1 =	wml.o		wmloutkey.o	wmlouth.o	wmloutmm.o \
+	wmloutp1.o	wmlresolve.o	wmlsynbld.o	wmlutils.o
+ 
+SRCS2 = wmluiltok.l
+ 
+OBJS2 = wmlparse.o
+ 
+SRCS = $(SRCS1) $(SRCS2)
+ 
+YACCTARGETS = UilLexPars.c	UilLexPars.h
+
+WMLTARGETS = UilConst.h	UilKeyTab.h	 \
+	UilSymArTa.h	UilSymArTy.h	UilSymCSet.h	UilSymCtl.h \
+	UilSymEnum.h	UilSymGen.h	UilSymNam.h	UilSymRArg.h \
+	UilSymReas.h	UilTokName.h	UilUrmClas.h	UilSymChCl.h \
+	UilSymChTa.h
+
+TARGETS = $(YACCTARGETS) $(WMLTARGETS)
+ 
+TABLE = motif.wml
+WMDTABLE = motif.wmd
+DXMTABLE = dxm-motif.wml
+DXMWMDTABLE = dxm-motif.wmd
+WMLTOOLS = wml wmluiltok
+REPORT = wml.report
+
+NormalLibraryObjectRule()
+ 
+all::	DONE
+
+DONE:	$(TARGETS) $(WMDTABLE) $(DXMWMDTABLE)
+	$(RM) $@
+	(cd $(UILSRC); $(RM) $(TARGETS) UilDBDef.h)
+	cp $(TARGETS) UilDBDef.h $(UILSRC)
+	touch $@
+
+NormalLibraryTarget(wml,$(OBJS2) $(OBJS1))
+
+WMLINSTDIR = /usr/examples/motif/wml
+INST1 = UilDBDef.h UilLexPars.h dxm-motif.wml dxm-motif.wmd motif.wml \
+	motif.wmd tokens.dat wmldbcreate.c wml.readme
+INST2 = wml
+INST3 = Imakefile_inst
+
+InstallMultiple($(INST1),$(WMLINSTDIR))
+InstallProgram($(INST2),$(WMLINSTDIR))
+InstallNamedNonExec($(INST3),Imakefile,$(WMLINSTDIR))
+ 
+wml::	libwml.a
+	$(LOCCC) $(LOCCFLAGS) libwml.a -o wml
+
+STATIC_LOCAL_LIBS = \
+	../../lib/Mrm/libMrm.a \
+	../../lib/Xm/libXm.a \
+	../../../lib/Xt/libXt.a \
+	../../../lib/Xmu/libXmu.a \
+	../../../extensions/lib/libXext.a \
+	../../../lib/X/libX11.a
+
+wmldbcreate: wmldbcreate.o $(DEPLIBS)
+	$(RM) $@
+	$(LOCCC) $(LOCCFLAGS) -non_shared -o $@ wmldbcreate.o $(LOCLDOPTIONS) $(STATIC_LOCAL_LIBS) $(LOCLDLIBS) $(SYSLIBS) $(EXTRA_LOAD_FLAGS)
+
+wmlparse.c:	wmlparse.y wmllex.l
+	lex wmllex.l
+	$(MV) lex.yy.c wmllex.c
+	yacc -d $(YACCFLAGS) wmlparse.y
+	$(RM) wmlparse.c wmlparse.h
+	$(MV) y.tab.c wmlparse.c
+	$(MV) y.tab.h wmlparse.h
+ 
+wmlparse.h::	wmlparse.y wmllex.l
+	lex wmllex.l
+	$(MV) lex.yy.c wmllex.c
+	yacc -d $(YACCFLAGS) wmlparse.y
+	$(MV) y.tab.c wmlparse.c
+	$(MV) y.tab.h wmlparse.h
+ 
+wmluiltok::	wmluiltok.l
+	lex wmluiltok.l
+	$(LOCCC) $(LOCCFLAGS) lex.yy.c -ll -o wmluiltok
+
+$(TARGETS): ALLDONE
+
+ALLDONE: $(WMLTOOLS) $(TABLE) $(DXMTABLE)
+# Since AXP runs so fast we need to wait a few minutes so the creation times
+# on TARGETS we build here are newer than on WMLTOOLS.  If we don't wait this
+# keeps looping and does a lot of unnecessary work.
+#	sleep 125
+	$(RM) $(TARGETS) $(REPORT) wml-uil.mm ALLDONE
+	yacc -d $(YACCFLAGS) Uil.y
+	$(MV) y.tab.c UilLexPars.c
+	$(MV) y.tab.h UilLexPars.h
+	$(RM) tokens.dat
+	./wmluiltok < Uil.y > tokens.dat
+	$(RM) wml-uil.mm
+	./wml $(TABLE)
+	./wml $(DXMTABLE)
+	touch ALLDONE
+
+LIB_PATH = ../../lib/Mrm:../../lib/Xm:../../../lib/Xt:../../../extensions/lib:../../../lib/X:../../../../tools/alpha_osf1/cc/usr/shlib
+
+$(WMDTABLE):	wmldbcreate
+	$(RM) $@
+	./wmldbcreate -o $@
+
+$(DXMWMDTABLE):	wmldbcreate
+	$(RM) $@
+	./wmldbcreate -o $@
+
+clean::
+	$(RM) $(TARGETS) $(WMDTABLE) $(REPORT) lex.yy.c libwml.a wml \
+	*.mm *.sdml *.txt wmlparse.c wmlparse.h wmluiltok wmllex.c \
+	tokens.dat DONE $(DXMWMDTABLE)
+ 
+XCOMM  WARNING WARNING WARNING!!!
+XCOMM  MAJOR SLIME BALL HACK HERE!!!
+XCOMM
+XCOMM  Changed the contents of the includes and depend rule, so that
+XCOMM  when a make includes is done, it's really doing a make depend,
+XCOMM  and vice-versa. We need to do this because WML needs the reverse
+XCOMM  order done because we're sliming together 1.2 sources with 1.1.3
+XCOMM  make and config files. THIS SHOULD DEFINATLY CHANGE LATER!!
+XCOMM
+XCOMM  WARNING WARNING WARNING!!!
+XCOMM  MAJOR SLIME BALL HACK HERE!!!
+
+includes::  wmlparse.h 
+
+depend::	$(TARGETS)
+	(cd $(UILSRC); $(RM) $(TARGETS) UilDBDef.h)
+	cp $(TARGETS) UilDBDef.h $(UILSRC)
+
+DependTarget()

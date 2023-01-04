@@ -1,0 +1,265 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9208121920.AA09308@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2648) dipex support for PickOne
+Date: Wed, 12 Aug 92 15:20:42 EDT
+From: Jay Hersh <hersh@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+This is the dipex level changes/additions for PickOne support.
+
+*** /tmp/da9158	Wed Aug 12 15:16:16 1992
+--- extensions/server/PEX/dipex/objects/pexRndr.c	Wed Aug 12 15:16:35 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexRndr.c,v 5.11 92/06/05 15:37:40 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: pexRndr.c,v 5.12 92/08/12 15:14:42 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 139,145 ****
+      ErrorCode freeRenderer();
+      ddRendererStr *prend = 0;
+      CARD8 *ptr = (CARD8 *)(strmPtr+1);
+!     XID  fakepm;
+  	
+      if (prend = (ddRendererStr *) LookupIDByType (strmPtr->rdr, PEXRendType))
+  	PEX_ERR_EXIT(BadIDChoice,strmPtr->rdr,cntxtPtr);
+--- 139,145 ----
+      ErrorCode freeRenderer();
+      ddRendererStr *prend = 0;
+      CARD8 *ptr = (CARD8 *)(strmPtr+1);
+!     XID  fakepm, fakestr;
+  	
+      if (prend = (ddRendererStr *) LookupIDByType (strmPtr->rdr, PEXRendType))
+  	PEX_ERR_EXIT(BadIDChoice,strmPtr->rdr,cntxtPtr);
+***************
+*** 182,192 ****
+      prend->ns[(unsigned)DD_PICK_INCL_NS] = 0;
+      prend->ns[(unsigned)DD_PICK_EXCL_NS] = 0;
+  
+!     /* allocate a handle to the pseudo Pick Measure used for Renderer Picking 
+!        the Pick measure itself is done with CreatePseudoPickMeasure
+!        in the BeginPick...  routines 
+      */
+      fakepm = FakeClientID(cntxtPtr->client->index);
+      prend->pickstr.pseudoPM = (diPMHandle) Xalloc ((unsigned long)sizeof(ddPMResource));
+      if (!prend->pickstr.pseudoPM)  PEX_ERR_EXIT(BadAlloc,0,cntxtPtr);
+      (prend->pickstr.pseudoPM)->id = fakepm;
+--- 182,192 ----
+      prend->ns[(unsigned)DD_PICK_INCL_NS] = 0;
+      prend->ns[(unsigned)DD_PICK_EXCL_NS] = 0;
+  
+!     /* Create the Psuedo Pick Measure. Real values are filled
+!        in with ChangePsuedoPickMeasure called by BeginPickXXX routines
+      */
+      fakepm = FakeClientID(cntxtPtr->client->index);
++     prend->pickstr.client = cntxtPtr->client;
+      prend->pickstr.pseudoPM = (diPMHandle) Xalloc ((unsigned long)sizeof(ddPMResource));
+      if (!prend->pickstr.pseudoPM)  PEX_ERR_EXIT(BadAlloc,0,cntxtPtr);
+      (prend->pickstr.pseudoPM)->id = fakepm;
+***************
+*** 198,203 ****
+--- 198,220 ----
+  
+      ADDRESOURCE(fakepm, PEXPickType, prend->pickstr.pseudoPM);
+  
++ 
++     /* create a phony structure to pack OCs into 
++        for doing immediate mode renderer picking
++     */
++     fakestr = FakeClientID(cntxtPtr->client->index);
++     prend->pickstr.fakeStr = (diStructHandle)Xalloc((unsigned long)
++ 					  sizeof(ddStructResource));
++     if (!prend->pickstr.fakeStr) PEX_ERR_EXIT(BadAlloc,0,cntxtPtr);
++     (prend->pickstr.fakeStr)->id = fakestr;
++     err = CreateStructure(prend->pickstr.fakeStr);
++     if (err) {
++ 	Xfree((pointer)(prend->pickstr.fakeStr));
++ 	PEX_ERR_EXIT(err,0,cntxtPtr);
++     }
++ 
++     ADDRESOURCE(fakestr, PEXStructType, prend->pickstr.fakeStr);
++ 
+      if (strmPtr->itemMask & PEXRDPipelineContext) {
+  	ddPCStr *ppc = 0;
+  	LU_PIPELINECONTEXT((*((CARD32 *)ptr)), ppc);
+***************
+*** 1068,1074 ****
+--- 1085,1093 ----
+  
+      err = RenderOCs(prend, strmPtr->numCommands, (strmPtr+1));
+  
++     /* this line is useless pErr never gets returned from anywhere
+      if (err) PEX_OC_ERROR(pErr, cntxtPtr);
++     */
+  
+      return( err );
+  
+*** /tmp/da9191	Wed Aug 12 15:16:19 1992
+--- extensions/server/PEX/dipex/objects/pexRndrPick.c	Wed Aug 12 15:16:56 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: pexRndrPick.c,v 1.2 92/04/23 16:16:54 hersh Exp $ */
+  
+  /************************************************************
+  Copyright 1992 by The Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: pexRndrPick.c,v 1.3 92/08/12 15:15:05 hersh Exp $ */
+  
+  /************************************************************
+  Copyright 1992 by The Massachusetts Institute of Technology
+***************
+*** 95,115 ****
+      ErrorCode err = Success;
+      ddRendererStr *prend = 0;
+      extern ddBufferPtr pPEXBuffer;
+  
+      LU_RENDERER(strmPtr->rdr, prend);
+  
+      if (prend->pickstr.state != DD_PICK_ONE)
+! 	PEX_ERR_EXIT(err,0,cntxtPtr);
+  
+      SETUP_INQ(pexEndPickOneReply);
+  
+!     err = EndPickOne(prend, pPEXBuffer);
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+      {
+! 	SETUP_VAR_REPLY(pexEndPickOneReply);
+! 	/* this line for debug purposes */
+! 	reply->numPickElRefs = 0;
+! 
+  	WritePEXBufferReply(pexEndPickOneReply);
+      }
+      return( err );
+--- 95,114 ----
+      ErrorCode err = Success;
+      ddRendererStr *prend = 0;
+      extern ddBufferPtr pPEXBuffer;
++     pexEndPickOneReply *reply = (pexEndPickOneReply*)(pPEXBuffer->pHead);
+  
+      LU_RENDERER(strmPtr->rdr, prend);
+  
+      if (prend->pickstr.state != DD_PICK_ONE)
+! 	PEX_ERR_EXIT(PEX_ERROR_CODE(PEXRendererStateError),0,cntxtPtr);
+  
+      SETUP_INQ(pexEndPickOneReply);
+  
+!     err = EndPickOne(prend, pPEXBuffer, &(reply->numPickElRefs),
+! 		     &(reply->pickStatus), &(reply->betterPick));
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+      {
+! 	reply->length = LWORDS(pPEXBuffer->dataSize);
+  	WritePEXBufferReply(pexEndPickOneReply);
+      }
+      return( err );
+***************
+*** 124,129 ****
+--- 123,129 ----
+      extern ddBufferPtr pPEXBuffer;
+      ddRendererStr *prend = 0;
+      pexPickRecord *pr = (pexPickRecord *)(strmPtr+1);
++     pexPickOneReply *reply = (pexPickOneReply*)(pPEXBuffer->pHead);
+  
+      /* do stuff same as BeginPickOne */
+      LU_RENDERER(strmPtr->rdr, prend);
+***************
+*** 141,159 ****
+      err = BeginPicking(prend, prend->pickstr.pseudoPM);
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+  
+!     /* now call PickOne which does set up and calls RenderElements */
+      err = PickOne(prend);
+  
+      /* now do stuff same as EndPickOne */
+      SETUP_INQ(pexPickOneReply);
+  
+!     err = EndPickOne(prend, pPEXBuffer);
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+      {
+! 	SETUP_VAR_REPLY(pexPickOneReply);
+! 	/* this line for debug purposes */
+! 	reply->numPickElRefs = 0;
+! 
+  	WritePEXBufferReply(pexPickOneReply);
+      }
+      return( err );
+--- 141,157 ----
+      err = BeginPicking(prend, prend->pickstr.pseudoPM);
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+  
+!     /* now call PickOne which does set up and calls the traverser */
+      err = PickOne(prend);
+  
+      /* now do stuff same as EndPickOne */
+      SETUP_INQ(pexPickOneReply);
+  
+!     err = EndPickOne(prend, pPEXBuffer, &(reply->numPickElRefs),
+! 		     &(reply->pickStatus), &(reply->betterPick));
+      if (err) PEX_ERR_EXIT(err,0,cntxtPtr);
+      {
+! 	reply->length = LWORDS(pPEXBuffer->dataSize);
+  	WritePEXBufferReply(pexPickOneReply);
+      }
+      return( err );
+*** /tmp/da9229	Wed Aug 12 15:16:41 1992
+--- extensions/server/PEX/dipex/swap/uconvRep.c	Wed Aug 12 15:16:11 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: uconvRep.c,v 5.10 92/06/02 18:28:26 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+--- 1,4 ----
+! /* $XConsortium: uconvRep.c,v 5.11 92/08/12 15:14:14 hersh Exp $ */
+  
+  /***********************************************************
+  Copyright 1989, 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+***************
+*** 820,833 ****
+      SWAP_CARD32 (reply->length);	
+      SWAP_CARD16 (reply->pickStatus);
+  
+-     /* JSH commented out because until the Pick Functionality is
+-        actually written this will seg fault on a NULL pointer
+- 
+      p_data = (pexPickElementRef *)(reply+1);
+      for (i=0; i < reply->numPickElRefs; i++, p_data++) 
+  	    SWAP_PICK_ELEMENT_REF((*p_data));
+      
+-     */
+      SWAP_CARD32 (reply->numPickElRefs);
+  }
+  
+--- 820,829 ----
+***************
+*** 846,859 ****
+      SWAP_CARD32 (reply->length);
+      SWAP_CARD16 (reply->pickStatus);
+  
+-     /* JSH commented out because until the Pick Functionality is
+-        actually written this will seg fault on a NULL pointer
+- 
+      p_data = (pexPickElementRef *)(reply+1);
+      for (i=0; i < reply->numPickElRefs; i++, p_data++) 
+  	    SWAP_PICK_ELEMENT_REF((*p_data));
+      
+-     */
+      SWAP_CARD32 (reply->numPickElRefs);
+  }
+  
+--- 842,851 ----
+
+
+------------------------------------------------------------------------
+Hopfen und Malz, Gott erhalts

@@ -1,0 +1,257 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+XCOMM platform: osf1.cf
+/* Enable imake conditionals based on os */
+#undef  OSF1
+#undef  OSF
+#define OSF1 1
+#define OSF  1
+
+#define OSName                  OSF/1 2.0
+XCOMM Operating system:  OSName
+#define OSMajorVersion		2
+#define OSMinorVersion		0
+
+/* --- Information about OSF/1's kernel capabilities --- */
+#define SystemV			NO
+#define HasVoidSignalReturn	YES
+#define HasPutenv		YES
+#define HasShm			YES
+#define HasSia			YES
+
+/* --- Information about the standard commands and libraries --- */
+#define AvoidNullMakeCommand	YES
+#define Malloc0ReturnsNull	YES
+#define HasNdbm			YES
+#if OSMajorVersion == 1 && OSMinorVersion == 0
+#define RanlibCmd		ar -tsl
+#endif
+#define LintLibFlag    	        -o
+#define LintOpts       	        -ax
+
+/* --- Build Switches --- */
+#define BuildMotif		YES
+#define MotifBC YES 	/* fixup Motif assumtion in X & Xt */
+#define StandardDefines 	-DDEC -DR5_XLIB SMTDEFINES
+#define BuildSMTExt		YES
+#define BuildXInputExt		NO
+#define BuildXInputLib		NO
+#define BuildXTestExt		YES
+#define BuildXTestLib		YES
+
+/* Fonts */
+#define CompressAllFonts	YES
+
+/* xdm defines */
+#define DefaultUserPath /usr/bin:/usr/bin/X11:.
+#define DefaultSystemPath /usr/bin:/usr/bin/X11:.
+#define InstallXdmConfig	YES
+#define XdmUseMotif		YES
+
+/* --- Architecture dependencies --- */
+#define BuildServer 		YES
+#define BuildFontServer         YES
+#define InstallFSConfig		YES	/* install sample fs config */
+#define BuildFonts 		YES
+#define NeedVarargsPrototypes	YES
+#define NeedFunctionPrototypes	YES
+#define BuildPex 		NO
+#define BuildXsi 		YES
+#define BuildXimp 		YES
+
+/* --- Shared Libraries --- */
+#ifndef HasSharedLibraries
+#define HasSharedLibraries	YES
+#endif
+
+#ifdef AlphaArchitecture
+/******************** ALPHA/OSF ***************************************/
+
+#define PlatformFlag -D__alpha
+#define PlatformName alpha_osf1
+
+#if BuildServer
+#define XdecServer 		YES
+#define HasLoadableServer	YES
+#endif /* BuildServer */
+
+#ifndef BuildDPSExt
+#define BuildDPSExt	YES
+#endif
+
+#else  /* not AlphaArchitecture */
+/******************** MIPS/OSF ***************************************/
+
+#define PlatformFlag -D__mips
+#define PlatformName mips_osf1
+
+#if BuildServer
+#define XdecServer 		YES
+#endif /* BuildServer */
+
+#endif /* not AlphaArchitecture */
+
+#if ! defined(UseInstalled)
+/* ============ build tree environment, not installed files ======== */
+
+     CROSSBASE = $(TOP)/../tools/alpha_osf1/cc
+
+#define StandardIncludes -I$(CROSSBASE)/usr/include
+#define DefaultCCOptions \
+	-I -L -L$(CROSSBASE)/usr/shlib -L$(CROSSBASE)/usr/ccs/lib   
+#define UilFlags -I
+#define UilCommand $(TOP)/motif/clients/uil/uil.static
+#define LibDbm $(CROSSBASE)/usr/ccs/lib/libdbm.a
+#define TermcapLibrary $(CROSSBASE)/usr/ccs/lib/libtermlib.a
+#define ImakeCmd $(IMAKESRC)/imake.local
+/* 
+ * Want to make sure that all the stuff defined for cross-compiling
+ * gets defined for makedepend. 
+ */
+#define DependCmd $(DEPENDSRC)/makedepend
+#define DependDir $(TOP)/util/makedepend_local
+
+/*
+ * local commands needed to avoid installed shared library conflicts
+ */
+#define LocArCmd ar cqls
+#define LocCcCmd COMP_HOST_ROOT=/ COMP_TARGET_ROOT=/ /usr/bin/cc -non_shared
+/*
+ * local commands needed to build with shared (S) libraries which run 
+ * as part of the build, ie., temacs. 
+ */
+#define LocShareCcCmd COMP_HOST_ROOT=/ COMP_TARGET_ROOT=/ /usr/bin/cc 
+
+#ifndef HasDebuggedLibraries
+#define HasDebuggedLibraries 		YES
+#endif
+#ifndef InstallSharedDebugLibraries
+#define InstallSharedDebugLibraries     YES
+#endif
+#ifndef InstallStaticDebugLibraries
+#define InstallStaticDebugLibraries     NO
+#endif 
+
+#else /* ! defined(UseInstalled) */
+
+#ifdef UseMotif12ADK
+#define DefaultCCOptions \
+	-I/usr/opt/DXM121/include -L/usr/opt/DXM121/lib -DMotif12
+#define UilCommand /usr/opt/DXM121/bin/X11/uil
+#endif
+
+#endif /* ! defined(UseInstalled) */
+
+/* --- compiler specific flags --- */
+#define OptimizedCDebugFlags	-O2 -Olimit 2000 
+#define CcCmd cc $(SHAREDSWITCH)
+#define DependFlags  PlatformFlag  -D__osf__ -I -I$(CROSSBASE)/usr/include
+#define ShLibFlags -check_registry $(CROSSBASE)/usr/shlib/so_locations \
+	-L$(CROSSBASE)/usr/shlib -L$(CROSSBASE)/usr/ccs/lib
+#define ArCmd ar cqls
+#define DoRanlibCmd 0
+
+#ifndef InstallCmd
+#ifdef UseInstalled
+#define InstallCmd /usr/bin/X11/install.sh
+#else
+#define InstallCmd ksh $(TOP)/util/scripts/install.sh
+#endif 
+#endif /* InstallCmd */
+
+
+#if HasSharedLibraries
+	/* default behavior */
+   	SHAREDSWITCH = 
+#if HasSharedLibraries
+#endif /* HasSharedLibraries */
+#define SharedLibOldLibX	NO
+#define SharedLibXTest		NO
+#define SharedLibsmt		NO
+#define SharedLibip		NO
+#define SharedLibxie		NO
+#define StripInstalledPrograms	YES
+#if HasLoadableServer
+#  undef  NormalLibXdmcp
+#  define NormalLibXdmcp	YES
+#  undef  SharedLibXdmcp
+#  define SharedLibXdmcp	YES
+#  undef  NormalLibXau
+#  define NormalLibXau		YES
+#  undef  SharedLibXau
+#  define SharedLibXau		YES
+#  undef  SharedLibip
+#  define SharedLibip		YES
+#  define SharedServerLibs	YES
+#  define DoSharedServer	YES
+#endif 
+
+#else
+	/* need non_shared if shared libararies do not exist.  */
+        SHAREDSWITCH = -non_shared
+#endif
+
+#ifndef HasDebuggedLibraries
+#define HasDebuggedLibraries 	NO
+#endif
+
+#if HasDebuggedLibraries
+#define DebugLibXArchive	YES
+#define DebugLibX		YES
+#define DebugLibXext		YES
+#define DebugLibXt		YES
+#define DebugLibXmu		YES
+#define DebugLibXaw		YES
+#define DebugLibXm		YES
+#define DebugLibMrm		YES
+#define DebugLibDXm		YES
+#define DebugLibXau		NO
+#define DebugLibOldLibX		NO
+#define DebugLibXdmcp 		NO
+#define DebugLibXTest		NO
+#define DebugLibsmt		DebugLibX
+#define DebugLibip		DebugLibX
+#define DebugLibxie		NO
+#define DebugLibBkr		YES
+#define DebugLibDvr		YES
+#define DebugLibDps		YES
+#define DebugLibLwk		YES
+#define DebugLibIds		YES
+#endif
+
+#if BuildSMTExt
+#define ConnectionFlags 	-DTCPCONN -DUNIXCONN -DDNETCONN -DSMT
+#define SMTDEFINES -DSMT
+#else /* BuildSMTExt */
+#define ConnectionFlags 	-DTCPCONN -DUNIXCONN -DDNETCONN
+#define SMTDEFINES 
+#endif /* BuildSMTExt */
+
+#if HasSharedLibraries
+/* -- shared library rules special to osf1 -- */
+#include <osfLib.rules>
+#endif /* HasSharedLibraries */
+

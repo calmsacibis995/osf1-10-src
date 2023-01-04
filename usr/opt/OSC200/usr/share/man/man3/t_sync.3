@@ -1,0 +1,230 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_sync.3,v $ $Revision: 3.2.8.2 $ (DEC) $Date: 1993/07/27 13:36:54 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.TH t_sync 3
+.SH NAME
+.PP
+t_sync \- Synchronizes transport library
+.SH LIBRARY
+.PP
+XTI Library (\*Llibxti.a\*O)
+.SH SYNOPSIS
+.PP
+.br
+.sS
+\*L#include <xti.h>\*O
+.sp 4p
+\*Lint t_sync(\*O
+    \*Lint \*Vfd\*L) ;\*O
+.sE
+.SH "PARAMETERS"
+.PP
+The
+\*Lt_sync\*O(\|)
+function can be called in any transport provider
+state except T_UNINIT. The following table summarizes the relevance of
+input
+parameter data before and after
+\*Lt_sync\*O(\|)
+is called:
+.sp
+.TS
+center, tab(@);
+lb  lb  lb
+c   c   c.
+Parameter@Before Call@After Call
+_
+.sp 0.3v
+\*Vfd\*O@y@n
+.sp 0.3v
+.TE
+Notes to Table:
+.RS
+.nf
+.ta 5
+y	This is a meaningful parameter.
+n	This is not a meaningful parameter.
+.RE
+.fi
+.TP
+\*Vfd\*O
+Specifies
+a file descriptor returned by the
+\*Lt_open\*O(\|)
+function that
+identifies an active, uninitialized local transport endpoint.
+.SH "DESCRIPTION"
+.PP
+.iX "t_sync function"
+.iX "XTI" "t_sync function"
+The
+\*Lt_sync\*O(|) XTI utility service function is used to
+synchronize data structures
+managed by the transport library with information from the underlying
+transport provider.
+.PP
+The
+\*Lt_sync\*O(\|)
+function is used to convert an uninitialized file
+descriptor,
+previously returned by the
+\*Lopen\*O(\|)
+or
+\*Ldup\*O(\|)
+functions, or
+returned
+as the result of
+\*Lfork\*O(\|)
+or
+\*Lexec\*O(\|)
+functions,
+to an initialized transport endpoint. When the file descriptor
+references a valid transport endpoint, necessary library data
+structures are allocated and updated.
+.PP
+.ne 3i
+The
+\*Lt_sync\*O(\|)
+function also permits two cooperating processes
+to synchronize their interaction with a transport provider. When a
+process
+forks, for example, and an
+\*Lexec\*O(\|)
+function is
+issued,
+the child (new) process must call the
+\*Lt_sync\*O(\|)
+function to build a
+private library data structure associated with the transport endpoint
+referenced by the
+\*Vfd\*O
+parameter and to synchronize the library
+data structure
+with relevant transport provider information.
+.PP
+A transport
+provider treats multiple users of a transport endpoint as the same
+user. When more than one
+process is using the same transport endpoint, each should coordinate its
+activities so that operation does not conflict with the transport
+provider state at the transport endpoint specified by
+\*Vfd\*O.
+.PP
+The
+\*Lt_sync\*O(\|)
+function returns the current state of the
+transport
+provider (refer to the
+\*Lt_getstate\*O(\|)
+function).
+Return of the current state of the transport provider permits the
+calling transport user to verify the transport provider state before
+issuing the next function call. This coordination is only valid among
+cooperating processes; it is possible that a process or an incoming
+event can change the transport provider state at the reference
+transport
+endpoint after
+\*Lt_sync\*O(\|)
+is called.
+.PP
+When the transport provider at the transport endpoint referenced by the
+\*Vfd\*O
+parameter is undergoing a change of state and the
+\*Lt_sync\*O(\|)
+function
+is
+called, the
+\*Lt_sync\*O(\|)
+process fails and returns a
+[TSTATECHNG] error.
+.SH "RETURN VALUES"
+.PP
+Upon successful completion, the state of the transport provider at the
+transport endpoint specified by the
+\*Vfd\*O
+parameter is returned.
+Otherwise, a
+value of -1 is returned and
+\*Lt_errno\*O
+is set to indicate the error.
+The returned state is one of the following:
+.TP 1i
+[T_UNBND]
+Transport endpoint not bound to an address.
+.TP
+[T_IDLE]
+Transport endpoint is idle.
+.TP
+[T_OUTCON]
+Outgoing connection pending.
+.TP
+[T_INCON]
+Incoming connection pending.
+.TP
+[T_DATAXFER]
+Data transfer.
+.TP
+[T_OUTREL]
+Outgoing orderly release (waiting for an orderly release indication).
+.TP
+[T_INREL]
+Incoming orderly release (waiting for an orderly release request).
+.sp
+.ne 3i
+.SH ERRORS
+.PP
+If the
+\*Lt_sync\*O(|) function fails,
+\*Lt_errno\*O
+may be set to one of
+the following values:
+.TP
+[TBADF]
+File descriptor
+\*Vfd\*O
+is not a valid transport endpoint.
+This error may be returned when the
+\*Vfd\*O
+parameter has been
+previously closed or
+an erroneous file-descriptor value may have been passed to the call.
+.TP
+[TSTATECHNG]
+The transport endpoint is undergoing a state change.
+.TP
+[TSYSERR]
+A system error occurred during execution of this function.
+.SH "RELATED INFORMATION"
+.PP
+Functions:
+\*Lexec\*O(2),
+\*Lfcntl\*O(2),
+\*Lfork\*O(2),
+\*Lopen\*O(2),
+\*Lt_getstate\*O(3)
+.EQ
+delim off
+.EN

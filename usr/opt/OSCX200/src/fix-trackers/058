@@ -1,0 +1,1916 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!decvax.dec.com!pa.dec.com!nobody
+Message-Id: <9112210006.AA15886@rsx.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2281) close XBUG #4816: ibmddx: faster FillRect and CopyArea (Part 3/3)
+Date: Fri, 20 Dec 91 19:06:06 -0500
+From: Eng-Shien Wu <eswu@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+[Part 3/3]
+
+	Subject: ibmddx: faster FillRect and CopyArea
+	### bug number:   4816
+	### area:         ibmddx
+	### severity:     enhancement
+	### comments:     
+
+Code cleanup and performance enhancements for
+skyway adapter on IBM RISC System/6000.
+
+Note: cut portion should be 1889 lines (wc -l).
+
+---------------------------------------------------------------------------
+*** /tmp/,RCSt1KUIBQD	Wed Dec 11 21:42:23 1991
+--- server/ddx/ibm/skyway/skySave.c	Wed Dec 11 21:31:47 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: skySave.c,v 1.3 91/07/16 13:16:46 jap Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: skySave.c,v 1.4 91/12/11 21:25:50 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 78,119 ****
+      skyHdwrInit(index);
+      skyRefreshColormaps(pScreen);
+      skyDisplayCursor( pScreen, ibmCurrentCursor(index) );
+- }
+- 
+- /*
+-  * skyScreenClose
+-  *      Screen is being destroyed. Release its resources.
+-  */
+- 
+- Bool
+- skyScreenClose( index, pScreen )
+- register int        index;
+- register ScreenPtr  pScreen;
+- {
+-     unmake_gp skyInfo ;
+- 
+-     TRACE(("skyScreenClose(index=%d, pScreen=0x%x)\n",index,pScreen));
+- 
+-     if (pScreen->devPrivate)
+- 	Xfree(pScreen->devPrivate);
+- 
+-     if (aixgsc (skyHandle, UNMAKE_GP, &skyInfo))
+-     {
+- 	    TRACE(("aixgsc UNMAKE_GP failed\n"));
+- 	    return -1 ;
+-     }
+- 
+-     return TRUE ;
+- }
+- 
+- 
+- /*
+-  * rcmGiveUp
+-  *      Someone is trying killing X. Release GAI resources for all screens.
+-  *      Called from common/ibmUtils.c
+-  */
+- 
+- void rcmGiveUp()
+- {
+- 	TRACE(("rcmGiveUp()\n"));
+  }
+--- 78,81 ----
+*** /tmp/,RCSt1KUwCrx	Wed Dec 11 21:42:24 1991
+--- server/ddx/ibm/skyway/skyScrInit.c	Wed Dec 11 21:31:47 1991
+***************
+*** 1,33 ****
+  /*
+!  * $XConsortium: skyScrInit.c,v 1.2 91/07/16 13:17:01 jap Exp $
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+!  * All Rights Reserved
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted,
+!  * provided that the above copyright notice appear in all copies and that
+!  * both that copyright notice and this permission notice appear in
+!  * supporting documentation, and that the name of IBM not be
+!  * used in advertising or publicity pertaining to distribution of the
+!  * software without specific, written prior permission.
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+!  * ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND 
+!  * NONINFRINGEMENT OF THIRD PARTY RIGHTS, IN NO EVENT SHALL
+!  * IBM BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+!  * ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+!  * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+!  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+!  * SOFTWARE.
+   *
+! */
+  
+  /*
+!  * skyScrInit.c - initialize display
+   */
+  
+  #include <sys/types.h>
+  #include <sys/hft.h>
+  #include <sys/entdisp.h>
+--- 1,34 ----
+  /*
+!  * $XConsortium: skyScrInit.c,v 1.4 91/12/11 21:25:52 eswu Exp $ 
+   *
+!  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
+   *
+!  * All Rights Reserved 
+   *
+   * License to use, copy, modify, and distribute this software and its
+!  * documentation for any purpose and without fee is hereby granted, provided
+!  * that the above copyright notice appear in all copies and that both that
+!  * copyright notice and this permission notice appear in supporting
+!  * documentation, and that the name of IBM not be used in advertising or
+!  * publicity pertaining to distribution of the software without specific,
+!  * written prior permission. 
+   *
+!  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+!  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
+!  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
+!  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+!  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+!  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+!  * PERFORMANCE OF THIS SOFTWARE. 
+   *
+!  */
+  
++ 
+  /*
+!  * skyScrInit.c - initialize display and screen structure
+   */
+  
++ 
+  #include <sys/types.h>
+  #include <sys/hft.h>
+  #include <sys/entdisp.h>
+***************
+*** 42,105 ****
+  #include "ibmScreen.h"
+  #include "ibmTrace.h"
+  
+  #include "skyHdwr.h"
+  #include "skyReg.h"
+  
+  
+! #define DEVMAX       6
+! unsigned long   SKYWAY_OFFSET[DEVMAX] ;
+! unsigned long   SKYWAY_VRAM_START[DEVMAX] ;
+! unsigned long   IOREG[DEVMAX] ;
+! unsigned long   COPREG[DEVMAX] ;
+! unsigned long   SKYWAY_DMA0[DEVMAX] ;
+! unsigned long   SKYWAY_DMA1[DEVMAX] ;
+! unsigned long   SKYWAY_DMA2[DEVMAX] ;
+! unsigned long   SKYWAY_DMA3[DEVMAX] ;
+! unsigned long   SKYWAY_TILEOFFSET[DEVMAX] ;
+  
+- unsigned int skyHandle ;
+- pointer      pSkywayFrame ;
+  
+  
+! int skyScreenInit(index)
+! int index ;
+  {
+- 	struct  sky_map skyRegMap ;
+- 	make_gp skyHdwrInfo ;
+- 	unsigned long segAddr ;
+  
+! 	TRACE(("skyScreenInit entered\n"));
+  
+! 	if (ioctl(ibmScreenFD(index), HFHANDLE, &skyHandle) < 0 )
+! 	{
+! 	        TRACE(("get skyHandle failed"));
+! 	        return -1 ;
+! 	}
+  
+- 	skyHdwrInfo.pData = (genericPtr) &skyRegMap ;
+- 	skyHdwrInfo.length = sizeof(skyRegMap);
+  
+! 	/* get hardware info */
+  
+- 	if (aixgsc (skyHandle, MAKE_GP, &skyHdwrInfo))
+- 	{
+- 	        TRACE(("aixgsc MAKE_GP failed\n"));
+- 	        return -1 ;
+- 	}
+  
+! 	segAddr = (unsigned long *) skyHdwrInfo.segment ;
+! 	SKYWAY_OFFSET[index] = segAddr;
+! 	SKYWAY_VRAM_START[index] = segAddr | skyRegMap.vr_addr ;
+! 	IOREG[index] = segAddr | skyRegMap.io_addr   ;
+! 	COPREG[index] = segAddr | skyRegMap.cp_addr  ;
+! 	pSkywayFrame = SKYWAY_VRAM_START[index] ;
+  
+! 	TRACE (("skyScreenInit: SEGADDR is %x\n", segAddr));
+! 	TRACE (("skyScreenInit: VRAM_OFFSET is %x\n", SKYWAY_OFFSET[index]));
+! 	TRACE (("skyScreenInit: VRAM_START  is %x\n", SKYWAY_VRAM_START[index]));
+! 	TRACE (("skyScreenInit: IOREG  is %x\n", IOREG[index]));
+! 	TRACE (("skyScreenInit: COPREG is %x\n", COPREG[index]));
+! 	TRACE (("skyScreenInit: FRAMEADDR %x\n", pSkywayFrame));
+  
+! 	return 0 ;
+  }
+--- 43,270 ----
+  #include "ibmScreen.h"
+  #include "ibmTrace.h"
+  
++ #include "aixCursor.h"
++ #include "mipointer.h"
++ #include "misprite.h"
++ #include "OSio.h"
++ 
++ #include "skyProcs.h"
+  #include "skyHdwr.h"
+  #include "skyReg.h"
++ #include "skyPriv.h"
+  
+  
+! static unsigned long ddpGeneration=0;
+! unsigned long ddpGCPrivateIndex;
+  
+  
++ uint		skyHandle[MAXSCREENS];
+  
+! ulong           SKY_SEGMENT[MAXSCREENS];
+! ulong           SKY_VRAM_START[MAXSCREENS];
+! ulong           SKY_DMA0[MAXSCREENS];
+! ulong           SKY_DMA1[MAXSCREENS];
+! ulong           SKY_DMA2[MAXSCREENS];
+! ulong           SKY_DMA3[MAXSCREENS];
+! 
+! skyIORegPtr     IOREG[MAXSCREENS];		/* Skyway IO Registers   */
+! skyCopRegPtr    COPREG[MAXSCREENS];		/* Coprocessor registers */
+! skyCopRegRec    COPREG_SHADOW[MAXSCREENS];	/* Shadow of hdwr values */
+! 
+! ulong          *SKY_TILESTIP[MAXSCREENS];
+! ulong           SKY_TILESTIPID_CTR[MAXSCREENS];
+! 
+! 
+! extern void     miRecolorCursor();
+! extern void     miPaintWindow();
+! 
+! 
+! 
+! Bool
+! skyScreenInit(scrnNum, pScreen, argc, argv)
+!     int             scrnNum;
+!     ScreenPtr       pScreen;
+!     int             argc;	/* these two may NOT be changed */
+!     char          **argv;
+  {
+  
+!     ColormapPtr     pColormap;
+!     Bool            retval;
+!     int             i;
+  
+!     struct sky_map  skyRegMap;
+!     make_gp         skyHdwrInfo;
+!     ulong           segAddr;
+  
+  
+!     TRACE(("skyIO(%d,0x%x,%d,0x%x)\n", scrnNum, pScreen, argc, argv));
+  
+  
+!     /*************************************************************************
+!     *                                                                        *
+!     *                        Allocate Private Areas                          *
+!     *                                                                        *
+!     *************************************************************************/
+  
+!     if (ddpGeneration != serverGeneration)
+!     {
+! 	ddpGCPrivateIndex  = AllocateGCPrivateIndex();
+! 	ddpGeneration      = serverGeneration;
+!     }
+  
+!     if (!AllocateGCPrivate(pScreen, ddpGCPrivateIndex, sizeof(skyPrivGCRec)))
+! 	return FALSE;
+! 
+! 
+!     /*************************************************************************
+!     *                                                                        *
+!     *          Go into HFT monitor mode to gain access to skyway             *
+!     *                                                                        *
+!     *************************************************************************/
+! 
+!     if (ioctl(ibmScreenFD(scrnNum), HFHANDLE, &skyHandle[scrnNum]) < 0)
+!     {
+! 	perror("ioctl on display");
+! 	return FALSE;
+!     }
+! 
+!     skyHdwrInfo.pData  = (genericPtr) &skyRegMap;
+!     skyHdwrInfo.length = sizeof(skyRegMap);
+! 
+!     if (aixgsc(skyHandle[scrnNum], MAKE_GP, &skyHdwrInfo))
+!     {
+! 	perror("cannot enter HFT monitor mode");
+! 	return FALSE;
+!     }
+! 
+! 
+!     /*************************************************************************
+!     *                                                                        *
+!     *                     Initialize skyway hardware                         *
+!     *                                                                        *
+!     *************************************************************************/
+! 
+!     segAddr = (ulong) skyHdwrInfo.segment;
+! 
+!     SKY_SEGMENT[scrnNum]    = segAddr;
+!     SKY_VRAM_START[scrnNum] = segAddr | skyRegMap.vr_addr;
+!     IOREG[scrnNum]          = (skyIORegPtr) (segAddr | skyRegMap.io_addr);
+!     COPREG[scrnNum]         = (skyCopRegPtr) (segAddr | skyRegMap.cp_addr);
+! 
+!     /* Initialize installed TileStip list */
+! 
+!     SKY_TILESTIPID_CTR[scrnNum] = 0;
+! 
+!     SKY_TILESTIP[scrnNum] = xalloc(sizeof(ulong)*SKY_TILESTIP_AREAS);
+!     if (SKY_TILESTIP[scrnNum] == NULL)
+! 	return FALSE;
+! 
+!     for (i=0; i<SKY_TILESTIP_AREAS; i++)
+! 	SKY_TILESTIP[scrnNum][i] = 0;
+! 
+! 
+!     TRACE(("SEGADDR[%d]      = %x\n", scrnNum, segAddr));
+!     TRACE(("VRAM_SEGMENT[%d] = %x\n", scrnNum, SKY_SEGMENT[scrnNum]));
+!     TRACE(("VRAM_START[%d]   = %x\n", scrnNum, SKY_VRAM_START[scrnNum]));
+!     TRACE(("IOREG[%d]        = %x\n", scrnNum, IOREG[scrnNum]));
+!     TRACE(("COPREG[%d]       = %x\n", scrnNum, COPREG[scrnNum]));
+! 
+!     skyHdwrInit(scrnNum);
+! 
+! 
+! 
+! 
+!     /*************************************************************************
+!     *                                                                        *
+!     *               Setup skyway dependent data and vectors                  *
+!     *                                                                        *
+!     *************************************************************************/
+! 
+!     if (!cfbSetupScreen(pScreen, SKY_VRAM_START[scrnNum],
+! 			SKY_WIDTH, SKY_HEIGHT, 92, 92, SKY_WIDTH))
+! 	return FALSE;
+! 
+!     pScreen->CreateGC = skyCreateGC;
+! 
+!     pScreen->RealizeCursor = skyRealizeCursor;
+!     pScreen->UnrealizeCursor = skyUnrealizeCursor;
+!     pScreen->DisplayCursor = skyDisplayCursor;
+!     pScreen->RecolorCursor = miRecolorCursor;
+! 
+!     pScreen->PaintWindowBackground = miPaintWindow;
+!     pScreen->PaintWindowBorder = miPaintWindow;
+!     pScreen->CopyWindow = skyCopyWindow;
+! 
+!     pScreen->InstallColormap = skyInstallColormap;
+!     pScreen->UninstallColormap = skyUninstallColormap;
+!     pScreen->ListInstalledColormaps = skyListInstalledColormaps;
+!     pScreen->StoreColors = skyStoreColors;
+! 
+!     pScreen->QueryBestSize = skyQueryBestSize;
+! 
+!     if (!cfbFinishScreenInit(pScreen, SKY_VRAM_START[scrnNum],
+! 	       SKY_WIDTH, SKY_HEIGHT, 92, 92, SKY_WIDTH))
+! 	return FALSE;
+! 
+! 
+!     if (!cfbCreateDefColormap(pScreen))
+! 	return FALSE;
+! 
+! 
+!     /* XXX - Should wrap or else BackingStore will leak memory */
+!     pScreen->CloseScreen = skyScreenClose;
+! 
+! 
+!     /*************************************************************************
+!     *                                                                        *
+!     *                Setup system-dependent data and vectors                 *
+!     *                                                                        *
+!     *************************************************************************/
+! 
+!     ibmScreen(scrnNum) = pScreen;
+!     pScreen->SaveScreen = ibmSaveScreen;
+! 
+! 
+!     /* Warning: miScreenInit sets BlockHandler and WakeHandler to NoopDDA,
+!      * so do not move this before cfbFinishScreenInit().
+!      */
+! 
+!     pScreen->BlockHandler = AIXBlockHandler;
+!     pScreen->WakeupHandler = AIXWakeupHandler;
+!     pScreen->blockData = (pointer) 0;
+!     pScreen->wakeupData = (pointer) 0;
+! 
+!     pScreen->SetCursorPosition = AIXSetCursorPosition;
+!     pScreen->CursorLimits = AIXCursorLimits;
+!     pScreen->PointerNonInterestBox = AIXPointerNonInterestBox;
+!     pScreen->ConstrainCursor = AIXConstrainCursor;
+! 
+!     return TRUE;
+! }
+! 
+! 
+! 
+! /*
+!  * skyScreenClose Screen is being destroyed. Release its resources. 
+!  */
+! 
+! Bool
+! skyScreenClose(scrnNum, pScreen)
+!     int             scrnNum;
+!     ScreenPtr       pScreen;
+! {
+!     unmake_gp       skyInfo;
+! 
+!     TRACE(("skyScreenClose(scrnNum=%d, pScreen=0x%x)\n", scrnNum, pScreen));
+! 
+!     if (pScreen->devPrivate)
+! 	Xfree(pScreen->devPrivate);
+! 
+!     if (aixgsc(skyHandle[scrnNum], UNMAKE_GP, &skyInfo))
+!     {
+! 	TRACE(("aixgsc UNMAKE_GP failed\n"));
+! 	return -1;
+!     }
+! 
+!     return TRUE;
+  }
+*** /dev/null	Wed Dec 11 19:29:38 1991
+--- server/ddx/ibm/skyway/copyword.s	Wed Dec 11 21:38:14 1991
+***************
+*** 0 ****
+--- 1,141 ----
++ /*
++  * $XConsortium: copyword.s,v 1.2 91/12/11 21:37:24 eswu Exp $
++  *
++  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
++  *
++  * All Rights Reserved 
++  *
++  * License to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of IBM not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission. 
++  *
++  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
++  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE. 
++  *
++  */
++ 
++ /*
++  Copy Word Routines (2 to 8 words)
++ 
++  Use Store-String-Immediate to write multiple words.
++  This is faster because you only need one bus access
++  to send several words.
++ 
++  void copyword2(dst_address, w1, w2)
++  void copyword3(dst_address, w1, w2, w3)
++  ...
++  void copyword8(dst_address, w1, ..., w8)
++ */
++ 
++ 
++ 	.file   "copyword2.s"
++ 	.globl  copyword2[ds]
++ 	.csect  copyword2[ds]
++ 	.long   .copyword2[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword2:     .tc     .copyword2[tc],copyword2[ds]
++ 	.globl  .copyword2[PR]
++ 	.csect  .copyword2[PR]
++ 	stsi    4, 3, 8
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword3.s"
++ 	.globl  copyword3[ds]
++ 	.csect  copyword3[ds]
++ 	.long   .copyword3[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword3:     .tc     .copyword3[tc],copyword3[ds]
++ 	.globl  .copyword3[PR]
++ 	.csect  .copyword3[PR]
++ 	stsi    4, 3, 12
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword4.s"
++ 	.globl  copyword4[ds]
++ 	.csect  copyword4[ds]
++ 	.long   .copyword4[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword4:     .tc     .copyword4[tc],copyword4[ds]
++ 	.globl  .copyword4[PR]
++ 	.csect  .copyword4[PR]
++ 	stsi    4, 3, 16
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword5.s"
++ 	.globl  copyword5[ds]
++ 	.csect  copyword5[ds]
++ 	.long   .copyword5[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword5:     .tc     .copyword5[tc],copyword5[ds]
++ 	.globl  .copyword5[PR]
++ 	.csect  .copyword5[PR]
++ 	stsi    4, 3, 20
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword6.s"
++ 	.globl  copyword6[ds]
++ 	.csect  copyword6[ds]
++ 	.long   .copyword6[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword6:     .tc     .copyword6[tc],copyword6[ds]
++ 	.globl  .copyword6[PR]
++ 	.csect  .copyword6[PR]
++ 	stsi    4, 3, 24
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword7.s"
++ 	.globl  copyword7[ds]
++ 	.csect  copyword7[ds]
++ 	.long   .copyword7[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword7:     .tc     .copyword7[tc],copyword7[ds]
++ 	.globl  .copyword7[PR]
++ 	.csect  .copyword7[PR]
++ 	stsi    4, 3, 28
++ 	brl
++ 
++ 
++ 
++ 	.file   "copyword8.s"
++ 	.globl  copyword8[ds]
++ 	.csect  copyword8[ds]
++ 	.long   .copyword8[PR]
++ 	.long   TOC[tc0]
++ 	.long   0
++ 	.toc
++ T.copyword8:     .tc     .copyword8[tc],copyword8[ds]
++ 	.globl  .copyword8[PR]
++ 	.csect  .copyword8[PR]
++ 	stsi    4, 3, 32
++ 	brl
+*** /dev/null	Wed Dec 11 19:29:38 1991
+--- server/ddx/ibm/skyway/skyFill.c	Wed Dec 11 21:41:13 1991
+***************
+*** 0 ****
+--- 1,318 ----
++ /*
++  * $XConsortium: skyFill.c,v 1.2 91/12/11 21:40:47 eswu Exp $
++  *
++  * Copyright IBM Corporation 1991 
++  *
++  * All Rights Reserved 
++  *
++  * License to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of IBM not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission. 
++  *
++  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
++  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE. 
++  *
++  * Author: Eng-Shien Wu
++  */
++ 
++ 
++ /* Called by rendering routines to setup fillStyle on coprocessor.
++  * Returns PixelOp bits that need to be set to handle the fillStyle.
++  *
++  *     ulong skySetTile   (scrnNum, pGC, &patWidth, &patHeight)
++  *     ulong skySetStipple(scrnNum, pGC, &patWidth, &patHeight)
++  *     ulong skySetSolid(scrnNum, pGC)
++  *
++  */
++ 
++ #include "X.h"
++ #include "Xmd.h"
++ #include "servermd.h"
++ #include "gcstruct.h"
++ #include "window.h"
++ #include "pixmapstr.h"
++ #include "scrnintstr.h"
++ #include "windowstr.h"
++ 
++ #include "cfb.h"
++ #include "cfbmskbits.h"
++ #include "mergerop.h"
++ 
++ #include "ibmTrace.h"
++ #include "skyHdwr.h"
++ #include "skyReg.h"
++ #include "skyPriv.h"
++ 
++ 
++ /* Called by skyValidateGC when the tile or stipple has changed in the GC.
++  * This clears the id currently being used and gives out a new id so that
++  * when you go to render using the tile or stipple, it will be set into
++  * the off-screen vram.
++  */
++ 
++ void skyNewTileStipID(scrnNum, tileStipID)
++     int             scrnNum;
++     ulong          *tileStipID;
++ {
++     ulong          *IDList = SKY_TILESTIP[scrnNum];
++ 
++     /* Clear all entries of old tileStipID */
++ 
++     if (*tileStipID)
++     {
++ 	int n;
++ 
++ 	for (n=0; n<SKY_TILESTIP_AREAS; n++)
++ 	{
++ 	    if (IDList[n] == *tileStipID)
++ 		IDList[n] = 0;
++ 	}
++     }
++ 
++     /* Assign new tileStipID */
++     *tileStipID = ++SKY_TILESTIPID_CTR[scrnNum];
++ 
++     TRACE(("new tileStippleID = 0x%x\n", *tileStipID));
++ }
++ 
++ 
++ /* Called by skySetTile and skySetStipple to see if the tile/stipple
++  * is already in the off-screen vram area and where to put it if it is not.
++  *
++  * Looks into table to see if the tile or stipple is already in off-screen
++  * vram. If so, return true and set *base to the address of the tile/stipple
++  * in vram. If not, return false and set *base to the address where the
++  * tile/stipple can be put.
++  *
++  * The code is crufty.
++  */
++ 
++ #define HashEntry(tileStipID)	(tileStipID % SKY_TILESTIP_AREAS)
++ 
++ Bool
++ skyFindTileStip(scrnNum, tileStipID, size, base)
++     int             scrnNum;
++     ulong           tileStipID;
++     ulong           size;
++     ulong          *base;
++ {
++     ulong          *IDList = SKY_TILESTIP[scrnNum];
++     ulong           id;
++     uint             entry, n;
++     Bool            foundSlot;
++ 
++     TRACE(("skyFindTileStip(s=%d, tileStipID=0x%x, size=%d, base=0x%x)\n",
++ 	scrnNum, tileStipID, size, base));
++ 
++ 
++     /* Search for the id or a free slot. */
++ 
++     entry = HashEntry(tileStipID);
++ 
++     for (n=SKY_TILESTIP_AREAS; n--; entry=(entry+1) % SKY_TILESTIP_AREAS)
++     {
++ 	id = IDList[entry];
++ 
++ 	TRACE(("\tIDList[%d]=0x%x\n", entry, id));
++ 
++ 	foundSlot = (id==tileStipID || id == 0);
++ 
++ 	if (foundSlot)
++ 	    break;
++     }
++ 
++     /* If for some reason, we did not find the id or a free slot,
++      * use the first slot we looked at.
++      */
++ 
++     if (! foundSlot)
++ 	entry = HashEntry(tileStipID);		/* Use first entry searched */
++ 
++     *base = SC_INVIS_VRAM_BASE + entry*SKY_MAX_TILESTIP_SIZE;
++ 
++     TRACE(("\tentry=%d, base=0x%x, install=%d\n",
++ 	entry, base, id==tileStipID && id != 0));
++ 
++     IDList[entry] = tileStipID;
++ 
++ #ifndef NO_CACHING_TEST
++     return (id==tileStipID && id != 0);
++ #else
++     return (0);
++ #endif
++ }
++ 
++ 
++ /* Only handles regular tile case:
++  *     tileIsPixel is handled by solid fill.
++  *     two-color tiles handled by stipple fill.
++  */
++ 
++ ulong
++ skySetTile(scrnNum, pGC, patWidth, patHeight)
++     int             scrnNum;
++     GCPtr	    pGC;
++     int            *patWidth;
++     int            *patHeight;
++ {
++     skyPrivGCPtr    pSkyPriv = skyGetGCPrivate(pGC);
++ 
++     int             w = *patWidth  = pGC->tile.pixmap->drawable.width;
++     int             h = *patHeight = pGC->tile.pixmap->drawable.height;
++     int             size = pGC->tile.pixmap->devKind * h;
++ 
++     ulong           base;
++     Bool            installed;
++ 
++ 
++     TRACE(("skySetTile(scrnNum=%d, pGC=0x%x, &W=0x%x, &H=0x%x)\n",
++ 		scrnNum, pGC, patWidth, patHeight));
++ 
++     /* See if tile already installed. If installed, ``base'' points to
++      * where the tile is installed. If not, ``base'' points to where
++      * you should install the tile.
++      */
++ 
++     installed = skyFindTileStip(scrnNum, pSkyPriv->tileStipID, size, &base);
++     SKYSetPixmap(scrnNum, PixMapA, base, w,h, PixSize8);
++ 
++     if (! installed)
++     {
++ 	char *pdst = (char *) (SKY_SEGMENT[scrnNum] + base);
++ 	char *psrc = (char *) pGC->tile.pixmap->devPrivate.ptr;
++ 
++ 	memcpy(pdst, psrc, size);	/* copy tile to invisible VRAM */
++ 
++ 	if (w & PIM)
++ 	{
++ 	    /* Pack tile to remove scanline pad. Skyway uses no pad. */
++ 
++ 	    SKYSetPixmap(scrnNum, PixMapB, base,
++ 		pGC->tile.pixmap->devKind, h, PixSize8);
++ 
++ 	    SKYSetPlaneMask(scrnNum, ~0);
++ 	    SKYSetALU(scrnNum, GXcopy);
++ 
++ 	    SKYSetOpDim21(scrnNum,w,h);
++ 	    SKYSetSrcXY_PatXY_DstXY_PixelOp(scrnNum,
++ 		0,0, 0,0, 0,0,
++ 		POStepBlt | POMaskDis | POOct0 |
++ 		POForeSrc | POSrcB | PODestA | POPatFore);
++ 
++ 	    SKYBusyWait(scrnNum);
++ 	}
++     }
++ 
++     SKYSetPlaneMask(scrnNum, pGC->planemask);	/* Set planemask */
++     SKYSetMix(scrnNum, pSkyPriv->BgFgMix);	/* Set ALU       */
++ 
++     return (POForeSrc | POSrcA | POPatFore | PODestC | POMaskDis);
++ }
++ 
++ 
++ ulong
++ skySetStipple(scrnNum, pGC, patWidth, patHeight)
++     int             scrnNum;
++     GCPtr	    pGC;
++     int            *patWidth;
++     int            *patHeight;
++ {
++     skyPrivGCPtr    pSkyPriv = skyGetGCPrivate(pGC);
++     skyStipplePtr   stipple = &pSkyPriv->stipple;
++ 
++     int             w = *patWidth  = stipple->width;
++     int             h = *patHeight = stipple->height;
++     ulong           base;
++ 
++     ulong           PixelOp = 0;
++     Bool            installed;
++ 
++ 
++     TRACE(("skySetStipple(scrnNum=%d, pGC=0x%x, &W=0x%x, &H=0x%x)\n",
++ 		scrnNum, pGC, patWidth, patHeight));
++ 
++     installed = skyFindTileStip(scrnNum, pSkyPriv->tileStipID,
++ 				stipple->size, &base);
++ 
++     SKYSetPixmap(scrnNum, PixMapA, base, w,h, PixSize1);
++ 
++     if (!installed)
++     {
++ 	char *pdst = (char *) (SKY_SEGMENT[scrnNum] + base);
++ 
++ 	/* Set memory mode to Big-Endian, 1-bit per pixel mode */
++ 	SKY_MEM_REG(scrnNum) = PixSize1;
++ 
++ 	memcpy(pdst, stipple->bits, stipple->size);
++ 
++ 	/* Set memory mode to Big-Endian, 8-bit per pixel mode */
++ 	SKY_MEM_REG(scrnNum) = PixSize8;
++ 
++ 	if (! stipple->packed)
++ 	{
++ 	    /* Pack stipple to remove scanline pad,
++ 	     * because skyway uses no pad.
++ 	     */
++ 
++ 	    SKYSetPixmap(scrnNum, PixMapB, base,
++ 		pGC->stipple->devKind << 3, h, PixSize1);
++ 
++ 	    SKYSetPlaneMask(scrnNum, ~0);
++ 	    SKYSetALU(scrnNum, GXcopy);
++ 
++ 	    SKYSetOpDim21(scrnNum,w,h);
++ 	    SKYSetSrcXY_PatXY_DstXY_PixelOp(scrnNum,
++ 		0,0, 0,0, 0,0,
++ 		POStepBlt | POMaskDis | POOct0 |
++ 		POForeSrc | POSrcB | PODestA | POPatFore);
++ 
++ 	    SKYBusyWait(scrnNum);
++ 	}
++     }
++ 
++     SKYSetPlaneMask(scrnNum, pGC->planemask);	/* Set planemask */
++     SKYSetMix(scrnNum, pSkyPriv->BgFgMix);	/* Set ALU       */
++ 
++     if (pGC->fillStyle == FillStippled)
++     {
++ 	PixelOp = POForeReg | POPatA;
++ 	SKYSetFgColor(scrnNum, stipple->fgPixel);
++     }
++     else /* FillOpaqueStippled || degenerate FillTiled */
++     {
++ 	PixelOp = POForeReg | POBackReg | POPatA;
++ 	SKYSetFgBgColor(scrnNum, stipple->fgPixel, stipple->bgPixel);
++     }
++ 
++     return (PixelOp | PODestC | POMaskDis);
++ }
++ 
++ 
++ ulong
++ skySetSolid(scrnNum, pGC)
++     int             scrnNum;
++     GCPtr	    pGC;
++ {
++     skyPrivGCPtr    pSkyPriv = skyGetGCPrivate(pGC);
++     uint            fgPixel;
++ 
++     TRACE(("skySetSolid(scrnNum=%d, pGC=0x%x)\n", scrnNum, pGC));
++ 
++     SKYSetPlaneMask(scrnNum, pGC->planemask);	/* Set planemask */
++     SKYSetMix(scrnNum, pSkyPriv->BgFgMix);	/* Set ALU       */
++ 
++     fgPixel = (pGC->fillStyle == FillTiled) ? pGC->tile.pixel : pGC->fgPixel;
++     SKYSetFgColor(scrnNum, fgPixel);
++ 	
++     return (POForeReg | POPatFore | PODestC | POMaskDis);
++ }
++ 
+*** /dev/null	Wed Dec 11 19:29:38 1991
+--- server/ddx/ibm/skyway/skyFillRct.c	Wed Dec 11 21:41:16 1991
+***************
+*** 0 ****
+--- 1,509 ----
++ /*
++  * $XConsortium: skyFillRct.c,v 1.2 91/12/11 21:40:49 eswu Exp $
++  *
++  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
++  *
++  * All Rights Reserved 
++  *
++  * License to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of IBM not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission. 
++  *
++  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
++  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE. 
++  *
++  */
++ 
++ /*
++ Copyright 1989 by the Massachusetts Institute of Technology
++ 
++ Permission to use, copy, modify, and distribute this software and its
++ documentation for any purpose and without fee is hereby granted,
++ provided that the above copyright notice appear in all copies and that
++ both that copyright notice and this permission notice appear in
++ supporting documentation, and that the name of M.I.T. not be used in
++ advertising or publicity pertaining to distribution of the software
++ without specific, written prior permission.  M.I.T. makes no
++ representations about the suitability of this software for any
++ purpose.  It is provided "as is" without express or implied warranty.
++ */
++ 
++ /*
++  * Fill rectangles. Based on cfbfillrct.c.
++  */
++ 
++ #include "X.h"
++ #include "Xmd.h"
++ #include "servermd.h"
++ #include "gcstruct.h"
++ #include "window.h"
++ #include "pixmapstr.h"
++ #include "scrnintstr.h"
++ #include "windowstr.h"
++ #include "misc.h"
++ 
++ #include "cfb.h"
++ #include "cfbmskbits.h"
++ #include "mergerop.h"
++ 
++ /* ------ */
++ #include "ibmTrace.h"
++ #include "skyHdwr.h"
++ #include "skyReg.h"
++ #include "skyPriv.h"
++ /* ------ */
++ 
++ 
++ #if PPW == 4
++ extern void cfb8FillRectOpaqueStippled32();
++ extern void cfb8FillRectTransparentStippled32();
++ extern void cfb8FillRectStippledUnnatural();
++ #endif
++ 
++ extern void cfbFillRectSolidCopy(), cfbFillRectSolidXor (), cfbFillRectSolidGeneral ();
++ 
++ extern void cfbFillRectTile32Copy (), cfbFillRectTile32General ();
++ 
++ extern void cfbFillBoxTileOddCopy ();
++ extern void cfbFillBoxTileOddGeneral ();
++ extern void cfbFillBoxTile32sCopy ();
++ extern void cfbFillBoxTile32sGeneral ();
++ 
++ extern void cfbFillBoxTileOdd ();
++ extern void cfbFillRectTileOdd ();
++ 
++ 
++ /* ------ */
++ extern void skyFillRectSolid();
++ extern void skyFillRectTile();
++ extern void skyFillRectStipple();
++ /* ------ */
++ 
++ 
++ 
++ #define NUM_STACK_RECTS	1024
++ 
++ void
++ skyPolyFillRect(pDrawable, pGC, nrectFill, prectInit)
++     DrawablePtr pDrawable;
++     register GCPtr pGC;
++     int		nrectFill; 	/* number of rectangles to fill */
++     xRectangle	*prectInit;  	/* Pointer to first rectangle to fill */
++ {
++     xRectangle	    *prect;
++     RegionPtr	    prgnClip;
++     register BoxPtr pbox;
++     register BoxPtr pboxClipped;
++     BoxPtr	    pboxClippedBase;
++     BoxPtr	    pextent;
++     BoxRec	    stackRects[NUM_STACK_RECTS];
++     cfbPrivGC	    *priv;
++     /* ------ */
++     skyPrivGCPtr    pSkyPriv = skyGetGCPrivate(pGC);
++     /* ------ */
++     int		    numRects;
++     void	    (*BoxFill)();
++     int		    n;
++     int		    xorg, yorg;
++ 
++     priv = (cfbPrivGC *) pGC->devPrivates[cfbGCPrivateIndex].ptr;
++     prgnClip = priv->pCompositeClip;
++ 
++     BoxFill = 0;
++ 
++     /* ------ */
++     if (pSkyPriv->fillMode != punt)
++     {
++ 	switch (pSkyPriv->fillMode)
++ 	{
++ 	    case fill_solid:
++ 		BoxFill = skyFillRectSolid;
++ 		break;
++ 
++ 	    case fill_tile:
++ 		BoxFill = skyFillRectTile;
++ 		break;
++ 
++ 	    case fill_stipple:
++ 		BoxFill = skyFillRectStipple;
++ 		break;
++ 
++ 	    default:
++ 		FatalError("skyPolyFillRect: fillMode not supported");
++ 	}
++     }
++     else
++     /* ------ */
++ 
++     switch (pGC->fillStyle)
++     {
++     case FillSolid:
++ 	switch (priv->rop) {
++ 	case GXcopy:
++ 	    BoxFill = cfbFillRectSolidCopy;
++ 	    break;
++ 	case GXxor:
++ 	    BoxFill = cfbFillRectSolidXor;
++ 	    break;
++ 	default:
++ 	    BoxFill = cfbFillRectSolidGeneral;
++ 	    break;
++ 	}
++ 	break;
++     case FillTiled:
++ 	if (!((cfbPrivGCPtr) pGC->devPrivates[cfbGCPrivateIndex].ptr)->
++ 							pRotatedPixmap)
++ 	    BoxFill = cfbFillRectTileOdd;
++ 	else
++ 	{
++ 	    if (pGC->alu == GXcopy && (pGC->planemask & PMSK) == PMSK)
++ 		BoxFill = cfbFillRectTile32Copy;
++ 	    else
++ 		BoxFill = cfbFillRectTile32General;
++ 	}
++ 	break;
++ #if (PPW == 4)
++     case FillStippled:
++ 	if (!((cfbPrivGCPtr) pGC->devPrivates[cfbGCPrivateIndex].ptr)->
++ 							pRotatedPixmap)
++ 	    BoxFill = cfb8FillRectStippledUnnatural;
++ 	else
++ 	    BoxFill = cfb8FillRectTransparentStippled32;
++ 	break;
++     case FillOpaqueStippled:
++ 	if (!((cfbPrivGCPtr) pGC->devPrivates[cfbGCPrivateIndex].ptr)->
++ 							pRotatedPixmap)
++ 	    BoxFill = cfb8FillRectStippledUnnatural;
++ 	else
++ 	    BoxFill = cfb8FillRectOpaqueStippled32;
++ 	break;
++ #endif
++     }
++     prect = prectInit;
++     xorg = pDrawable->x;
++     yorg = pDrawable->y;
++     if (xorg || yorg)
++     {
++ 	prect = prectInit;
++ 	n = nrectFill;
++ 	while(n--)
++ 	{
++ 	    prect->x += xorg;
++ 	    prect->y += yorg;
++ 	    prect++;
++ 	}
++     }
++ 
++     prect = prectInit;
++ 
++     numRects = REGION_NUM_RECTS(prgnClip) * nrectFill;
++     if (numRects > NUM_STACK_RECTS)
++     {
++ 	pboxClippedBase = (BoxPtr)ALLOCATE_LOCAL(numRects * sizeof(BoxRec));
++ 	if (!pboxClippedBase)
++ 	    return;
++     }
++     else
++ 	pboxClippedBase = stackRects;
++ 
++     pboxClipped = pboxClippedBase;
++ 	
++     if (REGION_NUM_RECTS(prgnClip) == 1)
++     {
++ 	int x1, y1, x2, y2, bx2, by2;
++ 
++ 	pextent = REGION_RECTS(prgnClip);
++ 	x1 = pextent->x1;
++ 	y1 = pextent->y1;
++ 	x2 = pextent->x2;
++ 	y2 = pextent->y2;
++     	while (nrectFill--)
++     	{
++ 	    if ((pboxClipped->x1 = prect->x) < x1)
++ 		pboxClipped->x1 = x1;
++     
++ 	    if ((pboxClipped->y1 = prect->y) < y1)
++ 		pboxClipped->y1 = y1;
++     
++ 	    bx2 = (int) prect->x + (int) prect->width;
++ 	    if (bx2 > x2)
++ 		bx2 = x2;
++ 	    pboxClipped->x2 = bx2;
++     
++ 	    by2 = (int) prect->y + (int) prect->height;
++ 	    if (by2 > y2)
++ 		by2 = y2;
++ 	    pboxClipped->y2 = by2;
++ 
++ 	    prect++;
++ 	    if ((pboxClipped->x1 < pboxClipped->x2) &&
++ 		(pboxClipped->y1 < pboxClipped->y2))
++ 	    {
++ 		pboxClipped++;
++ 	    }
++     	}
++     }
++     else
++     {
++ 	int x1, y1, x2, y2, bx2, by2;
++ 
++ 	pextent = (*pGC->pScreen->RegionExtents)(prgnClip);
++ 	x1 = pextent->x1;
++ 	y1 = pextent->y1;
++ 	x2 = pextent->x2;
++ 	y2 = pextent->y2;
++     	while (nrectFill--)
++     	{
++ 	    BoxRec box;
++     
++ 	    if ((box.x1 = prect->x) < x1)
++ 		box.x1 = x1;
++     
++ 	    if ((box.y1 = prect->y) < y1)
++ 		box.y1 = y1;
++     
++ 	    bx2 = (int) prect->x + (int) prect->width;
++ 	    if (bx2 > x2)
++ 		bx2 = x2;
++ 	    box.x2 = bx2;
++     
++ 	    by2 = (int) prect->y + (int) prect->height;
++ 	    if (by2 > y2)
++ 		by2 = y2;
++ 	    box.y2 = by2;
++     
++ 	    prect++;
++     
++ 	    if ((box.x1 >= box.x2) || (box.y1 >= box.y2))
++ 	    	continue;
++     
++ 	    n = REGION_NUM_RECTS (prgnClip);
++ 	    pbox = REGION_RECTS(prgnClip);
++     
++ 	    /* clip the rectangle to each box in the clip region
++ 	       this is logically equivalent to calling Intersect()
++ 	    */
++ 	    while(n--)
++ 	    {
++ 		pboxClipped->x1 = max(box.x1, pbox->x1);
++ 		pboxClipped->y1 = max(box.y1, pbox->y1);
++ 		pboxClipped->x2 = min(box.x2, pbox->x2);
++ 		pboxClipped->y2 = min(box.y2, pbox->y2);
++ 		pbox++;
++ 
++ 		/* see if clipping left anything */
++ 		if(pboxClipped->x1 < pboxClipped->x2 && 
++ 		   pboxClipped->y1 < pboxClipped->y2)
++ 		{
++ 		    pboxClipped++;
++ 		}
++ 	    }
++     	}
++     }
++     if (pboxClipped != pboxClippedBase)
++ 	(*BoxFill) (pDrawable, pGC,
++ 		    pboxClipped-pboxClippedBase, pboxClippedBase);
++     if (pboxClippedBase != stackRects)
++     	DEALLOCATE_LOCAL(pboxClippedBase);
++ }
++ 
++ 
++ /* Note: does not handle pGC->tileIsPixel, skyFillRectSolid does */
++ 
++ void
++ skyFillRectTile(pDrawable, pGC, nBox, pBox)
++     DrawablePtr	    pDrawable;
++     GCPtr	    pGC;
++     int		    nBox;
++     BoxPtr	    pBox;
++ {
++     int             scrnNum = pDrawable->pScreen->myNum;
++     ulong           PixelOp;
++     int             xrot, yrot;
++     int             pat_w, pat_h;
++ 
++     TRACE(("skyFillRectTile(pD=0x%x, pGC=0x%x, nBox=%d, pBox=0x%x)\n",
++ 	pDrawable, pGC, nBox, pBox));
++ 
++     PixelOp = skySetTile(scrnNum, pGC, &pat_w, &pat_h);
++     PixelOp |= POStepBlt | POModeAll | POOct0;
++ 
++     TRACE(("\tPixelOp = 0x%x\n", PixelOp));
++ 
++     xrot = pDrawable->x + pGC->patOrg.x;
++     yrot = pDrawable->y + pGC->patOrg.y;
++ 
++     for (; nBox; nBox--, pBox++)
++     {
++ 	int w = pBox->x2 - pBox->x1;
++     	int h = pBox->y2 - pBox->y1;
++ 	
++ 	SKYTilePixelOp(scrnNum,
++ 	    PixelOp,			/* Pixel Operation */
++ 	    pBox->x1, pBox->y1,		/* Destination x,y */
++ 	    w, h,			/* Width, Height   */
++ 	    xrot, yrot,			/* TileStip origin */
++ 	    pat_w, pat_h);		/* TileStip size   */
++     }
++ 
++     SKYBusyWait(scrnNum);
++ }
++ 
++ 
++ void
++ skyFillRectStipple(pDrawable, pGC, nBox, pBox)
++     DrawablePtr	    pDrawable;
++     GCPtr	    pGC;
++     int		    nBox;
++     BoxPtr	    pBox;
++ {
++     int             scrnNum = pDrawable->pScreen->myNum;
++     ulong           PixelOp;
++     int             xrot, yrot;
++     int             pat_w, pat_h;
++ 
++     TRACE(("skyFillRectStipple(pD=0x%x, pGC=0x%x, nBox=%d, pBox=0x%x)\n",
++ 	pDrawable, pGC, nBox, pBox));
++ 
++     PixelOp = skySetStipple(scrnNum, pGC, &pat_w, &pat_h);
++     PixelOp |= POStepBlt | POModeAll | POOct0;
++ 
++     TRACE(("\tPixelOp = 0x%x\n", PixelOp));
++ 
++     xrot = pDrawable->x + pGC->patOrg.x;
++     yrot = pDrawable->y + pGC->patOrg.y;
++ 
++     for (; nBox; nBox--, pBox++)
++     {
++ 	int w = pBox->x2 - pBox->x1;
++     	int h = pBox->y2 - pBox->y1;
++ 	
++ 	SKYStipplePixelOp(scrnNum,
++ 	    PixelOp,			/* Pixel Operation */
++ 	    pBox->x1, pBox->y1,		/* Destination x,y */
++ 	    w, h,			/* Width, Height   */
++ 	    xrot, yrot,			/* TileStip origin */
++ 	    pat_w, pat_h);		/* TileStip size   */
++     }
++ 
++     SKYBusyWait(scrnNum);
++ }
++ 
++ void
++ skyFillRectSolid(pDrawable, pGC, nBox, pBox)
++     DrawablePtr	    pDrawable;
++     GCPtr	    pGC;
++     int		    nBox;
++     BoxPtr	    pBox;
++ {
++     int   scrnNum = pDrawable->pScreen->myNum;
++     ulong PixelOp;
++ 
++     TRACE(("skyFillRectSolid(pD=0x%x, pGC=0x%x, nBox=%d, pBox=0x%x)\n",
++ 	pDrawable, pGC, nBox, pBox));
++ 
++ 
++     PixelOp = skySetSolid(scrnNum, pGC);
++     PixelOp |= POStepBlt | POModeAll | POOct0;
++ 
++     TRACE(("\tPixelOp = 0x%x\n", PixelOp));
++ 
++     for (; nBox; nBox--, pBox++)
++     {
++ 	int w = pBox->x2 - pBox->x1;
++     	int h = pBox->y2 - pBox->y1;
++ 	
++ 	SKYSolidPixelOp(scrnNum,
++ 	    PixelOp,			/* Pixel Operation */
++ 	    pBox->x1, pBox->y1,		/* Destination x,y */
++ 	    w, h);			/* Width, Height   */
++     }
++ 
++     SKYBusyWait(scrnNum);
++ }
++ 
++ 
++ /* This code was used to test performance when not software clipping. */
++ 
++ #if defined(SCISSORING_TEST) || defined(NOCLIP_TEST)
++ void
++ skyPolyFillRectSolid_1Rect(pDrawable, pGC, nrect, prect)
++     DrawablePtr pDrawable;
++     GCPtr       pGC;
++     int		nrect;		/* number of rectangles to fill */
++     xRectangle	*prect;		/* Pointer to first rectangle to fill */
++ {
++     int             scrnNum = pDrawable->pScreen->myNum;
++     ulong           PixelOp;
++     int		    xorg, yorg;
++ 
++     TRACE(("skyPolyFillRectSolid_1Rect(pD=0x%x,pGC=0x%x,nR=%d,pR=0x%x)\n",
++ 		pDrawable, pGC, nrect, prect));
++ 
++     PixelOp = skySetSolid(scrnNum, pGC);
++     PixelOp |= POStepBlt | POModeAll | POOct0;
++ 
++ #ifdef SCISSORING_TEST
++     /* Quick hack to test performance of boundary-enable clipping */
++ 
++     {
++ 	static DrawablePtr lastDrawable = 0;
++ 
++ 	PixelOp |= POMaskBEn;
++ 
++ 	/* Checking the last drawable is just a hack for this test.
++ 	 * Won't work for real version. Need to use some kind of clip id.
++ 	 */
++ 
++         if (lastDrawable != pDrawable)
++ 	{
++ 	    cfbPrivGCPtr devPriv =
++ 		((cfbPrivGCPtr) (pGC->devPrivates[cfbGCPrivateIndex].ptr));
++ 
++ 	    BoxPtr pClipBox=REGION_RECTS(devPriv->pCompositeClip);
++ 
++ 	    lastDrawable = pDrawable;
++ 
++ 	    TRACE(("x1,y1=%d,%d\n", pClipBox->x1, pClipBox->y1));
++ 	    TRACE(("w,h  =%d,%d\n", pClipBox->x2 - pClipBox->x1,
++ 			pClipBox->y2 - pClipBox->y1));
++ 
++ 	    /* Set boundary rectangle */
++ 
++ 	    SKYSetMaskXY(scrnNum, pClipBox->x1, pClipBox->y1);
++ 	    SKYSetPixmap(scrnNum, MaskMap, SC_INVIS_VRAM_BASE,
++ 		pClipBox->x2 - pClipBox->x1,
++ 		pClipBox->y2 - pClipBox->y1,
++ 		PixSize1);
++ 	}
++     }
++ #endif /* SCISSORING_TEST */
++ 
++     TRACE(("\tPixelOp = 0x%x\n", PixelOp));
++ 
++     xorg = pDrawable->x;
++     yorg = pDrawable->y;
++ 
++     for (; nrect; nrect--, prect++)
++     {
++ 	short x = xorg + prect->x;
++ 	short y = yorg + prect->y;
++ 
++ 	SKYSolidPixelOp(scrnNum,
++ 	    PixelOp,				/* Pixel Operation */
++ 	    x, y,				/* Destination x,y */
++ 	    prect->width, prect->height);	/* Width, Height   */
++     }
++ 
++     SKYBusyWait(scrnNum);
++ }
++ #endif
+*** /dev/null	Wed Dec 11 19:29:38 1991
+--- server/ddx/ibm/skyway/skyPriv.h	Wed Dec 11 21:41:18 1991
+***************
+*** 0 ****
+--- 1,66 ----
++ /*
++  * $XConsortium: skyPriv.h,v 1.2 91/12/11 21:40:52 eswu Exp $
++  *
++  * Copyright IBM Corporation 1987,1988,1989,1990,1991
++  *
++  * All Rights Reserved
++  *
++  * License to use, copy, modify, and distribute	this software and its
++  * documentation for any purpose and without fee is hereby granted,
++  * provided that the above copyright notice appear in all copies and that
++  * both	that copyright notice and this permission notice appear	in
++  * supporting documentation, and that the name of IBM not be
++  * used	in advertising or publicity pertaining to distribution of the
++  * software without specific, written prior permission.
++  *
++  * IBM DISCLAIMS ALL WARRANTIES	WITH REGARD TO THIS SOFTWARE, INCLUDING
++  * ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND 
++  * NONINFRINGEMENT OF THIRD PARTY RIGHTS, IN NO	EVENT SHALL
++  * IBM BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
++  * ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
++  * WHETHER IN AN ACTION	OF CONTRACT, NEGLIGENCE	OR OTHER TORTIOUS ACTION,
++  * ARISING OUT OF OR IN	CONNECTION WITH	THE USE	OR PERFORMANCE OF THIS
++  * SOFTWARE.
++  *
++ */
++ 
++ #ifndef	SKYPRIV_H
++ #define	SKYPRIV_H
++ 
++ #include <sys/types.h>
++ 
++ extern unsigned long ddpGCPrivateIndex;
++ 
++ typedef enum _skyFillMode
++ {
++ 	punt,
++ 	fill_solid,
++ 	fill_tile,
++ 	fill_stipple
++ } skyFillMode;
++ 
++ 
++ typedef struct _skyStipple
++ {
++     ulong	size;			/* Bytes alloc'ed to ``bits''  */
++     char	*bits;			/* Pointer to stipple bits */
++     ushort	width, height;
++     ulong	fgPixel, bgPixel;
++     int		packed:1;
++     int		freeBits:1;
++ } skyStippleRec, *skyStipplePtr;
++ 
++ 
++ typedef struct _skyPrivGC
++ {
++     skyFillMode		fillMode;	/* punt, solid, tile, stipple   */
++     ushort		BgFgMix;	/* ALU for bg, fg pixels        */
++     uint		tileStipID;	/* Unique TileStipple ID	*/
++     skyStippleRec	stipple;	/* Stipple data			*/
++ } skyPrivGCRec, *skyPrivGCPtr;
++ 
++ 
++ #define skyGetGCPrivate(g) \
++ 	((skyPrivGCPtr) (g)->devPrivates[ddpGCPrivateIndex].ptr)
++ 
++ #endif /* SKYPRIV_H */
+*** /dev/null	Wed Dec 11 19:29:38 1991
+--- server/ddx/ibm/skyway/skyWin.c	Wed Dec 11 21:41:24 1991
+***************
+*** 0 ****
+--- 1,100 ----
++ /*
++  * $XConsortium: skyWin.c,v 1.2 91/12/11 21:40:58 eswu Exp $
++  *
++  * Copyright IBM Corporation 1987,1988,1989,1990,1991 
++  *
++  * All Rights Reserved 
++  *
++  * License to use, copy, modify, and distribute this software and its
++  * documentation for any purpose and without fee is hereby granted, provided
++  * that the above copyright notice appear in all copies and that both that
++  * copyright notice and this permission notice appear in supporting
++  * documentation, and that the name of IBM not be used in advertising or
++  * publicity pertaining to distribution of the software without specific,
++  * written prior permission. 
++  *
++  * IBM DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
++  * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS, AND NONINFRINGEMENT OF
++  * THIRD PARTY RIGHTS, IN NO EVENT SHALL IBM BE LIABLE FOR ANY SPECIAL,
++  * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
++  * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
++  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
++  * PERFORMANCE OF THIS SOFTWARE. 
++  *
++  */
++ 
++ /***********************************************************
++ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
++ and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
++ 
++                         All Rights Reserved
++ 
++ Permission to use, copy, modify, and distribute this software and its 
++ documentation for any purpose and without fee is hereby granted, 
++ provided that the above copyright notice appear in all copies and that
++ both that copyright notice and this permission notice appear in 
++ supporting documentation, and that the names of Digital or MIT not be
++ used in advertising or publicity pertaining to distribution of the
++ software without specific, written prior permission.  
++ 
++ DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
++ ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
++ DIGITAL BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
++ ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
++ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
++ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
++ SOFTWARE.
++ 
++ ******************************************************************/
++ 
++ #include "X.h"
++ #include "scrnintstr.h"
++ #include "windowstr.h"
++ #include "cfb.h"
++ #include "mistruct.h"
++ #include "regionstr.h"
++ #include "cfbmskbits.h"
++ 
++ extern WindowPtr *WindowTable;
++ 
++ 
++ void 
++ skyCopyWindow(pWin, ptOldOrg, prgnSrc)
++     WindowPtr pWin;
++     DDXPointRec ptOldOrg;
++     RegionPtr prgnSrc;
++ {
++     DDXPointPtr pptSrc;
++     register DDXPointPtr ppt;
++     RegionPtr prgnDst;
++     register BoxPtr pbox;
++     register int dx, dy;
++     register int i, nbox;
++     WindowPtr pwinRoot;
++ 
++     pwinRoot = WindowTable[pWin->drawable.pScreen->myNum];
++ 
++     prgnDst = (* pWin->drawable.pScreen->RegionCreate)(NULL, 1);
++ 
++     dx = ptOldOrg.x - pWin->drawable.x;
++     dy = ptOldOrg.y - pWin->drawable.y;
++     (* pWin->drawable.pScreen->TranslateRegion)(prgnSrc, -dx, -dy);
++     (* pWin->drawable.pScreen->Intersect)(prgnDst, &pWin->borderClip, prgnSrc);
++ 
++     pbox = REGION_RECTS(prgnDst);
++     nbox = REGION_NUM_RECTS(prgnDst);
++     if(!(pptSrc = (DDXPointPtr )ALLOCATE_LOCAL(nbox * sizeof(DDXPointRec))))
++ 	return;
++     ppt = pptSrc;
++ 
++     for (i = nbox; --i >= 0; ppt++, pbox++)
++     {
++ 	ppt->x = pbox->x1 + dx;
++ 	ppt->y = pbox->y1 + dy;
++     }
++ 
++     skyDoBitblt_WinToWin((DrawablePtr)pwinRoot, (DrawablePtr)pwinRoot,
++ 		GXcopy, prgnDst, pptSrc, ~0L);
++     DEALLOCATE_LOCAL(pptSrc);
++     (* pWin->drawable.pScreen->RegionDestroy)(prgnDst);
++ }
+*** /tmp/,RCSt1ItkCzR	Wed Dec 11 22:00:10 1991
+--- server/ddx/cfb/cfbblt.c	Wed Dec 11 21:59:47 1991
+***************
+*** 18,24 ****
+  Author: Keith Packard
+  
+  */
+! /* $XConsortium: cfbblt.c,v 1.7 91/05/06 15:13:21 rws Exp $ */
+  
+  #include	"X.h"
+  #include	"Xmd.h"
+--- 18,24 ----
+  Author: Keith Packard
+  
+  */
+! /* $XConsortium: cfbblt.c,v 1.8 91/12/11 21:57:39 eswu Exp $ */
+  
+  #include	"X.h"
+  #include	"Xmd.h"
+***************
+*** 40,45 ****
+--- 40,50 ----
+  #endif
+  #endif
+  
++ #if defined(FAST_MEMCPY) && (MROP == Mcopy) && (PPW == 4)
++ #define DO_MEMCPY
++ #endif
++ 
++ 
+  MROP_NAME(cfbDoBitblt)(pSrc, pDst, alu, prgnDst, pptSrc, planemask)
+      DrawablePtr	    pSrc, pDst;
+      int		    alu;
+***************
+*** 226,231 ****
+--- 231,253 ----
+  	{
+  	    maskbits(pbox->x1, w, startmask, endmask, nlMiddle);
+  	}
++ 
++ #ifdef DO_MEMCPY
++ 	/* If the src and dst scanline don't overlap, do forward case.  */
++ 
++ 	if ((xdir == 1) || (pptSrc->y != pbox->y1)
++ 		|| (pptSrc->x + w <= pbox->x1))
++ 	{
++ 	    char *psrc = (char *) psrcLine + pptSrc->x;
++ 	    char *pdst = (char *) pdstLine + pbox->x1;
++ 	    while (h--)
++ 	    {
++ 	    	memcpy(pdst, psrc, w);
++ 		pdst += widthDst << 2;
++ 		psrc += widthSrc << 2;
++ 	    }
++ 	}
++ #else /* ! DO_MEMCPY */
+  	if (xdir == 1)
+  	{
+  	    xoffSrc = pptSrc->x & PIM;
+***************
+*** 406,411 ****
+--- 428,434 ----
+  	    }
+  #endif /* DO_UNALIGNED_BITBLT */
+  	}
++ #endif /* ! DO_MEMCPY */
+  	else	/* xdir == -1 */
+  	{
+  	    xoffSrc = (pptSrc->x + w - 1) & PIM;
+*** /tmp/,RCSt1KeYBQD	Wed Dec 11 22:00:42 1991
+--- server/include/servermd.h	Fri Nov  8 16:33:03 1991
+***************
+*** 23,29 ****
+  ******************************************************************/
+  #ifndef SERVERMD_H
+  #define SERVERMD_H 1
+! /* $XConsortium: servermd.h,v 1.60 91/06/30 11:29:35 rws Exp $ */
+  
+  /*
+   * Machine dependent values:
+--- 23,29 ----
+  ******************************************************************/
+  #ifndef SERVERMD_H
+  #define SERVERMD_H 1
+! /* $XConsortium: servermd.h,v 1.61 91/11/09 16:32:37 keith Exp $ */
+  
+  /*
+   * Machine dependent values:
+***************
+*** 149,154 ****
+--- 149,160 ----
+  #define GLYPHPADBYTES           4
+  #define GETLEFTBITS_ALIGNMENT   1
+  
++ #define LARGE_INSTRUCTION_CACHE
++ #define FAST_CONSTANT_OFFSET_MODE
++ #define PLENTIFUL_REGISTERS
++ #define AVOID_MEMORY_READ
++ 
++ #define FAST_MEMCPY
+  #endif /* AIXV3 */
+  
+  #if defined(ibm032) || defined (ibm)
+***************
+*** 200,206 ****
+  
+  #endif /* macII */
+  
+! #ifdef mips
+  
+  #ifdef MIPSEL
+  # define IMAGE_BYTE_ORDER	LSBFirst        /* Values for the PMAX only */
+--- 206,212 ----
+  
+  #endif /* macII */
+  
+! #if defined(mips) && !defined(sgi)
+  
+  #ifdef MIPSEL
+  # define IMAGE_BYTE_ORDER	LSBFirst        /* Values for the PMAX only */
+***************
+*** 260,265 ****
+--- 266,285 ----
+  #define AVOID_MEMORY_READ
+  
+  #endif /* SYSV386 */
++ 
++ #ifdef sgi
++ 
++ #define IMAGE_BYTE_ORDER	MSBFirst
++ #define BITMAP_BIT_ORDER	MSBFirst
++ #define GLYPHPADBYTES		2
++ #define GETLEFTBITS_ALIGNMENT	4
++ 
++ #define AVOID_MEMORY_READ
++ #define FAST_CONSTANT_OFFSET_MODE
++ #define LARGE_INSTRUCTION_CACHE
++ #define PLENTIFUL_REGISTERS
++ 
++ #endif
+  
+  /* size of buffer to use with GetImage, measured in bytes. There's obviously
+   * a trade-off between the amount of stack (or whatever ALLOCATE_LOCAL gives
+*** /tmp/,RCSt1DkgAc5	Fri Dec 20 18:15:56 1991
+--- server/ddx/ibm/common/ibmInit.c	Fri Dec 20 18:15:55 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ibmInit.c,v 1.4 91/09/09 13:23:00 rws Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: ibmInit.c,v 1.5 91/12/20 18:13:55 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 118,124 ****
+  	    return FALSE ;
+  	}
+  	aixPutScreenAt(ibmNumScreens,x,y);
+! 	ibmScreens[ibmNumScreens] = (ibmPerScreenInfo *)Xalloc( sizeof(ibmPerScreenInfo) );
+  	*(ibmScreens[ibmNumScreens]) = *scr;
+  	ibmScreens[ibmNumScreens]->ibm_DeviceID = tmpDeviceID;
+  	ibmScreens[ibmNumScreens]->ibm_ScreenFD = tmpScreenFD;
+--- 118,124 ----
+  	    return FALSE ;
+  	}
+  	aixPutScreenAt(ibmNumScreens,x,y);
+! 	ibmScreens[ibmNumScreens] = (ibmPerScreenInfo *) xalloc( sizeof(ibmPerScreenInfo) );
+  	*(ibmScreens[ibmNumScreens]) = *scr;
+  	ibmScreens[ibmNumScreens]->ibm_DeviceID = tmpDeviceID;
+  	ibmScreens[ibmNumScreens]->ibm_ScreenFD = tmpScreenFD;
+***************
+*** 339,345 ****
+  	ibmSetupPlumber(argv[++i]);
+  	skip= 2;
+      }
+! #endif IBM_SPECIAL_MALLOC
+      else if ( strcmp( argv[i], "-T") == 0)
+  	ibmDontZap = TRUE;
+      else if ( strcmp( argv[i], "-wp") == 0)
+--- 339,345 ----
+  	ibmSetupPlumber(argv[++i]);
+  	skip= 2;
+      }
+! #endif /* IBM_SPECIAL_MALLOC */
+      else if ( strcmp( argv[i], "-T") == 0)
+  	ibmDontZap = TRUE;
+      else if ( strcmp( argv[i], "-wp") == 0)
+*** /tmp/,RCSt1DlIBQD	Fri Dec 20 18:15:57 1991
+--- server/ddx/ibm/common/ibmUtils.c	Fri Dec 20 18:16:01 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ibmUtils.c,v 1.2 91/07/16 13:10:58 jap Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: ibmUtils.c,v 1.3 91/12/20 18:15:18 eswu Exp $
+   *
+   * Copyright IBM Corporation 1987,1988,1989,1990,1991
+   *
+***************
+*** 50,81 ****
+  return ;
+  }
+  
+- /***==================================================================***/
+  
+- 	/* 
+- 	 * XXX!!! HACK HACK HACKITY HACK HACK!!!
+- 	 * 11/4/88 (ef) -- when the server exits, it first kills any active
+- 	 * clients, which will paint the root window background where they
+- 	 * used to be.  This has a nasty tendency to write on the currently
+- 	 * active hft.   Rather than doing something clever to notice
+- 	 * that we are inactive when repainting the background, we just
+- 	 * exit the server because we "know" that no more real cleanup
+- 	 * need be done.
+- 	 */
+- 
+- static void
+- ibmAbortInactiveScreens()
+- {
+- int	scrn;
+-     TRACE(("ibmAbortInactiveScreens()\n"));
+-     for (scrn = 0; scrn < ibmNumScreens; scrn++) {
+- 	if (ibmScreenState(scrn)!=SCREEN_ACTIVE) {
+- 	    exit(0);
+- 	}
+-     }
+-     return;
+- }
+- 
+  /***==================================================================***/
+  
+  void
+--- 50,56 ----
+***************
+*** 84,100 ****
+  
+      TRACE(("ddxGiveUp()"));
+  
+- #ifdef AIXV3
+-     rcmGiveUp();
+-     OS_GiveUp();
+-     ibmAbortInactiveScreens();
+- #endif
+- 
+  #ifdef AIXps2
+      OS_CapsLockFeedback(0);	
+-     OS_GiveUp();
+  #endif
+  
+      return;
+  }
+  
+--- 59,70 ----
+  
+      TRACE(("ddxGiveUp()"));
+  
+  #ifdef AIXps2
+      OS_CapsLockFeedback(0);	
+  #endif
+  
++     OS_GiveUp();
++ 
+      return;
+  }
+  
+***************
+*** 121,135 ****
+  {
+      TRACE(("AbortDDX()"));
+  
+- #ifdef AIXV3
+-     OS_Abort();
+-     ibmAbortInactiveScreens();
+- #endif
+  #ifdef AIXps2
+      OS_CapsLockFeedback(0) ;
+-     OS_Abort();
+  #endif
+  
+      return;
+  }
+  
+--- 91,101 ----
+  {
+      TRACE(("AbortDDX()"));
+  
+  #ifdef AIXps2
+      OS_CapsLockFeedback(0) ;
+  #endif
+  
++     OS_Abort();
+      return;
+  }
+  

@@ -1,0 +1,244 @@
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: XtAppNextEvent.3Xt,v $ $Revision: 1.2.4.2 $ (DEC) $Date: 1993/05/03 16:49:30 $
+.\" 
+.ds tk X Toolkit
+.ds xT X Toolkit Intrinsics \- C Language Interface
+.ds xI Intrinsics
+.ds xW X Toolkit Athena Widgets \- C Language Interface
+.ds xL Xlib \- C Language X Interface
+.ds xC Inter-Client Communication Conventions Manual
+.ds Rn 3
+.ds Vn 2.2
+.hw XtMake-Geometry-Request XtQuery-Geometry wid-get
+.na
+.de Ds
+.nf
+.\\$1D \\$2 \\$1
+.ft 1
+.ps \\n(PS
+.\".if \\n(VS>=40 .vs \\n(VSu
+.\".if \\n(VS<=39 .vs \\n(VSp
+..
+.de De
+.ce 0
+.if \\n(BD .DF
+.nr BD 0
+.in \\n(OIu
+.if \\n(TM .ls 2
+.sp \\n(DDu
+.fi
+..
+.de FD
+.LP
+.KS
+.TA .2i 2i
+.ta .2i 2i
+.nf
+..
+.de FN
+.fi
+.KE
+.LP
+..
+.de C{
+.KS
+.nf
+.D
+.\"
+.\"	choose appropriate monospace font
+.\"	the imagen conditional, 480,
+.\"	may be changed to L if LB is too
+.\"	heavy for your eyes...
+.\"
+.ie "\\*(.T"480" .ft L
+.el .ie "\\*(.T"300" .ft L
+.el .ie "\\*(.T"202" .ft PO
+.el .ie "\\*(.T"aps" .ft CW
+.el .ft R
+.ps \\n(PS
+.ie \\n(VS>40 .vs \\n(VSu
+.el .vs \\n(VSp
+..
+.de C}
+.DE
+.R
+..
+.		\" Note End -- doug kraft 3/85
+.ny0
+.TH XtAppNextEvent 3Xt "" "" "" "X11R5"
+.SH NAME
+XtAppNextEvent, XtAppPending, XtAppPeekEvent, XtAppProcessEvent, XtDispatchEvent, XtAppMainLoop \- query and process events and input
+.SH SYNTAX
+void XtAppNextEvent(\f2app_context\fP, \f2event_return\fP)
+.br
+      XtAppContext \f2app_context\fP;
+.br
+      XEvent *\f2event_return\fP;
+.LP
+Boolean XtAppPeekEvent(\f2app_context\fP, \f2event_return\fP)
+.br
+      XtAppContext \f2app_context\fP;
+.br
+      XEvent *\f2event_return\fP;
+.LP
+XtInputMask XtAppPending(\f2app_context\fP)
+.br
+      XtAppContext \f2app_context\fP;
+.LP
+void XtAppProcessEvent(\f2app_context\fP, \f2mask\fP)
+.br
+      XtAppContext \f2app_context\fP;
+.br
+      XtInputMask \f2mask\fP;
+.LP
+Boolean XtDispatchEvent(\f2event\fP)
+.br
+      XEvent *\f2event\fP;
+.LP
+void XtAppMainLoop(\f2app_context\fP)
+.br
+      XtAppContext \f2app_context\fP;
+.SH ARGUMENTS
+.ds Co that identifies the application 
+.IP \f2app_context\fP 1i
+Specifies the application context \*(Co.
+.IP \f2event\fP 1i
+Specifies a pointer to the event structure that is to be dispatched
+to the appropriate event handler.
+.IP \f2event_return\fP 1i
+Returns the event information to the specified event structure.
+.IP \f2mask\fP 1i
+Specifies what types of events to process.
+The mask is the bitwise inclusive OR of any combination of
+.PN XtIMXEvent ,
+.PN XtIMTimer ,
+and
+.PN XtIMAlternateInput .
+As a convenience, the \*(tk defines the symbolic name
+.PN XtIMAll
+to be the bitwise inclusive OR of all event types.
+.SH DESCRIPTION
+If no input is on the X input queue,
+.PN XtAppNextEvent
+flushes the X output buffer
+and waits for an event while looking at the other input sources
+and timeout values and calling any callback procedures triggered by them.
+This wait time can be used for background processing 
+(see Section 7.8).
+.LP
+If there is an event in the queue,
+.PN XtAppPeekEvent
+fills in the event and returns a nonzero value.
+If no X input is on the queue,
+.PN XtAppPeekEvent
+flushes the output buffer and blocks until input is available
+(possibly calling some timeout callbacks in the process).
+If the input is an event,
+.PN XtAppPeekEvent
+fills in the event and returns a nonzero value.
+Otherwise, the input is for an alternate input source, and
+.PN XtAppPeekEvent
+returns zero.
+.LP
+The
+.PN XtAppPending
+function returns a nonzero value if there are
+events pending from the X server, timer pending, or other input sources
+pending. The
+value returned is a bit mask that is the OR of
+.PN XtIMXEvent ,
+.PN XtIMTimer ,
+and
+.PN XtIMAlternateInput
+(see
+.PN XtAppProcessEvent ).
+If there are no events pending, 
+.PN XtAppPending
+flushes the output buffer and returns zero.
+.LP
+The
+.PN XtAppProcessEvent
+function processes one timer, alternate input, or X event.
+If there is nothing of the appropriate type to process,
+.PN XtAppProcessEvent
+blocks until there is.
+If there is more than one type of thing available to process,
+it is undefined which will get processed.
+Usually, this procedure is not called by client applications (see
+.PN XtAppMainLoop ).
+.PN XtAppProcessEvent
+processes timer events by calling any appropriate timer callbacks, alternate
+input by calling any appropriate alternate input callbacks, and X events by
+calling
+.PN XtDispatchEvent .
+.LP
+When an X event is received,
+it is passed to
+.PN XtDispatchEvent ,
+which calls the appropriate event handlers
+and passes them the widget, the event, and client-specific data
+registered with each procedure.
+If there are no handlers for that event registered,
+the event is ignored and the dispatcher simply returns.
+The order in which the handlers are called is undefined.
+.LP
+The
+.PN XtDispatchEvent
+function sends those events to the event handler functions that
+have been previously registered with the dispatch routine.
+.PN XtDispatchEvent
+returns 
+.PN True 
+if it dispatched the event to some handler and
+.PN False
+if it found no handler to dispatch the event to.
+The most common use of
+.PN XtDispatchEvent
+is to dispatch events acquired with the
+.PN XtAppNextEvent
+procedure.
+However, it also can be used to dispatch user-constructed events.
+.PN XtDispatchEvent
+also is responsible for implementing the grab semantics for
+.PN XtAddGrab .
+.LP
+The
+.PN XtAppMainLoop
+function first reads the next incoming X event by calling
+.PN XtAppNextEvent 
+and then it dispatches the event to the appropriate registered procedure 
+by calling
+.PN XtDispatchEvent .
+This constitutes the main loop of \*(tk applications,
+and, as such, it does not return.
+Applications are expected to exit in response to some user action.
+There is nothing special about
+.PN XtAppMainLoop ;
+it is simply an infinite loop that calls
+.PN XtAppNextEvent
+and then
+.PN XtDispatchEvent .
+.LP
+Applications can provide their own version of this loop,
+which tests some global termination flag or tests that the number
+of top-level widgets is larger than zero before circling back to the call to
+.PN XtAppNextEvent .
+.SH "SEE ALSO"
+.br
+\f2\*(xT\fP
+.br
+\f2\*(xL\fP
+.EQ
+delim off
+.EN

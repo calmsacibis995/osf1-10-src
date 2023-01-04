@@ -1,0 +1,296 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: kitcap.4,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/12/15 20:20:14 $
+.\"
+.TH kitcap 4
+.SH NAME
+\*Lkitcap\*O \- Kit descriptor database for gentapes and gendisk utilities.
+.SH DESCRIPTION
+.PP
+.iX "kitcap file"
+The
+\*Lkitcap\*O
+file is a database for kit descriptors containing product codes and the
+names of the directories, files, and subsets that make up a product
+description to be used by
+\*Lgentapes\*O
+or
+\*Lgendisk\*O
+to create distribution media.  All fields are separated by colons (:)
+with a backslash (\e) at the end of a line indicating continuation.
+Lines starting with a number sign (#) are comments and are ignored.
+Comment fields with a kitcode description are delimited by an opening
+number sign (#) and a closing colon (:).
+.PP
+The following
+\*Lkitcap\*O
+entry examples are for TK50 and MT9 media types:
+.br
+.oS
+Product-codeTK | Product Description:directory1:directory2:\e
+        directory3:SPACE:SPACE:SPACE:INSTCTRL:subset1:subset2:subset3:\e
+        subset4:subset5
+
+Product-codeMT | Product Description:directory1:directory2:\e
+        directory3:SPACE:SPACE:SPACE:INSTCTRL:subset1:subset2:subset3:\e
+        subset4:subset5:\&%\&%2:\e
+        subset6:subset7:subset8:subset9:subset10
+.oE
+.PP
+The following parts make up the
+\*Lkitcap\*O
+descriptor for magnetic tape media:
+.TP
+Product-code
+This is an arbitrary name made up of letters and/or numbers unique to
+the product that it describes.  Typical codes include a product
+identifier and a version identifier, as indicated in the previous
+examples.  For example, if the product name is MYPRODUCT and the
+version is 1.0, the product-code might be
+\*LMYPRODUCT100\*O.
+.TP
+Media-code (TK or MT)
+The media-code is a 2-letter reference specifying the type of media
+the files will be written onto.  The media code must be either TK for
+TK50 or MT for 9-track magnetic tape devices.  During run time, the
+\*Lgentapes\*O
+utility probes the device to be written to and determines if it is a
+TK50 or MT9 device.  It then appends either TK or MT to the
+product-code given on the command line and searches for the
+corresponding kit identifier (product-code/media-code) in the
+\*Lkitcap\*O
+file.
+.TP
+Product Description
+This field is a description of the software product that is being
+created by the
+\*Lgentapes\*O
+utility.  It replaces the NAME field in the control file
+(\*Vfilename\*O.\*Lctrl\*O)
+for each of the subsets that make up a product.  This field is optional
+for magnetic tape media.
+.TP
+Directories
+The
+\*Lgentapes\*O
+utility can produce multiproduct tapes.  That is, it can take subsets
+from different products, based in different directories, and merge them
+on the tape to form a combined product.  Directory entries provide the
+full path locations for the subsets that are to be put on the media.
+There must be at least one directory entry for each
+\*Lkitcap\*O
+descriptor.
+.TP
+SPACE
+The
+\*LSPACE\*O
+file is a placeholder for tape records, containing 10Kb of NULL
+characters.  Three
+\*LSPACE\*O
+files are used as dummy files to ensure compatibility with operating
+system kits.
+.TP
+INSTCTRL
+The
+\*LINSTCTRL\*O
+image contains
+\*Lsetld\*O
+control information.
+.TP
+Subsets
+This field provides a list of subsets or files that are to be either
+written to the magnetic tape media or verified from the magnetic tape
+media.  Each subset listed must be stored in one of the directories
+listed in the
+\*Lkitcap\*O
+descriptor.  If a file or subset is stored in a subdirectory of one of
+the directories listed in the kitcap descriptor, it is possible to
+include that sub-path with the subset/filename entry instead of listing
+the entire path/subpath as another directory listing.  For example, a
+directory listed in the
+\*Lkitcap\*O
+descriptor under the rules given in the Directories section is listed
+as:
+.oS
+/KITS/MYPRODUCT/001
+.oE
+A particular subset or file to be included on the media is stored in:
+.oS
+/KITS/MYPRODUCT/001/\f2subdirectory/subset\fP
+.oE
+Since the subdirectory/subset specification is part of the
+\*L/KITS/MYPRODUCT/001\*O
+directory tree, it is not necessary to include the full path of the
+\*L/KITS/MYPRODUCT/001/\*O
+subdirectory in the directory listing.   An alternative is to include
+the subdirectory path with the subset name in the subset list.  For
+example:
+.oS
+MY-PROD-001 | This is a good product:\e
+        /KITS/MYPRODUCT/001:SPACE:SPACE:SPACE:\e
+        INSTCTRL:subset1:subset2:subdirectory/subset3:subset4
+.oE
+.TP
+Volume identifier
+.br
+The volume identifier is optional.  Multi-tape support is provided for
+products that have subsets or files requiring more space than is
+available on a single 9-track magnetic tape.  If the subset list
+results in an end-of-tape condition, the subset list can be split into
+any number of multi-volume sets by placing
+\*L\&%\&%\*O\*Vn\*O
+anywhere appropriate in the subset list (where
+\*Vn\*O
+is the volume number of the next tape).  The subsets listed between the
+volume identifiers must fit on a single piece of media.  By default,
+the subset list located directly after the directory list is always
+considered the first volume.  Therefore, a volume identifier for the
+first volume in a multi-volume kit descriptor is not necessary.
+.PP
+The following example shows a
+\*Lkitcap\*O
+entry for disks:
+.oS
+Product-codeHD:partition:\e
+        dd=/:Product_Description:\e
+        directory1:directory2:directory3:\e
+        instctrl:subset1:subset2:subset3:subset4:subset5:\e
+        dd=SUB/DIR:Product_Description:\e
+        instctrl:directory1:directory2:directory3:\e
+        subset1:subset2:subset3:subset4:subset5
+.oE
+.PP
+The following parts make up the kitcap descriptor for disk
+media:
+.VL
+.LI "Product-code"
+Same as for magnetic tape.
+.LI "Media-code"
+The media code for disks is HD and is appended to the product-code by
+the \*Lgendisk\*O utility.
+.LI "Disk Partition"
+This field specifies the partition in which the software is to be
+written on the media being created.
+.LI "dd="
+This field specifies the directory in which to write the subsets on the
+disk media being created.  The contraction \*Ldd\*O
+can be thought of as the ``destination directory'' for the subsets.
+This field is required and allows a hierarchical structure so that you
+can put multiple products on the same disk or place parts of one
+product into different areas on the disk.
+.LE
+.PP
+Typically, a disk is mounted by the
+\*Lgendisk\*O
+utility onto a temporary mount point under
+\*L/usr/tmp\*O.
+This location becomes the disk's root directory.  To specify only one
+directory for an entire product, a valid entry would be
+\*Ldd=/\*O.
+This entry tells the
+\*Lgendisk\*O
+utility to write all the following subsets under the mount point.
+.PP
+In the disk
+\*Lkitcap\*O
+descriptor example given previously, the first five subsets are written
+to the mount point, or root directory, for the disk media being made.
+Then a new directory,
+\*L/mnt_point/SUB/DIR\*O,
+is created on the disk media and the next five subsets are written into
+that directory.
+.PP
+It is important to note that the top-level directory of the media disk
+is always considered the mount point used by the
+\*Lgendisk\*O
+script and is referenced by
+\*Ldd=/\*O.
+Any subdirectories listed as destination directories are created
+starting from the mount point and must be referenced in full.  For
+instance, in the previous example, to put some other subsets in a
+subdirectory of DIR, the entry would be dd=SUB/DIR/SUBSUBDIR.  Note
+that each new destination directory requires a product description.
+.VL
+.LI "Product Description"
+This field is similar to the one defined for magnetic tape.  However,
+in the case of disk media the product description is a required field,
+and all words in the description must be connected with underscores
+(_).  The \*Lgendisk\*O script removes the underscores at run time.  For
+example, to create the description ``This is a good product'' the Product
+Description entry when making disk media would be:
+.oS
+This_is_a_good_product
+.oE
+.LI "Directories"
+Same as for magnetic tape.
+.LI "instctrl"
+A directory containing the same information as the \*LINSTCTRL\*O
+file on magnetic tape.
+.LI "Subsets"
+Same as for magnetic tape.
+.LE
+.SH EXAMPLES
+.PP
+TK50 and MT9 (single-volume tape)
+\*Lkitcap\*O
+description:
+.oS
+MYPRODUCT400 | MYPRODUCT software version 4:\e
+        :# directory listing :\e
+        /directory1:/directory2:/directory3:\e
+        SPACE:SPACE:SPACE:INSTCTRL:\e
+        :# subset listing :\e
+        subset1:subset2:subset3:subset4:subset5
+.oE
+.PP
+MT9 kitcap description (multivolume tape):
+.oS
+MYPRODUCT400 | MYPRODUCT software version 4:\e
+        /directory1:/directory2:/directory3:\e
+        SPACE:SPACE:SPACE:INSTCTRL:\e
+        subset1:subset2:subset3:subset4:subset5:\e
+        :# Volume 2 :\e
+        \&%\&%2:\e
+        subset6:subset7:subset8:subset9:subset10
+.oE
+.PP
+Disk kitcap description (single product):
+.oS
+MYPRODUCT400:c:\e
+        dd=/:MYPRODUCT_software_version_4:\e
+        /directory1:/directory2:/directory3:\e
+        instctrl:subset1:subset2:subset3:subset4:subset5
+.oE
+.PP
+Disk kitcap description (multiple product):
+.oS
+MYPRODUCT400:c:\e
+        dd=MYPRODUCT/BASE:\e
+        MYPRODUCT_software_version_4_base_subsets:\e
+        /directory1:/directory2:/directory3:\e
+        instctrl:subset1:subset2:subset3:subset4:subset5:\e
+        dd=MYPRODUCT/NONBASE:\e
+        MYPRODUCT_software_version_4_nonbase_subsets:\e
+        /directory1:/directory2:/directory3:\e
+        instctrl:subset1:subset2:subset3:subset4:subset5
+.oE
+.SH RELATED INFORMATION
+.PP
+Commands:  gendisk(1), gentapes(1)
+.EQ
+delim off
+.EN

@@ -1,0 +1,894 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+
+		       Notes on Kernel Loading		06/18/90 kwallace
+                       -----------------------		-----------------
+                                                        edited 06/20/90
+                                                        -----------------
+
+
+     WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+              IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+              IT IS PROVIDED FOR INFORMATION ONLY.
+
+
+
+			       Overview
+
+Kernel loading is done by and managed by a privileged user-mode
+process.  The process runs in user-mode because it needs to call the
+user-mode loader.  It is a separate process because it needs to
+maintain the state information (e.g., modules, export lists, etc.) of
+what's been loaded into the kernel.  This process is privileged
+because it can modify the kernel's address space.  Communication with
+this process, called the kernel load server (KLS), takes place via
+an IPC mechanism.
+
+There are several steps that take place when a client communicates
+with the kernel load server.  First a client sends a message to the
+kernel load server, requesting a service, for example to load a file.
+The kernel load server receives the message, and calls the loader
+(i.e. ldr_context_load()) to load the file, specifying the kernel
+context.  The kernel context specifies (i.e.  ldr_context_t) the
+kernel versions of the region allocation functions that actually
+allocate address space within the kernel.  Note that the kernel load
+server creates and maintains the kernel context.  Eventually the
+loader calls a format dependent map region routine to map all the
+regions in the file.  This routine works just as described in the
+notes on "Address Space Management", by Larry Allen.  The kernel
+versions region allocation functions and the format dependent map
+region routine work in conjunction to choose where the regions will
+eventually reside when copied into the kernel and where they will live
+while locally mapped into the kernel load server's address space.  The
+kernel versions of the region allocation functions by necessity make a
+system call (or Mach trap) to actually allocate space within the
+kernel.  The entire essence of this scheme to load modules into the
+kernel is that kernel modules will be relocated in the kernel load
+server's address space, however, relocated to locations in the
+kernel's address space.  After mapping the regions, the loader
+relocates them and then returns the module ID of the newly loaded
+module.  After the load operation completes, the kernel load server
+iterates over all regions (i.e. ldr_context_inq_module() and
+ldr_context_inq_region()) associated with the module just loaded,
+inquiring to get the virtual address, map address, type and size of
+each region.  The kernel load server then makes system calls (or Mach
+traps) into the kernel to actually load (e.g., map, copy, etc.)  the
+regions of the newly loaded file from the kernel load server's address
+space into the kernel's address space.  Lastly, the kernel load
+server, replies to the client, by sending a reply message back to the
+client, returning any return values, for example the module id or the
+module just loaded, or any error code.
+
+Note that there is no support planned for dependencies of kernel
+modules.  If a kernel module has dependencies, they should be
+explicitly loaded first by the client.
+
+Clients of the kernel load server must have the appropriate
+privilege(s).  Typically privilege is something as simple as running
+as ROOT.  However, for the B1 implementation, an appropriate
+privilege, in the security sense, other than running as ROOT, will be
+selected.  The kernel load server must also run with sufficient
+privilege in order to manipulate the kernel's address space.  The
+kernel load server make sure that it only operates on behalf of
+privileged clients.  There are at least two ways that this can be
+done.  Either the IPC mechanism must prevent non-privileged clients
+from sending messages to the kernel loader server or the kernel load
+server must authenticate the clients who send it request messages,
+possibly through the use of a third party authentication service.  In
+the current implementation, the former approach has been adopted.  The
+later approach may be adopted in future versions of the OSC.
+
+
+	       Programming Interfaces to Kernel Loading
+
+The programming interfaces for kernel dynamic loading are the cross
+process interfaces as specified in the loader application programming
+interface (API).  These calls include the following.
+
+    #include <sys/types.h>
+    #include <loader.h>
+
+    extern ldr_process_t
+    ldr_kernel_process(void);
+
+    extern int
+    ldr_xattach(ldr_process_t process);
+
+    extern int
+    ldr_xdetach(ldr_process_t process);
+
+    extern int
+    ldr_xload(ldr_process_t process, char *file_pathname, 
+              ldr_load_flags_t load_flags, ldr_module_t *mod_id_ptr);
+
+    extern int
+    ldr_xunload(ldr_process_t process, ldr_module_t mod_id);
+
+    extern int
+    ldr_xentry(ldr_process_t process, ldr_module_t mod_id,
+               ldr_entry_pt_t *entry_ptr);
+
+    extern int
+    ldr_xlookup(ldr_process_t process, ldr_module_t mod_id,
+                char *symbol_name, void **symbol_addr_ptr);
+
+    extern int
+    ldr_xlookup_package(ldr_process_t process, char *package_name,
+                        char *symbol_name, void **symbol_addr_ptr);
+
+    extern int
+    ldr_inq_module(ldr_process_t process, ldr_module_t mod_id,
+                   ldr_module_info_t *info, size_t info_size,
+		   size_t *ret_size);
+
+    extern int
+    ldr_inq_region(ldr_process_t process, ldr_module_t mod_id,
+		   ldr_region_t region, ldr_region_info_t *info,
+		   size_t info_size, size_t *ret_size);
+
+    extern int
+    ldr_next_module(ldr_process_t process, ldr_module_t *mod_id_ptr);
+
+The ldr_kernel_process() function returns the handle or ldr_process_t
+that effectively specifies the kernel and its context.  The
+ldr_xattach() performs any necessary cross process initialization
+processing, for example, setting up the communications channel for
+communication with the kernel load server, when called with the value
+returned by ldr_kernel_process().  The ldr_xdetach() function does any
+necessary cross process termination processing.  The ldr_xload() and
+ldr_xunload() functions respectively load and unload a module.  When
+called with the value returned by ldr_kernel_process(), the functions
+load and unload modules into and from the kernel's address space.  The
+ldr_xentry() function returns the entry point of a previously loaded
+module.  The ldr_xlookup() and ldr_xlookup_package() return the value
+of a symbol defined in a previously loaded module, the former by
+specifying the module and the later specifying the package name.  The
+ldr_inq_module() and ldr_inq_region(), respectively query for
+information respectively about a previouisly loaded module and a
+region of a previously loaded module.  The information is respectively
+returned in a ldr_module_info_t and a ldr_region_info_t.  The
+ldr_next_module() function is the iterator used to step through all
+modules loaded into a context.  Note that when the cross process
+functions are called with the value returned by ldr_kernel_process(),
+the cross process functions merely communicate with the kernel load
+server by sending a message via an IPC mechanism.
+
+The following program shows programmatically how a configuration
+program, for example, might load the module that manages a file system
+into the kernel and get the module's entry point once it has been
+loaded into memory.  The assumption is that once the configuration
+program has the module's entry point it will effectively call that
+entry point in the kernel to have the module initialize itself, for
+example, place itself into any necessary switch tables.
+
+    #include <stdio.h>
+
+    #include <sys/types.h>
+    #include <loader.h>
+
+    #define KERNEL_MODULE   "/sbin/config/fs/s5fs.kmodule"
+
+    main(argc, argv)
+            char *argv[];
+    {
+        ldr_process_t  kernel_process;
+        ldr_module_t   module;
+        ldr_entry_pt_t entry;
+        int            rc;
+
+        kernel_process = ldr_kernel_process();
+
+        if ((rc = ldr_xattach(kernel_process)) < 0) {
+          (void)fprintf(stderr, "%s: ldr_xattach(kernel_process) failed: ",
+            argv[0]);
+            perror((char *)0);
+            exit(1);
+        }
+
+        if ((rc = ldr_xload(kernel_process, KERNEL_MODULE, LDR_NOFLAGS,
+          &module)) < 0) {
+            (void)fprintf(stderr, "%s: ldr_xload(kernel_process, %s, %#x, \
+&module) failed: ",
+                argv[0], KERNEL_MODULE, LDR_NOFLAGS);
+            perror((char *)0);
+            exit(1);
+        }
+
+        (void)printf("%s: module = %d\n", argv[0], (int)module);
+
+        if ((rc = ldr_xentry(kernel_process, module, &entry)) < 0) {
+            (void)fprintf(stderr, "%s: ldr_xentry(kernel_process, %d, &entry) \
+failed: ",
+                argv[0], (int)module);
+            perror((char *)0);
+            exit(1);
+        }
+
+        (void)printf("%s: entry = %#x\n", argv[0], (int)entry);
+
+        (void)ldr_xdetach(kernel_process);
+
+        exit(0);
+}
+
+
+			  Kernel Load Server
+
+The the purpose of the kernel load server is to receive kernel load
+requests, process them and send the appropriate replies.  This is the
+basic kernel load server loop.  Before entering the loop, during
+server initialization, the kernel load server builds the kernel
+context and builds the initial export list of the kernel.  Currently,
+the initial kernel export list is fetched from the kernel object file.
+
+
+The kernel load server is found in /usr/sbin/kloadsrv.  It should be
+started somewhere early during system start-up.  It optionally accepts
+various options and arguments.  The following usage message shows the
+ones currently implemented.
+
+    usage: kloadsrv [-b] [-f] [-p <package-name>] [<kernel-object-filename>]
+
+           -b  put server in background
+           -f  forcibly destroy any pending requests before receiving
+               new ones
+           -p  specify default kernel package name
+
+The kernel load server gets the initial kernel export list from the
+specified kernel object.  If no kernel object file is specified, the
+kernel load server uses "/vmunix" by default.  The -p option allows
+the specification of the default package name, typically used for the
+object file formats that do not provide packages.  The default package
+name is currently "kernel".
+
+
+	     Kernel Address Space Allocation and Loading
+
+From the kernel loading perspective, kernel address space allocation and
+loading has several goals.
+
+    o Ability to allocate and deallocate kernel address space.
+    o Callable from user-mode.
+    o Supports arbitrary combinations of protection (read, write, execute).
+    o Supports wired and paged memory.
+    o Ability to allocate at a fixed address or "anywhere".
+    o Use Mach user-mode VM primitives if possible.
+    o Calls only available to privileged processes.
+
+
+		     User-Mode Mach VM Primitives
+
+As stated in the goals above it would be desireable to use user-mode
+Mach VM primitives for manipulation of the kernel address space.
+
+    kern_return_t
+    vm_allocate(target_task, address, size, anywhere)
+        vm_task_t     target_task;
+        vm_address_t *address;       /* in/out */
+        vm_size_t     size;
+        boolean_t     anywhere;
+
+    kern_return_t
+    vm_deallocate(target_task, address, size)
+        vm_task_t    target_task;
+        vm_address_t address;
+        vm_size_t    size;
+
+    kern_return_t
+    vm_read(target_task, address, size, data, data_count)
+        vm_task_t    target_task;
+        vm_address_t address;
+        vm_size_t    size;
+        pointer_t   *data;         /* out */
+        int         *data_count;   /* out */
+
+    kern_return_t
+    vm_write(target_task, address, data, data_count)
+        vm_task_t    target_task;
+        vm_address_t address;
+        pointer_t    data;
+        int          data_count;
+
+    kern_return_t
+    vm_protect(target_task, address, size, set_maximum, new_protection)
+        vm_task_t    target_task;
+        vm_address_t address;
+        vm_size_t    size;
+        boolean_t    set_maximum;
+        vm_prot_t    new_protection;
+
+One extension that is needed is a way to get a port (i.e. a task_t or
+vm_task_t) that refers to the kernel's task, effectively leading to
+the kernel's address space (i.e. address map).  The not so well
+documented Mach routine task_by_unix_pid(), when process_id is
+specified as -1, returns such a port.
+
+    kern_return_t
+    task_by_unix_pid(target_task, process_id, result_task)
+        task_t  target_task;
+        int     process_id;
+        task_t *result_task;    /* out */
+
+The only goal not met by the above interfaces this the ability to wire
+memory.  Unfortunately, that is key to kernel loading since typically,
+modules loaded into the kernel need to be wired.  As it turns out,
+David Black of CMU has already designed an appropriate interface,
+accesible from user-mode, for wiring virtual memory.  Memory allocated
+via vm_allocate() is initial paged, until a call is made to vm_wire()
+to wire the memory.
+
+    kern_return_t
+    vm_wire(host_priv, task, start, end, prot)
+        host_priv_t  host_priv;
+        task_t       task;
+        vm_address_t start, end;
+        vm_prot_t    prot;
+
+In a call to vm_wire(), task is the task whose memory is to be
+affected.  For kernel loading, task would be the kernel task, as
+returned by task_by_unix_pid().  Prot specifies the types of accesses
+that must not cause page faults.  A prot value of VM_PROT_NONE would
+make the memory pageable.  Lastly, host_priv is the privileged host
+port for the host on which the task resides.  The privileged host port
+would be obtained by host_priv_self().
+
+    host_priv_t
+    host_priv_self();
+
+Unfortunately, vm_wire() is currently not implemented and there are
+and would be several problems with getting this entire scheme to work
+via Mach user-mode VM primitives.  David Black has pointed out many of
+the problems and I have added some additional concerns.
+
+    o We'd need to figure out what the limit on wired memory should
+      be, implement it and check it.
+
+    o Pmap modules may be sloppy about handling wired memory.
+      Removing wired mappings may cause some of them to panic.  This
+      needs to be spec'ed out so that the pmap modules have something
+      to conform to.
+
+    o Read-only wiring of copy-on-write memory requires that the copy
+      be made immediately when the wiring is done.  Another way of
+      saying this is that there cannot be a pending copy-on-write
+      operation involving a wired mapping, period.  The current VM
+      implementation does not do this - fixing it requires some
+      serious work on the VM internals.  Alternative is to have
+      vm_wire() temporarily reject read-only wire operations until
+      this can be fixed.
+
+    o I have successfully called vm_allocate() from user-mode on the
+      kernel task as returned by task_by_unix_pid().  Internally I
+      have called vm_map_pageable() on the allocated virtual memory to
+      wire.  Unfortunately on a subsequent vm_write() call to the
+      kernel's address space, it appeared that rather than actually
+      copying the data as one would expect if the memory is wired, the
+      VM system effectively set up for copy on write from the source
+      object.  This agrees with the previous item.
+
+    o There are concerns about how to actually wire memory in the
+      kernel, beyond simply calling vm_map_pageable(), a la the steps
+      taken in kmem_alloc().  For example, we need to consider making
+      sure that wired kernel pages are a part of the kernel object,
+      that the new region has the correct offset in the kernel object,
+      and guaranteeing that pages are already in the kernel object for
+      the new region, before wiring them, lest we have a deadlock,
+      race condition or infinite loop.
+
+Overcoming these problems would require extensive knowledge of the
+Mach VM system and potentially a significant amount of time and
+effort.  Quality and reliability of such changes would be of paramount
+concern.  Completion of kernel loading in OSF/1 would be in jeopardy
+if this approach were undertaken.  Therefore an alternative approach
+has been selected.  If time permits, the author will possibly revisit
+using user-mode Mach VM primitives at a later time.
+
+
+			    A System Call
+	   for Kernel Address Space Allocation and Loading
+
+The kernel already provides two internal functions for allocation of
+paged and wired memory: respectively kmem_alloc_pageable() and
+kmem_alloc().
+
+    vm_offset_t
+    kmem_alloc_pageable(map, size)
+        vm_map_t  map;
+        vm_size_t size;
+
+    vm_offset_t
+    kmem_alloc(map, size)
+        vm_map_t  map;
+        vm_size_t size;
+
+With relatively minor extensions to these internal functions, a new
+system call, kloadcall(2), has been designed and implemented to
+implement all the operations that manipulate the kernel's address
+space that are required for kernel loading.  One slight difference
+between using kmem_alloc_pageable() and kmem_alloc() and the user-mode
+Mach VM primitives outlined above is that the selection of wired or
+paged memory must be done at the same time the memory is allocated.
+
+The current kmem_alloc_pageable() and kmem_alloc() interface are not
+expressive enough to implement all the requirements outlined in the
+goals mentioned above.  In particular, they do not provide the
+capability to allocate memory at a fixed address and kmem_alloc() does
+not give the caller the ability to select the specifics of the wire
+protection.  Therefore, kmem_alloc_pageable() had been restructured to
+implement a new function, kernel_memory_allocate_paged(), and likewise
+kmem_alloc() has been restructured to implement a new function,
+kernel_memory_allocate_wired().
+
+    kern_return_t
+    kernel_memory_allocate_paged(map, addrp, size, anywhere)
+        vm_map_t     map;
+        vm_offset_t *addrp;
+        vm_size_t    size;
+        boolean_t    anywhere;
+
+    kern_return_t
+    kernel_memory_allocate_wired(map, addrp, size, wire_prot, anywhere)
+        vm_map_t     map;
+        vm_offset_t *addrp;
+        vm_size_t    size;
+        vm_prot_t    wire_prot;
+        boolean_t    anywhere;
+
+Backward compatible interfaces for kmem_alloc_pageable() and
+kmem_alloc() have been provided such that they respectively call
+kernel_memory_allocate_paged() and kernel_memory_allocate_wired().
+
+With kernel_memory_allocate_paged() and kernel_memory_allocate_wired()
+in place, the design and implementation of kloadcall(2) is relatively
+straight forward.  The interfaces to kloadcall(2) are structured to
+closely resemble the user-mode Mach VM primitives, in order to make it
+easier for applications, such as the kernel load server, to switch to
+the user-mode Mach VM primitives when they are available.
+
+    #include <sys/kloadcall.h>
+
+    int
+    kloadcall(/* KLC_VM_ALLOCATE */ operation, *address, size, anywhere);
+        int           operation;    /* KLC_VM_ALLOCATE */
+        vm_address_t *address;
+        vm_size_t     size;
+        boolean_t     anywhere;
+
+    int
+    kloadcall(/* KLC_VM_DEALLOCATE */ operation, address, size)
+        int          operation;    /* KLC_VM_DEALLOCATE */
+        vm_address_t address;
+        vm_size_t    size;
+
+    int
+    kloadcall(/* KLC_VM_READ */ operation, address, size, data,
+              data_count)
+        int          operation;    /* KLC_VM_READ */
+        vm_address_t address;
+        vm_size_t    size;
+        pointer_t   *data;
+        int         *data_count;
+
+    int
+    kloadcall(/* KLC_VM_WRITE */ operation, address, data, data_count)
+        int          operation;    /* KLC_VM_WRITE */
+        vm_address_t address;
+        pointer_t    data;
+        int          data_count;
+
+    int
+    kloadcall(/* KLC_VM_PROTECT */ operation, address, size,
+              set_maximum, new_protection)
+        int          operation;    /* KLC_VM_PROTECT */
+        vm_address_t address;
+        vm_size_t    size;
+        boolean_t    set_maximum;
+        vm_prot_t    new_protection;
+
+    int
+    kloadcall(/* KLC_VM_ALLOCATE_WIRED */ operation, *address, size,
+              wire_prot, anywhere)
+        int           operation;    /* KLC_VM_ALLOCATE_WIRED */
+        vm_address_t *address;
+        vm_size_t     size;
+        vm_prot_t     wire_prot;
+        boolean_t     anywhere;
+
+    #ifdef TEST
+    int
+    kloadcall(/* KLC_CALL_FUNCTION */ operation, address, arg1, arg2,
+              arg3, ar4g)
+        int          operation;    /* KLC_CALL_FUNCTION */
+        vm_address_t address;
+        int          arg1, arg2, arg3, arg4;
+    #endif
+
+The KLC_VM_ALLOCATE operation allocates paged virtual memory in the
+kernel while the KLC_VM_ALLOCATE_WIRED operation allocates wired
+virtual memory in the kernel.  kloadcall(2) returns zero (also
+KERN_SUCCESS) on success and non-zero on failure.  A non-zero return
+value that is equal to -1 implies a UNIX system call failure, with
+errno set to indicate the reason for the failure.  Non-zero return
+values that are positive are Mach error numbers.
+
+
+	    Kernel Load Server Kernel Memory Abstraction
+
+As discussed in the previous section, there are two approaches to
+kernel address space allocation and loading: user-mode Mach VM
+primitives and the kloadcall(2) system call.  So as to isolate itself
+from the approach selected, the kernel load server implements its own
+abstraction, layered on top of the two approaches.
+
+    int
+    kls_vm_init()
+
+    int
+    kls_vm_allocate(address, size, anywhere)
+        vm_address_t *address;
+        vm_size_t     size;
+        boolean_t     anywhere;
+
+
+    int
+    kls_vm_deallocate(address, size)
+        vm_address_t address;
+        vm_size_t    size;
+
+    int
+    kls_vm_read(address, size, data, data_count)
+        vm_address_t address;
+        vm_size_t    size;
+        pointer_t   *data;
+        int         *data_count;
+
+    int
+    kls_vm_write(address, data, data_count)
+        vm_address_t address;
+        pointer_t    data;
+        int          data_count;
+
+    int
+    kls_vm_protect(address, size, set_maximum, new_protection)
+        vm_address_t address;
+        vm_size_t    size;
+        boolean_t    set_maximum;
+        vm_prot_t    new_protection;
+
+    int
+    kls_vm_allocate_wired(address, size, prot, anywhere)
+        vm_address_t *address;
+        vm_size_t     size;
+        vm_prot_t     prot;
+        boolean_t     anywhere;
+
+    int
+    kls_vm_wire(address, size, prot)
+        vm_address_t address;
+        vm_size_t    size;
+        vm_prot_t    prot;
+
+Note that wiring at the time of allocation, that is
+kls_vm_allocate_wired(), is only available via the kloadcall(2)
+approach.  By using kls_vm_wire(), it is possible to wire memory
+sometime after its allocation, however, this call is only available
+through the user-mode Mach VM primitive approach.
+
+
+	  Kernel Load Server Kernel Address Space Management
+		Allocation and Deallocation Functions
+
+With the services outlined in the previous sections we can now design
+the kernel address space management allocation and deallocation
+functions implemented by and used by the kernel load server.  The
+necessary functions are alloc_abs_kernel_region(),
+alloc_rel_kernel_region() and dealloc_kernel_region().
+
+    /*
+     * The key concept to understand about kernel loading is that when
+     * regions are to be loaded into the kernel, the loader calls the
+     * routines contained herein to allocate space in the kernel and the
+     * loader then maps the regions into the current process's address
+     * space, yet relocates them with respect to where they will live in
+     * the kernel's address space.  Eventually, the entity that called the
+     * loader is expected to copy the region, now loaded and relocated in
+     * the current process's address space, into the kernel.
+     */
+
+    static int get_local_mapaddr(univ_t vaddr, univ_t *baseaddrp);
+
+    /*
+     * alloc_abs_kernel_region() - region allocator for absolute regions
+     *                             to be loaded into the kernel
+     *
+     * This is the absolute region allocator used in initializing the
+     * kernel loader context.  The absolute region allocator procedure is
+     * called by the format-dependent map_region routine to determine the
+     * base address at which the region is to be mapped.  Arguments are
+     * the virtual address at which the region must run, region size, kind
+     * (code, data, bss) and protection.  On return, baseaddr is set to
+     * the best-guess starting address at which the region is to be
+     * mapped.  Returns LDR_SUCCESS on success, negative error status on
+     * error. 
+     *
+     * For loading an absolute region into the kernel, vaddr and size
+     * specify the area within the kernel's address space, at which we
+     * must allocate space for the region to live.  If that area is
+     * unavailable, we must return a failure.  Note that in the call to
+     * allocate memory in the kernel's address space, the anywhere
+     * parameter is FALSE.  Lastly, we must find some area within the
+     * current process's address space to locally map the region.  See
+     * get_local_mapaddr() below for details.
+     *
+     * In the current implementation we always allocate wired memory in
+     * the kernel's addres space.
+     */
+    int
+    alloc_abs_kernel_region(univ_t vaddr, size_t size, ldr_region_kind_t kind,
+			    ldr_prot_t ldr_prot, univ_t *baseaddrp)
+    {
+	    vm_address_t    vm_address;
+	    vm_size_t       vm_size;
+	    vm_prot_t       vm_prot;
+	    int             rc;
+
+	    vm_address = (vm_address_t)vaddr;
+	    vm_size = (vm_size_t)size;
+	    vm_prot = convert_ldr_prot_to_vm_prot(ldr_prot);
+
+	    if (rc = kls_vm_allocate_wired(&vm_address, vm_size, vm_prot, FALSE))
+		    return(convert_kls_vm_status_to_ldr_status(rc));
+
+	    if ((rc = get_local_mapaddr(vaddr, baseaddrp)) != LDR_SUCCESS) {
+		    (void)kls_vm_deallocate(vm_address, vm_size);
+		    return(rc);
+	    }
+	    return(LDR_SUCCESS);
+    }
+
+
+    /*
+     * alloc_rel_kernel_region() - region allocator for relocatable
+     *                             regions to be loaded into the kernel's
+     *                             address space
+     *
+     * This is the relocatable region allocator used in initializing the
+     * kernel loader context.  The relocatable region allocator procedure
+     * is called by the format-dependent map_region routine to determine
+     * the virtual address at which the region is to be run and the base
+     * address at which the region is to be mapped.  Arguments are the
+     * region size, kind (code, data, bss), and  protection.  On return,
+     * *vaddrp is set to the address at which the code is to be relocated
+     * to run, and *baseaddrp is set to the  best-guess starting address
+     * at which the region is to be mapped.  Returns LDR_SUCCESS on
+     * success, negative error status on error. 
+     * 
+     * For loading a relocatable region into the kernel, any area of size
+     * size in the kernel's address space is acceptable.  Note that in the
+     * call to allocate memory in the kernel's address space, the anywhere
+     * parameter is TRUE.  Lastly, we must find some area within the
+     * current process's address space to locally map the region.  See
+     * get_local_mapaddr() below for details.
+     *
+     * In the current implementation we always allocate wired memory in
+     * the kernel's addres space.
+     */
+    int
+    alloc_rel_kernel_region(size_t size, ldr_region_kind_t kind,
+			    ldr_prot_t ldr_prot, univ_t *vaddrp,
+			    univ_t *baseaddrp)
+    {
+	    vm_address_t    vm_address;
+	    vm_size_t       vm_size;
+	    vm_prot_t       vm_prot;
+	    univ_t          vaddr;
+	    int             rc;
+
+	    vm_size = (vm_size_t)size;
+	    vm_prot = convert_ldr_prot_to_vm_prot(ldr_prot);
+
+	    if (rc = kls_vm_allocate_wired(&vm_address, vm_size, vm_prot, TRUE))
+		    return(convert_kls_vm_status_to_ldr_status(rc));
+	    vaddr = (univ_t)vm_address;
+
+	    if ((rc = get_local_mapaddr(vaddr, baseaddrp)) != LDR_SUCCESS) {
+		    (void)kls_vm_deallocate(vm_address, vm_size);
+		    return(rc);
+	    }
+
+	    *vaddrp = vaddr;
+	    return(LDR_SUCCESS);
+    }
+
+
+    /*
+     * dealloc_kernel_region() - region deallocator for regions loaded
+     *                           into the kernel's address space
+     *
+     * This is the deallocator used in initializing the kernel loader
+     * context.  The region deallocator procedure is the inverse to the
+     * region allocator procedure; it is called by the format-dependent
+     * unmap_region routine to deallocate any storage allocated by the
+     * either alloc_abs_kernel_region() or alloc_rel_kernel_region().
+     * mapaddr is the actual address at which the region was mapped into
+     * the current process's address space.   vaddr is the address at
+     * which the region was loaded into the kernel's address space.  It is
+     * assumed that the format dependent unmap_region routine has handled
+     * or will handle the unmapping of the region (i.e. at mapaddr) mapped
+     * into the current process's address space.  Therefore all we need to
+     * do is unmap the region in the kernel's adress space.  Returns
+     * LDR_SUCCESS on success or negative error status on error. 
+     */
+    int
+    dealloc_kernel_region(univ_t vaddr, univ_t mapaddr, size_t size)
+    {
+	    vm_address_t    vm_address;
+	    vm_size_t       vm_size;
+	    int             rc;
+
+	    vm_address = (vm_address_t)vaddr;
+	    vm_size = (vm_size_t)size;
+
+	    if (rc = kls_vm_deallocate(vm_address, vm_size))
+		    return(convert_kls_vm_status_to_ldr_status(rc));
+	    return(LDR_SUCCESS);
+    }
+
+    /*
+     * get_local_mapaddr() - get an address within this process (i.e. the
+     *                       kernel load server) at which to map this region
+     *
+     * From a kernel loading perspective, it really doesn't matter where
+     * we map the region.  After all, the region isn't going to finally
+     * live in this process (i.e. the kernel load server).  The region
+     * will finally live in the kernel's address space.  However, it may
+     * make a difference to this process, from the perspective of how the
+     * application (i.e. the kernel load server) want's to use its address
+     * space.  Therefore we simply say that this region should be mapped
+     * somewhere in the area reserved for mmap'ed file data (i.e.
+     * AC_MMAP_DATA).  It should only be necessary to call
+     * getaddressconf(2) (i.e. ldr_getaddressconf() once, to determine the
+     * location of that area.
+     *
+     * There is one potential gotcha to worry about.  Under some user
+     * process and kernel address space layouts, it will be possible for
+     * vaddr to equal baseaddr.  If vaddr is equal to baseaddr, then the
+     * format dependent map_region routine will call ldr_mmap() with
+     * LDR_MAP_FIXED.  That would be an incorrect action to take for
+     * several reasons.
+     *
+     *      o the call to ldr_mmap() would fail if something is already
+     *        mapped at baseaddr
+     *      o for kernel loading, the baseaddr selected really doesn't
+     *        matter, subject to the area constraints mentioned in the
+     *        previous paragraph
+     *
+     * The intent with our selection of baseaddr is to specify a location,
+     * close (not exactly) to which the region should be mapped into this
+     * process.  Therefore if the selected baseaddr happens to coincide
+     * with vaddr, a very, very unlikely event, we simply bump baseaddr to
+     * the next page.
+     */
+    static univ_t local_mapaddr;
+    static int have_local_mapaddr = FALSE;
+
+    static int
+    get_local_mapaddr(univ_t vaddr, univ_t *baseaddrp)
+    {
+	    struct addressconf *addr_conf;
+	    univ_t              baseaddr;
+	    int                 rc;
+
+	    if (have_local_mapaddr == FALSE) {
+		    if ((rc = ldr_getaddressconf(&addr_conf)) != LDR_SUCCESS)
+			    return(rc);
+		    local_mapaddr = (univ_t)addr_conf[AC_MMAP_DATA].ac_base; 
+		    have_local_mapaddr = TRUE;
+	    }
+
+	    baseaddr = local_mapaddr;
+
+	    if (vaddr == baseaddr)
+		    baseaddr += ldr_getpagesize();
+
+	    *baseaddrp = baseaddr;
+	    return(LDR_SUCCESS);
+    }
+
+		     Using Kernel Loading
+
+This section is intended to be a short primer on using the services
+offered by kernel loading.  It reflects the current state of
+affairs and will likely change as development continues.
+
+There are a few files that one needs to get or use for kernel loading.
+
+    sbin/loader/kload/libukload.a
+	Library containing the necessary loader system call interfaces
+	such as ldr_xattach(), ldr_xload(), etc.  This library is only
+	temporary.  Eventually the code in it will be moved to the C
+	library.
+
+    sbin/loader/kload/kloadsrv
+	The kernel load server command.  Run it as root.  The -b
+	option puts it in the background.  The -p option specifies the
+	default kernel package name.  Kloadsrv optionally accepts the
+	name of a kernel object file (e.g. /vmunix), from which it
+	will get the kernel's export list.  The -? option prints the
+	usage string.
+
+    sbin/loader/tests/ktload2
+	A kernel loading version of the loader test program tload2.
+	With ktload2, one can interactively load, unload, etc. kernel
+	modules.  Run it as root and type help to the cmd> prompt for
+	more information.
+
+    sbin/loader/tests/kloadcall
+	A useful utility for manipulation of the kernel's address
+	space.  Run it with -? or no options to get its usage string.
+	Run kloadcall as root.  Use the vm_deallocate option of
+	kloadcall to bail yourself out if kloadsrv dies and you need
+	to remove something from kernel memory.
+
+    sbin/loader/tests/vm_region
+	A useful utility for dumping the regions of a task's address
+	space.  vm_region takes one argument, a process ID.  -1 means
+	the kernel's address space.  To get the kernel's address
+	space vm_region must be run as root.
+
+    kloadcall_trace/W 1
+	A kernel global variable that can be set, for example via KDB
+	or adb -w to /dev/kmem, to trace kloadcall(2) activity.
+
+
+Support for relocatable object modules with imports and exports is
+implemented in the loader and the kernel load server, however, there
+is currently insufficient support in the language tools.  Therefore it
+is currently only possible to build absolute modules.
+
+Here is some information on how to build absolute COFF kernel modules
+on and for the PMAX.  You should use GCC.  If any of the constituent
+object files of your kernel module contain a direct function call to
+some thing in the kernel, for example a call to printf(), be sure to
+compile them with -mpic.  This causes GCC to generate code that will
+effectively by-pass the inter-quadrant jump obstacle with the JAL
+instruction.
+
+To link all the constituent object files into a single kernel module
+you must call the MIPS ld directly.  You must use the following
+options.
+
+	-e <entry-point-symbol>
+	-T <text-start-address>
+	-D <data-start-address>
+	-A <kernel-object-file>
+	-F
+
+Use -e to give the name of the function that you'd like to be the
+entry point of the module.  If you don't use -e, the first text
+address in the module will be the entry point.  Use -T and -D,
+for example,
+
+	-T c2000000 -Dc2001000
+
+to specify the addresses at which to respectively link text and data
+to reside.  You can select free regions in the kernel by running
+vm_region -1. Use -A, for exmaple,
+
+	-A /vmunix
+
+to resolve any unresolved external references to kernel symbols.  Use
+-F to set the magic number to ZMAGIC, otherwise the COFF format
+dependent manager will reject the module.  So the following is a
+hypothetical example of currently how to build a kernel module from
+three C source files.
+
+	gcc -mpic -c file1.c
+	gcc -mpic -c file2.c
+	gcc -mpic -c file2.c
+	ld -A /vmunix -T c2000000 -D c2001000 -F -o kmodule file1.o \
+		file2.o file3.o

@@ -1,0 +1,172 @@
+.\"
+.\" $XConsortium: p047,v 5.2 91/08/16 16:22:39 hersh Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.\" "@(#)escape_-4.3 1.15 90/02/24 Copyr 1988 Sun Micro"
+.ds f \s-2ESCAPE -4\s+2
+.ds e \s-2ESCAPE\s+2
+.ds s Sun\s-2PHIGS\s+2
+.TH "ESCAPE -4" 3P "29 February 1991"
+.SH NAME
+ESCAPE -4 \- map a X drawable point to a PHIGS pick path
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pescape ( func_id, in, store, out )
+Pint	func_id;	\fIescape function identifier\fP
+Pescape_in_data	*in;	\fIinput data for the function\fP
+Pstore	store;	\fIpointer to the buffer\fP
+Pescape_out_data	**out;	\fIOUT output data of the function\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, *, WSOP *)
+.SH DESCRIPTION
+.SS Purpose
+\*f attempts to map a single X drawable coordinate point to a \s-2PHIGS\s+2 pick path
+using the specified workstation.
+.LP
+\*f provides similar functionality to a \s-2PHIGS\s+2 pick device, but it uses a
+point provided by the application rather than directly by the operator.
+This escape is not associated with any \s-2PHIGS\s+2 input device and can be used
+without initializing any \s-2PHIGS\s+2 input device.
+It is intended to allow the application to implement its own pick device 
+using the standard X Event mechanism.
+.SS C Input Parameters
+Applications using the \s-2C\s+2 binding must create a buffer to be used by this
+function as memory space for storing data associated with the device state.
+This buffer is passed as the \fIstore\fP argument.  
+.LP
+The store buffer is a data area managed by \s-2PHIGS\s+2. While the application 
+is responsible for creating the inital buffer through a call to \s-2\CREATE STORE\s+2, 
+\s-2PHIGS\s+2 manages this area such that there is sufficient memory for the 
+specific inquiry. The data record within the store buffer
+is accessed by the pointer pointed to by \fIout\fR.
+.IP \fIfunc_id\fP
+The function identifier for this escape is \s-2PUESC_DRAWABLE_POINT_TO_PICK\s+2,
+which is defined in phigs.h to be -4.
+.IP \fIin\fP
+A pointer to a Pescape_in_data union, which contains the \fIescape_in_u4\fR member
+used by this escape function.
+This member is defined in phigs.h as:
+.nf
+.ta .5i +.75i +1i
+.sp .4
+struct {
+.sp .2
+	Pint	ws_id;
+	Ppoint	point;	/* a drawable point -- not DC */
+	Pfloat	ap_size;	/* aperture size, half-width in DC units */
+	Ppath_order	order;
+	Pint	depth;	/* depth of path to return */
+	Pint	pet;
+	Pecho_switch	echo_switch;
+	Plimit3		echo_volume;
+	Pfilter		filter;	/* detectibility filter */
+.sp .2
+} escape_in_u4;	/* drawable point to pick */
+.fi
+.RS
+.IP \fIws_id\fP
+Indicates the workstation to use.  The structures posted to this
+workstation and the current workstation state will be used to attempt the
+mapping.
+.IP \fIpoint\fP
+A point, in X drawable units, that indicates the location of the pick
+aperture.
+.IP \fIap_size\fP
+The size of the pick aperture, specified as the half-width of the aperture
+box in DC units.
+.IP \fIorder\fP
+The order of the returned pick path.
+The order can be either \s-2PORDER_TOP_FIRST\s+2, in which case the pick path will
+be returned in traversal order, or \s-2PORDER_BOTTOM_FIRST\s+2, in which case the
+pick path will be returned in the reverse of traversal order.
+The order and depth parameters specify which portion of the complete pick
+path, if any, is returned.
+.IP \fIdepth\fP
+The portion of the pick path to return.
+If the order parameter is \s-2PORDER_TOP_FIRST\s+2 then the first "depth" elements
+will be returned, if the order parameter is \s-2PORDER_BOTTOM_FIRST\s+2 then the
+first "depth" elements in the inversely ordered pick path will be
+returned.
+.IP \fIpet\fP
+Indicates the echo method to use for picked primitives.
+.IP \fIecho_switch\fP
+Indicates whether or not picked primitives should be echoed.
+.IP \fIecho_volume\fP
+The echo volume.
+.IP \fIfilter\fP
+The detectibility filter to use for the pick.
+.RE
+.IP \fIstore\fP
+This parameter is not used for this escape.
+.SS C Output Parameters
+.IP \fIout\fP
+A pointer to a pointer to a Pescape_out_data union, which contains the \fIescape_out_u4\fR
+member used by this escape function.
+\s-2PHIGS\s+2 copies a pointer to the pick status and pick path, if any, to this
+member of the Pescape_out_data union.
+This member is defined in phigs.h as:
+.nf
+.ta .5i +1.2i  +1.5i
+.sp .4
+struct {
+.sp .2
+	Pin_status	status;
+	Ppick_path	pick;
+.sp .2
+} escape_out_u4;
+.fi
+.IP
+\fIstatus\fP
+contains the status of the pick.
+\s-2PIN_STATUS_OK\s+2 indicates that the pick was successful and a pick path is
+returned in the \fIpick\fR field.
+\s-2PIN_STATUS_NONE\s+2 indicates that no primitive met the pick criteria.
+The contents of the \fIpick\fR field are undefined in this case.
+.IP
+\fIpick\fP
+contains the pick path if the status is \s-2PIN_STATUS_OK\s+2.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (PHOP, WSOP, *, *)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 254
+Ignoring function, invalid echo area/volume; XMIN >= XMAX, YMIN >= YMAX,
+or ZMIN > ZMAX
+.IP 255
+Ignoring function, one of the echo area/volume boundary points is
+outside the range of the device
+.SH SEE ALSO
+.nf
+.SM "ESCAPE (3P)"
+.SM "INITIALIZE PICK 3 (3P)"
+.SM "CREATE STORE (3P)"
+.SM "DELETE STORE (3P)"
+.fi
+

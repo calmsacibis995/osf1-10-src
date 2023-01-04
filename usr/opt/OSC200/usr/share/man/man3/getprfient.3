@@ -1,0 +1,220 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getprfient.3,v $ $Revision: 3.5.4.10 $ (DEC) $Date: 1994/01/15 01:56:25 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1988 SecureWare, Inc.
+.\" All rights reserved
+.\" #ifdef SEC_BASE
+.\" @(#)getprfient.3	1.2 17:54:15 3/28/90 SecureWare
+.TH getprfient 3
+.SH NAME
+.PP
+\*Lgetprfient\*O, \*Lgetprfinam\*O, \*Lsetprfient\*O, \*Lendprfient\*O, \*Lputprfinam\*O \- Manipulate file control database entry (Enhanced Security)
+.SH LIBRARY
+.PP
+Security Library (\*Llibsecurity.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+#include <sys/security.h>
+.nL
+#include <prot.h>
+.sp 0.4v
+struct pr_file *getprfient(void);
+.sp 0.4v
+struct pr_file *getprfinam(
+.nL
+	char *\*Vname\*L);
+.sp 0.4v
+void setprfient(void);
+.sp 0.4v
+void endprfient(void);
+.sp 0.4v
+int putprfinam(
+.nL
+	char *\*Vname\*L,
+.nL
+	struct pr_file *\*Vpr\*L);
+.P
+.sE
+.SH PARAMETERS
+.PP
+.PP
+.VL
+.LI "\*Vname\*O"
+Specifies a file control database  entry name.
+.LI "\*Vpr\*O"
+Specifies a file control database entry structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "database" "manipulating entry in file control"
+.iX "file control database" "defined"
+.iX "file control database" "manipulating entry in"
+.iX "getprfient function"
+.iX "getprfinam function"
+.iX "setprfient function"
+.iX "endprfient function"
+.iX "putprfinam function"
+The
+\*Lgetprfient(\|)\*O
+and
+\*Lgetprfinam(\|)\*O
+functions
+each return a pointer to
+an object with the following structure containing the
+separated-out fields of a line in the file control database.
+Each line in the database contains a \*Lpr_file\*O structure, declared
+in the \*Lprot.h\*O header file:
+.oS
+struct   f_field  {
+        char    *fd_name;       /* Holds full pathname */
+        ushort  fd_uid;         /* uid of owner */
+        ushort  fd_gid;         /* gid of group */
+        ushort  fd_mode;        /* permissions */
+        char    fd_type[2];     /* file type (one of r,b,c,d,f,s) */
+};
+
+
+struct  f_flag  {
+        unsigned short
+                fg_name:1,      /* Is fd_name set? */
+                fg_uid:1,       /* Is fd_uid set? */
+                fg_gid:1,       /* Is fd_gid set? */
+                fg_mode:1,      /* Is fd_mode set? */
+                fg_type:1,      /* Is fd_type set? */
+};
+
+
+struct  pr_file  {
+        struct f_field ufld;
+        struct f_flag uflg;
+};
+.oE
+.P
+The
+\*Lgetprfient(\|)\*O
+function
+when first called returns a pointer to the first
+\*Lpr_file\*O structure in the database; thereafter, it returns a
+pointer to the next \*Lpr_file\*O structure in the database, so
+successive calls can be used to search the database.
+The
+\*Lgetprfinam(\|)\*O
+function
+searches from the beginning of the database until a
+filename matching \*Vname\*O is found, and returns a pointer to
+the particular structure in which it was found.
+If an End-of-File or an error is encountered on reading, these
+functions return a
+null
+pointer.
+.P
+A call to the
+\*Lsetprfient(\|)\*O
+function
+has the effect of rewinding the file control
+database to allow repeated searches.
+The
+\*Lendprfient(\|)\*O
+function
+can be called to
+close the file control database when processing is complete.
+.P
+The
+\*Lputprfinam(\|)\*O
+function
+puts a new or replaced file control entry
+\*Vpr\*O
+with key
+\*Vname\*O
+into the database.
+If the \*Luflg.fg_name\*O field is a 0 (zero), the requested
+entry is deleted from the
+file control database.
+The
+\*Lputprfinam(\|)\*O
+function
+locks the database for all update operations,
+and performs a
+\*Lendprfient(\|)\*O
+after the update or failed attempt.
+.PP
+The file control database stores a list of entries for security
+relevant files. This database is used by the \*Lsetfiles\*O
+.\" NON_SILVER
+.\" and \*Lintegrity\*O
+program to assign and maintain the
+security attributes of system files.
+.PP
+The \*Lfd_name\*O pointer
+refers to the filename, which can be an absolute pathname or a
+pathname whose last component is an \*L*\*O (asterisk), which is treated as a
+wildcard entry. Entries that refer to a specific file in a
+directory supercede the wildcard entry if the absolute pathname
+precedes the wildcard entry in the database. \*Lfd_uid\*O and
+\*Lfd_gid\*O are the numeric owner and group of the file.
+\*Lfd_mode\*O is the mode word, including owner, group, and
+other permissions, as well as the SUID and SGID bits. The \*Lfd_type\*O
+field contains a one-character file type indicator:
+\*Lr\*O (regular), \*Lb\*O (block-special), \*Lc\*O (character-special),
+\*Ld\*O (directory), \*Lf\*O (FIFO), \*Ls\*O (symbolic link),
+.\" They can be manipulated with the
+.\" \*LISBITSET(\|)\*O, \*LRMBIT(\|)\*O, and \*LADDBIT(\|)\*O macros.
+.SH NOTES
+.PP
+Programs using these routines must be compiled with
+\%\*L-lsecurity\*O.
+.SH CAUTION
+.PP
+The value returned by \*Lgetprfinam(\|)\*O and \*Lgetprfient(\|)\*O
+refers to a structure that is overwritten by calls to these
+routines. To retrieve an entry, modify it, and replace it in
+the database, you must copy the entry using structure assignment and
+supply the modified buffer to \*Lputprfinam(\|)\*O.
+.SH RETURN VALUES
+.PP
+The
+\*Lgetprfient(\|)\*O and \*Lgetprfinam(\|)\*O
+functions return null pointers
+on EOF or an error. The \*Lputprfinam(\|)\*O function
+returns a value of 0 (zero) if it cannot add or upgrade the entry.
+.br
+.ne 12P
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/auth/system/files\*O"
+Description file of directories, devices, control, and commands
+modified for security.
+.LI "\*L/usr/include/prot.h\*O"
+General security databases file.
+.LE
+.iX "getprfient function"
+.iX "getprfinam function"
+.iX "setprfient function"
+.iX "endprfient function"
+.iX "putprfinam function"
+.\" #endif /* SEC_BASE */
+.EQ
+delim off
+.EN

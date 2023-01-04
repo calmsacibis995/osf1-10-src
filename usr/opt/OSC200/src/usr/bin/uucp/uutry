@@ -1,0 +1,109 @@
+#!/bin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+# 
+# HISTORY
+
+#
+# COMPONENT_NAME: UUCP uutry
+# 
+# FUNCTIONS: 
+#
+#
+# (C) COPYRIGHT International Business Machines Corp. 1985, 1989
+# All Rights Reserved
+# Licensed Materials - Property of IBM
+#
+# US Government Users Restricted Rights - Use, duplication or
+# disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+#
+#
+#	This shell will start a uucico for the system given.
+#	Options:
+#	  -xN the debugging level for uucico (-x5 default)
+#	  -r  force the removal of the status file
+#	The output is put in /tmp/Name where Name is the name
+#	of the system name.  A tail -f is performed after uucico is started.
+
+STATUS=/usr/spool/uucp/.Status
+UUCICO=/usr/lbin/uucp/uucico
+CMD=`basename $0`
+
+REMOVE=""
+X="-x5"
+SYS=
+for arg
+do
+	case $arg in
+	-x*) X=$arg;;
+	-r) REMOVE="y";;
+	-*) if [ -x /usr/bin/dspmsg ]
+	    then
+		dspmsg uucp.cat 5 "uutry: %s is not a recognized flag'\n"  "$arg"
+		dspmsg uucp.cat 6 "Usage: uutry [-xN] [r] system\n"
+	    else
+		echo "uutry: $arg is not a recognized flag";
+		echo "Usage: uutry [-xN] [r] system";
+	    fi
+	    exit 1;;
+	*) SYS="$arg";;
+	esac
+done
+if [ -z "$SYS" ]
+then
+     	if [ -x /usr/bin/dspmsg ];
+		then dspmsg uucp.cat 1 "%s:  system name required\n" "$CMD";
+		else echo "$CMD:  system name required"
+	fi
+	exit 1
+fi
+
+#  use 7 character maximum name length (SYSNSIZE in uucp.h) for search
+SYSTEM=`echo $SYS | cut -c1-7`
+
+#  check for existence in L.sys
+XX=
+XX=`uuname | grep $SYSTEM `
+if [ -z "$XX" ]
+then
+     	if [ -x /usr/bin/dspmsg ];
+	        then dspmsg uucp.cat 2 "Invalid system name \"%s\"\n" $SYSTEM;
+        	else echo "Invalid system name \"$SYSTEM\""
+     	fi
+	exit
+fi
+set $XX
+FULLNAME=$1
+for i
+do
+    if [ $i = $SYS ]; then
+	FULLNAME=$SYS
+	break
+    fi
+done
+#  remove old status file
+if [ -n "$REMOVE" ]; then
+    rm -f $STATUS/${FULLNAME}
+fi
+
+echo "$UUCICO -r1 -s$FULLNAME  $X &"
+$UUCICO  -r1 -s$FULLNAME  $X &

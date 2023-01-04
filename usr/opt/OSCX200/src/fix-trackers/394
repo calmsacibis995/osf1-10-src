@@ -1,0 +1,152 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207282159.AA02503@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2622) very delayed addendum to (seq: 2462): Xlib: (Xsi) XSetICValues() could not allow changing XNResourcesName andXNResourceClass
+Date: Tue, 28 Jul 92 17:59:24 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+The main source file changes were never made or distributed for this bug!
+
+### bug number:   5024
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/d02431	Tue Jul 28 17:55:40 1992
+--- lib/X/Xsi/XCrIC.c	Tue Jul 28 17:50:05 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCrIC.c,v 1.32 92/06/27 21:54:29 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCrIC.c,v 1.33 92/07/28 17:49:25 rws Exp $
+   */
+  
+  /*
+***************
+*** 139,146 ****
+      }
+  }
+  
+! static unsigned long
+! _ReadRdb(display, ic, mask, rdb, res_name, res_class)
+      Display *display;
+      XipIC ic;
+      unsigned long mask;
+--- 139,146 ----
+      }
+  }
+  
+! unsigned long
+! _XipReadRdb(display, ic, mask, rdb, res_name, res_class)
+      Display *display;
+      XipIC ic;
+      unsigned long mask;
+***************
+*** 312,318 ****
+      }
+      im->default_ic->core.im = (XIM)im;
+  
+!     im->default_mask = _ReadRdb(im->core.display, im->default_ic,
+  				(unsigned long)0,
+  				im->core.rdb, im->core.res_name,
+  				im->core.res_class);
+--- 312,318 ----
+      }
+      im->default_ic->core.im = (XIM)im;
+  
+!     im->default_mask = _XipReadRdb(im->core.display, im->default_ic,
+  				(unsigned long)0,
+  				im->core.rdb, im->core.res_name,
+  				im->core.res_class);
+***************
+*** 374,380 ****
+      }
+  
+      if (im->core.rdb && ic->values.res_name && ic->values.res_class) {
+! 	mask |= _ReadRdb(im->core.display, ic, mask, im->core.rdb,
+  			 ic->values.res_name, ic->values.res_class);
+      }
+  	
+--- 374,380 ----
+      }
+  
+      if (im->core.rdb && ic->values.res_name && ic->values.res_class) {
+! 	mask |= _XipReadRdb(im->core.display, ic, mask, im->core.rdb,
+  			 ic->values.res_name, ic->values.res_class);
+      }
+  	
+*** /tmp/d02453	Tue Jul 28 17:55:53 1992
+--- lib/X/Xsi/XOpenIM.c	Tue Jul 28 17:53:16 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XOpenIM.c,v 1.18 92/06/27 21:54:41 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XOpenIM.c,v 1.19 92/07/28 17:52:13 rws Exp $
+   */
+  
+  /*
+***************
+*** 72,80 ****
+      { XNFocusWindow, sizeof(Window), offset(core.focus_window),
+        (unsigned short)IMResourceReadWrite, ICFocusWindow },
+      { XNResourceName, sizeof(char *), offset(values.res_name),
+!       (unsigned short)IMResourceReadWrite, -1 },
+      { XNResourceClass, sizeof(char *), offset(values.res_class),
+!       (unsigned short)IMResourceReadWrite, -1 },
+      { XNFilterEvents, sizeof(long), offset(core.filter_events),
+        (unsigned short)IMResourceRead, ICFilterEvents },
+      { XNPreeditAttributes, sizeof(ICAttributes *), offset(core.preedit_attr),
+--- 72,80 ----
+      { XNFocusWindow, sizeof(Window), offset(core.focus_window),
+        (unsigned short)IMResourceReadWrite, ICFocusWindow },
+      { XNResourceName, sizeof(char *), offset(values.res_name),
+!       (unsigned short)IMResourceReadWrite, ICResourceName },
+      { XNResourceClass, sizeof(char *), offset(values.res_class),
+!       (unsigned short)IMResourceReadWrite, ICResourceClass },
+      { XNFilterEvents, sizeof(long), offset(core.filter_events),
+        (unsigned short)IMResourceRead, ICFilterEvents },
+      { XNPreeditAttributes, sizeof(ICAttributes *), offset(core.preedit_attr),
+*** /tmp/d02472	Tue Jul 28 17:56:05 1992
+--- lib/X/Xsi/XICSetVal.c	Tue Jul 28 17:54:42 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XICSetVal.c,v 1.28 92/04/24 16:14:45 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XICSetVal.c,v 1.29 92/07/28 17:54:11 rws Exp $
+   */
+  
+  /*
+***************
+*** 360,365 ****
+--- 360,370 ----
+      err = _XipICSetValues(ic, args, &mask);
+      if (err)
+  	return(err);
++     if (im->core.rdb &&
++ 	(mask & (1L << ICResourceClass | 1L << ICResourceName))) {
++ 	mask |= _XipReadRdb(im->core.display, ic, mask, im->core.rdb,
++ 			    ic->values.res_name, ic->values.res_class);
++     }
+      
+      if (mask & (1L << ICFocusWindow)) {
+  	_XUnregisterFilter(im->core.display, old_focus_window,

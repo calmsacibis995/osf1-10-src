@@ -1,0 +1,1425 @@
+! #module notpad.uil "v1.0"
+!
+!  Copyright (c) Digital Equipment Corporation, 1990
+!  All Rights Reserved.  Unpublished rights reserved
+!  under the copyright laws of the United States.
+!  
+!  The software contained on this media is proprietary
+!  to and embodies the confidential technology of 
+!  Digital Equipment Corporation.  Possession, use,
+!  duplication or dissemination of the software and
+!  media is authorized only pursuant to a valid written
+!  license from Digital Equipment Corporation.
+!
+!  RESTRICTED RIGHTS LEGEND   Use, duplication, or 
+!  disclosure by the U.S. Government is subject to
+!  restrictions as set forth in Subparagraph (c)(1)(ii)
+!  of DFARS 252.227-7013, or in FAR 52.227-19, as
+!  applicable.
+!
+!
+! FACILITY:
+!	Notepad
+!
+! ABSTRACT:
+!	
+!
+! NOTES:
+!	
+!
+! REVISION HISTORY:
+! 
+! 
+module notepad
+    names = case_sensitive
+    version = 
+    "v1.0"
+
+include file 'notepad_text.uil';
+
+procedure
+    DoSetFontFamily();
+    DoSetFontSize();
+    DoSetFontMisc();
+    CacheFontFamilyList();
+    CacheFontSizeList();
+    CacheFontMiscList();
+    BottomProc();
+    CreatePaneCallback();
+    DoApplyFont();
+    DoClear();
+    DoCopy();
+    DoCustomizeFont();
+    DoCut();
+    DoGotoLine();
+    DoHideSimpleDialog(integer);
+    DoNextIncr();
+    DoPaste();
+    DoPrevIncr();
+    DoReadSettings();
+    DoRedo();
+    DoRevertFont();
+    DoSaveSettings();
+    DoSearchNext();
+    DoSearchNextForSelection();
+    DoSearchPrevious();
+    DoSearchPreviousForSelection();
+    DoSelectAll();
+    DoSimpleDialog(integer);
+    DoSplit();
+    DoUnSplit();
+    DoUndo();
+    GotoLineProc();
+    InitSearchLabels(integer);
+    MenuHelpHelp(string);
+    HelpOnContext();
+    NotepadTextCreate();
+    ReplaceAllProc();
+    ReplaceOnceProc();
+    ReplaceSelectedProc();
+    SearchStringModified();
+    SetSearchToggle();
+    TopProc();
+    WordWrapToggle();
+    addSearchActions();
+    assertToggleState(integer);
+    doFileOp(integer);
+    doOpenSelected();
+    doSaveWithFile();
+    do_Exit();
+    do_New();
+    do_Quit();
+    do_Revert();
+    do_Save();
+    do_SaveAs();
+    fileSelectCallback();
+    grabSelection();
+    journalCallback();
+    quitCallback();
+    registerButtons(integer);
+    registerPopups(integer);
+    registerSTexts(integer);
+    registerComposites(integer);
+    registerQuestions(integer);
+    showReplaceDialog(integer);
+    showSearchDialog(integer);
+    registerMenuBar();
+
+
+object s_main_window : XmMainWindow {
+    arguments {
+	XmNwidth = 500;
+        XmNheight = 700;
+        XmNworkWindow = XmPanedWindow workArea;
+        XmNmenuBar = XmMenuBar s_menu_bar;
+    };
+    controls {
+	XmMenuBar s_menu_bar;
+        XmPanedWindow workArea;
+    };
+};
+
+object workArea : XmPanedWindow {
+    arguments {
+	XmNwidth = 500;
+        XmNheight = 700;
+        XmNrefigureMode = true;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure CreatePaneCallback();
+	};
+};
+
+object textwindow : XmScrolledText {
+    arguments {
+	XmNrows = 10;
+	XmNcolumns = 10;
+	XmNeditMode = XmMULTI_LINE_EDIT;
+	XmNeditable = true;
+	XmNscrollVertical = true;
+	XmNcursorPosition = 0;
+	XmNcursorPositionVisible = true;
+	XmNwordWrap = false;
+    };
+};
+
+object s_menu_bar : XmMenuBar {
+    arguments {
+	XmNorientation = XmHORIZONTAL;
+        XmNmenuHelpWidget = XmCascadeButton helpP;
+    };
+    controls {
+	XmCascadeButton file;
+	XmCascadeButton edit;
+	XmCascadeButton search;
+	XmCascadeButton navigate;
+	XmCascadeButton customize;
+	XmCascadeButton helpP;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerMenuBar();
+    };
+};
+
+object file_menu : XmPulldownMenu {
+    controls {
+	XmPushButton New;
+	XmPushButton OpenDialog;
+	XmPushButton OpenSelected;
+	XmPushButton IncludeDialog;
+	XmSeparator {};
+	XmPushButton Save;
+	XmPushButton SaveAs;
+	XmPushButton Revert;
+	XmSeparator {};
+	XmPushButton Quit;
+	XmPushButton Exit;
+    };
+};
+
+object edit_menu : XmPulldownMenu {
+    controls {
+	XmPushButton Undo;
+	XmPushButton Redo;
+	XmPushButton UndoDialog;
+	XmSeparator {};
+	XmPushButton Cut;
+	XmPushButton Copy;
+	XmPushButton Paste;
+	XmPushButton Clear;
+	XmSeparator {};
+	XmPushButton SelectAll;
+    };
+};
+
+object search_menu : XmPulldownMenu {
+    controls {
+	XmPushButton NextSelected;
+	XmPushButton PreviousSelected;
+	XmSeparator {};
+	XmPushButton NextDialog;
+	XmPushButton PreviousDialog;
+	XmSeparator {};
+	XmPushButton NextIncrementalDialog;
+	XmPushButton PreviousIncrementalDialog;
+	XmSeparator {};
+	XmPushButton ReplaceOnce;
+	XmPushButton ReplaceSelected;
+	XmPushButton ReplaceAll;
+    };
+};
+
+object navigate_menu : XmPulldownMenu {
+    controls {
+	XmPushButton GoToTop;
+	XmPushButton GoToBottom;
+	XmPushButton GoToSelectedLine;
+	XmPushButton GoToLine;
+	XmSeparator {};
+	XmPushButton SplitView;
+	XmPushButton DeleteView;
+    };
+};
+
+object customize_menu : XmPulldownMenu {
+    controls {
+	XmToggleButton searchOptions_toggle;
+	XmToggleButton wordWrap_toggle;
+	XmPushButton FontDialog;
+	XmSeparator {};
+	XmPushButton SaveSettings;
+	XmPushButton ReadSettings;
+    };
+};
+
+object help_menu : XmPulldownMenu
+{
+    controls
+    {
+	XmPushButton OnContext;
+	XmSeparator {};
+	XmPushButton Help;
+	XmPushButton About;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure MenuHelpHelp('help_menu');
+    };
+};
+
+object file : XmCascadeButton {
+    arguments {
+	XmNlabelString = file_menu_s;
+	XmNmnemonic = file_menu_mn;
+    };
+    controls {
+	XmPulldownMenu file_menu;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Menus');
+    };
+};
+
+object edit : XmCascadeButton  {
+    arguments {
+	XmNlabelString = edit_menu_s;
+	XmNmnemonic = edit_menu_mn;
+    };
+    controls {
+	XmPulldownMenu edit_menu;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Edit_menu');
+    };
+};
+
+object search : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString = search_menu_s;
+	XmNmnemonic = search_menu_mn;
+    };
+    controls
+    {
+	XmPulldownMenu search_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure MenuHelpHelp('Search_menu');
+    };
+};
+
+object navigate : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString = navigate_menu_s;
+	XmNmnemonic = navigate_menu_mn;
+    };
+    controls
+    {
+	XmPulldownMenu navigate_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure MenuHelpHelp('Navigate_menu');
+    };
+};
+
+object customize : XmCascadeButton
+{
+    arguments {
+	XmNlabelString = options_menu_s;
+	XmNmnemonic = options_menu_mn;
+    };
+    controls {
+	XmPulldownMenu customize_menu;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('customs_menu');
+    };
+};
+
+object helpP : XmCascadeButton
+{
+    arguments
+    {
+	XmNlabelString = help_menu_s;
+	XmNmnemonic = help_menu_mn;
+    };
+    controls
+    {
+	XmPulldownMenu help_menu;
+    };
+    callbacks
+    {
+	XmNhelpCallback = procedure MenuHelpHelp('help_menu');
+    };
+};
+
+! Push Buttons For File Menu
+
+object New : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = new_button_s;
+	XmNmnemonic = new_button_mn;
+	XmNaccelerator = new_button_tr;
+	XmNacceleratorText = new_button_trl;
+    };
+    callbacks
+    {
+	XmNactivateCallback = procedure do_New();
+	XmNhelpCallback = procedure MenuHelpHelp('New');
+    };
+};
+
+object OpenDialog: XmPushButton {
+    arguments {
+	XmNlabelString = open_button_s;
+	XmNmnemonic = open_button_mn;
+	XmNaccelerator = open_button_tr;
+	XmNacceleratorText = open_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure doFileOp(1);
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+object OpenSelected : XmPushButton {
+    arguments {
+	XmNlabelString = open_sel_button_s;
+	XmNmnemonic = open_sel_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure doOpenSelected();
+	XmNhelpCallback = procedure MenuHelpHelp('Open_sel');
+    };
+};
+
+object IncludeDialog : XmPushButton {
+    arguments {
+	XmNlabelString = include_button_s;
+	XmNmnemonic = include_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure doFileOp(2);
+	XmNhelpCallback = procedure MenuHelpHelp('include');
+    };
+};
+
+object Save : XmPushButton {
+    arguments {
+	XmNlabelString = save_button_s;
+	XmNmnemonic = save_button_mn;
+	XmNaccelerator = save_button_tr;
+	XmNacceleratorText = save_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure do_Save();
+	XmNhelpCallback = procedure MenuHelpHelp('Save');
+    };
+};
+
+object SaveAs : XmPushButton {
+    arguments {
+	XmNlabelString = save_as_button_s;
+	XmNmnemonic = save_as_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSimpleDialog(1);
+	XmNhelpCallback = procedure MenuHelpHelp('Save_as');
+    };
+};
+
+object Revert: XmPushButton {
+    arguments {
+	XmNlabelString = revert_button_s;
+	XmNmnemonic = revert_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure do_Revert();
+	XmNhelpCallback = procedure MenuHelpHelp('Revert');
+    };
+};
+
+object Quit : XmPushButton {
+    arguments {
+	XmNlabelString = quit_button_s;
+	XmNmnemonic = quit_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure do_Quit();
+	XmNhelpCallback = procedure MenuHelpHelp('Quit');
+    };
+};
+
+object Exit : XmPushButton {
+    arguments {
+	XmNlabelString = exit_button_s;
+	XmNmnemonic = exit_button_mn;
+	XmNaccelerator = exit_button_tr;
+	XmNacceleratorText = exit_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure do_Exit();
+	XmNhelpCallback = procedure MenuHelpHelp('Exit');
+    };
+};
+
+! Pushbuttons for EDIT menu
+object Undo : XmPushButton {
+    arguments {
+	XmNlabelString = undo_button_s;
+	XmNmnemonic = undo_button_mn;
+	XmNaccelerator = undo_button_tr;
+	XmNacceleratorText = undo_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoUndo();
+	XmNhelpCallback = procedure MenuHelpHelp('Undo');
+    };
+};
+
+object Redo : XmPushButton {
+    arguments {
+	XmNlabelString = redo_button_s;
+	XmNmnemonic = redo_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoRedo();
+	XmNhelpCallback = procedure MenuHelpHelp('Redo');
+    };
+};
+
+object UndoDialog: XmPushButton {
+    arguments {
+	XmNlabelString = undo_di_button_s;
+	XmNmnemonic = undo_di_button_mn;
+    };
+    callbacks {
+        XmNactivateCallback = procedure DoSimpleDialog(2);
+	XmNhelpCallback = procedure MenuHelpHelp('Undo_sequence');
+    };
+};
+
+object Cut: XmPushButton {
+    arguments {
+	XmNlabelString = cut_button_s;
+	XmNmnemonic = cut_button_mn;
+	XmNaccelerator = cut_button_tr;
+	XmNacceleratorText = cut_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoCut();
+	XmNhelpCallback = procedure MenuHelpHelp('Cut');
+    };
+};
+
+object Copy : XmPushButton {
+    arguments {
+	XmNlabelString = copy_button_s;
+	XmNmnemonic = copy_button_mn;
+	XmNaccelerator = copy_button_tr;
+	XmNacceleratorText = copy_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoCopy();
+	XmNhelpCallback = procedure MenuHelpHelp('Copy');
+    };
+};
+
+object Paste: XmPushButton {
+    arguments {
+	XmNlabelString = paste_button_s;
+	XmNmnemonic = paste_button_mn;
+	XmNaccelerator = paste_button_tr;
+	XmNacceleratorText = paste_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoPaste();
+	XmNhelpCallback = procedure MenuHelpHelp('Paste');
+    };
+};
+
+object Clear : XmPushButton {
+    arguments {
+	XmNlabelString = clear_button_s;
+	XmNmnemonic = clear_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoClear();
+	XmNhelpCallback = procedure MenuHelpHelp('Clear');
+    };
+};
+
+object SelectAll : XmPushButton {
+    arguments {
+	XmNlabelString = select_all_button_s;
+	XmNmnemonic = select_all_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSelectAll();
+	XmNhelpCallback = procedure MenuHelpHelp('Select_All');
+    };
+};
+
+!  Push buttons for SEARCH Menu
+
+object NextSelected : XmPushButton {
+    arguments {
+	XmNlabelString = next_sel_button_s;
+	XmNmnemonic = next_sel_button_mn;
+	XmNaccelerator = next_sel_button_tr;
+	XmNacceleratorText = next_sel_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSearchNextForSelection();
+        XmNhelpCallback = procedure MenuHelpHelp('Next_sele');
+    };
+};
+
+object PreviousSelected : XmPushButton {
+    arguments {
+	XmNlabelString = prev_sel_button_s;
+	XmNmnemonic = prev_sel_button_mn;
+	XmNaccelerator = prev_sel_button_tr;
+	XmNacceleratorText = prev_sel_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSearchPreviousForSelection();
+	XmNhelpCallback = procedure MenuHelpHelp('Previous_sele');
+    };
+};
+
+object NextDialog : XmPushButton {
+    arguments {
+	XmNlabelString = next_button_s;
+	XmNmnemonic = next_button_mn;
+	XmNaccelerator = next_button_tr;
+	XmNacceleratorText = next_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure showSearchDialog(1);
+	MrmNcreateCallback = procedure InitSearchLabels(1);
+	XmNhelpCallback = procedure MenuHelpHelp('next_und');
+    };
+};
+
+object PreviousDialog : XmPushButton {
+    arguments {
+	XmNlabelString = prev_button_s;
+	XmNmnemonic = prev_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure showSearchDialog(2);
+	MrmNcreateCallback = procedure InitSearchLabels(2);
+	XmNhelpCallback = procedure MenuHelpHelp('Previous_und');
+    };
+};
+
+object NextIncrementalDialog : XmPushButton {
+    arguments {
+	XmNlabelString = next_inc_button_s;
+	XmNmnemonic = next_inc_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoNextIncr();
+	MrmNcreateCallback = procedure InitSearchLabels(3);
+	XmNhelpCallback = procedure MenuHelpHelp('Next_inc');
+    };
+};
+
+object PreviousIncrementalDialog : XmPushButton {
+    arguments {
+	XmNlabelString = prev_inc_button_s;
+	XmNmnemonic = prev_inc_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoPrevIncr();
+	MrmNcreateCallback = procedure InitSearchLabels(4);
+	XmNhelpCallback = procedure MenuHelpHelp('Previous_inc');
+    };
+};
+
+object ReplaceOnce : XmPushButton {
+    arguments {
+	XmNlabelString = rep_once_button_s;
+	XmNmnemonic = rep_once_button_mn;
+	XmNaccelerator = rep_once_button_tr;
+	XmNacceleratorText = rep_once_button_trl;
+    };
+    callbacks {
+	XmNactivateCallback = procedure showReplaceDialog(1);
+	MrmNcreateCallback = procedure InitSearchLabels(5);
+	XmNhelpCallback = procedure MenuHelpHelp('Replace_once');
+    };
+};
+
+object ReplaceSelected : XmPushButton {
+    arguments {
+	XmNlabelString = rep_sel_button_s;
+	XmNmnemonic = rep_sel_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure showReplaceDialog(2);
+        MrmNcreateCallback = procedure InitSearchLabels(6);
+	XmNhelpCallback = procedure MenuHelpHelp('Replace_sel');
+    };
+};
+
+object ReplaceAll : XmPushButton {
+    arguments {
+	XmNlabelString = rep_all_button_s;
+	XmNmnemonic = rep_all_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure showReplaceDialog(3);
+	MrmNcreateCallback = procedure InitSearchLabels(7);
+	XmNhelpCallback = procedure MenuHelpHelp('Replace_all');
+    };
+};
+
+! Pushbuttons for NAVIGATE Menu
+
+object GoToTop : XmPushButton {
+    arguments {
+	XmNlabelString = go_top_button_s;
+	XmNmnemonic = go_top_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure TopProc();
+	XmNhelpCallback = procedure MenuHelpHelp('Top');
+    };
+};
+
+object GoToBottom : XmPushButton {
+    arguments {
+	XmNlabelString = go_bottom_button_s;
+	XmNmnemonic = go_bottom_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure BottomProc();
+	XmNhelpCallback = procedure MenuHelpHelp('Bottom');
+    };
+};
+
+object GoToSelectedLine : XmPushButton {
+    arguments {
+	XmNlabelString = go_sel_button_s;
+	XmNmnemonic = go_sel_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure GotoLineProc();
+	XmNhelpCallback = procedure MenuHelpHelp('selected_line');
+    };
+};
+
+object GoToLine : XmPushButton {
+    arguments {
+	XmNlabelString = go_line_button_s;
+	XmNmnemonic = go_line_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSimpleDialog(5);
+	XmNhelpCallback = procedure MenuHelpHelp('Line_und');
+    };
+};
+
+object SplitView : XmPushButton {
+    arguments {
+	XmNlabelString = split_view_button_s;
+	XmNmnemonic = split_view_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSplit();
+	XmNhelpCallback = procedure MenuHelpHelp('splt_view');
+    };
+};
+
+object DeleteView : XmPushButton {
+    arguments {
+	XmNlabelString = del_view_button_s;
+	XmNmnemonic = del_view_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoUnSplit();
+        XmNhelpCallback = procedure MenuHelpHelp('del_view');
+    };
+};
+
+!  Pushbuttons for OPTIONS menu
+
+object	searchOptions_toggle: XmToggleButton {
+    arguments {
+	XmNlabelString = case_button_s;
+	XmNmnemonic = case_button_mn;
+	XmNset = true;
+    };
+    callbacks {
+	XmNvalueChangedCallback = procedure SetSearchToggle();
+	MrmNcreateCallback = procedure assertToggleState(3);
+	XmNhelpCallback = procedure MenuHelpHelp('case_serch');
+    };
+};
+
+object wordWrap_toggle: XmToggleButton {
+    arguments {
+	XmNlabelString = wrap_button_s;
+	XmNmnemonic = wrap_button_mn;
+	XmNset = true;
+    };
+    callbacks {
+	XmNvalueChangedCallback = procedure WordWrapToggle();
+	MrmNcreateCallback = procedure assertToggleState(4);
+	XmNhelpCallback = procedure MenuHelpHelp('wrd_wrp');
+    };
+};
+
+object FontDialog: XmPushButton {
+    arguments {
+	XmNlabelString = font_button_s;
+	XmNmnemonic = font_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoCustomizeFont();
+	XmNhelpCallback = procedure MenuHelpHelp('fonts');
+    };
+};
+
+object SaveSettings : XmPushButton {
+    arguments {
+	XmNlabelString = save_op_button_s;
+	XmNmnemonic = save_op_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSaveSettings();
+	XmNhelpCallback = procedure MenuHelpHelp('Sve_attr');
+    };
+};
+
+object ReadSettings : XmPushButton {
+    arguments {
+	XmNlabelString = restore_op_button_s;
+	XmNmnemonic = restore_op_button_mn;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoReadSettings();
+	XmNhelpCallback = procedure MenuHelpHelp('rest_attr');
+    };
+};
+
+!  Pushbuttons for HELP menu
+object OnContext : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = on_context_button_s;
+	XmNmnemonic = on_context_button_mn;
+	XmNaccelerator = on_context_accel;
+	XmNacceleratorText = on_context_accel_text;
+    };
+    callbacks
+    {
+	XmNactivateCallback = procedure HelpOnContext ();
+	XmNhelpCallback = procedure MenuHelpHelp('help_menu');
+    };
+
+};
+object Help : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = on_window_button_s;
+	XmNmnemonic = on_window_button_mn;
+    };
+    callbacks
+    {
+	XmNactivateCallback = procedure MenuHelpHelp('Overview');
+	XmNhelpCallback = procedure MenuHelpHelp('help_menu');
+    };
+};
+
+object About : XmPushButton
+{
+    arguments
+    {
+	XmNlabelString = on_version_button_s;
+	XmNmnemonic = on_version_button_mn;
+    };
+    callbacks
+    {
+	XmNactivateCallback = procedure MenuHelpHelp('About');
+	XmNhelpCallback = procedure MenuHelpHelp('help_menu');
+    };
+};
+
+!  Dialog Boxes
+object chooseFile : XmFileSelectionDialog {
+    arguments {
+	XmNdialogTitle = open_dialog_title_s;
+    };
+    callbacks {
+	XmNokCallback = procedure fileSelectCallback();
+	XmNcancelCallback = procedure fileSelectCallback();
+    };
+};
+
+object saveDialog : XmPromptDialog {
+    arguments {
+	XmNdialogTitle = save_dialog_title_s;
+	XmNselectionLabelString = save_file_s;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerQuestions(1);
+	XmNokCallback = procedure doSaveWithFile();
+	XmNcancelCallback = procedure DoHideSimpleDialog(1);
+	XmNhelpCallback = procedure MenuHelpHelp('saving_file');
+    };
+};
+
+object undoDialog : XmQuestionDialog {
+    arguments {
+	XmNdialogTitle = undo_dialog_title_s;
+	XmNmessageString = undo_message_s;
+	XmNokLabelString = undo_s;
+	XmNcancelLabelString = redo_s;
+	XmNhelpLabelString = cancel_s;
+	XmNdialogStyle = XmDIALOG_MODELESS;
+	XmNautoUnmanage = false;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerComposites(2);
+	XmNokCallback = procedure DoUndo();
+	XmNcancelCallback = procedure DoRedo();
+	XmNhelpCallback = procedure DoHideSimpleDialog(2);
+    };
+};
+
+object findDialog : XmPromptDialog {
+    arguments {
+	XmNdialogTitle = search_dialog_title_s;
+	XmNselectionLabelString = search_s;
+	XmNokLabelString = next_s;
+	XmNcancelLabelString = prev_s;
+	XmNhelpLabelString = cancel_s;
+	XmNautoUnmanage = false;
+    };
+    callbacks {
+	MrmNcreateCallback = procedures {
+	    registerQuestions(3);
+	    addSearchActions();
+	};
+        XmNokCallback = procedure DoSearchNext();
+	XmNcancelCallback = procedure DoSearchPrevious();
+	XmNhelpCallback = procedure DoHideSimpleDialog(3);
+!	XmNfocusCallback = procedure grabSelection();
+    };
+};
+
+object incrDialog : XmPromptDialog {
+    arguments {
+	XmNdialogTitle = incr_dialog_title_s;
+	XmNselectionLabelString = incr_pattern_s;
+	XmNokLabelString = next_s;
+	XmNcancelLabelString = prev_s;
+	XmNhelpLabelString = cancel_s;
+	XmNautoUnmanage = false;
+    };
+    callbacks {
+	MrmNcreateCallback = procedures {
+	    registerQuestions(4);
+	    addSearchActions();
+	};
+!        XmNfocusCallback = procedure grabSelection();
+	XmNokCallback = procedure DoSearchNextForSelection();
+	XmNcancelCallback = procedure DoSearchPreviousForSelection();
+	XmNhelpCallback = procedure DoHideSimpleDialog(4);
+    };
+};
+
+object replaceDialog : XmFormDialog {
+    arguments {
+	XmNheight = 90;
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 3;
+	XmNdefaultButton = XmPushButton replace_cancelButton;
+	XmNautoUnmanage = false;
+    };
+    controls {
+	XmLabel old_label;
+	XmText old_text;
+	XmLabel new_label;
+	XmText new_text;
+	XmPushButton replace_yesButton;
+	XmPushButton replace_noButton;
+	XmPushButton replace_cancelButton;
+	XmPushButton withinButton;
+	XmPushButton allButton;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerPopups(6);
+    };
+};
+
+object old_label : XmLabel {
+    arguments {
+	XmNlabelString = old_label_s;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_FORM;
+    };
+};
+
+object old_text : XmText {
+    arguments {
+	XmNrows = 1;
+	XmNcolumns = 20;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmLabel old_label;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNtopOffset = 4;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerSTexts(6);
+    };
+};
+
+object new_label : XmLabel {
+    arguments {
+	XmNlabelString = new_label_s;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmText old_text;
+	XmNtopAttachment = XmATTACH_FORM;
+    };
+};
+
+object new_text : XmText {
+    arguments {
+	XmNrows = 1;
+	XmNcolumns = 20;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmLabel new_label;
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNtopOffset = 4;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNrightOffset = 10;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerSTexts(6);
+    };
+};
+
+object replace_yesButton : XmPushButton {
+    arguments {
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmText old_text;
+	XmNlabelString = yes_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure ReplaceOnceProc();
+	MrmNcreateCallback = procedure registerButtons(6);
+    };
+};
+
+object replace_noButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmText old_text;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmPushButton replace_yesButton;
+	XmNlabelString = no_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoSearchNextForSelection();
+	MrmNcreateCallback = procedure registerButtons(6);
+    };
+};
+
+object replace_cancelButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmText old_text;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNlabelString = cancel_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoHideSimpleDialog(6);
+	MrmNcreateCallback = procedure registerButtons(6);
+    };
+};
+
+object withinButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmText old_text;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNlabelString = ok_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure ReplaceSelectedProc();
+	MrmNcreateCallback = procedure registerButtons(6);
+    };
+};
+
+object	allButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmText old_text;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNlabelString = ok_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure ReplaceAllProc();
+	MrmNcreateCallback = procedure registerButtons(6);
+    };
+};
+
+object lineDialog : XmPromptDialog {
+    arguments {
+	XmNdialogTitle = line_dialog_title_s;
+	XmNselectionLabelString = line_label_s;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerQuestions(5);
+!	XmNfocusCallback = procedure grabSelection();
+	XmNokCallback = procedure DoGotoLine();
+	XmNcancelCallback = procedure DoHideSimpleDialog(5);
+	XmNhelpCallback = procedure MenuHelpHelp('selected_line');
+    };
+};
+
+object fontDialog : XmFormDialog {
+    arguments {
+	XmNdialogTitle = font_dialog_title_s;
+	XmNhorizontalSpacing = 10;
+	XmNverticalSpacing = 3;
+	XmNwidth = 480;
+	XmNdefaultButton = XmPushButton font_okButton;
+	XmNautoUnmanage = false;
+    };
+    controls {
+	XmLabel family_label;
+	XmScrolledList family_box;
+	XmLabel size_label;
+	XmScrolledList size_box;
+	XmLabel misc_label;
+	XmScrolledList misc_box;
+	XmPushButton font_okButton;
+	XmPushButton font_cancelButton;
+	XmLabel sample_font_label;
+	XmScrolledText sample_font;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerPopups(11);
+    };
+};
+
+object family_label : XmLabel {
+    arguments {
+	XmNlabelString = font_family_s;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_FORM;
+    };
+};
+
+object family_box : XmScrolledList {
+    arguments {
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmLabel family_label;
+	XmNvisibleItemCount = 5;
+	XmNscrollBarDisplayPolicy = XmSTATIC;
+	XmNselectionPolicy = XmSINGLE_SELECT;
+	XmNlistSizePolicy = XmCONSTANT;
+	XmNwidth = 241;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure CacheFontFamilyList();
+	XmNsingleSelectionCallback = procedure DoSetFontFamily();
+    };
+};
+
+object size_label : XmLabel {
+    arguments {
+	XmNlabelString = font_size_s;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmScrolledList family_box;
+	XmNtopAttachment = XmATTACH_FORM;
+    };
+};
+
+object size_box : XmScrolledList {
+    arguments {
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmScrolledList family_box;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmLabel size_label;
+	XmNvisibleItemCount = 5;
+	XmNscrollBarDisplayPolicy = XmSTATIC;
+	XmNselectionPolicy = XmSINGLE_SELECT;
+	XmNlistSizePolicy = XmCONSTANT;
+	XmNwidth = 84;
+	XmNx = 132;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure CacheFontSizeList();
+	XmNsingleSelectionCallback = procedure DoSetFontSize();
+    };
+};
+
+object misc_label : XmLabel {
+    arguments {
+	XmNlabelString = font_headers_s;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmScrolledList family_box;
+	XmNtopOffset = 6;
+    };
+};
+
+object misc_box : XmScrolledList {
+    arguments {
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmLabel misc_label;
+	XmNvisibleItemCount = 5;
+	XmNscrollBarDisplayPolicy = XmSTATIC;
+	XmNselectionPolicy = XmSINGLE_SELECT;
+	XmNlistSizePolicy = XmCONSTANT;
+	XmNwidth = 447;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure CacheFontMiscList();
+	XmNsingleSelectionCallback = procedure DoSetFontMisc();
+    };
+};
+
+object	font_okButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmLabel size_label;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmScrolledList size_box;
+	XmNlabelString = apply_s;
+	XmNleftOffset = 57;
+	XmNtopOffset = 13;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoApplyFont();
+	MrmNcreateCallback = procedure registerButtons(11);
+    };
+};
+
+object font_cancelButton : XmPushButton {
+    arguments {
+	XmNleftWidget = XmScrolledList size_box;
+	XmNtopWidget = XmPushButton font_okButton;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNlabelString = cancel_s;
+	XmNleftOffset = 56;
+	XmNtopOffset = 16;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoRevertFont();
+	MrmNcreateCallback = procedure registerButtons(11);
+    };
+};
+
+object sample_font_label : XmLabel {
+    arguments {
+	XmNlabelString = sample_label_s;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmScrolledList misc_box;
+	XmNtopOffset = 6;
+    };
+};
+
+object sample_font : XmScrolledText {
+    arguments {
+	XmNvalue = sample_text_s;
+	XmNrightAttachment = XmATTACH_FORM;
+	XmNleftAttachment = XmATTACH_FORM;
+	XmNtopAttachment = XmATTACH_WIDGET;
+	XmNtopWidget = XmLabel sample_font_label;
+	XmNresizeWidth = false;
+	XmNresizeHeight = false;
+	XmNwidth = 400;
+	XmNheight = 70;
+	XmNeditMode = XmMULTI_LINE_EDIT;
+	XmNrows = 3;
+	XmNwordWrap = true;
+    };
+    callbacks {
+	MrmNcreateCallback = procedure registerSTexts(11);
+    };
+};
+
+object searchOptions_cancelButton : XmPushButton {
+    arguments {
+	XmNtopAttachment = XmATTACH_FORM;
+	XmNleftAttachment = XmATTACH_WIDGET;
+	XmNleftWidget = XmToggleButton searchOptions_toggle;
+	XmNlabelString = cancel_s;
+    };
+    callbacks {
+	XmNactivateCallback = procedure DoHideSimpleDialog(8);
+	MrmNcreateCallback = procedure registerButtons(8);
+    };
+};
+
+!  Caution Boxes
+
+object quitWarn : XmWarningDialog {
+    arguments {
+	XmNdialogTitle = svch_dialog_title_s;
+	XmNmessageString = quit_message_s;
+	XmNcancelLabelString = no_s;
+    };
+    callbacks {
+	XmNokCallback = procedure quitCallback();
+	XmNcancelCallback = procedure quitCallback();
+	XmNhelpCallback = procedure MenuHelpHelp('Quit');
+    };
+};
+
+object loadWarn : XmWarningDialog {
+    arguments {
+	XmNdialogTitle = svch_dialog_title_s;
+	XmNmessageString = load_message_s;
+	XmNcancelLabelString = no_s;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+object recoverWarn : XmWarningDialog {
+    arguments {
+	XmNdialogTitle = resume_dialog_title_s;
+	XmNmessageString = resume_message_s;
+	XmNcancelLabelString = resume_no_s;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Journal');
+    };
+};
+
+!  Message Boxes
+
+object noJournalAccessMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = jou_dialog_title_s;
+	XmNmessageString = jou_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Journal');
+    };
+};
+
+object badFilename : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = bad_dialog_title_s;
+	XmNmessageString = bad_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+object nothingToSave : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = noch_dialog_title_s;
+	XmNmessageString = change_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Save');
+    };
+};
+
+object noWriteMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = priv_dialog_title_s;
+	XmNmessageString = privw_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Save');
+    };
+};
+
+object noBackupMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = backup_dialog_title_s;
+	XmNmessageString = backup_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+};
+
+object noTempMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = temp_dialog_title_s;
+	XmNmessageString = temp_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+};
+object writeErrorMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = write_dialog_title_s;
+	XmNmessageString = write_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Save');
+    };
+};
+
+object readOnlyMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = read_dialog_title_s;
+	XmNmessageString = read_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('Save');
+    };
+};
+
+object reopenMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = alopen_dialog_title_s;
+	XmNmessageString = alopen_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+object noAccessMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = priv_dialog_title_s;
+	XmNmessageString = privr_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+};
+
+object noFilenameMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = file_dialog_title_s;
+	XmNmessageString = file_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+object fileNotFoundMessage : XmInformationDialog {
+    arguments {
+	XmNdialogTitle = fnf_dialog_title_s;
+	XmNmessageString = fnf_message_s;
+	XmNdialogStyle = XmDIALOG_APPLICATION_MODAL;
+    };
+    callbacks {
+	XmNhelpCallback = procedure MenuHelpHelp('open_und');
+    };
+};
+
+! Help
+object HelpWidget : DXmHelp {
+    arguments {
+	DXmNapplicationName = help_app_s;
+	DXmNoverviewTopic = help_overview_s;
+    };
+};
+
+end module;

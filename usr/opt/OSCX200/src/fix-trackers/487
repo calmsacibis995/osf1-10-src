@@ -1,0 +1,1831 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9211141825.AA06801@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2724) close XBUG #5116,5408,5486-7,5558-61,5574-6,5581,5604,5608,5616,5618,5622-5: xinput bugs
+Date: Sat, 14 Nov 92 13:25:52 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+Subject: xinput: nit in XINPUT protocol spec
+### bug number:   5116
+### area:         xinput
+### severity:     low
+### comments:     documentation
+
+Subject: xinput: library prototypes documented incorrectly
+### bug number:   5408
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XGet/ChangeDeviceControl requests not dispatched
+### bug number:   5486
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: library calls XGetExtensionVersion for every request
+### bug number:   5487
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XGetDeviceMotionEvents bug
+### bug number:   5558
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: byteswapping code needs length checks
+### bug number:   5559
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: need error check on GrabDeviceKey request
+### bug number:   5560
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XSendExtensionEvent probpagate bug
+### bug number:   5561
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: client hangs on XSetDeviceMode or XSetDeviceValuators
+### bug number:   5574
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XSetModifierMapping returns MappingFailed instead of BadValue
+### bug number:   5575
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: BadMatch on XSetDeviceMode misidentifies protocol request
+### bug number:   5576
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: bug in XGetDeviceKeyMapping
+### bug number:   5581
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: bug in XGrabDeviceButton request - modes reversed
+### bug number:   5604
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: ProcessOtherEvent should set rootX, rootY
+### bug number:   5608
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: protocol spec errors and omissions
+### bug number:   5616
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XChangeKeyboard/PointerDevice break w/minimal input devices
+### bug number:   5618
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XChangeKeyboard bug re focus state
+### bug number:   5622
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XSetDeviceFocus break with extension key device
+### bug number:   5623
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: XSetDeviceFocus does not handle RevertToFollowKeyboard properly.
+### bug number:   5624
+### area:         xinput
+### severity:     low
+### comments:     
+
+Subject: xinput: bug in XGetDeviceDontPropagateList
+### bug number:   5625
+### area:         xinput
+### severity:     low
+### comments:     
+
+*** /tmp/d04902	Sat Nov 14 11:51:25 1992
+--- extensions/server/xinput/xchgkbd.c	Sat Nov 14 11:15:09 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgkbd.c,v 1.17 92/11/14 11:14:36 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 60,65 ****
+--- 60,66 ----
+  
+      REQUEST(xChangeKeyboardDeviceReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xChangeKeyboardDeviceReq);
+      return(ProcXChangeKeyboardDevice(client));
+      }
+  
+***************
+*** 73,83 ****
+--- 74,88 ----
+  ProcXChangeKeyboardDevice (client)
+      register ClientPtr client;
+      {
++     int				i;
+      DeviceIntPtr 		xkbd = inputInfo.keyboard;
+      DeviceIntPtr 		dev;
++     FocusClassPtr		xf = xkbd->focus;
++     FocusClassPtr		df;
+      KeyClassPtr 		k;
+      xChangeKeyboardDeviceReply	rep;
+      changeDeviceNotify		ev;
++     extern Bool Must_have_memory;
+  
+      REQUEST(xChangeKeyboardDeviceReq);
+      REQUEST_SIZE_MATCH(xChangeKeyboardDeviceReq);
+***************
+*** 123,129 ****
+  	    }
+  	if (!dev->focus)
+  	    InitFocusClassDeviceStruct (dev);
+! 	dev->focus->win = xkbd->focus->win;
+  	RegisterOtherDevice (xkbd);
+  	RegisterKeyboardDevice (dev);
+  
+--- 128,150 ----
+  	    }
+  	if (!dev->focus)
+  	    InitFocusClassDeviceStruct (dev);
+! 	if (!dev->kbdfeed)
+! 	   InitKbdFeedbackClassDeviceStruct(dev, NoopDDA, NoopDDA);
+! 	df = dev->focus;
+! 	df->win = xf->win;
+! 	df->revert = xf->revert;
+! 	df->time = xf->time;
+! 	df->traceGood = xf->traceGood;
+! 	if (df->traceSize != xf->traceSize)
+! 	    {
+! 	    Must_have_memory = TRUE; /* XXX */
+! 	    df->trace = (WindowPtr *) xrealloc(df->trace, 
+! 		xf->traceSize * sizeof(WindowPtr));
+! 	    Must_have_memory = FALSE; /* XXX */
+! 	    }
+! 	df->traceSize = xf->traceSize;
+! 	for (i=0; i<df->traceSize; i++)
+! 	    df->trace[i] = xf->trace[i];
+  	RegisterOtherDevice (xkbd);
+  	RegisterKeyboardDevice (dev);
+  
+*** /tmp/d04921	Sat Nov 14 11:51:35 1992
+--- extensions/server/xinput/xallowev.c	Sat Nov 14 10:46:50 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xallowev.c,v 1.6 89/12/02 15:20:24 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xallowev.c,v 1.7 92/11/14 10:46:28 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 56,63 ****
+      register char n;
+  
+      REQUEST(xAllowDeviceEventsReq);
+-     swapl(&stuff->time, n);
+      swaps(&stuff->length, n);
+      return(ProcXAllowDeviceEvents(client));
+      }
+  
+--- 56,64 ----
+      register char n;
+  
+      REQUEST(xAllowDeviceEventsReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xAllowDeviceEventsReq);
++     swapl(&stuff->time, n);
+      return(ProcXAllowDeviceEvents(client));
+      }
+  
+*** /tmp/d04940	Sat Nov 14 11:51:44 1992
+--- extensions/server/xinput/xchgfctl.c	Sat Nov 14 10:46:59 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgfctl.c,v 1.15 92/11/14 10:46:55 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 59,64 ****
+--- 59,65 ----
+  
+      REQUEST(xChangeFeedbackControlReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xChangeFeedbackControlReq);
+      swapl(&stuff->mask, n);
+      return(ProcXChangeFeedbackControl(client));
+      }
+*** /tmp/d04959	Sat Nov 14 11:51:55 1992
+--- extensions/server/xinput/xexevents.c	Sat Nov 14 11:48:44 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ /* $XConsortium: xexevents.c,v 1.37 92/11/14 11:48:31 rws Exp $ */
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+  Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 67,72 ****
+--- 68,74 ----
+  extern Mask		PropagateMask[];
+  extern WindowPtr 	GetSpriteWindow();
+  extern InputInfo	inputInfo;
++ extern int		RT_INPUTCLIENT;
+  
+  /**************************************************************************
+   *
+***************
+*** 103,114 ****
+      register CARD16 	mask;
+      GrabPtr         	grab = other->grab;
+      Bool            	deactivateDeviceGrab = FALSE;
+!     int             	key, bit;
+      ButtonClassPtr	b = other->button;
+      KeyClassPtr		k = other->key;
+      void		NoticeEventTime();
+      deviceValuator	*xV = (deviceValuator *) xE;
+  
+      key = xE->detail;
+      NoticeEventTime(xE);
+      xE->state = inputInfo.keyboard->key->state | 
+--- 105,119 ----
+      register CARD16 	mask;
+      GrabPtr         	grab = other->grab;
+      Bool            	deactivateDeviceGrab = FALSE;
+!     int             	key, bit, rootX, rootY;
+      ButtonClassPtr	b = other->button;
+      KeyClassPtr		k = other->key;
+      void		NoticeEventTime();
+      deviceValuator	*xV = (deviceValuator *) xE;
+  
++     GetSpritePosition(&rootX, &rootY);
++     xE->root_x = rootX;
++     xE->root_y = rootY;
+      key = xE->detail;
+      NoticeEventTime(xE);
+      xE->state = inputInfo.keyboard->key->state | 
+***************
+*** 326,332 ****
+  	    {
+  	    if (k->curKeySyms.maxKeyCode > 32)
+  		evcount++;
+! 	    if (b->numButtons != NULL)
+  		evcount++;
+  	    }
+  
+--- 331,337 ----
+  	    {
+  	    if (k->curKeySyms.maxKeyCode > 32)
+  		evcount++;
+! 	    if ((b != NULL) && (b->numButtons != NULL))
+  		evcount++;
+  	    }
+  
+***************
+*** 498,504 ****
+      }
+  
+      grab = CreateGrab(client->index, dev, pWin, eventMask,
+! 	(Bool)ownerEvents, (Bool) other_devices_mode, (Bool)this_device_mode,
+  	modifier_device, modifiers, DeviceButtonPress, button, confineTo, 
+  	cursor);
+      if (!grab)
+--- 503,509 ----
+      }
+  
+      grab = CreateGrab(client->index, dev, pWin, eventMask,
+! 	(Bool)ownerEvents, (Bool) this_device_mode, (Bool)other_devices_mode,
+  	modifier_device, modifiers, DeviceButtonPress, button, confineTo, 
+  	cursor);
+      if (!grab)
+***************
+*** 553,558 ****
+--- 558,568 ----
+  	client->errorValue = modifiers;
+  	return BadValue;
+      }
++     if ((ownerEvents != xTrue) && (ownerEvents != xFalse))
++     {
++ 	client->errorValue = ownerEvents;
++         return BadValue;
++     }
+      pWin = LookupWindow(grabWindow, client);
+      if (!pWin)
+  	return BadWindow;
+***************
+*** 620,626 ****
+  		    if (i == EMASKSIZE)
+  			{
+  			RecalculateDeviceDeliverableEvents(pWin);
+! 			if (ShouldFreeInputMasks(pWin), FALSE)
+  			    FreeResource(others->resource, RT_NONE);
+  		        return Success;
+  			}
+--- 630,636 ----
+  		    if (i == EMASKSIZE)
+  			{
+  			RecalculateDeviceDeliverableEvents(pWin);
+! 			if (ShouldFreeInputMasks(pWin, FALSE))
+  			    FreeResource(others->resource, RT_NONE);
+  		        return Success;
+  			}
+***************
+*** 650,656 ****
+      Mask mask;
+      int mskidx;
+      {
+-     extern int RT_INPUTCLIENT;
+      InputClientsPtr others;
+  
+      if (!pWin->optional && !MakeWindowOptional (pWin))
+--- 660,665 ----
+***************
+*** 748,754 ****
+  		}
+  	    else if (!(other->next))
+  		{
+! 	        if (ShouldFreeInputMasks(pWin), TRUE)
+  		    {
+  		    wOtherInputMasks(pWin)->inputClients = other->next;
+  		    xfree(wOtherInputMasks(pWin));
+--- 757,763 ----
+  		}
+  	    else if (!(other->next))
+  		{
+! 	        if (ShouldFreeInputMasks(pWin, TRUE))
+  		    {
+  		    wOtherInputMasks(pWin)->inputClients = other->next;
+  		    xfree(wOtherInputMasks(pWin));
+***************
+*** 842,847 ****
+--- 851,858 ----
+  		return Success;
+  	    if (wOtherInputMasks(pWin))
+  		mask &= ~wOtherInputMasks(pWin)->dontPropagateMask[d->id];
++ 	    if (!mask)
++ 		break;
+  	}
+      }
+      else
+***************
+*** 911,917 ****
+  	    && (inputMap[i] < (*k)->curKeySyms.minKeyCode
+  		|| inputMap[i] > (*k)->curKeySyms.maxKeyCode)) {
+  		client->errorValue = inputMap[i];
+! 		return BadValue;
+  		}
+      }
+  
+--- 922,928 ----
+  	    && (inputMap[i] < (*k)->curKeySyms.minKeyCode
+  		|| inputMap[i] > (*k)->curKeySyms.maxKeyCode)) {
+  		client->errorValue = inputMap[i];
+! 		return -1; /* BadValue collides with MappingFailed */
+  		}
+      }
+  
+***************
+*** 1101,1106 ****
+--- 1112,1129 ----
+  		dev->focus->win = PointerRootWin;
+  		dev->focus->traceGood = 0;
+  		break;
++ 	    case RevertToFollowKeyboard:
++ 		if (inputInfo.keyboard->focus->win) {
++ 		    DoFocusEvents(dev, pWin, inputInfo.keyboard->focus->win,
++ 				  focusEventMode);
++ 		    dev->focus->win = inputInfo.keyboard->focus->win;
++ 		    dev->focus->traceGood = 0;
++ 		} else {
++ 		    DoFocusEvents(dev, pWin, NoneWin, focusEventMode);
++ 		    dev->focus->win = NoneWin;
++ 		    dev->focus->traceGood = 0;
++ 		}
++ 		break;
+  	    }
+  	}
+  
+***************
+*** 1236,1242 ****
+  	inputMasks->dontPropagateMask[maskndx] = mask;
+  	}
+      RecalculateDeviceDeliverableEvents(pWin);
+!     if (ShouldFreeInputMasks(pWin), FALSE)
+          FreeResource(inputMasks->inputClients->resource, RT_NONE);
+      return Success;
+      }
+--- 1259,1265 ----
+  	inputMasks->dontPropagateMask[maskndx] = mask;
+  	}
+      RecalculateDeviceDeliverableEvents(pWin);
+!     if (ShouldFreeInputMasks(pWin, FALSE))
+          FreeResource(inputMasks->inputClients->resource, RT_NONE);
+      return Success;
+      }
+*** /tmp/d04978	Sat Nov 14 11:52:06 1992
+--- extensions/server/xinput/xchgkmap.c	Sat Nov 14 10:47:05 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xchgkmap.c,v 1.5 89/12/02 15:20:34 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgkmap.c,v 1.6 92/11/14 10:47:02 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 60,65 ****
+--- 60,66 ----
+  
+      REQUEST(xChangeDeviceKeyMappingReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xChangeDeviceKeyMappingReq);
+      p = (long *) &stuff[1];
+      count = stuff->keyCodes * stuff->keySymsPerKeyCode;
+      for (i = 0; i < count; i++)
+*** /tmp/d04997	Sat Nov 14 11:52:15 1992
+--- extensions/server/xinput/xchgprop.c	Sat Nov 14 10:47:08 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgprop.c,v 1.11 92/11/14 10:47:05 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 60,65 ****
+--- 60,66 ----
+  
+      REQUEST(xChangeDeviceDontPropagateListReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xChangeDeviceDontPropagateListReq);
+      swapl(&stuff->window, n);
+      swaps(&stuff->count, n);
+      p = (long *) &stuff[1];
+*** /tmp/d05016	Sat Nov 14 11:52:24 1992
+--- extensions/server/xinput/xclosedev.c	Sat Nov 14 10:47:14 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xclosedev.c,v 1.11 92/11/14 10:47:11 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 61,66 ****
+--- 61,67 ----
+  
+      REQUEST(xCloseDeviceReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xCloseDeviceReq);
+      return(ProcXCloseDevice(client));
+      }
+  
+*** /tmp/d05071	Sat Nov 14 11:52:51 1992
+--- extensions/server/xinput/xgetfctl.c	Tue Oct 20 17:11:45 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgetfctl.c,v 1.14 92/10/20 17:11:42 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+*** /tmp/d05108	Sat Nov 14 11:53:09 1992
+--- extensions/server/xinput/xgetkmap.c	Sat Nov 14 11:02:14 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xgetkmap.c,v 1.4 89/12/02 15:21:00 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgetkmap.c,v 1.5 92/11/14 11:02:00 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 122,128 ****
+      WriteSwappedDataToClient(
+  	client,
+  	k->mapWidth * stuff->count * sizeof(KeySym),
+! 	&k->map[stuff->firstKeyCode - k->minKeyCode]);
+  
+      return Success;
+      }
+--- 122,129 ----
+      WriteSwappedDataToClient(
+  	client,
+  	k->mapWidth * stuff->count * sizeof(KeySym),
+! 	&k->map[(stuff->firstKeyCode - k->minKeyCode) *
+! 	k->mapWidth]);
+  
+      return Success;
+      }
+*** /tmp/d05145	Sat Nov 14 11:53:27 1992
+--- extensions/server/xinput/xgetprop.c	Sat Nov 14 10:47:20 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgetprop.c,v 1.9 92/11/14 10:47:17 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 58,63 ****
+--- 58,64 ----
+  
+      REQUEST(xGetDeviceDontPropagateListReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xGetDeviceDontPropagateListReq);
+      swapl(&stuff->window, n);
+      return(ProcXGetDeviceDontPropagateList(client));
+      }
+*** /tmp/d05164	Sat Nov 14 11:53:36 1992
+--- extensions/server/xinput/xgetselev.c	Sat Nov 14 10:47:23 1992
+***************
+*** 22,28 ****
+  
+  ********************************************************/
+  
+! /* $XConsortium: xgetselev.c,v 1.9 90/05/18 15:35:21 rws Exp $ */
+  
+  /***********************************************************************
+   *
+--- 22,28 ----
+  
+  ********************************************************/
+  
+! /* $XConsortium: xgetselev.c,v 1.10 92/11/14 10:47:20 rws Exp $ */
+  
+  /***********************************************************************
+   *
+***************
+*** 57,62 ****
+--- 57,63 ----
+  
+      REQUEST(xGetSelectedExtensionEventsReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xGetSelectedExtensionEventsReq);
+      swapl(&stuff->window, n);
+      return(ProcXGetSelectedExtensionEvents(client));
+      }
+*** /tmp/d05183	Sat Nov 14 11:53:45 1992
+--- extensions/server/xinput/xgetvers.c	Sat Nov 14 10:47:26 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xgetvers.c,v 1.5 90/05/18 15:35:29 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgetvers.c,v 1.6 92/11/14 10:47:23 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 57,62 ****
+--- 57,63 ----
+  
+      REQUEST(xGetExtensionVersionReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xGetExtensionVersionReq);
+      swaps(&stuff->nbytes, n);
+      return(ProcXGetExtensionVersion(client));
+      }
+***************
+*** 75,80 ****
+--- 76,88 ----
+      REQUEST(xGetExtensionVersionReq);
+      REQUEST_AT_LEAST_SIZE(xGetExtensionVersionReq);
+  
++     if (stuff->length != (sizeof(xGetExtensionVersionReq) + 
++ 	stuff->nbytes + 3)>>2)
++ 	{
++ 	SendErrorToClient(client, IReqCode, X_GetExtensionVersion, 0, 
++ 		BadLength);
++ 	return Success;
++ 	}
+  
+      rep.repType = X_Reply;
+      rep.RepType = X_GetExtensionVersion;
+*** /tmp/d05202	Sat Nov 14 11:53:54 1992
+--- extensions/server/xinput/xsetfocus.c	Sat Nov 14 10:47:47 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xsetfocus.c,v 1.5 90/05/18 14:15:11 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xsetfocus.c,v 1.6 92/11/14 10:47:45 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 59,64 ****
+--- 59,65 ----
+  
+      REQUEST(xSetDeviceFocusReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xSetDeviceFocusReq);
+      swapl(&stuff->focus, n);
+      swapl(&stuff->time, n);
+      return(ProcXSetDeviceFocus(client));
+*** /tmp/d05221	Sat Nov 14 11:54:04 1992
+--- extensions/server/xinput/xgrabdevb.c	Sat Nov 14 10:47:32 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgrabdevb.c,v 1.11 92/11/14 10:47:30 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 60,65 ****
+--- 60,66 ----
+  
+      REQUEST(xGrabDeviceButtonReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xGrabDeviceButtonReq);
+      swapl(&stuff->grabWindow, n);
+      swaps(&stuff->modifiers, n);
+      swaps(&stuff->event_count, n);
+*** /tmp/d05240	Sat Nov 14 11:54:13 1992
+--- extensions/server/xinput/xgrabdevk.c	Sat Nov 14 10:47:35 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgrabdevk.c,v 1.10 92/11/14 10:47:33 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 62,67 ****
+--- 62,68 ----
+  
+      REQUEST(xGrabDeviceKeyReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xGrabDeviceKeyReq);
+      swapl(&stuff->grabWindow, n);
+      swaps(&stuff->modifiers, n);
+      swaps(&stuff->event_count, n);
+*** /tmp/d05259	Sat Nov 14 11:54:23 1992
+--- extensions/server/xinput/xlistdev.c	Tue Oct 20 17:12:02 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xlistdev.c,v 1.15 92/10/20 17:11:59 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 50,55 ****
+--- 50,57 ----
+  void		SizeDeviceInfo ();
+  void		ListDeviceInfo ();
+  void		AddOtherInputDevices ();
++ void		CopyDeviceName ();
++ void		CopySwapDevice ();
+  
+  /***********************************************************************
+   *
+***************
+*** 88,95 ****
+      char		*savbuf;
+      xDeviceInfo 	*dev;
+      DeviceIntPtr 	d;
+-     void CopyDeviceName ();
+-     void CopySwapDevice ();
+  
+      REQUEST(xListInputDevicesReq);
+      REQUEST_SIZE_MATCH(xListInputDevicesReq);
+--- 90,95 ----
+*** /tmp/d05278	Sat Nov 14 11:54:32 1992
+--- extensions/server/xinput/xextinit.c	Sat Nov 14 10:32:32 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xextinit.c,v 1.13 91/02/22 15:31:41 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xextinit.c,v 1.14 92/11/14 10:32:01 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 140,147 ****
+  void	NotImplemented();
+  static	XExtensionVersion	thisversion = 
+  					{XI_Present, 
+! 					 XI_Add_XSetDeviceValuators_Major, 
+! 					 XI_Add_XSetDeviceValuators_Minor};
+  
+  /**********************************************************************
+   *
+--- 140,147 ----
+  void	NotImplemented();
+  static	XExtensionVersion	thisversion = 
+  					{XI_Present, 
+! 					 XI_Add_XChangeDeviceControl_Major, 
+! 					 XI_Add_XChangeDeviceControl_Minor};
+  
+  /**********************************************************************
+   *
+***************
+*** 272,277 ****
+--- 272,281 ----
+          return(ProcXDeviceBell(client));
+      else if (stuff->data == X_SetDeviceValuators)
+          return(ProcXSetDeviceValuators(client));
++     else if (stuff->data == X_GetDeviceControl)
++         return(ProcXGetDeviceControl(client));
++     else if (stuff->data == X_ChangeDeviceControl)
++         return(ProcXChangeDeviceControl(client));
+      else
+          {
+  	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
+***************
+*** 359,364 ****
+--- 363,372 ----
+          return(SProcXDeviceBell(client));
+      else if (stuff->data == X_SetDeviceValuators)
+          return(SProcXSetDeviceValuators(client));
++     else if (stuff->data == X_GetDeviceControl)
++         return(SProcXGetDeviceControl(client));
++     else if (stuff->data == X_ChangeDeviceControl)
++         return(SProcXChangeDeviceControl(client));
+      else
+          {
+  	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
+***************
+*** 417,422 ****
+--- 425,434 ----
+  	SRepXQueryDeviceState (client, len, rep);
+      else if (rep->RepType == X_SetDeviceValuators)
+  	SRepXSetDeviceValuators (client, len, rep);
++     else if (rep->RepType == X_GetDeviceControl)
++ 	SRepXGetDeviceControl (client, len, rep);
++     else if (rep->RepType == X_ChangeDeviceControl)
++ 	SRepXChangeDeviceControl (client, len, rep);
+      else
+  	{
+  	SendErrorToClient(client, IReqCode, rep, 0, BadRequest);
+*** /tmp/d05297	Sat Nov 14 11:54:42 1992
+--- extensions/server/xinput/xqueryst.c	Tue Oct 20 17:12:05 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /***********************************************************************
+   *
+--- 1,4 ----
+! /* $XConsortium: xqueryst.c,v 1.8 92/10/20 17:12:02 rws Exp $ */
+  
+  /***********************************************************************
+   *
+*** /tmp/d05316	Sat Nov 14 11:54:52 1992
+--- extensions/server/xinput/xselectev.c	Sat Nov 14 10:47:41 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xselectev.c,v 1.9 90/05/18 15:35:37 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xselectev.c,v 1.10 92/11/14 10:47:39 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 62,67 ****
+--- 62,68 ----
+  
+      REQUEST(xSelectExtensionEventReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xSelectExtensionEventReq);
+      swapl(&stuff->window, n);
+      swaps(&stuff->count, n);
+      p = (long *) &stuff[1];
+*** /tmp/d05335	Sat Nov 14 11:55:01 1992
+--- extensions/server/xinput/xsendexev.c	Sat Nov 14 10:47:44 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xsendexev.c,v 1.7 90/05/18 11:32:30 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xsendexev.c,v 1.8 92/11/14 10:47:42 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 65,70 ****
+--- 65,71 ----
+  
+      REQUEST(xSendExtensionEventReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xSendExtensionEventReq);
+      swapl(&stuff->destination, n);
+      swaps(&stuff->count, n);
+      eventP = (xEvent *) &stuff[1];
+*** /tmp/d05372	Sat Nov 14 11:55:20 1992
+--- extensions/server/xinput/xsetmmap.c	Sat Nov 14 11:00:22 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xsetmmap.c,v 1.6 89/12/02 15:21:38 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xsetmmap.c,v 1.7 92/11/14 11:00:17 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 96,116 ****
+  	(sizeof (xSetDeviceModifierMappingReq)>>2), stuff->numKeyPerModifier, 
+  	&stuff[1], &kp);
+  
+!     if (ret == MappingSuccess || ret == MappingBusy || ret == MappingFailed)
+! 	{
+  	rep.success = ret;
+          WriteReplyToClient(client, sizeof(xSetDeviceModifierMappingReply),&rep);
+! 	}
+      else
+  	{
+  	SendErrorToClient (client, IReqCode, X_SetDeviceModifierMapping, 0,ret);
+- 	return Success;
+  	}
+  
+-     if (ret == MappingSuccess)
+-         {
+-         SendDeviceMappingNotify(MappingModifier, 0, 0, dev);
+-         }
+  
+      return Success;
+      }
+--- 96,115 ----
+  	(sizeof (xSetDeviceModifierMappingReq)>>2), stuff->numKeyPerModifier, 
+  	&stuff[1], &kp);
+  
+!     if (ret==MappingSuccess || ret==MappingBusy || ret==MappingFailed)
+!         {
+  	rep.success = ret;
++ 	if (ret == MappingSuccess)
++             SendDeviceMappingNotify(MappingModifier, 0, 0, dev);
+          WriteReplyToClient(client, sizeof(xSetDeviceModifierMappingReply),&rep);
+!         }
+      else
+  	{
++ 	if (ret==-1)
++ 	    ret=BadValue;
+  	SendErrorToClient (client, IReqCode, X_SetDeviceModifierMapping, 0,ret);
+  	}
+  
+  
+      return Success;
+      }
+*** /tmp/d05391	Sat Nov 14 11:55:30 1992
+--- extensions/server/xinput/xsetmode.c	Sat Nov 14 11:01:19 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xsetmode.c,v 1.8 91/02/22 15:33:34 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xsetmode.c,v 1.10 92/11/14 11:01:09 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 89,113 ****
+  	}
+      if (dev->valuator == NULL)
+  	{
+! 	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, 
+! 		BadMatch);
+  	return Success;
+  	}
+      if ((dev->grab) && !SameClient(dev->grab, client))
+  	rep.status = AlreadyGrabbed;
+      else
+- 	{
+  	rep.status = SetDeviceMode (client, dev, stuff->mode);
+! 	if (rep.status != Success)
+! 	    SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, rep.status);
+! 	else
+! 	    {
+!   	    dev->valuator->mode = stuff->mode;
+! 	    WriteReplyToClient (client, sizeof (xSetDeviceModeReply), &rep);
+! 	    }
+  	}
+  
+! 
+      return Success;
+      }
+  
+--- 89,111 ----
+  	}
+      if (dev->valuator == NULL)
+  	{
+! 	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, BadMatch);
+  	return Success;
+  	}
+      if ((dev->grab) && !SameClient(dev->grab, client))
+  	rep.status = AlreadyGrabbed;
+      else
+  	rep.status = SetDeviceMode (client, dev, stuff->mode);
+! 
+!     if (rep.status == Success) 
+!   	dev->valuator->mode = stuff->mode;
+!     else if (rep.status != AlreadyGrabbed)
+! 	{
+! 	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, rep.status);
+!         return Success;
+  	}
+  
+!     WriteReplyToClient (client, sizeof (xSetDeviceModeReply), &rep);
+      return Success;
+      }
+  
+*** /tmp/d05428	Sat Nov 14 11:55:48 1992
+--- extensions/server/xinput/xungrdev.c	Sat Nov 14 10:47:50 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xungrdev.c,v 1.6 89/12/02 15:21:45 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xungrdev.c,v 1.7 92/11/14 10:47:47 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 57,62 ****
+--- 57,63 ----
+  
+      REQUEST(xUngrabDeviceReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xUngrabDeviceReq);
+      swapl(&stuff->time, n);
+      return(ProcXUngrabDevice(client));
+      }
+*** /tmp/d05447	Sat Nov 14 11:55:57 1992
+--- extensions/server/xinput/xungrdevb.c	Sat Nov 14 10:47:53 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xungrdevb.c,v 1.9 92/11/14 10:47:50 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 39,44 ****
+--- 39,47 ----
+  #include "XI.h"
+  #include "XIproto.h"
+  
++ #define AllModifiersMask ( \
++ 	ShiftMask | LockMask | ControlMask | Mod1Mask | Mod2Mask | \
++ 	Mod3Mask | Mod4Mask | Mod5Mask )
+  extern	int 	IReqCode;
+  extern	int	BadDevice;
+  extern	int	DeviceButtonPress;
+***************
+*** 59,64 ****
+--- 62,68 ----
+  
+      REQUEST(xUngrabDeviceButtonReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xUngrabDeviceButtonReq);
+      swapl(&stuff->grabWindow, n);
+      swaps(&stuff->modifiers, n);
+      return(ProcXUngrabDeviceButton(client));
+***************
+*** 120,125 ****
+--- 124,137 ----
+  	{
+  	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
+  	    BadWindow);
++ 	return Success;
++ 	}
++ 
++     if ((stuff->modifiers != AnyModifier) &&
++ 	(stuff->modifiers & ~AllModifiersMask))
++ 	{
++ 	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, 
++ 	    BadValue);
+  	return Success;
+  	}
+  
+*** /tmp/d05466	Sat Nov 14 11:56:07 1992
+--- extensions/server/xinput/xungrdevk.c	Sat Nov 14 10:47:56 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xungrdevk.c,v 1.9 92/11/14 10:47:53 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 39,44 ****
+--- 39,47 ----
+  #include "XI.h"
+  #include "XIproto.h"
+  
++ #define AllModifiersMask ( \
++ 	ShiftMask | LockMask | ControlMask | Mod1Mask | Mod2Mask | \
++ 	Mod3Mask | Mod4Mask | Mod5Mask )
+  extern	int 	IReqCode;
+  extern	int	BadDevice;
+  extern	void	(* ReplySwapVector[256]) ();
+***************
+*** 59,64 ****
+--- 62,68 ----
+  
+      REQUEST(xUngrabDeviceKeyReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xUngrabDeviceKeyReq);
+      swapl(&stuff->grabWindow, n);
+      swaps(&stuff->modifiers, n);
+      return(ProcXUngrabDeviceKey(client));
+***************
+*** 119,124 ****
+--- 123,143 ----
+  	{
+  	SendErrorToClient(client, IReqCode, X_UngrabDeviceKey, 0, 
+  	    BadWindow);
++ 	return Success;
++ 	}
++     if (((stuff->key > dev->key->curKeySyms.maxKeyCode) ||
++ 	 (stuff->key < dev->key->curKeySyms.minKeyCode))
++ 	&& (stuff->key != AnyKey))
++ 	{
++ 	SendErrorToClient(client, IReqCode, X_UngrabDeviceKey, 0, 
++ 	    BadValue);
++ 	return Success;
++ 	}
++     if ((stuff->modifiers != AnyModifier) &&
++ 	(stuff->modifiers & ~AllModifiersMask))
++ 	{
++ 	SendErrorToClient(client, IReqCode, X_UngrabDeviceKey, 0, 
++ 	    BadValue);
+  	return Success;
+  	}
+  
+*** /tmp/d05503	Sat Nov 14 11:56:25 1992
+--- extensions/server/xinput/xchgptr.c	Sat Nov 14 11:13:31 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgptr.c,v 1.17 92/11/14 11:13:28 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 65,70 ****
+--- 65,71 ----
+  
+      REQUEST(xChangePointerDeviceReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xChangePointerDeviceReq);
+      return(ProcXChangePointerDevice(client));
+      }
+  
+***************
+*** 129,134 ****
+--- 130,139 ----
+  	    }
+  	if (dev->focus)
+  	    DeleteFocusClassDeviceStruct(dev);
++ 	if (!dev->button)
++ 	    InitButtonClassDeviceStruct (dev, 0, NULL);
++ 	if (!dev->ptrfeed)
++ 	   InitPtrFeedbackClassDeviceStruct(dev, NoopDDA);
+  	RegisterOtherDevice (xptr);
+  	RegisterPointerDevice (dev);
+  
+*** /tmp/d05522	Sat Nov 14 11:56:35 1992
+--- extensions/server/xinput/xgtmotion.c	Sat Nov 14 10:47:38 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgtmotion.c,v 1.12 92/11/14 10:47:36 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 57,62 ****
+--- 57,63 ----
+  
+      REQUEST(xGetDeviceMotionEventsReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xGetDeviceMotionEventsReq);
+      swapl(&stuff->start, n);
+      swapl(&stuff->stop, n);
+      return(ProcXGetDeviceMotionEvents(client));
+*** /tmp/d05541	Sat Nov 14 11:56:44 1992
+--- extensions/server/xinput/xgrabdev.c	Sat Nov 14 10:47:29 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xgrabdev.c,v 1.10 90/05/18 15:32:29 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgrabdev.c,v 1.11 92/11/14 10:47:26 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 43,49 ****
+  extern	int 		IReqCode;
+  extern	int		BadDevice;
+  extern	int		BadClass;
+- extern	InputInfo	inputInfo;
+  extern	XExtEventInfo	EventInfo[];
+  extern	void		(* ReplySwapVector[256]) ();
+  DeviceIntPtr		LookupDeviceIntRec();
+--- 43,48 ----
+***************
+*** 64,69 ****
+--- 63,69 ----
+  
+      REQUEST(xGrabDeviceReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xGrabDeviceReq);
+      swapl(&stuff->grabWindow, n);
+      swapl(&stuff->time, n);
+      swaps(&stuff->event_count, n);
+*** /tmp/d05560	Sat Nov 14 11:56:53 1992
+--- extensions/server/xinput/xdevbell.c	Tue Oct 20 17:11:42 1992
+***************
+*** 1,5 ****
+! #ifdef XINPUT
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xdevbell.c,v 1.3 92/10/20 17:11:39 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 144,148 ****
+  
+      return Success;
+      }
+- 
+- #endif /* XINPUT */
+--- 143,145 ----
+*** /tmp/d05579	Sat Nov 14 11:57:03 1992
+--- extensions/server/xinput/xsetdval.c	Sat Nov 14 10:53:54 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xsetdval.c,v 1.1 91/02/22 15:34:21 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xsetdval.c,v 1.2 92/11/14 10:53:09 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 113,127 ****
+      if ((dev->grab) && !SameClient(dev->grab, client))
+  	rep.status = AlreadyGrabbed;
+      else
+- 	{
+  	rep.status = SetDeviceValuators (client, dev, (int *) &stuff[1],
+  	    stuff->first_valuator, stuff->num_valuators);
+! 	if (rep.status != Success)
+! 	    SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, 
+! 		rep.status);
+! 	else
+! 	    WriteReplyToClient (client, sizeof (xSetDeviceValuatorsReply), &rep);
+! 	}
+  
+      return Success;
+      }
+--- 113,126 ----
+      if ((dev->grab) && !SameClient(dev->grab, client))
+  	rep.status = AlreadyGrabbed;
+      else
+  	rep.status = SetDeviceValuators (client, dev, (int *) &stuff[1],
+  	    stuff->first_valuator, stuff->num_valuators);
+! 
+!     if (rep.status != Success && rep.status != AlreadyGrabbed)
+! 	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, 
+! 	    rep.status);
+!     else
+! 	WriteReplyToClient (client, sizeof (xSetDeviceValuatorsReply), &rep);
+  
+      return Success;
+      }
+*** /tmp/d05598	Sat Nov 14 11:57:12 1992
+--- extensions/server/xinput/xgetdctl.c	Sat Nov 14 10:47:17 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xgetdctl.c,v 1.1 91/07/24 15:50:52 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xgetdctl.c,v 1.2 92/11/14 10:47:14 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 59,64 ****
+--- 59,65 ----
+  
+      REQUEST(xGetDeviceControlReq);
+      swaps(&stuff->length, n);
++     REQUEST_SIZE_MATCH(xGetDeviceControlReq);
+      swaps(&stuff->control, n);
+      return(ProcXGetDeviceControl(client));
+      }
+*** /tmp/d05617	Sat Nov 14 11:57:22 1992
+--- extensions/server/xinput/xchgdctl.c	Sat Nov 14 10:46:55 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: xchgdctl.c,v 1.1 91/07/24 15:51:26 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: xchgdctl.c,v 1.2 92/11/14 10:46:50 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 58,63 ****
+--- 58,64 ----
+  
+      REQUEST(xChangeDeviceControlReq);
+      swaps(&stuff->length, n);
++     REQUEST_AT_LEAST_SIZE(xChangeDeviceControlReq);
+      swaps(&stuff->control, n);
+      return(ProcXChangeDeviceControl(client));
+      }
+***************
+*** 98,103 ****
+--- 99,113 ----
+      switch (stuff->control) 
+  	{
+  	case DEVICE_RESOLUTION:
++     	    r = (xDeviceResolutionCtl *) &stuff[1];
++ 	    if ((len < (sizeof(xDeviceResolutionCtl)>>2)) ||
++ 	        (len != (sizeof(xDeviceResolutionCtl)>>2) +
++ 		 r->num_valuators))
++ 		{
++ 		SendErrorToClient (client, IReqCode, X_ChangeDeviceControl, 
++ 			0, BadLength);
++ 		return Success;
++ 		}
+  	    if (!dev->valuator)
+  		{
+  		SendErrorToClient (client, IReqCode, X_ChangeDeviceControl, 0, 
+***************
+*** 111,117 ****
+  		    &rep);
+  		return Success;
+  		}
+-     	    r = (xDeviceResolutionCtl *) &stuff[1];
+  	    resolution = (CARD32 *) (r + 1);
+  	    if (r->first_valuator + r->num_valuators > dev->valuator->numAxes)
+  		{
+--- 121,126 ----
+*** /tmp/d06409	Sat Nov 14 12:58:05 1992
+--- extensions/lib/xinput/XGMotion.c	Sat Nov 14 12:50:40 1992
+***************
+*** 1,4 ****
+! /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: XGMotion.c,v 1.12 92/11/14 12:50:36 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 75,80 ****
+--- 75,86 ----
+      *mode = rep.mode;
+      *axis_count = rep.axes;
+      *nEvents = rep.nEvents;
++     if (!rep.nEvents)
++ 	{
++ 	UnlockDisplay(dpy);
++         SyncHandle();
++ 	return (NULL);
++ 	}
+      size = rep.length << 2;
+      size2 = rep.nEvents * 
+  	(sizeof (XDeviceTimeCoord) + (rep.axes * sizeof (int)));
+*** /tmp/d06429	Sat Nov 14 12:58:15 1992
+--- extensions/lib/xinput/XOpenDev.c	Sun Jan 26 15:35:06 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XOpenDev.c,v 1.6 91/07/23 12:28:39 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: XOpenDev.c,v 1.7 92/01/26 15:33:02 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 32,39 ****
+  
+  #include "XI.h"
+  #include "XIproto.h"
+- #include "XInput.h"
+  #include "Xlibint.h"
+  #include "extutil.h"
+  
+  XDevice
+--- 32,39 ----
+  
+  #include "XI.h"
+  #include "XIproto.h"
+  #include "Xlibint.h"
++ #include "XInput.h"
+  #include "extutil.h"
+  
+  XDevice
+*** /tmp/d06448	Sat Nov 14 12:58:24 1992
+--- extensions/lib/xinput/XExtInt.c	Sat Nov 14 10:36:51 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: XExtInt.c,v 1.26 92/03/02 13:13:02 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+--- 1,4 ----
+! /* $XConsortium: XExtInt.c,v 1.27 92/11/14 10:36:21 rws Exp $ */
+  
+  /************************************************************
+  Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+***************
+*** 50,55 ****
+--- 50,61 ----
+  Status	XInputEventToWire();
+  static	/* const */ XEvent	emptyevent;
+  
++ typedef struct _XInputData
++     {
++     XEvent	data;
++     XExtensionVersion 	*vers;
++     } XInputData;
++ 
+  #define XInputCheckExtension(dpy,i,val) \
+    XextCheckExtension (dpy, i, xinput_extension_name, val)
+  
+***************
+*** 157,179 ****
+  
+      if (info->data == NULL)
+  	{
+! 	info->data = (caddr_t) Xmalloc (sizeof (XEvent));
+  	if (!info->data)
+  	    return (-1);
+  	}
+  
+      if (versions[version_index].major_version > Dont_Check)
+  	{
+! 	ext = XGetExtensionVersion (dpy, "XInputExtension");
+  	if ((ext->major_version < versions[version_index].major_version) ||
+  	    ((ext->major_version == versions[version_index].major_version) &&
+  	     (ext->minor_version < versions[version_index].minor_version)))
+  	    {
+- 	    XFree ((char *)ext);
+      	    UnlockDisplay(dpy);
+  	    return (-1);
+  	    }
+- 	XFree ((char *)ext);
+  	}
+      return (0);
+      }
+--- 163,185 ----
+  
+      if (info->data == NULL)
+  	{
+! 	info->data = (caddr_t) Xmalloc (sizeof (XInputData));
+  	if (!info->data)
+  	    return (-1);
++ 	((XInputData *) info->data)->vers =
++ 	    XGetExtensionVersion (dpy, "XInputExtension");
+  	}
+  
+      if (versions[version_index].major_version > Dont_Check)
+  	{
+! 	ext = ((XInputData *) info->data)->vers;
+  	if ((ext->major_version < versions[version_index].major_version) ||
+  	    ((ext->major_version == versions[version_index].major_version) &&
+  	     (ext->minor_version < versions[version_index].minor_version)))
+  	    {
+      	    UnlockDisplay(dpy);
+  	    return (-1);
+  	    }
+  	}
+      return (0);
+      }
+***************
+*** 191,196 ****
+--- 197,203 ----
+      {
+      XExtDisplayInfo 	*info = XInput_find_display (dpy);
+  
++     XFree((char *)((XInputData *) info->data)->vers);
+      XFree((char *)info->data);
+      return XextRemoveDisplay (xinput_info, dpy);
+      }
+*** /tmp/d06500	Sat Nov 14 12:59:54 1992
+--- doc/extensions/xinput/encoding.ms	Sat Nov 14 12:59:25 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: encoding.ms,v 1.7 92/11/14 12:59:20 rws Exp $
+  \&
+  .sp 1
+  .XS
+***************
+*** 1665,1671 ****
+  .TA .2i .5i 1.5i 2.5i
+  .ta .2i .5i 1.5i 2.5i
+  DEVICERESOLUTIONCTL
+!  	2	0		control type
+   	2	8 + 4n		length
+   	1	CARD8		first_valuator
+   	1	n    		num_valuators
+--- 1666,1672 ----
+  .TA .2i .5i 1.5i 2.5i
+  .ta .2i .5i 1.5i 2.5i
+  DEVICERESOLUTIONCTL
+!  	2	1		control type
+   	2	8 + 4n		length
+   	1	CARD8		first_valuator
+   	1	n    		num_valuators
+*** /tmp/d06540	Sat Nov 14 13:00:38 1992
+--- doc/extensions/xinput/protocol.ms	Sat Nov 14 11:42:09 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: protocol.ms,v 1.10 92/11/14 11:40:37 rws Exp $
+  .\" Input Extension
+  .EH ''''
+  .OH ''''
+***************
+*** 1096,1102 ****
+  T}
+  .TE
+  .sp
+! Errors: Device, Match, Window
+  .br
+  .in -.5i
+  .sp 1.5
+--- 1097,1103 ----
+  T}
+  .TE
+  .sp
+! Errors: Device, Match
+  .br
+  .in -.5i
+  .sp 1.5
+***************
+*** 1173,1179 ****
+  .LP
+  The focus state of the new keyboard is the same as the focus state of the old 
+  X keyboard.  If the new keyboard was not initialized with a \fBFocusRec\fP,
+! one is added by the \fBChangeKeyboardDevice\fP request.
+  .sp 1.5
+  ChangeKeyboardDevice 
+  .in .5i
+--- 1174,1184 ----
+  .LP
+  The focus state of the new keyboard is the same as the focus state of the old 
+  X keyboard.  If the new keyboard was not initialized with a \fBFocusRec\fP,
+! one is added by the \fBChangeKeyboardDevice\fP request.  The X keyboard is 
+! assumed to have a \fBKbdFeedbackClassRec\fP.  If the device was initialized
+! without a \fBKbdFeedbackClassRec\fP, one will be added by this request.
+! The \fBKbdFeedbackClassRec\fP will specify a null routine as the control 
+! procedure and the bell procedure.
+  .sp 1.5
+  ChangeKeyboardDevice 
+  .in .5i
+***************
+*** 1183,1188 ****
+--- 1188,1198 ----
+  Errors: Device, Match
+  .br
+  .in -.5i
++ =>
++ .br
++ .in +.5i
++ status: Success, AlreadyGrabbed, Frozen
++ .br
+  .sp 1.5
+  .LP
+  To change the X pointer device, use the \fBChangePointerDevice\fP request.
+***************
+*** 1193,1199 ****
+  .LP
+  The X pointer device does not contain a \fBFocusRec\fP.  If the new
+  pointer was initialized with a \fBFocusRec\fP, it is freed by the 
+! \fBChangePointerDevice\fP request.
+  .LP
+  If the specified device reports absolute positional information, and the 
+  server implementation does not allow such a device to be used as the 
+--- 1203,1214 ----
+  .LP
+  The X pointer device does not contain a \fBFocusRec\fP.  If the new
+  pointer was initialized with a \fBFocusRec\fP, it is freed by the 
+! \fBChangePointerDevice\fP request.  The X pointer is assumed to have a
+! \fBButtonClassRec\fP and a \fBPtrFeedbackClassRec\fP.  If the device
+! was initialized without a \fBButtonClassRec\fP or a \fBPtrFeedbackClassRec\fP,
+! one will be added by this request.  The \fBButtonClassRec\fP added will
+! have no buttons, and the \fBPtrFeedbackClassRec\fP will specify a null
+! routine as the control procedure.
+  .LP
+  If the specified device reports absolute positional information, and the 
+  server implementation does not allow such a device to be used as the 
+***************
+*** 1217,1222 ****
+--- 1232,1242 ----
+  Errors: Device, Match
+  .br
+  .in -.5i
++ =>
++ .br
++ .in +.5i
++ status: Success, AlreadyGrabbed, Frozen
++ .br
+  .sp 1.5
+  .NH 2
+  Event Synchronization And Core Grabs
+***************
+*** 2074,2080 ****
+  This function will fail with a \fBBadMatch\fP error if the device specified 
+  in the request does not support feedbacks.
+  .LP
+! Errors:  Device, Match, Feedback
+  .LP
+  To change the settings of a feedback on an extension device, use
+  \fBChangeFeedbackControl\fP.
+--- 2094,2100 ----
+  This function will fail with a \fBBadMatch\fP error if the device specified 
+  in the request does not support feedbacks.
+  .LP
+! Errors:  Device, Match
+  .LP
+  To change the settings of a feedback on an extension device, use
+  \fBChangeFeedbackControl\fP.
+*** /tmp/d06631	Sat Nov 14 13:12:35 1992
+--- doc/extensions/xinput/library.ms	Sat Nov 14 13:12:07 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: library.ms,v 1.8 92/11/14 13:11:36 rws Exp $
+  .\" Input Extension
+  .EH ''''
+  .OH ''''
+***************
+*** 1717,1723 ****
+  To ring a bell on a extension input device, use \fBXDeviceBell\fP.
+  .DS
+  \f(C
+! void
+  XDeviceBell (display, device, feedbackclass, feedbackid, percent)
+          Display *display;
+          XDevice *device;
+--- 1718,1724 ----
+  To ring a bell on a extension input device, use \fBXDeviceBell\fP.
+  .DS
+  \f(C
+! int
+  XDeviceBell (display, device, feedbackclass, feedbackid, percent)
+          Display *display;
+          XDevice *device;
+***************
+*** 2355,2361 ****
+  .XE
+  .LP
+  Each extension event type has a corresponding structure declared in
+! \fB<X11/XInput.h>\fP.  All event structures have the following members:
+  .RS
+  .in +.5i
+  .IP "\fItype\fP" .80i
+--- 2356,2363 ----
+  .XE
+  .LP
+  Each extension event type has a corresponding structure declared in
+! \fB<X11/extensions/XInput.h>\fP.  All event structures have the
+! following members:
+  .RS
+  .in +.5i
+  .IP "\fItype\fP" .80i
+***************
+*** 3321,3327 ****
+  XChangeDeviceControl (display, device, control, value)
+  	Display *display;
+  	XDevice *device;
+! 	XID control;
+  	XDeviceControl *value;
+  \fP
+  .DE
+--- 3323,3329 ----
+  XChangeDeviceControl (display, device, control, value)
+  	Display *display;
+  	XDevice *device;
+! 	int control;
+  	XDeviceControl *value;
+  \fP
+  .DE
+***************
+*** 3818,3855 ****
+  .ds Ch ~
+  .nr H1 1
+  .LP
+! The following information is contained in the \fB<X11/XInput.h>\fP
+! header file:
+  .DS 0
+  .cs CW 20
+  \f(C
+  .ps 8
+- 
+- /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+- /************************************************************
+- Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+- Massachusetts Institute of Technology, Cambridge, Massachusetts.
+- 
+- 			All Rights Reserved
+- 
+- Permission to use, copy, modify, and distribute this software and its
+- documentation for any purpose and without fee is hereby granted,
+- provided that the above copyright notice appear in all copies and that
+- both that copyright notice and this permission notice appear in
+- supporting documentation, and that the names of Hewlett-Packard or MIT not be
+- used in advertising or publicity pertaining to distribution of the
+- software without specific, written prior permission.
+- 
+- HEWLETT-PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+- ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
+- HEWLETT-PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+- ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+- WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+- ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+- SOFTWARE.
+- 
+- ********************************************************/
+- 
+  /* Definitions used by the library and client */
+  
+  #ifndef _XINPUT_H_
+--- 3820,3831 ----
+  .ds Ch ~
+  .nr H1 1
+  .LP
+! The following information is contained in the \fB<X11/extensions/XInput.h>\fP
+! and \fB<X11/extensions/XI.h>\fP header files:
+  .DS 0
+  .cs CW 20
+  \f(C
+  .ps 8
+  /* Definitions used by the library and client */
+  
+  #ifndef _XINPUT_H_
+***************
+*** 4508,4538 ****
+  XDeviceState           *XQueryDeviceState();
+  XEventClass            *XGetDeviceDontPropagateList();
+  #endif /* _XINPUT_H_ */
+- /* $Header: /alphabits/u3/x11/ode/rcs/x11/src/fix-trackers/487,v 1.1.2.3 92/11/17 16:41:22 Jim_Ludwig Exp $ */
+- 
+- /************************************************************
+- Copyright (c) 1989 by Hewlett-Packard Company, Palo Alto, California, and the 
+- Massachusetts Institute of Technology, Cambridge, Massachusetts.
+- 
+- 			All Rights Reserved
+- 
+- Permission to use, copy, modify, and distribute this software and its
+- documentation for any purpose and without fee is hereby granted,
+- provided that the above copyright notice appear in all copies and that
+- both that copyright notice and this permission notice appear in
+- supporting documentation, and that the names of Hewlett-Packard or MIT not be
+- used in advertising or publicity pertaining to distribution of the
+- software without specific, written prior permission.
+- 
+- HEWLETT-PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
+- ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
+- HEWLETT-PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
+- ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+- WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+- ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+- SOFTWARE.
+- 
+- ********************************************************/
+  
+  /* Definitions used by the server, library and client */
+  
+--- 4484,4489 ----

@@ -1,0 +1,179 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: rcmd.3,v $ $Revision: 3.2.5.3 $ (DEC) $Date: 1994/01/15 00:36:15 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.2
+.\"
+.TH rcmd 3
+.SH NAME
+.PP
+\*Lrcmd\*O,  \*Lrcmd_r\*O \- Allow execution of commands on a remote host
+.SH LIBRARY
+.PP
+Standard C Library \*L(libc.a)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.sp .4v
+\*L#include <netdb.h>
+.sp .4v
+\*Lint rcmd\*O(\*L
+.nL
+	\*Lchar **\*Vhost\*L,
+.nL
+	\*Lu_short \*Vport\*L,
+.nL
+	\*Lchar *\*Vlocal_user\*L,
+.nL
+	char *\*Vremote_user\*L,
+.nL
+	char *\*Vcommand\*L,
+.nL
+	\*Lint *\*Verr_file_desc\*L);
+.sp .4V
+\*Lint rcmd_r\*O(\*L
+.nL
+	\*Lchar **\*Vhost\*L,
+.nL
+	\*Lu_short \*Vport\*L,
+.nL
+	\*Lchar *\*Vlocal_user\*L,
+.nL
+	char *\*Vremote_user\*L,
+.nL
+	char *\*Vcommand\*L,
+.nL
+	\*Lint *\*Verr_file_desc\*L,
+.nL
+	\*Lstruct hostent_data \*V*host_data\*O);
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vhost"
+\*OSpecifies
+the name of a remote host that is listed in the \*L/etc/hosts\*O
+file.
+The function sets the \*Vhost\*O parameter to be the
+fully qualified hostname.
+.LI "\*Vport"
+\*OSpecifies
+the \*Owell-known \*Oport
+to use for the connection.  The \*L/etc/services
+\*Ofile contains
+the DARPA Internet services, their ports, and socket types.
+.LI "\*Vlocal_user\*O"
+\*OPoints to usernames that are valid at the local
+host.  Any valid username can be given.
+.LI "\*Vremote_user"
+\*OPoints to usernames that are valid at the
+remote host.  Any valid username can be given.
+.LI "\*Vcommand"
+\*OSpecifies
+the name of the command to be executed at the remote host.
+.LI "\*Verr_file_desc"
+\*OPoints to an address used by \*Lrcmd(\|)\*O to store a pointer to
+the file descriptor for a channel used by the remote process to write
+\*Lstderr\*O messages and to accept bytes as signal
+numbers to be forwarded to the process group of the command.
+.sp
+If a null pointer is specified, the standard error (\*Lstderr\*O) of the remote
+command is the same as the standard output (\*Lstdout\*O).  No provision
+is made for sending arbitrary signals to the remote process.  However,
+it is possible to send out-of-band data to the remote command.
+.LI "\*Vhost_data\*O"
+Per-thread data for reentrant version.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "rcmd function"
+.iX "executing commands on remote host"
+.iX "remote host" "executing commands on"
+.iX "commands" "executing on remote host"
+The \*Lrcmd(\|)\*O (remote command) function allows execution
+of certain commands on a remote host.
+For example, the \*Lrcmd(\|)\*O function is used by \*Lrsh\*O and
+\*Lrlogin\*O, among others.
+.PP
+The \*Lrcmd(\|)\*O function looks up a host via the name server
+or, if the local name server is not running, via the \*L/etc/hosts\*O
+file.  If the connection succeeds, a socket in the
+Internet domain of type
+\*LSOCK_STREAM\*O is returned
+to the calling process and given to the remote command as standard
+input (\*Lstdin\*O) and standard output (\*Lstdout\*O).
+.PP
+Always specify the \*Vhost\*O name.  If the local domain and
+remote domain are the same, specifying the domain parts is optional.
+The \*Lrcmd(\|)\*O function returns the fully qualified hostname in
+the \*Vhost\*O parameter. To reuse the \*Vhost\*O name in another
+\*Lrcmd(\|)\*O call, you should make a string copy of the \*Vhost\*O
+parameter.
+For example:
+.oS
+rcmd ( &host, .... );
+first_host = strdup(host);
+\&...
+rcmd ( &host, .... );
+.oE
+.PP
+Only processes with an effective
+\*Ouser ID of root user
+can use the \*Lrcmd(\|)\*O function.  An authentication scheme based
+on remote port numbers is used to verify permissions.  Ports in the
+range from 0 to 1023 can only be used by a root user.
+.PP
+The \*Lrcmd_r(\|)\*O function is the reentrant version of
+\*Lrcmd(\|)\*O.  The \*Lnetdb.h\*O header file defines the
+\*Lhostent_data\*O structures.
+.SH RETURN VALUES
+.PP
+Upon successful completion, the \*Lrcmd(\|)\*O function returns
+a valid socket descriptor.
+The function returns a value of -1
+if the effective user ID of the calling process is not root
+user, if the function fails to resolve the host, or if it encounters a
+socket connection error.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/services"
+\*OContains
+the service names, ports, and socket types.
+.LI "\*L/etc/hosts"
+\*OContains
+hostnames and their addresses for the hosts in a network.
+.LI "\*L/etc/resolv.conf"
+\*OContains the name server and the domain name.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgethostname\*O(2),
+\*Lrresvport\*O(3),
+\*Lruserok\*O(3),
+\*Lsethostname\*O(2).
+.PP
+Commands:
+\*Lrlogin\*O(1),
+\*Lrsh\*O(1).
+.iX "rcmd function"
+.EQ
+delim off
+.EN

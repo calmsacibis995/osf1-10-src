@@ -1,0 +1,183 @@
+.\"
+.\" $XConsortium: p068,v 5.2 91/08/16 14:48:15 hersh Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "GET PICK" 3P "29 February 1991"
+.SH NAME
+GET PICK \- retrieve the
+\s-2PICK\s+2
+event in the \s-2PHIGS\s+2 current event report
+.IX "Event Input Mode" "GET PICK"
+.IX "Input Modes" "GET PICK"
+.IX "Pick Input Devices" "GET PICK"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+pget_pick ( depth, in_status, rpick )
+Pint	depth;	\fIdepth of pick path to return\fP
+Pin_status	*in_status;	\fI\s-2OUT\s+2 pick status\fP
+Ppick_path	*rpick;	\fI\s-2OUT\s+2 pick path\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2GET PICK\s+2 retrieves the current event report from the \s-2PHIGS\s+2
+state list when the event report contains a \s-2PICK\s+2 event.
+A \s-2PICK\s+2 event consists of a status and a pick path.
+The status indicates whether or not a pick by the operator successfully
+selected an ouput primitive.
+The pick path describes the location of the picked primitive, if any,
+in the Central Structure Store (\s-2CSS\s+2).
+.SS C Input Parameter
+.IP \fIdepth\fP
+The maximum number of pick path elements to return.
+This may be more or less than the actual path depth in the current event
+report.
+.SS C Output Parameters
+.IP \fIin_status\fP
+\s-2PHIGS\s+2 sets the variable pointed to by \fIin_status\fP to 
+the event's pick status.
+A value of \s-2PIN_STATUS_OK\s+2 indicates that an output primitive was successfully
+selected by the operator.
+A value of \s-2PIN_STATUS_NONE\s+2 indicates that a pick was attempted but no
+primitive was selected.
+Pin_status is defined in phigs.h as follows:
+.sp .4
+.nf
+typedef enum {
+.sp .2
+.ta .5i
+	PIN_STATUS_NONE,
+	PIN_STATUS_OK,
+	PIN_STATUS_NO_IN
+.sp .2
+} Pin_status;
+.sp
+.fi
+The value \s-2PIN_STATUS_NO_IN\s+2 will not be returned by this function.
+That value is for use with \s-2REQUEST PICK\s+2.
+.IP \fIrpick\fP
+\s-2PHIGS\s+2 sets the variable pointed to by \fIrpick\fP to 
+the events's pick path.
+Ppick_path is defined in phigs.h as follows:
+.sp .4
+.ta .5i +\w'Ppick_path_elem     'u +\w'pick_path;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	depth;	/* pick path_list depth */
+	Ppick_path_elem	*path_list;	/* pick path */
+.sp .2
+} Ppick_path;
+.sp
+.fi
+.IP
+A pick path is only returned if the status is \s-2PIN_STATUS_OK\s+2.
+The contents of \fIrpick\fP are not changed if the status is not
+\s-2PIN_STATUS_OK\s+2.
+The pick path depth indicates the number of elements in the event's pick
+path as stored in the current event report.
+It is not affected by the \fIdepth\fP input parameter;
+therefore, the number of elements returned in \fIpath_list\fR may be less than
+depth.
+.IP
+\fIpath_list\fR is an array of references defining the
+location of the picked primitive in the \s-2CSS\s+2.
+\fBThis array must be allocated by the calling program
+and the array pointer assigned to this field before calling this
+function.\fP
+The array must be at least long enough to hold the number of path elements
+indicated by the \fIdepth\fP input parameter.
+Ppick_path_elem is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Pint     'u +\w'struct_id;     'u
+.nf
+typedef struct {
+	Pint	struct_id;	/* structure identifier */
+	Pint	pick_id;	/* hierarchical pick identifier */
+	Pint	elem_pos;	/* element sequence number */
+} Ppick_path_elem;
+.sp
+.fi
+.IP
+The \fIstruct_id, pick_id,\fR and \fIelem_pos\fR
+are the structure identifier, pick id, and element number, respectively,
+of each element in the path.
+Each element but the last indicates the location and current pick id of
+an \s-2EXECUTE STRUCTURE\s+2 structure element in the path to the selected
+primitive.  The last element in the path indicates the location and current
+pick id of the selected output primitive.
+.fi
+.SS Execution
+.LP
+\s-2GET PICK\s+2 retrieves the contents of a \s-2PICK\s+2
+event from the current event report in the \s-2PHIGS\s+2 state list.
+If \s-2PIN_STATUS_OK\s+2 is returned as the status,
+the returned pick path contains the portion of the event's pick path
+requested, as specified by the \fIdepth\fP input parameter.
+The pick path will be in either top-first or bottom-first order depending
+upon the value specified when the device was initialized.
+.LP
+When an input device in \s-2EVENT\s+2 mode is triggered
+by the operator,
+an event report is added to the input event queue if the queue is not full.
+The event report contains the identity and current measure of the triggered
+device.
+\s-2AWAIT EVENT\s+2 moves the measure of the oldest event in the input queue
+to the current event report in the \s-2PHIGS\s+2 state list.
+If the event was a \s-2PICK\s+2 event, \s-2GET PICK\s+2 is used to
+retrieve the contents of the event from the current event report.
+.LP
+If the pick event was generated by the operator's successfully selecting
+an output primitive, \s-2GET PICK\s+2 returns the status
+\s-2PIN_STATUS_OK\s+2 and the pick path to the primitive selected.
+If a primitive was not successfully selected, the status returned will be
+\s-2PIN_STATUS_NONE\s+2 and no pick path is returned.
+.LP
+See \s-2INITIALIZE PICK 3\s+2 for a description of the available
+\s-2PICK\s+2 devices and how their measure values are determined.
+.LP
+The \fIpick filter\fP of a \s-2PICK\s+2 device controls which output
+primitives on the device's workstation are pickable.
+By default no output primitives are pickable.
+See \s-2SET PICK FILTER\s+2 for more information on the pick filter.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP, WSOP, *, *\s+2)
+.IP 259
+Ignoring function, the input device class of the current input report
+does not match the class being requested
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "INITIALIZE PICK (3P)"
+.SM "INITIALIZE PICK 3 (3P)"
+.SM "AWAIT EVENT (3P)"
+.SM "SET PICK FILTER (3P)"
+.fi

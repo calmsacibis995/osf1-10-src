@@ -1,0 +1,170 @@
+ 
+$ *****************************************************************
+$ *                                                               *
+$ *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+$ *                                                               *
+$ *   All Rights Reserved.  Unpublished rights  reserved  under   *
+$ *   the copyright laws of the United States.                    *
+$ *                                                               *
+$ *   The software contained on this media  is  proprietary  to   *
+$ *   and  embodies  the  confidential  technology  of  Digital   *
+$ *   Equipment Corporation.  Possession, use,  duplication  or   *
+$ *   dissemination of the software and media is authorized only  *
+$ *   pursuant to a valid written license from Digital Equipment  *
+$ *   Corporation.                                                *
+$ *                                                               *
+$ *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+$ *   by the U.S. Government is subject to restrictions  as  set  *
+$ *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+$ *   or  in  FAR 52.227-19, as applicable.                       *
+$ *                                                               *
+$ *****************************************************************
+$
+$ HISTORY
+ 
+$ @(#)$RCSfile: authck.msg,v $ $Revision: 4.2.8.3 $ (DEC) $Date: 1993/07/29 14:10:16 $ 10/18/90 SecureWare
+$
+$ (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+$ ALL RIGHTS RESERVED 
+$
+$
+$ OSF/1 Release 1.0
+$quote "
+$set MS_AUTHCK
+
+AUTHCK_1	"%s: must have auth authorization\n"
+AUTHCK_2	"usage:  %s [-v] [-a] [-p] [-t] [-c] [-f] [-n]\n"
+AUTHCK_3	"%s: Need one of -a -p -t -f -c\n"
+AUTHCK_4	"Checking all entries in the Terminal Control database\n"
+AUTHCK_5	"entry has no name"
+AUTHCK_6	"Entry %d in Terminal Control database does not have a name.\n"
+AUTHCK_7	"%s in Terminal/Host Control database refers\n"
+AUTHCK_8	" to a non-existent terminal or host.\n"
+AUTHCK_9	"%s in Terminal Control database refers to a non-existent terminal.\n"
+AUTHCK_10	"login time in the future"
+AUTHCK_11	"%s has a login time in the future\n"
+AUTHCK_12	"last login user with no terminal"
+AUTHCK_13	"%s has a last login user, with no accompanying time\n"
+AUTHCK_14	"unsuccessful login time in the future"
+AUTHCK_15	"%s has an unsuccessful login time in the future\n"
+AUTHCK_16	"unsuccessful login user with no terminal"
+AUTHCK_17	"%s has a last unsuccessful login user, with no accompanying time\n"
+AUTHCK_18	"logout time in the future"
+AUTHCK_19	"%s has a previous logout time in the future\n"
+AUTHCK_20	"user logged out with no terminal"
+AUTHCK_21	"%s has a last logout user, with no accompanying time\n"
+AUTHCK_22	"login UID is has no name in the Authentication database"
+AUTHCK_23	"The last user of %s, UID %d, is not in the Authentication database\n"
+AUTHCK_24	"unsuccessful login UID is has no name in the Authentication database"
+AUTHCK_25	"The last unsuccessful user of %s, UID %d, is not in the Authentication database\n"
+AUTHCK_26	"logout UID is has no name in the Authentication database"
+AUTHCK_27	"The last user of %s to logout, UID %d,\n"
+AUTHCK_28	"  is not in the Authentication database\n"
+AUTHCK_29	"Unable to allocate cmd_auth\n"
+AUTHCK_30	"Can not allocate memory\n"
+AUTHCK_31	"Checking all entries in the subsystem data base.\n"
+AUTHCK_32	"Unable to get default data base entry\n"
+AUTHCK_33	"The authorization \"%s\""
+AUTHCK_34	"\tbut not in the system default data base\n\n"
+AUTHCK_35	"\tbut not in the subsystem authorization file\n\n"
+AUTHCK_36	"Unable to read %s\n"
+AUTHCK_37	"There are discrepancies between the databases.\n"
+AUTHCK_38	"Fix them (Y or N)? "
+AUTHCK_39	"Fixing default command authorizations\n"
+AUTHCK_40	"unable to open"
+AUTHCK_41	"The user \"%s\""
+AUTHCK_42	"\tbut does not have a protected password entry.\n"
+AUTHCK_43	"The following users have %s entries\n"
+AUTHCK_44	" that do not match their %s entries:\n"
+AUTHCK_45	"FIXING user: %s, authorizations: "
+AUTHCK_46	"Removing \"%s\""
+AUTHCK_47	"finding all entries in the Protected Password database, in %s\n"
+AUTHCK_48	"%s: cannot open Protected Password hierarchy.\n"
+AUTHCK_49	"cannot access file in Protected Password hierarchy"
+AUTHCK_50	"extraneous file in Protected Password hierarchy"
+AUTHCK_51	"%s is an extraneous entry in %s\n"
+AUTHCK_52	"cannot open %s.\n"
+AUTHCK_53	"%s does not belong in %s\n"
+AUTHCK_54	"%s: ran out of space allocating name %s\n"
+AUTHCK_55	"Checking Protected Password against getprpwent()\n"
+AUTHCK_56	"malformed entry, lacking both name and UID"
+AUTHCK_57	"Malformed entry %s in Protected Password database\n"
+AUTHCK_58	"getprpwent() loops on this entry -- check for reuse of a UID"
+AUTHCK_59	"Duplicate userid allocated for %s\n"
+AUTHCK_60	"entry inaccessible via getprpwent()"
+AUTHCK_61	"%s appears in Protected Password database but cannot be retrieved\n"
+AUTHCK_62	"\twith getprpwent()\n"
+AUTHCK_63	"Checking Protected Password against /etc/passwd\n"
+AUTHCK_64	"name multiply listed"
+AUTHCK_65	"%s multiply listed in /etc/passwd\n"
+AUTHCK_66	"no corresponding entry in Protected Password database"
+AUTHCK_67	"%s appears in /etc/passwd but not in Protected Password database\n"
+AUTHCK_68	"%s not listed in /etc/passwd, but is in the Protected Password database.\n"
+AUTHCK_69	"Checking Protected Password fields against those in /etc/passwd\n"
+AUTHCK_70	"entry key differs from entry name"
+AUTHCK_71	"%s stored as %s in Protected Password\n"
+AUTHCK_72	"entry lacks a name"
+AUTHCK_73	"%s lacks a name in Protected Password\n"
+AUTHCK_74	"entry lacks UID"
+AUTHCK_75	"%s lacks a uid Protected Password\n"
+AUTHCK_76	"UID inconsistent with /etc/passwd"
+AUTHCK_77	"%s has a uid inconsistency (it's %d in the Protected Password and %d in /etc/passwd)\n"
+AUTHCK_78	"Checking internal consistency of Protected Password fields\n"
+AUTHCK_79	"password expiration before minimum password change"
+AUTHCK_80	"%s has a shorter password expiration period than minimum change period\n"
+AUTHCK_81	"password lifetime before password expiration"
+AUTHCK_82	"%s has a shorter password lifetime than an expiration period\n"
+AUTHCK_83	"entry has no password"
+AUTHCK_84	"%s has no password\n"
+AUTHCK_85	"entry UID not in /etc/passwd"
+AUTHCK_86	"%s has an owner of '%s', who is not in the Authentication database\n"
+AUTHCK_87	"entry has audit disposition without an audit control mask"
+AUTHCK_88	"%s has an audit disposition mask but has no audit control mask\n"
+AUTHCK_89	"audit disposition mask has more entries than control mask"
+AUTHCK_90	"%s has an audit disposition mask having more entries than the control mask\n"
+AUTHCK_91	"password change time is in the future"
+AUTHCK_92	"%s has a password change time in the future\n"
+AUTHCK_93	"password unsuccessful change time is in the future"
+AUTHCK_94	"%s has an unsuccessful password change time in the future\n"
+AUTHCK_95	"no choice in password selection"
+AUTHCK_96	"%s cannot have a password set on the account\n"
+AUTHCK_97	"login time is in the future"
+AUTHCK_98	"unsuccessful login time is in the future"
+AUTHCK_99	"Checking format of Terminal Control database %s\n"
+AUTHCK_100	"Format of Terminal Control database OK\n"
+AUTHCK_101	"Checking format of Device Assignment database %s\n"
+AUTHCK_102	"Format of Device Assignment database OK\n"
+AUTHCK_103	"Checking format of files in Protected Password database %s\n"
+AUTHCK_104	"Format of all Protected Password entries OK\n"
+AUTHCK_105	"Checking format of Defaults database %s\n"
+AUTHCK_106	"Format of Defaults database OK\n"
+AUTHCK_107	"Incorrect database specified for format check\n"
+AUTHCK_108	"%s has TAB, space or colon at start of entry\n"
+AUTHCK_109	"blank line in %s\n"
+AUTHCK_110	"continuation lines must begin with TAB followed by a colon\n"
+AUTHCK_111	"%s has an entry without the 'chkent' terminator\n"
+AUTHCK_112	"%s: need auth authorization\n"
+AUTHCK_113	"There are discrepancies between the databases.\n"
+AUTHCK_114      "%s: Can't open %s - "
+AUTHCK_115	"\nChecking all entries in the File Control database\n"
+AUTHCK_116	"Format of File Control database OK\n"
+AUTHCK_117	"Unable to locate the file control database\n"
+AUTHCK_118	"line # %d in %s has TAB, space or colon at start of entry\n"
+AUTHCK_119	"line # %d in %s is a blank line\n"
+AUTHCK_120	"continuation line # %d in %s is a blank line\n"
+AUTHCK_121	"continuation line # %d in %s must begin with TAB \n"
+AUTHCK_122	"continuation line # %d in %s must either \nbegin with [whitespace and] ':' or the preceding line must end with ',\\' \n"
+AUTHCK_123	"line # %d in %s has a missing entry or ':' separator\n"
+AUTHCK_124	"entry %s in %s has a syntax error in the %s field\n"
+AUTHCK_125	"entry %s in %s has an invalid owner name '%s'\n"
+AUTHCK_126	"entry %s in %s has an invalid group name '%s'\n"
+AUTHCK_127	"entry %s in %s specifies a modeword without a leading '0'\n"
+AUTHCK_128	"entry %s in %s has an invalid modeword character\n"
+AUTHCK_129	"entry %s in %s has invalid f_type specification '%s'\n"
+AUTHCK_130	"entry %s in %s contains an invalid ACL specification\n"
+AUTHCK_131	"entry %s in %s contains invalid sensitivity level specification\n"
+AUTHCK_132	"entry %s in %s is missing the '=' separator for the %s privileges field\n"
+AUTHCK_133	"entry %s in %s contains invalid %s privilege name(s)\n"
+AUTHCK_134	"line # %d in %s contains misplaced 'chkent'\n"
+AUTHCK_135	"entry %s in %s contains invalid field '%s'\n"
+AUTHCK_136	"entry %s in %s is missing 'chkent' terminator\n"

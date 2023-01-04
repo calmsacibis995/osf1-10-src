@@ -1,0 +1,44 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+	.rdata
+	.asciiz "@(#)$RCSfile: _sigaltstack.s,v $ $Revision: 1.1.2.3 $ (DEC) $Date: 1993/08/03 21:06:17 $"
+	.text
+
+#undef _NAME_SPACE_WEAK_STRONG
+
+#include <alpha/regdef.h>
+#include <alpha/asm.h>
+#include <sys/syscall.h>
+
+PSEUDO(_sigaltstack,sigaltstack)
+	beq	a3,9f;					\
+        br      gp,1f;
+1:
+        ldgp    gp,0(gp);
+	jmp	zero,_cerror;				\
+9:
+        RET
+        END(_sigaltstack)

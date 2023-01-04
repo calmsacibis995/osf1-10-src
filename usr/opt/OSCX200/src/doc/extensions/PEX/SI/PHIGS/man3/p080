@@ -1,0 +1,305 @@
+.\"
+.\" $XConsortium: p080,v 5.2 91/08/16 14:48:05 hersh Exp $
+.\"
+.\" 
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" the X Consortium, and MIT not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.TH "INITIALIZE PICK 3" 3P "29 February 1991"
+.SH NAME
+INITIALIZE PICK 3 \- initialize a \s-2PICK\s+2 input device using \s-23D\s+2 data.
+.IX "Pick Input Devices" "INITIALIZE PICK 3"
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.5i 3i
+.nf
+void
+pinit_pick3 ( ws, dev, istat, init, pet, echo_volume, record, order )
+Pint	ws;	\fIworkstation identifier\fP
+Pint	dev;	\fIpick device number\fP
+Pin_status	istat;	\fIinitial pick status\fP
+Ppick_path	*init;	\fIinitial pick pointer\fP
+Pint	pet;	\fIprompt and echo type\fP
+Plimit3	*echo_volume;	\fIecho volume pointer\fP
+Ppick_data3	*record;	\fIdata record pointer\fP
+Ppath_order	order;	\fIpick path order\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+Use \s-2INITIALIZE PICK 3\s+2 to set the initialization parameters of a
+\s-2PICK\s+2 device.
+This function stores these parameters in the workstation state list
+of the workstation associated with the specified device.
+The specified \fBdevice must be in \s-2REQUEST\s+2 mode\fP when this
+function is called.
+.LP
+The \fIpick filter\fP of a \s-2PICK\s+2 device controls which output
+primitives on the device's workstation are pickable.
+By default no output primitives are pickable.
+See \s-2SET PICK FILTER\s+2 for more information on the pick filter.
+.SS C Input Parameters
+.IP \fIws\fP
+The workstation identifier of the workstation associated with the device.
+.IP \fIdev\fP
+The device number of the \s-2PICK\s+2 device to initialize.
+See the \fIAVAILABLE DEVICES\fP section below for a description of the
+available devices.
+.IP \fIistat\fP
+The \s-2PICK\s+2 status of the initial measure.
+Pin_status is an enumerated type defined in phigs.h as follows:
+.sp .4
+.ta .5i
+.nf
+typedef enum {
+.sp .2
+	PIN_STATUS_NONE,
+	PIN_STATUS_OK,
+	PIN_STATUS_NO_IN
+.sp .2
+} Pin_status;
+.fi
+.IP \fIinit\fP
+A pointer to a Ppick_path structure containing the initial pick path, if any.
+This value is ignored if \fIstatus\fP is not \s-2PIN_STATUS_OK\s+2.
+Ppick_path is defined in phigs.h as:
+.sp .4
+.ta .5i +\w'Ppick_path_elem     'u +\w'*pick_path;     'u
+.nf
+typedef struct {
+.sp .2
+	Pint	depth;	/* pick path_list depth */
+	Ppick_path_elem	*path_list;	/* pick path */
+.sp .2
+} Ppick_path;
+.fi
+.sp
+.IP
+The depth indicates the number of elements in the path.
+.IP
+\fIpath_list\fR is the array of path elements defining the location of the
+primitive in the \s-2CSS\s+2.
+Ppick_path_elem is defined in phigs.h as:
+.bp
+.ta .5i +1i  +1i
+.nf
+typedef struct {
+.sp .2
+	Pint	struct_id;	/* structure identifier */
+	Pint	pick_id;	/* hierarchical pick identifier */
+	Pint	elem_pos;	/* element sequence number */
+.sp .2
+} Ppick_path_elem;
+.fi
+.IP
+The struct_id, pick_id, and elem_pos
+are the structure identifier, pick id, and element number, respectively,
+of each element in the path.
+.IP \fIpet\fP
+The prompt/echo type desired.
+Those supported by each device are listed in the
+\fIAVAILABLE DEVICES\fP section below.
+.IP \fIecho_volume\fP
+A pointer to a Plimit3 structure spedifying the echo volume, in Device Coordinates.
+Plimit3 is defined in phigs.h as follows:
+.sp .4
+.ta .5i +1i  +1i
+.nf
+typedef struct {
+.sp .2
+	Pfloat	x_min;	/* minimum x coordinate value */
+	Pfloat	x_max;	/* maximum x coordinate value */
+	Pfloat	y_min;	/* minimum y coordinate value */
+	Pfloat	y_max;	/* maximum y coordinate value */
+	Pfloat	z_min;	/* minimum z coordinate value */
+	Pfloat	z_max;	/* maximum z coordinate value */
+.sp .2
+} Plimit3;
+.fi
+.IP \fIrecord\fP
+A pointer to a Ppick_data3 union containing the data record information.
+The contents of the data record for each device and prompt/echo type are
+described below in the \fIAVAILABLE DEVICES\fP section.
+.IP
+The members of the data record union correspond to the prompt/echo type
+being used.
+As an example, the appropriate member of the Ppick_data3 union for
+prompt/echo type 1 is
+\fIpet_r1\fP.
+.IP
+For some prompt/echo types the data record is not used; however,
+the record parameter must still be specified.
+.IP \fIorder\fP
+The pick path order of paths returned by
+\s-2REQUEST PICK\s+2, \s-2GET PICK\s+2, and \s-2SAMPLE PICK\s+2.
+Ppath_order is an enumerated type defined in phigs.h as follows:
+.sp .4
+.ta .5i
+.nf
+typedef enum {
+.sp .2
+	PORDER_TOP_FIRST,
+	PORDER_BOTTOM_FIRST
+.sp .2
+} Ppath_order;
+.fi
+.IP
+If the order is \s-2TOP FIRST\s+2, the structure specified in any
+pick path element is a parent of the structure specified in the subsequent
+pick path element.
+If the order is \s-2BOTTOM FIRST\s+2, the structure specified in any
+pick path element is a child of the structure specified in the subsequent
+pick path element.
+.SS Execution
+.LP
+\s-2INITIALIZE PICK 3 \s+2 sets the initialization parameters of a
+\s-2PICK\s+2 device.
+This function stores these parameters in the workstation description table
+of the workstation associated with the specified device.
+The specified device must be in \s-2REQUEST\s+2 mode when this
+function is called.
+.LP
+The parameters that are initialized by this function are the
+\fIinitial path\fP,
+\fIprompt/echo type\fP,
+\fIecho volume\fP,
+and
+\fIinput data record\fP.
+.LP
+The \fIinitial path\fP is the logical input value the device will take on
+whenever it is enabled.
+The device's measure retains this value until operator input changes it.
+A device is enabled when the appropriate \s-2REQUEST\s+2 function is called,
+or when its input mode is set to \s-2SAMPLE\s+2 or \s-2EVENT\s+2.
+.LP
+A \s-2PICK\s+2 device measure consists of a \fIstatus\fP and a
+\fIpick path\fP.
+Status indicates whether or not an initial pick path is specified.
+The pick path, if any, describes the location of a picked primitive
+in the Central Structure Store (\s-2CSS\s+2).
+.LP
+The \fIpick filter\fP of a \s-2PICK\s+2 device controls which output
+primitives on the device's workstation are pickable.
+By default no output primitives are pickable.
+See \s-2SET PICK FILTER\s+2 for more information on the pick filter.
+.LP
+The \fIprompt/echo type\fP determines how the device will be presented to
+the operator and respond to his actions.
+Each device supports one or more prompt/echo types.
+Those supported by each device are listed in the device's
+description in the \fIAVAILABLE DEVICES\fP section below.
+All devices support prompt/echo type 1.
+Positive prompt/echo types are defined by the \s-2PHIGS\s+2 standard.
+Negative types are implementation-dependent.
+.LP
+The \fIecho volume\fP defines the region of the display surface in which to
+echo the device.
+It is specified in Device Coordinates (\s-2DC\s+2).
+Devices that use the echo volume may restrict their display to this region.
+Some of these devices may still recognize operator input
+outside the region even though they don't display there.
+.LP
+The \fIinput data record\fP contains the prompt/echo type specific
+information that controls the device's appearance and characteristics.
+Not all the data record contents are used by some devices.
+The device descriptions in the \fIAVAILABLE DEVICES\fP section below
+list the data record contents that each device recognizes.
+.LP
+All the initialization parameters must be specified properly or this function
+will generate an error.
+The \fIERRORS\fP section below lists the possible error conditions.
+.LP
+The default initialization parameters and the list of prompt/echo types
+supported by a \s-2PICK\s+2 input device can be inquired with the function
+\s-2INQUIRE DEFAULT PICK DEVICE DATA 3\s+2.
+The current state of the device can be inquired with the function
+\s-2INQUIRE PICK DEVICE STATE 3\s+2.
+.SH AVAILABLE DEVICES
+.SS Device 1 - "Pointer device"
+.LP
+This device is associated with the X pointer device.
+The operator picks an output primitive by selecting a displayed primitive
+with the pointer.
+.LP
+When a pick is attempted by the operator,
+\s-2PHIGS\s0 searches the workstation's list of posted structures for
+visible and pickable output primitives that intersect a \s-2\&3D\s+2
+region around the pointer.
+This region is called the pick \fIaperture\fP.
+The search starts at the root of the posted structure network with highest
+priority and continues until the entire network has been traversed.
+The \fBlast\fP pickable primitive in this network that intersects the
+aperture is the picked primitive.
+If no such primitive is found, the search continues with the next highest
+priority structure network until a primitive is found or there are no more
+structure networks to search.
+.LP
+If no pickable primitive is found to intersect the aperture,
+the \s-2PICK\s+2 device measure status is set to \s-2PIN_STATUS_NONE\s+2.  
+.LP
+This device does not use the echo volume.
+.LP
+Only prompt/echo type 1 is supported.
+.LP
+Picking is only supported for X servers that support the full PEX
+extension.
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state (\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 060
+Ignoring function, specified workstation is not of category \s-2OUTIN\s+2
+.IP 250
+Ignoring function, the specified device is not available
+on the specified workstation
+.IP 251
+Ignoring function, the function requires the input device to be in \s-2REQUEST\s+2 mode
+.IP 253
+Warning, the specified prompt/echo type is not available on the specified
+workstation.
+Prompt/echo type one will be used in its place
+.IP 254
+Ignoring function, invalid echo area/volume;
+\s-2XMIN \(>= XMAX, YMIN \(>= YMAX, or ZMIN > ZMAX\s+2
+.IP 255
+Ignoring function, one of the echo area/volume boundary points
+is outside the range of the device
+.IP 260
+Ignoring function, one of the fields within the input device data record
+is in error
+.IP 261
+Ignoring function, initial value is invalid
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "SET PICK FILTER (3P)"
+.SM "SET PICK IDENTIFIER (3P)"
+.SM "SET PICK MODE (3P)"
+.SM "REQUEST PICK (3P)"
+.SM "SAMPLE PICK (3P)"
+.SM "GET PICK (3P)"
+.SM "INQUIRE PICK DEVICE STATE 3 (3P)"
+.SM "INITIALIZE PICK (3P)"
+.fi

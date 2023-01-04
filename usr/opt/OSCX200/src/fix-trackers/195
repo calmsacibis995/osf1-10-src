@@ -1,0 +1,77 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9203232114.AA15248@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2420) close XBUG #5063: xterm KeyPress optimization doesn't let TM in
+Date: Mon, 23 Mar 92 16:14:23 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        ### bug number:   5063
+        ### area:         xterm
+        ### severity:     low
+
+*** /tmp/da15026	Mon Mar 23 16:11:59 1992
+--- clients/xterm/input.c	Fri Mar 20 17:43:18 1992
+***************
+*** 1,5 ****
+  /*
+!  *	$XConsortium: input.c,v 1.16 91/05/10 16:57:16 gildea Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  *	$XConsortium: input.c,v 1.17 92/03/20 17:43:06 gildea Exp $
+   */
+  
+  /*
+***************
+*** 79,112 ****
+  	int	nbytes;
+  	KeySym  keysym;
+  	ANSI	reply;
+- 	char	tmp[STRBUFSIZE];
+- 	char	*bp = strbuf;
+- 	int	count;
+- 	XEvent	ev;
+  
+! 	count = XLookupString (event, tmp, STRBUFSIZE,
+! 			       &keysym, &compose_status);
+! 	strncpy(bp, tmp, count);
+! 	bp += count;
+! 	nbytes = count;
+! 	/*
+! 	 * Make sure we get every keystroke available
+! 	 * before we start doing the update, so can issue a single
+! 	 * DrawString instead of several.
+! 	 */
+! 	while (nbytes < STRBUFSIZE && 
+! 	       XCheckMaskEvent(screen->display, KeyPressMask, &ev))	{
+! 	    count = XLookupString ((XKeyEvent *)&ev, tmp, STRBUFSIZE,
+! 				   &keysym, &compose_status);
+! 	    if (nbytes + count <= STRBUFSIZE) {
+! 		strncpy(bp, tmp, count);
+! 		bp += count;
+! 		nbytes += count;
+! 	    } else {
+! 		XPutBackEvent(screen->display, &ev);
+! 		break;
+! 	    }
+! 	}
+  
+  	string = &strbuf[0];
+  	reply.a_pintro = 0;
+--- 79,87 ----
+  	int	nbytes;
+  	KeySym  keysym;
+  	ANSI	reply;
+  
+! 	nbytes = XLookupString (event, strbuf, STRBUFSIZE,
+! 				&keysym, &compose_status);
+  
+  	string = &strbuf[0];
+  	reply.a_pintro = 0;

@@ -1,0 +1,181 @@
+.\"
+.\" *****************************************************************
+.\" *                                                               *
+.\" *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+.\" *                                                               *
+.\" *   All Rights Reserved.  Unpublished rights  reserved  under   *
+.\" *   the copyright laws of the United States.                    *
+.\" *                                                               *
+.\" *   The software contained on this media  is  proprietary  to   *
+.\" *   and  embodies  the  confidential  technology  of  Digital   *
+.\" *   Equipment Corporation.  Possession, use,  duplication  or   *
+.\" *   dissemination of the software and media is authorized only  *
+.\" *   pursuant to a valid written license from Digital Equipment  *
+.\" *   Corporation.                                                *
+.\" *                                                               *
+.\" *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+.\" *   by the U.S. Government is subject to restrictions  as  set  *
+.\" *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+.\" *   or  in  FAR 52.227-19, as applicable.                       *
+.\" *                                                               *
+.\" *****************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" $Header: /usr/sde/x11/rcs/x11/src/./doc/I18N/Xsi/Xlc/XCnvCTToMB.3,v 1.2 91/12/15 12:42:16 devrcs Exp $
+.\" $Date: 91/12/15 12:42:16 $
+.\" Copyright 1990, 1991 by OMRON Corporation.
+.\" Copyright 1991 by the Massachusetts Institute of Technology.
+.TH Xlocale 3X11 "" "June 30, 1990"
+.SH NAME
+.B XConvertCTToMB
+\- conversion from  CT string to multibyte string.
+.SH SYNOPSIS
+.B int XConvertCTToMB\f2(ct_str, ct_bytes, mb_str, mb_bytes,
+.br
+.B                                    \f2scanned_bytes, isostate)
+.br
+.B unsigned char \f2*ct_str\f3;
+.br
+.B int \f2ct_bytes\f3;
+.br
+.B unsigned char \f2*mb_str\f3;
+.br
+.B int \f2*mb_bytes\f3;
+.br
+.B int \f2*scanned_bytes\f3;
+.br
+.B char \f2**isostate\f3;
+.br
+.SH ARGUMENTS
+.IP \fIct_str\fP 1i 
+In: multibyte string.
+.b
+.IP \fImb_bytes\fP 1i 
+In: length of mb strings, counted in bytes.
+.br
+.IP \fIct_str\fP 1i
+Out: conversion buffer of result CT string.
+.br
+.IP \fIct_bytes\fP 1i 
+In/Out: as "In" it is length of buffer ct_str passed by caller; 
+as "Out" it is the returned number of converted CT string, couned in bytes. 
+.br
+.IP \fIscanned_bytes\fP 1i 
+Number of mb bytes converted when the function returns.
+.br
+.IP \fIisostate\fP 1i
+In/Out: as "In" it is the state at the beginning of
+the CT string;
+as "Out" it is the current state stopped at last converted CT
+encoding.  The state is defined internally by Xlib.
+If this pointer is null, the function will assume
+the state to be the default CT state. Of course,
+nothing will be put in the null pointer. Do not modify or free this data
+which is owned by the Xlib.
+.br
+.SH DESCRIPTION
+The
+.B XConvertCTToMB
+converts the string encoded in CT to string encoded in the current locale.
+After a successful conversion, the null character NULL will be
+appended to mb_str if there is more room for it in the buffer.
+The terminator NULL
+of mb string is not counted in length of output buffer mb_bytes.
+.PP
+The returned isostate will point to a state of 
+the encoding in the internal table, so do not modify or free this 
+pointer.
+.PP
+When function returns at any time, scanned_bytes always remembers
+where stopped, and isostate always remembers the current CT state
+if it is not null pointer.
+.PP
+The caller of this funcion has to provide the output buffer mb_str,
+and store the buffer length into mb_bytes as input. 
+By using scanned_bytes and isostate, the caller can break a large
+CT string into pieces, and convert one piece at a time.
+.PP
+In other hand caller can pass any broken CT
+string to this function for doing conversion.
+For example, caller can still be trying of conversion when 
+the error BadBuffer is occurred(output buffer was exhausted).
+Usually, the application passes the NULL to isostate for first 
+conversion as following:
+.IP "" "   "
+char *isostate = NULL;
+.br
+\f3XConvertCTToMB(ct_str, ct_len, mb_str,
+            &mb_len, &scanned, &isostate)\f2
+.PP
+If the value of isostate is invalid or null-pointer, the function
+will suppose the default state of CT as initial.
+The default state of CT is defined in 3 cases of encoding:
+.IP "" 2
+1\. no control sequence, GL and GR of Latin-1 is supposed.
+.IP 
+2\. control sequence of Latin-1 GL only, GR of Latin-1 is supposed too.
+.IP
+3\. control sequence of Latin-2 GR only, GL of Latin-1 is supposed too.
+.PP
+The function returns the BadBuffer meaning that
+the output buffer mb_str was exhausted.
+The function returns the BadTerminate meaning that
+the CT string ct_str is terminated uncompletely, 
+e.g., uncompleted ESC sequence or
+uncompleted code point ended at tail of ct_str.
+.PP
+Only in both the case of BadBuffer and BadTerminate the
+caller can
+move pointer ct_str to (ct_str + *scanned_bytes), then continue
+to do conversion.
+And function ensure that the mb_str stores the already converted
+mb string; mb_bytes counts
+the number of them in bytes; the isostate stores
+the last state of encoding.
+.PP
+The function returns a number greate than zero meaning a number of
+wrong codepoints recovered by the funcition.
+The wrong codepoint
+will be recovered with the first codepoint of the charset at which
+the wrong codepoint occurs.
+After replaced, the function will continue to do conversion untill
+one of the results Success, BadTerminate, BadBuffer or BadEncoding
+is met.
+.PP
+The funcition returns BadEncoding meaning for unrecoverable wrong code 
+which is wrong escape sequence, or not registered by
+system yet.
+.PP
+Both the null character and ct_bytes will terminate the conversion.
+.PP
+All error status are defined to be less than zero, i.e.:
+.IP "" 2
+#define Success          0
+.IP
+#define BadBuffer       -1
+.IP
+#define BadTerminate    -2
+.IP
+#define BadEncoding     -3
+.SH RETURNED VALUE
+The
+.B XConvertCTToMB will return the following values:
+.TP
+.B Success
+successful conversion.
+.TP
+.B BadBuffer
+output buffer(mb_str) was exhausted.
+.TP
+.B BadTerminate
+CT string was terminated uncompletely.
+.TP
+.B BadEncoding
+wrong escape sequence function can not recover.
+.TP
+.B "> 0"
+unconvertable compound text was met.
+.SH SEE ALSO
+Refer to "CT and WC" for their definitions.

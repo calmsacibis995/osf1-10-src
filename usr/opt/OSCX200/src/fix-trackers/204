@@ -1,0 +1,195 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203271809.AA05137@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2429) close XBUG #4957:  Xt: error in merging translations with common sub-expressions.
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Fri, 27 Mar 92 13:09:12 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: error in merging translations with common sub-expressions.
+        ### bug number:   4957
+        ### area:         Xt
+        ### severity:     medium
+        ### comments:     
+        ### status:       fixed, TMstate.c 1.162    Thanks to Gabe Beged-Dov (HP)
+
+
+*** /tmp/,RCSt1a05072	Fri Mar 27 13:06:20 1992
+--- lib/Xt/TMstate.c	Wed Mar 25 16:57:29 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMstate.c,v 1.161 92/02/27 17:04:04 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+--- 1,4 ----
+! /* $XConsortium: TMstate.c,v 1.162 92/03/25 16:47:39 converse Exp $ */
+  /*LINTLIBRARY*/
+  
+  /***********************************************************
+***************
+*** 865,871 ****
+  	    if (MatchIncomingEvent(curEventPtr, typeMatch, modMatch))
+  	      {
+  		  if (candState->actions) {
+- 		      PushContext(contextPtr, candState);
+  		      return candState;
+  		  }
+  		  else
+--- 865,870 ----
+***************
+*** 894,902 ****
+  			
+  			if ((tmRecPtr->lastEventTime + delta) >= time) {
+  			    if (nextState->actions) {
+! 				PushContext(contextPtr, candState);
+! 				PushContext(contextPtr, nextState);
+! 				return nextState;
+  			    }
+  			    else
+  			      matchState = candState;
+--- 893,899 ----
+  			
+  			if ((tmRecPtr->lastEventTime + delta) >= time) {
+  			    if (nextState->actions) {
+! 				return candState;
+  			    }
+  			    else
+  			      matchState = candState;
+***************
+*** 906,919 ****
+  	    }
+  	}
+      }
+-     if (matchState) {
+- 	typeMatch = TMGetTypeMatch(matchState->typeIndex);
+- 	if (typeMatch->eventType == _XtEventTimerEventType) {
+- 	    PushContext(contextPtr, matchState);
+- 	    matchState = matchState->nextLevel;
+- 	}
+- 	PushContext(contextPtr, matchState);
+-     }
+      return matchState;
+  }
+  
+--- 903,908 ----
+***************
+*** 924,931 ****
+  {
+      XtTranslations 	xlations = tmRecPtr->translations;
+      TMContext		*contextPtr = GetContextPtr(tmRecPtr);
+!     TMShortCard		i;
+!     StatePtr		candState;
+      TMComplexStateTree 	*stateTreePtr = 
+        (TMComplexStateTree *)&xlations->stateTreeTbl[0];
+      
+--- 913,920 ----
+  {
+      XtTranslations 	xlations = tmRecPtr->translations;
+      TMContext		*contextPtr = GetContextPtr(tmRecPtr);
+!     TMShortCard		i, matchTreeIndex;
+!     StatePtr		matchState = NULL, candState;
+      TMComplexStateTree 	*stateTreePtr = 
+        (TMComplexStateTree *)&xlations->stateTreeTbl[0];
+      
+***************
+*** 939,949 ****
+  	if (((*stateTreePtr)->isSimple == False) &&
+  	    (candState = TryCurrentTree(stateTreePtr,
+  				       tmRecPtr,
+! 				       curEventPtr)))
+! 	  break;
+      }
+! 
+!     if (candState == NULL){
+  	/* couldn't find it... */
+  	if (!Ignore(curEventPtr))
+  	  {
+--- 928,941 ----
+  	if (((*stateTreePtr)->isSimple == False) &&
+  	    (candState = TryCurrentTree(stateTreePtr,
+  				       tmRecPtr,
+! 				       curEventPtr))) {
+! 	    matchTreeIndex = i;
+! 	    matchState = candState;
+! 	    if (candState->actions)
+! 	      break;
+! 	}
+      }
+!     if (matchState == NULL){
+  	/* couldn't find it... */
+  	if (!Ignore(curEventPtr))
+  	  {
+***************
+*** 955,981 ****
+  	TMBindData	bindData = (TMBindData) tmRecPtr->proc_table;
+  	XtActionProc	*procs;
+  	Widget		accelWidget;
+  	
+  	tmRecPtr->lastEventTime = GetTime (tmRecPtr, curEventPtr->xev);
+  
+  	if (bindData->simple.isComplex) {
+  	    TMComplexBindProcs bindProcs =
+! 	      TMGetComplexBindEntry(bindData, i);
+  	    procs = bindProcs->procs;
+  	    accelWidget = bindProcs->widget;
+  	}
+  	else {
+  	    TMSimpleBindProcs bindProcs = 
+! 	      TMGetSimpleBindEntry(bindData, i);
+  	    procs = bindProcs->procs;
+  	    accelWidget = NULL;
+  	}
+  	HandleActions(w, 
+  		      curEventPtr->xev, 
+! 		      (TMSimpleStateTree)*stateTreePtr,
+  		      accelWidget,
+  		      procs,
+! 		      candState->actions);
+      }
+  }
+  
+--- 947,982 ----
+  	TMBindData	bindData = (TMBindData) tmRecPtr->proc_table;
+  	XtActionProc	*procs;
+  	Widget		accelWidget;
++ 	TMTypeMatch 	typeMatch;
+  	
++ 	typeMatch  = TMGetTypeMatch(matchState->typeIndex);
++ 
++ 	PushContext(contextPtr, matchState);
++ 	if (typeMatch->eventType == _XtEventTimerEventType) {
++ 	    matchState = matchState->nextLevel;
++ 	    PushContext(contextPtr, matchState);
++ 	}
+  	tmRecPtr->lastEventTime = GetTime (tmRecPtr, curEventPtr->xev);
+  
+  	if (bindData->simple.isComplex) {
+  	    TMComplexBindProcs bindProcs =
+! 	      TMGetComplexBindEntry(bindData, matchTreeIndex);
+  	    procs = bindProcs->procs;
+  	    accelWidget = bindProcs->widget;
+  	}
+  	else {
+  	    TMSimpleBindProcs bindProcs = 
+! 	      TMGetSimpleBindEntry(bindData, matchTreeIndex);
+  	    procs = bindProcs->procs;
+  	    accelWidget = NULL;
+  	}
+  	HandleActions(w, 
+  		      curEventPtr->xev, 
+! 		      (TMSimpleStateTree)
+! 		      xlations->stateTreeTbl[matchTreeIndex],
+  		      accelWidget,
+  		      procs,
+! 		      matchState->actions);
+      }
+  }
+  
+

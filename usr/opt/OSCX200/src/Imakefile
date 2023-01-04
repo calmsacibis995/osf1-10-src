@@ -1,0 +1,156 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.105 91/07/27 14:13:23 rws Exp $
+#define IHaveSubdirs
+#define PassCDebugFlags
+
+      WORLDOPTS = -k
+     CHECKFNSRC = $(UTILSRC)/checkfn
+        CHECKFN = $(CHECKFNSRC)/checkfn
+
+#ifdef OSF
+#if defined AlphaArchitecture
+     INVKEYWORDS = osf alpha emacs DPS C2
+#else
+     INVKEYWORDS = osf mips emacs DPS
+#endif
+#else
+     INVKEYWORDS = ultrix emacs 
+#endif
+
+#if BuildServer
+SERVERDIRSTOMAKE = server rgb
+#endif
+
+#if BuildMotif
+MOTIFDIRSTOMAKE = motif
+#endif
+
+#ifdef AlphaOSFCrossEnvironment
+CROSSDIRS = tmp-native
+#endif
+
+        SUBDIRS = config include lib extensions fonts $(SERVERDIRSTOMAKE) \
+		    $(MOTIFDIRSTOMAKE) clients demos util man $(CROSSDIRS)
+  LNINSTALLDIRS = $(LIBSRC) $(EXTENSIONSRC)
+
+MakeSubdirs($(SUBDIRS))
+
+MakeLintSubdirs($(LNINSTALLDIRS),install.ln,install.ln)
+
+MakeLintSubdirs($(LNINSTALLDIRS),external.ln,lintlib)
+
+
+XCOMM
+XCOMM Watch out!!!  Make sure you do make includes after removing X11....
+XCOMM
+clean::
+	$(RM) -r X11
+
+includes::
+	$(RM) -r X11
+
+
+XCOMM
+XCOMM before depending, be sure to have run make includes
+XCOMM
+/* depend::  includes */
+
+DependSubdirs($(SUBDIRS))
+
+XCOMM do not name your log file make.log when you run this ...
+World::
+	@echo ""
+	@echo "Building Release 5 of the X Window System"
+	@echo ""
+	@echo "##############################################################"
+	@echo "# Did you remember to check the configuration parameters in  #"
+	@echo "# the directory ./config and set BOOTSTRAPCFLAGS if needed?  #"
+	@echo "##############################################################"
+	@echo ""
+	@date
+	@echo ""
+	cd $(IMAKESRC); $(MAKE) $(MFLAGS) -f Makefile.ini clean; $(MAKE) $(MFLAGS) -f Makefile.ini BOOTSTRAPCFLAGS="$(BOOTSTRAPCFLAGS)"
+	-$(RM) Makefile.bak; $(MV) Makefile Makefile.bak
+	$(MAKE) $(MFLAGS) -f Makefile.bak Makefile
+	$(MAKE) $(MFLAGS) Makefiles
+	$(MAKE) $(MFLAGS) clean
+	$(MAKE) $(MFLAGS) includes
+	$(MAKE) $(MFLAGS) depend
+	$(MAKE) $(MFLAGS) $(WORLDOPTS)
+	@echo ""
+	@date
+	@echo ""
+	@echo "Full build of Release 5 of the X Window System complete."
+	@echo ""
+
+Everything::
+	@echo ""
+	@echo "Rebuilding Release 5 of the X Window System"
+	@echo ""
+	@date
+	@echo ""
+	cd $(IMAKESRC); $(MAKE) $(MFLAGS) -f Makefile.ini BOOTSTRAPCFLAGS="$(BOOTSTRAPCFLAGS)"
+	-$(RM) Makefile.bak; $(MV) Makefile Makefile.bak
+	$(MAKE) $(MFLAGS) -f Makefile.bak Makefile
+	$(MAKE) $(MFLAGS) Makefiles
+	$(MAKE) $(MFLAGS) includes
+	$(MAKE) $(MFLAGS) depend
+	$(MAKE) $(MFLAGS) $(WORLDOPTS)
+	@echo ""
+	@date
+	@echo ""
+	@echo "Rebuild of Release 5 of the X Window System complete."
+	@echo ""
+
+
+RELNOTES.PS::  RELNOTES.ms
+	$(TBL) RELNOTES.ms | $(TROFF) $(MSMACROS) >$@
+
+RELNOTES.lpt:  RELNOTES.ms
+	$(TBL) RELNOTES.ms | nroff $(MSMACROS) >$@
+
+RELNOTES.txt:  RELNOTES.ms
+	$(TBL) RELNOTES.ms | nroff $(MSMACROS) | colcrt >$@
+
+/*
+ * This section used for generating distributions will not be useful to most
+ * people.
+ */
+XCOMM check all filenames for length, letters, and content
+checkfilenames::  $(CHECKFNSRC)/checkfn
+	@find . -type d \! -name RCS -exec $(CHECKFNSRC)/find.sh $(CHECKFN) {} \;
+
+XCOMM clean out link tree looking for stuff that should get checked in
+flushlinks::
+	make -k clean
+	find . -type l -exec rm {} \;
+	find . \( \! \( -type d -o -name Makefile \) \) -print
+
+prep::
+	cd check; $(SHELL) ./checkinv.sh $(DESTDIR) $(INVKEYWORDS)
+
+install::
+	InstallNamedProg(uwsvers,uwsvers,/usr/share)

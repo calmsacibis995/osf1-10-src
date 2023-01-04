@@ -1,0 +1,124 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112161915.AA02622@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2272) close XBUG #4446: xauth gets confused and forgets MIT-MAGIC-COOKIE-1
+Date: Mon, 16 Dec 91 14:15:18 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: xauth: gets confused and forgets MIT-MAGIC-COOKIE-1
+        ### bug number:   4446
+        ### area:         xauth
+        ### severity:     low
+
+Actually, it would clobber whatever authorization came first in the
+file with whatever came last in the to-be-merged file.
+
+
+*** /tmp/,RCSt1a02575	Mon Dec 16 14:11:08 1991
+--- clients/xauth/process.c	Mon Dec 16 14:08:24 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: process.c,v 1.35 91/02/28 09:21:52 rws Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: process.c,v 1.37 91/12/16 14:07:39 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 609,615 ****
+      if (sig > 0) signal (sig, die);	/* re-establish signal handler */
+  #endif
+      if (verbose && xauth_modified) printf ("\r\n");
+!     die ();
+      /* NOTREACHED */
+  #ifdef SIGNALRETURNSINT
+      return -1;				/* for picky compilers */
+--- 609,615 ----
+      if (sig > 0) signal (sig, die);	/* re-establish signal handler */
+  #endif
+      if (verbose && xauth_modified) printf ("\r\n");
+!     die (sig);
+      /* NOTREACHED */
+  #ifdef SIGNALRETURNSINT
+      return -1;				/* for picky compilers */
+***************
+*** 933,939 ****
+  }
+  
+  
+! static int match_auth (a, b)
+      register Xauth *a, *b;
+  {
+      return ((a->family == b->family &&
+--- 933,939 ----
+  }
+  
+  
+! static int match_auth_dpy (a, b)
+      register Xauth *a, *b;
+  {
+      return ((a->family == b->family &&
+***************
+*** 943,949 ****
+--- 943,959 ----
+  	     bcmp (a->number, b->number, a->number_length) == 0) ? 1 : 0);
+  }
+  
++ /* return non-zero iff display and authorization type are the same */
+  
++ static int match_auth (a, b)
++     register Xauth *a, *b;
++ {
++     return ((match_auth_dpy(a, b)
++ 	     && a->name_length == b->name_length
++ 	     && bcmp(a->name, b->name, a->name_length) == 0) ? 1 : 0);
++ }
++ 
++ 
+  static int merge_entries (firstp, second, nnewp, nreplp)
+      AuthList **firstp, *second;
+      int *nnewp, *nreplp;
+***************
+*** 1040,1046 ****
+  	}
+  	status = 0;
+  	for (l = xauth_head; l; l = l->next) {
+! 	    if (match_auth (&proto, l->auth)) {
+  		if (yfunc) {
+  		    status = (*yfunc) (inputfilename, lineno,
+  				       l->auth, data);
+--- 1050,1056 ----
+  	}
+  	status = 0;
+  	for (l = xauth_head; l; l = l->next) {
+! 	    if (match_auth_dpy (&proto, l->auth)) {
+  		if (yfunc) {
+  		    status = (*yfunc) (inputfilename, lineno,
+  				       l->auth, data);
+***************
+*** 1085,1091 ****
+       * run through list removing any records that match
+       */
+      while (list) {
+! 	if (match_auth (list->auth, auth)) {
+  	    AuthList *next = list->next;	      /* next one to look at */
+  	    if (prev) {
+  		prev->next = next;		       /* unlink current one */
+--- 1095,1101 ----
+       * run through list removing any records that match
+       */
+      while (list) {
+! 	if (match_auth_dpy (list->auth, auth)) {
+  	    AuthList *next = list->next;	      /* next one to look at */
+  	    if (prev) {
+  		prev->next = next;		       /* unlink current one */

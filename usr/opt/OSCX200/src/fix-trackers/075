@@ -1,0 +1,205 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9112232235.AA24310@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2298) close XBUG #4807: AUX xinit loses controlling terminal, breaks xterm
+Date: Mon, 23 Dec 91 17:35:32 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4807
+### area:         xterm
+### severity:     medium
+### comments:     AUX setpgid incorrectly removes the controlling terminal.
+###               Per Posix, only setsid should do that.
+###               xterm should be fixed to work w/o a controlling terminal.
+
+Also fixes xinit to not use broken setpgid on A/UX.
+
+
+*** /tmp/,RCSt1a24224	Mon Dec 23 17:13:55 1991
+--- clients/xterm/main.c	Mon Dec 23 17:03:02 1991
+***************
+*** 1,5 ****
+  #ifndef lint
+! static char *rid="$XConsortium: main.c,v 1.198 91/12/18 14:46:32 eswu Exp $";
+  #endif /* lint */
+  
+  /*
+--- 1,5 ----
+  #ifndef lint
+! static char *rid="$XConsortium: main.c,v 1.199 91/12/23 17:02:24 gildea Exp $";
+  #endif /* lint */
+  
+  /*
+***************
+*** 1568,1575 ****
+  			if (tty_got_hung || errno == ENXIO || errno == EIO ||
+  			    errno == ENOTTY) {
+  				no_dev_tty = TRUE;
+- #ifdef USE_SYSV_TERMIO
+- 				tio = d_tio;
+  #ifdef TIOCSLTC
+  				ltc = d_ltc;
+  #endif	/* TIOCSLTC */
+--- 1568,1573 ----
+***************
+*** 1576,1590 ****
+  #ifdef TIOCLSET
+  				lmode = d_lmode;
+  #endif	/* TIOCLSET */
+  #else	/* not USE_SYSV_TERMIO */
+  				sg = d_sg;
+  				tc = d_tc;
+  				discipline = d_disipline;
+- 				ltc = d_ltc;
+- 				lmode = d_lmode;
+  #ifdef sony
+- 				jtc = d_jtc;
+  				jmode = d_jmode;
+  #endif /* sony */
+  #endif	/* USE_SYSV_TERMIO */
+  			} else {
+--- 1574,1588 ----
+  #ifdef TIOCLSET
+  				lmode = d_lmode;
+  #endif	/* TIOCLSET */
++ #ifdef USE_SYSV_TERMIO
++ 				tio = d_tio;
+  #else	/* not USE_SYSV_TERMIO */
+  				sg = d_sg;
+  				tc = d_tc;
+  				discipline = d_disipline;
+  #ifdef sony
+  				jmode = d_jmode;
++ 				jtc = d_jtc;
+  #endif /* sony */
+  #endif	/* USE_SYSV_TERMIO */
+  			} else {
+***************
+*** 1591,1641 ****
+  			    SysError(ERROR_OPDEVTTY);
+  			}
+  		} else {
+! 			/* get a copy of the current terminal's state */
+! 
+! #ifdef USE_SYSV_TERMIO
+! 		        /* SVR4 fails here if xterm started
+! 			   from twm from xdm from /etc/rc.
+! 			   Hence the protection for the next 3 ioctl's.
+! 			   Something about not having a controlling tty. */
+! 		        if(ioctl(tty, TCGETA, &tio) == -1)
+! #ifndef SVR4
+! 				SysError(ERROR_TIOCGETP);
+! #else /* SVR4 */
+! 			        tio = d_tio;
+! #endif /* SVR4 */
+  #ifdef TIOCSLTC
+  			if(ioctl(tty, TIOCGLTC, &ltc) == -1)
+- #ifndef SVR4
+- 				SysError(ERROR_TIOCGLTC);
+- #else /* SVR4 */
+  				ltc = d_ltc;
+- #endif /* SVR4 */
+  #endif	/* TIOCSLTC */
+  #ifdef TIOCLSET
+  			if(ioctl(tty, TIOCLGET, &lmode) == -1)
+- #ifndef SVR4
+- 				SysError(ERROR_TIOCLGET);
+- #else /* SVR4 */
+  				lmode = d_lmode;
+- #endif /* SVR4 */
+  #endif	/* TIOCLSET */
+  #else	/* not USE_SYSV_TERMIO */
+  			if(ioctl(tty, TIOCGETP, (char *)&sg) == -1)
+! 				SysError (ERROR_TIOCGETP);
+  			if(ioctl(tty, TIOCGETC, (char *)&tc) == -1)
+! 				SysError (ERROR_TIOCGETC);
+  			if(ioctl(tty, TIOCGETD, (char *)&discipline) == -1)
+! 				SysError (ERROR_TIOCGETD);
+! 			if(ioctl(tty, TIOCGLTC, (char *)&ltc) == -1)
+! 				SysError (ERROR_TIOCGLTC);
+! 			if(ioctl(tty, TIOCLGET, (char *)&lmode) == -1)
+! 				SysError (ERROR_TIOCLGET);
+  #ifdef sony
+  			if(ioctl(tty, TIOCKGET, (char *)&jmode) == -1)
+! 				SysError (ERROR_TIOCKGET);
+  			if(ioctl(tty, TIOCKGETC, (char *)&jtc) == -1)
+! 				SysError (ERROR_TIOCKGETC);
+  #endif /* sony */
+  #endif	/* USE_SYSV_TERMIO */
+  			close (tty);
+--- 1589,1624 ----
+  			    SysError(ERROR_OPDEVTTY);
+  			}
+  		} else {
+! 			/* Get a copy of the current terminal's state,
+! 			 * if we can.  Some systems (e.g., SVR4 and MacII)
+! 			 * may not have a controlling terminal at this point
+! 			 * if started directly from xdm or xinit,     
+! 			 * in which case we just use the defaults as above.
+! 			 */
+  #ifdef TIOCSLTC
+  			if(ioctl(tty, TIOCGLTC, &ltc) == -1)
+  				ltc = d_ltc;
+  #endif	/* TIOCSLTC */
+  #ifdef TIOCLSET
+  			if(ioctl(tty, TIOCLGET, &lmode) == -1)
+  				lmode = d_lmode;
+  #endif	/* TIOCLSET */
++ #ifdef USE_SYSV_TERMIO
++ 		        if(ioctl(tty, TCGETA, &tio) == -1)
++ 			        tio = d_tio;
++ 
+  #else	/* not USE_SYSV_TERMIO */
+  			if(ioctl(tty, TIOCGETP, (char *)&sg) == -1)
+! 			        sg = d_sg;
+  			if(ioctl(tty, TIOCGETC, (char *)&tc) == -1)
+! 			        tc = d_tc;
+  			if(ioctl(tty, TIOCGETD, (char *)&discipline) == -1)
+! 			        discipline = d_disipline;
+  #ifdef sony
+  			if(ioctl(tty, TIOCKGET, (char *)&jmode) == -1)
+! 			        jmode = d_jmode;
+  			if(ioctl(tty, TIOCKGETC, (char *)&jtc) == -1)
+! 				jtc = d_jtc;
+  #endif /* sony */
+  #endif	/* USE_SYSV_TERMIO */
+  			close (tty);
+*** /tmp/,RCSt1a24265	Mon Dec 23 17:27:16 1991
+--- clients/xinit/xinit.c	Mon Dec 23 17:27:00 1991
+***************
+*** 1,6 ****
+! #ifndef lint
+! static char *rcsid_xinit_c = "$XConsortium: xinit.c,v 11.52 91/11/29 15:20:35 rws Exp $";
+! #endif /* lint */
+  
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+--- 1,4 ----
+! /* $XConsortium: xinit.c,v 11.54 91/12/23 17:26:08 gildea Exp $ */
+  
+  /* Copyright    Massachusetts Institute of Technology    1986	*/
+  
+***************
+*** 49,55 ****
+  #define vfork() fork()
+  #endif /* SYSV and not hpux */
+  
+! #ifndef X_NOT_POSIX
+  #define setpgrp setpgid
+  #endif
+  
+--- 47,55 ----
+  #define vfork() fork()
+  #endif /* SYSV and not hpux */
+  
+! /* A/UX setpgid incorrectly removes the controlling terminal.
+!    Per Posix, only setsid should do that. */
+! #if !defined(X_NOT_POSIX) && !defined(macII)
+  #define setpgrp setpgid
+  #endif
+  

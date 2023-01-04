@@ -1,0 +1,171 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: strmerge.1,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/26 15:41:49 $
+.\"
+.TH strmerge 1
+.SH NAME
+strmerge \- batch string replacement
+.SH SYNOPSIS
+.PP
+.B strmerge
+[
+.B \-m
+\*Vprefix\*O
+] [
+.B \-p
+\*Vpatternfile\*O
+] [
+.B \-s
+\*Vstring\*O
+]
+\*Vsource-program...\*O
+.SH DESCRIPTION
+.PP
+.iX "strmerge utility"
+The \*Lstrmerge\*O command reads the strings specified in the
+message file produced by \*Lstrextract\*O
+and replaces those strings with calls to the message file in the source program
+to create a new source program. The new version of source program has the same
+name as the input source program, with the prefix nl_. For example, if the
+input source program is named \*Lprog.c\*O,
+the output source program is named \*L\&nl_prog.c\*O.
+You use this command to replace hard-coded messages
+(text strings identified by the \*Lstrextract\*O
+command) with calls to the \*Lcatgets\*O
+function and to create a source message catalog file. The source message
+catalog contains the text for each message extracted from your input source
+program. The \*Lstrmerge\*O command names the file by appending
+\*L\&.msg\*O to the name of the input source
+program. For example, the source message catalog for the \*Lprog.c\*O
+program is named \*Lprog.msg\*O .
+You can use the source message catalog as input to the \*Lgencat\*O command.
+.PP
+At run time, the program reads the message text from the message catalog.
+By storing messages in a message catalog, instead of your program, you allow
+the text of messages to be translated to a new language or modified without
+the source program being changed.
+.PP
+In the
+\*Vsource-program\*O
+argument, you name one or more source programs for which you want strings
+replaced. The \*Lstrmerge\*O command does not replace messages for source
+programs included using the \*L#include\*O directive. Therefore, you
+might want a source program and all the source programs it includes
+on a single \*Lstrmerge\*O command line.
+.PP
+You can create a patterns file (as specified by
+\*Vpatternfile\*O
+) to control how the \*Lstrmerge\*O
+command replaces text. The patterns file is divided into several sections,
+each of which is identified by a keyword. The keyword must start at the
+beginning of a new line, and its first character must be a dollar sign ($).
+Following the identifier, you specify a number of patterns. Each pattern
+begins on a new line and follows the regular expression syntax you use in
+the \*Led\*O editor. For more information on the patterns file,
+see the \*Lpatterns\*O(4) reference page.
+.SH FLAGS
+.PP
+.IP \f3\-m\f1 5
+Add
+\*Vprefix\*O
+to message numbers in the output source program and source message catalog.
+You can use this prefix as a mnemonic. You must process source message
+catalogs that contain number prefixes using the \*Lmkcatdefs\*O
+command.  Message numbers will be in the form:
+.oS
+<prefix><msg_num>
+.oE
+.IP
+Set numbers will be in the form:
+.oS
+S_<prefix><set_num>
+.oE
+.IP
+If you process your input source program with the \*Lmkcatdefs\*O
+command, the resulting
+source program and source message catalog might not be portable.
+For more information, see the
+\*EWriting Software for the International Market\*O.
+.IP \f3-p\fP 5
+Use
+\*Vpatternfile\*O
+to match strings in the input source program.
+By default, the command searches for the pattern file
+in the current directory, your home directory and finally \*L/usr/lib/nls\*O.
+.IP
+If you omit the \*L\-p\*O option, the \*Lstrmerge\*O
+command uses a default patterns file that is stored in
+\*L/usr/lib/nls/patterns\*O.
+.IP \f3\-s\f1 5
+Write
+\*Vstring \*O
+at the top of the source message catalog. If you omit the \*L\-s\*O
+option, \*Lstrmerge\*O uses the string specified in the
+\*L$CATHEAD\*O section of the patterns file.
+.SH RESTRICTIONS
+.PP
+You can specify only one rewrite string for all classes of pattern matches.
+.PP
+The \*Lstrmerge\*O command does not verify if the message text file
+matches the source file being rewritten.
+.PP
+The \*Lstrmerge\*O command does not replace strings to files included with
+\*L#include\*O directive. You must run the \*Lstrmerge\*O
+command on these files separately.
+.SH EXAMPLES
+.PP
+The following produces a message file \*Lprog.cat\*O for a program called
+\*Lprog.c\*O.
+.oS
+% strextract \-p c_patterns prog.c prog2.c
+% vi prog.str
+% strmerge \-p c_patterns prog.c prog2.c
+% gencat prog.cat prog.msg prog2.msg
+% vi nl_prog.c
+% vi nl_prog2.c
+% cc nl_prog.c nl_prog2.c
+.oE
+.PP
+In this example, the \*Lstrextract\*O command uses the \*Lc_patterns\*O
+file to determine which strings to match. The input source programs are named
+\*Lprog.c\*O and \*Lprog2.c\*O.
+.PP
+If you need to remove any of the messages or extract one of the created strings, edit the
+resulting message file, \*Lprog.str\*O.
+Under no conditions should you add to this file. Doing so could result in
+unpredictable behavior.
+.PP
+You issue the \*Lstrmerge\*O command to replace the extracted strings
+with calls to the message catalog. In response to this command, \*Lstrmerge\*O
+creates the source message catalogs, \*Lprog.msg\*O and \*Lprog2.msg\*O, and
+the output source programs, \*Lnl_prog.c\*O and \*Lnl_prog2.c\*O.
+.PP
+Before compiling the source programs, you must edit \*Lnl_prog.c\*O and
+\*Lnl_prog2.c\*O to include the appropriate \*Lcatopen\*O and
+\*Lcatclose\*O function calls.
+.PP
+The \*Lgencat\*O command creates a message catalog and the \*Lcc\*O
+command creates an executable program.
+.SH RELATED INFORMATION
+.PP
+\*Lextract\*O(1), \*Lgencat\*O(1), \*Lstrextract\*O(1), \*Ltrans\*O(1),
+\*Lregexp\*O(3), \*Lcatopen\*O(3), \*Lcatgets\*O(3), \*Lpatterns\*O(4)
+.PP
+\*EWriting Software for the International Market\*O
+.EQ
+delim off
+.EN

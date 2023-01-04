@@ -1,0 +1,386 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: slocal.1,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/26 15:40:25 $
+.\"
+.TH slocal 1
+.SH NAME
+slocal \- MH receive-mail hooks
+.SH SYNOPSIS
+.PP
+.B slocal
+.B $HOME/\&.maildelivery
+[
+.B \-form
+\*Vformfile\*O
+] [
+\*Vswitches for\*O
+\*Lpostproc\*O]
+\*Vaddress ...\*O
+[
+.B \-help
+]
+.PP
+.B /usr/lib/mh/rcvpack
+\*Vfile\*O
+[
+.B \-help
+]
+.PP
+.B /usr/lib/mh/rcvtty
+[
+\*Vcommand ...\*O
+] [
+.B \-help
+]
+.\"
+.\"
+.\"
+.\"
+.SH DESCRIPTION
+.PP
+.iX "slocal command"
+A receive-mail hook is a program that is run whenever you receive a
+mail message.
+You do not invoke the hook yourself;
+it is invoked on your behalf by \*Lsendmail\*O, when
+you include the following line
+in your \*L\&.forward\*O file in your home directory:
+.oS
+| /usr/lib/mh/slocal \-user $USER
+.oE
+.PP
+The \*L\&.maildelivery\*O file,
+which is an ordinary ASCII file,
+controls how local delivery is performed.
+This file is read by \*Lslocal\*O.
+.PP
+The format of each line in the \*L\&.maildelivery\*O file is:
+.oS
+field pattern action result string
+.oE
+.PP
+These components are explained below:
+.\"
+.IP "field:" 10
+The name of a field that is to be searched for a pattern.
+This is any field in the headers of the message that might be present.
+In addition, the following special fields are also defined:
+.IP
+.IR source :
+the out-of-band sender information
+.IP
+.IR addr :
+the address that was used to cause delivery to the recipient
+.IP
+.IR default :
+this matches only if the message has not been delivered yet
+.IP
+.IR * :
+this always matches
+.\"
+.\"
+.IP "pattern:"
+The sequence of characters to match in the specified field.
+Matching is case-insensitive but not Regular Expression-based.
+.\"
+.\"
+.IP "action:" 10
+The action to take to deliver the message.
+This is one of the following:
+.\"
+.IP " " 10
+\*Vfile\*O
+or
+.IR > :
+.IP
+Append the message to the file named by
+.B string
+using the standard maildrop delivery process.
+If the message can be appended to the file,
+then this action succeeds.
+When writing to the file,
+a new field is added:
+.oS
+Delivery-Date: <date>
+.oE
+This field indicates the date and time
+at which the message was appended to the file.
+.\"
+.IP " " 10
+\*Vpipe\*O
+or | :
+.IP
+Pipe the message as the standard input
+to the command named by
+.BR string .
+The Bourne shell, \*Lsh\*O(1), is used to interpret the string.
+Prior to giving the string to the shell,
+it is expanded with the following built-in variables:
+.IP
+\*L$(sender)\*O:
+the return address for the message
+.IP
+\*L$(address)\*O:
+the address that was used to cause delivery to the recipient
+.IP
+\*L$(size)\*O:
+the size of the message in bytes
+.IP
+\*L$(reply-to)\*O:
+either the \*LReply-To:\*O or \*LFrom:\*O field of the message
+.IP
+\*L$(info)\*O:
+miscellaneous out-of-band information
+.IP
+When a process is invoked, its environment is as follows:
+the user/group id's are set to recipient's id's;
+the working directory is the recipient's directory;
+the umask is 0077;
+the process has no \*L/dev/tty\*O; the standard input is set to the message;
+the standard output and diagnostic output are set
+to \*L/dev/null\*O; all other file-descriptors are closed;
+the environment variables \*L$USER\*O, \*L$HOME\*O,
+and \*L$SHELL\*O are set appropriately;
+no other environment variables exist.
+.IP
+The process is given a certain amount of time to execute.
+If the process does not exit within this limit,
+it is terminated.
+The amount of time is calculated as \*L((size x 60) + 300)\*O seconds,
+where size is the number of bytes in the message.
+.IP
+The exit status of the process is consulted
+to determine the success of the action.
+An exit status of 0 means that the action succeeded.
+Any other exit status (or abnormal termination)
+means that the action failed.
+.IP
+In order to avoid any time limitations,
+you might implement a process that began by forking.
+The parent would return the appropriate value immediately,
+and the child could continue to do whatever it wanted
+for as long as it wanted.
+This approach should only be used if you do not care
+about the outcome of the action,
+because the success or failure of the child process
+cannot be passed
+back to \*Lslocal\*O. However,
+if the parent is going to return a non-zero exit status,
+then this approach can lead to quicker delivery into your maildrop.
+.\"
+.IP " " 10
+\*Vqpipe\*O
+or
+\*V^ \*O
+:
+.IP
+This is similar to
+.IR pipe ,
+but executes the command directly,
+after built-in variable expansion,
+without assistance from the shell.
+.\"
+.IP " " 10
+.IR destroy :
+.IP
+This action always succeeds.
+.IP "result:" 10
+Indicates how the action should be performed.
+The following values are valid:
+.IP " " 10
+.IR A :
+.IP
+Perform the action.
+If the action succeeded, then the message is considered delivered.
+.IP " " 10
+.IR R :
+.IP
+Perform the action.
+Regardless of the outcome of the action,
+the message is not considered delivered.
+.IP " " 10
+.IR "?" :
+.IP
+Perform the action only if the message has not been delivered.
+If the action succeeded, then the message is considered delivered.
+.\"
+.\"
+.PP
+The file is always read completely,
+so that several matches can be made and several actions can be taken.
+The \*L\&.maildelivery\*O file must be owned either by the user or by root,
+and must be writable only by the owner.
+If the \*L\&.maildelivery\*O file cannot be found, or does not
+perform an action
+which delivers the message, then the file \*L/usr/lib/mh/maildelivery\*O is
+read according to the same rules.
+This file must be owned by the root
+and must be writable only by the root.
+If this file cannot be found or does not perform an action
+which delivers the message,
+then standard delivery to the user's maildrop, \*L/usr/spool/mail/$USER\*O,
+is performed.
+.PP
+Arguments in the \*L\&.maildelivery\*O file are separated by a
+comma (,) or by white space.
+Since double quotes are honored,
+these characters may be included in a single argument
+by enclosing the entire argument in double quotes (").
+A double quote can be included by preceding it with a back-slash.
+.\"
+.\"
+.PP
+Four programs are currently available: \*Lrcvdist\*O redistributes
+incoming messages to additional recipients; \*Lrcvpack\*O saves
+incoming messages in a \*Lpackf\*O(1) file;
+and \*Lrcvtty\*O notifies the user of incoming messages.
+The fourth program, \*Lrcvstore\*O, is
+described in the \*Lrcvstore\*O(1) reference page.
+They all reside in the \*L/usr/lib/mh\*O directory.
+.PP
+The \*Lrcvdist\*O program resends a copy of the message to all of the
+addresses listed on its command line.
+It uses the format string facility described in \*Lmh-format\*O(4).
+.PP
+The \*Lrcvpack\*O program appends a copy of the message to the file listed
+on its command line.
+It is made obsolete by \*L\&.maildelivery\*O.
+.PP
+The \*Lrcvtty\*O program executes the named file
+with the message as its standard input,
+and gives the resulting output to the terminal access daemon
+for display on your terminal.
+If the terminal access daemon is unavailable on your system,
+then \*Lrcvtty\*O writes the output to your terminal,
+only if your terminal has world-writable permission.
+If no valid file is specified, then \*Lrcvtty\*O gives a one-line scan listing
+to the terminal access daemon.
+.\"
+.\"
+.\"
+.\"
+.SH RESTRICTIONS
+.PP
+For compatibility with older versions of MH, if \*Lslocal\*O cannot
+find the user's \*L\&.maildelivery\*O file,
+it attempts to execute an old-style \*Lrcvmail\*O hook in the
+user's \*L$HOME\*O directory.
+Specifically,
+it first attempts to execute the command:
+.oS
+\&.mh_receive file maildrop directory user
+.oE
+Failing that it attempts to execute:
+.oS
+$HOME/bin/rcvmail user file sender
+.oE
+If both of these fail, it gives up
+and write to the user's maildrop.
+.PP
+In addition,
+whenever a hook or process is invoked,
+file-descriptor three (3) is set to the message
+in addition to the standard input.
+.PP
+Only two return codes are meaningful, others should be.
+.\"
+.\"
+.\"
+.\"
+.SH EXAMPLES
+.PP
+This section shows how \*Lslocal\*O could be used.
+.PP
+In this example, line-by-line comments have been extracted from the code
+to aid readability of the example.
+The line numbers would not normally be in the code;
+they are there to help you.
+The code fragment precedes the
+explanation:
+.PP
+.TS
+tab(@);
+l l l l l l.
+@\f2field@pattern@action@result@string\f1
+.sp 6p
+(1)@To@mmdf2@file@A@mmdf2.log
+(2)@From@mmdf@pipe@A@err-message-archive
+(3)@Sender@uk-mmdf@file@?@mmdf2.log
+(4)@To@Unix@>@A@unix-news
+(5)@addr@jpo=mmdf@|@A@mmdf-redist
+(6)@addr@jpo=ack@|@R@resend \-r $(reply-to)
+(7)@From@steve@destroy@A@\-
+(8)@default@\-@>@?@mailbox
+(9)@*@\-@|@R@rcvalert
+.TE
+.TP 10
+Line 1:
+File mail with \*Lmmdf2\*O in the \*LTo:\*O line into file \*Lmmdf2.log\*O.
+.TP 10
+Line 2:
+Messages from \*Lmmdf\*O are piped to the program \*Lerr-message-archive\*O.
+.TP 10
+Line 3:
+Take anything with the address \*Luk-mmdf\*O in
+the \*LSender:\*O field,
+and file it in \*Lmmdf2.log\*O, if it has not already been filed by line 1.
+.TP 10
+Line 4:
+Put messages addressed to \*LUnix\*O in the file \*Lunix-news\*O.
+.TP 10
+Line 5:
+If the address is \*Ljpo=mmdf\*O,
+pipe the message into \*Lmmdf-redist\*O.
+.TP 10
+Line 6:
+If the address is \*Ljpo=ack\*O, send an acknowledgement copy back.
+.TP 10
+Line 7:
+Destroy anything from \*Lsteve\*O.
+.TP 10
+Line 8:
+Take anything that is not matched yet
+and put it into mailbox.
+.TP 10
+Line 9:
+Always run \*Lrcvalert\*O.
+.\"
+.\"
+.\"
+.\"
+.SH FILES
+.PP
+.TP 10
+\*L/usr/lib/mh/mtstailor\*O
+The system customization file.
+.TP 10
+\*L/usr/lib/mh/maildelivery\*O
+The system default file controlling local delivery.
+.TP 10
+\*L$HOME/.maildelivery\*O
+The user-supplied alternative to the system default file
+controlling local delivery.
+.\"
+.\"
+.\"
+.\"
+.SH RELATED INFORMATION
+.PP
+\*Lrcvstore\*O(1)
+.EQ
+delim off
+.EN

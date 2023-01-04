@@ -1,0 +1,1 @@
+XIsso.questionAllActions: false

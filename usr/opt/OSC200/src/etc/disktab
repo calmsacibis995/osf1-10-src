@@ -1,0 +1,732 @@
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: disktab,v $ $Revision: 4.1.15.5 $ (DEC) $Date: 1993/10/14 12:49:40 $ 
+# 
+#
+# (c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+#
+# OSF/1 Release 1.0
+
+#
+# Disk geometry and partition layout tables.
+# Key:
+#	ty	type of disk
+#	dt	drive type (SCSI, MSCP etc.)
+#	ns	#sectors/track
+#	nt	#tracks/cylinder
+#	nc	#cylinders/disk
+#	o[a-h]	partition offset (starting sector of partition)
+#	p[a-h]	partition sizes in sectors
+#	b[a-h]	partition block sizes in bytes
+#	f[a-h]	partition fragment sizes in bytes
+#
+# All partition sizes contain space for bad sector tables unless
+# the device drivers fail to support this. Smaller disks may
+# not have all partitions and all disks have no defaults for
+# the `h' partition. The strategy here is that `a' always
+# has the same amount for all disks (for the most part). The `b' partition is
+# twice  `a' while `c' is always the entire disk. The
+# sum of `d', `e', and `f' is equal to `(c - (a + b))' which is everything else.
+#
+# For all but the really small disks (like the RZ23) the partition sizes are:
+#
+#          a  is 64MB in size
+#          b  is 128MB in size
+#          c  is the whole disk
+#       d,e,f is 1/3 of partitions g and h ((c - (a + b))/3)
+#          g  is 400MB (or rest of disk)
+#          h  is rest of disk (or zero)
+#
+
+
+#
+# rz disks
+#
+# NOTE: Some entries will have a larger number of cylinders (nc)
+# than the actual drive supports.  The reason behind this is that
+# the disklabel facility will blindly multiply (ns*nt)*nc for the
+# disk size (doesn't take into account that disks using zone recording
+# will have varying sectors per track depending on the zone in use).
+# This interface will be corrected!
+#
+rz22|RZ22|DEC RZ22 Winchester:\
+	:ty=winchester:dt=SCSI:ns#33:nt#4:nc#776:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#61472:bb#8192:fb#1024:\
+	:oc#0:pc#102432:bc#8192:fc#1024:
+
+rz23|RZ23|DEC RZ23 Winchester:\
+	:ty=winchester:dt=SCSI:ns#33:nt#8:nc#776:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#58498:bb#8192:fb#1024:\
+	:oc#0:pc#204864:bc#8192:fc#1024:\
+	:od#99458:pd#35135:bd#8192:fd#1024:\
+	:oe#134593:pe#35135:be#8192:fe#1024:\
+	:of#169728:pf#35136:bf#8192:ff#1024:\
+	:og#99458:pg#105406:bg#8192:fg#1024:\
+	:oh#134593:ph#70271:bh#8192:fh#1024:
+
+rz23l|RZ23L|DEC RZ23L Winchester:\
+	:ty=winchester:dt=SCSI:ns#39:nt#4:nc#1524:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#58498:bb#8192:fb#1024:\
+	:oc#0:pc#237588:bc#8192:fc#1024:\
+	:od#99458:pd#35135:bd#8192:fd#1024:\
+	:oe#134593:pe#35135:be#8192:fe#1024:\
+	:of#169728:pf#67860:bf#8192:ff#1024:\
+	:og#99458:pg#138130:bg#8192:fg#1024:\
+	:oh#0:ph#102995:bh#8192:fh#1024:
+
+rz24|RZ24|DEC RZ24 Winchester:\
+	:ty=winchester:dt=SCSI:ns#38:nt#8:nc#1348:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#409792:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#131072:pf#278720:bf#8192:ff#1024:\
+	:og#393216:pg#16576:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+#
+# NOTE: The RZ24L uses a recording technique called zoned recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (simply multiplying
+#   ns*nt*nc does not give true capacity of the drive).  The ns (number
+#   of sectors per track) is calculated by "ns = total sectors/(nt*nc)"
+#   and is a rounded value.  Therefore, the value "ns" is an approximation,
+#   not a true representation, of what is stored on disk.
+#
+#   The 'c' partition listed below gives the true size of the RZ24L
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+rz24l|RZ24L|DEC RZ24L Winchester:\
+        :ty=winchester:dt=SCSI:ns#66:nt#4:nc#1818:\
+        :oa#0:pa#40960:ba#8192:fa#1024:\
+        :ob#40960:pb#122880:bb#8192:fb#1024:\
+        :oc#0:pc#479350:bc#8192:fc#1024:\
+        :od#163840:pd#105170:bd#8192:fd#1024:\
+        :oe#269010:pe#105170:be#8192:fe#1024:\
+        :of#374180:pf#105170:bf#8192:ff#1024:\
+        :og#163840:pg#315510:bg#8192:fg#1024:\
+ 	:oh#0:ph#0:bh#8192:fh#1024:
+
+rz25|RZ25|DEC RZ25 Winchester:\
+        :ty=winchester:dt=SCSI:ns#62:nt#9:nc#1492:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#832527:bc#8192:fc#1024:\
+        :od#393216:pd#146437:bd#8192:fd#1024:\
+        :oe#539653:pe#146437:be#8192:fe#1024:\
+        :of#686090:pf#146437:bf#8192:ff#1024:\
+        :og#393216:pg#439311:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+#
+# NOTE: The RZ25L uses a recording technique called zoned recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (simply multiplying
+#   ns*nt*nc does not give true capacity of the drive).  The ns (number
+#   of sectors per track) is calculated by "ns = total sectors/(nt*nc)"
+#   and is a rounded value.  Therefore, the value "ns" is an approximation,
+#   not a true representation, of what is stored on disk.
+#
+#   The 'c' partition listed below gives the true size of the RZ25L
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+rz25l|RZ25L|DEC RZ25L Winchester:\
+        :ty=winchester:dt=SCSI:ns#79:nt#8:nc#1891:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#1046206:bc#8192:fc#1024:\
+        :od#393216:pd#217663:bd#8192:fd#1024:\
+        :oe#610879:pe#217663:be#8192:fe#1024:\
+        :of#828542:pf#217664:bf#8192:ff#1024:\
+        :og#393216:pg#652990:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+rz26b|RZ26B|DEC RZ26B Winchester:\
+        :ty=winchester:dt=SCSI:ns#57:nt#14:nc#2570:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#2050860:bc#8192:fc#1024:\
+        :od#393216:pd#552548:bd#8192:fd#1024:\
+        :oe#945764:pe#552548:be#8192:fe#1024:\
+        :of#1498312:pf#552548:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#838444:bh#8192:fh#1024:
+
+rz26l|RZ26L|DEC RZ26L Winchester:\
+        :ty=winchester:dt=SCSI:ns#57:nt#14:nc#2570:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#2050860:bc#8192:fc#1024:\
+        :od#393216:pd#552548:bd#8192:fd#1024:\
+        :oe#945764:pe#552548:be#8192:fe#1024:\
+        :of#1498312:pf#552548:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#838444:bh#8192:fh#1024:
+
+rz26m|RZ26M|DEC RZ26M Winchester:\
+        :ty=winchester:dt=SCSI:ns#57:nt#14:nc#2570:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#2050860:bc#8192:fc#1024:\
+        :od#393216:pd#552548:bd#8192:fd#1024:\
+        :oe#945764:pe#552548:be#8192:fe#1024:\
+        :of#1498312:pf#552548:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#838444:bh#8192:fh#1024:
+
+rz26|RZ26|DEC RZ26 Winchester:\
+        :ty=winchester:dt=SCSI:ns#57:nt#14:nc#2570:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#2050860:bc#8192:fc#1024:\
+        :od#393216:pd#552548:bd#8192:fd#1024:\
+        :oe#945764:pe#552548:be#8192:fe#1024:\
+        :of#1498312:pf#552548:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#838444:bh#8192:fh#1024:
+
+
+#
+# (RZ27: 1.6 GB Winchester)
+# NOTE: The RZ27 uses a recording technique called zoned bit recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (in this case, multiplying
+#   ns*nt*nc does give true capacity of the drive).  Both the ns (number
+#   of sectors per track) and the nc (number of cylinders per disk) are 
+#   approximations, and not a true representation of the actual parameters.
+#
+#   The 'c' partition listed below gives the true size of the RZ27
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+rz27|RZ27|DEC RZ27 Winchester:\
+        :ty=winchester:dt=SCSI:ns#143:nt#16:nc#1366:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#3125408:bc#8192:fc#1024:\
+        :od#393216:pd#909312:bd#8192:fd#1024:\
+        :oe#1302528:pe#909312:be#8192:fe#1024:\
+        :of#2211840:pf#913568:bf#8192:ff#1024:\
+        :og#393216:pg#1366016:bg#8192:fg#1024:\
+        :oh#1759232:ph#1366176:bh#8192:fh#1024:
+#
+# (RZ28: 2.0 GB Winchester)
+# NOTE: The RZ28, RZ28B. RZ28L. RZ28M uses a recording technique called
+#   zoned bit recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (in this case, multiplying
+#   ns*nt*nc does give true capacity of the drive).  Both the ns (number
+#   of sectors per track) and the nc (number of cylinders per disk) are
+#   approximations, and not a true representation of the actual parameters.
+#
+#   The 'c' partition listed below gives the true size of the RZ28
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+
+rz28b|RZ28B|DEC RZ28B Winchester:\
+        :ty=winchester:dt=SCSI:ns#99:nt#16:nc#2595:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#401408:bb#8192:fb#1024:\
+        :oc#0:pc#4110480:bc#8192:fc#1024:\
+        :od#532480:pd#1191936:bd#8192:fd#1024:\
+        :oe#1724416:pe#1191936:be#8192:fe#1024:\
+        :of#2916352:pf#1194128:bf#8192:ff#1024:\
+        :og#532480:pg#1787904:bg#8192:fg#1024:\
+        :oh#2320384:ph#1790096:bh#8192:fh#1024:
+
+rz28l|RZ28L|DEC RZ28L Winchester:\
+        :ty=winchester:dt=SCSI:ns#99:nt#16:nc#2595:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#401408:bb#8192:fb#1024:\
+        :oc#0:pc#4110480:bc#8192:fc#1024:\
+        :od#532480:pd#1191936:bd#8192:fd#1024:\
+        :oe#1724416:pe#1191936:be#8192:fe#1024:\
+        :of#2916352:pf#1194128:bf#8192:ff#1024:\
+        :og#532480:pg#1787904:bg#8192:fg#1024:\
+        :oh#2320384:ph#1790096:bh#8192:fh#1024:
+
+rz28m|RZ28M|DEC RZ28M Winchester:\
+        :ty=winchester:dt=SCSI:ns#99:nt#16:nc#2595:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#401408:bb#8192:fb#1024:\
+        :oc#0:pc#4110480:bc#8192:fc#1024:\
+        :od#532480:pd#1191936:bd#8192:fd#1024:\
+        :oe#1724416:pe#1191936:be#8192:fe#1024:\
+        :of#2916352:pf#1194128:bf#8192:ff#1024:\
+        :og#532480:pg#1787904:bg#8192:fg#1024:\
+        :oh#2320384:ph#1790096:bh#8192:fh#1024:
+
+rz28|RZ28|DEC RZ28 Winchester:\
+        :ty=winchester:dt=SCSI:ns#99:nt#16:nc#2595:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#401408:bb#8192:fb#1024:\
+        :oc#0:pc#4110480:bc#8192:fc#1024:\
+        :od#532480:pd#1191936:bd#8192:fd#1024:\
+        :oe#1724416:pe#1191936:be#8192:fe#1024:\
+        :of#2916352:pf#1194128:bf#8192:ff#1024:\
+        :og#532480:pg#1787904:bg#8192:fg#1024:\
+        :oh#2320384:ph#1790096:bh#8192:fh#1024:
+
+#
+# (RZ74: 3.5 GB Winchester)
+# NOTE: The RZ74 uses a recording technique called zoned bit recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (in this case, multiplying
+#   ns*nt*nc does give true capacity of the drive).  Both the ns (number
+#   of sectors per track) and the nc (number of cylinders per disk) are 
+#   approximations, and not a true representation of the actual parameters.
+#
+#   The 'c' partition listed below gives the true size of the RZ74
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+rz74|RZ74|DEC RZ74 Winchester:\
+        :ty=winchester:dt=SCSI:ns#67:nt#25:nc#4165:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#393216:bb#8192:fb#1024:\
+        :oc#0:pc#6976375:bc#8192:fc#1024:\
+        :od#524288:pd#2150400:bd#8192:fd#1024:\
+        :oe#2674688:pe#2150400:be#8192:fe#1024:\
+        :of#4825088:pf#2151287:bf#8192:ff#1024:\
+        :og#524288:pg#3225600:bg#8192:fg#1024:\
+        :oh#3749888:ph#3226487:bh#8192:fh#1024:
+
+rz35|RZ35|DEC RZ35 Winchester:\
+	:ty=winchester:dt=SCSI:ns#57:nt#14:nc#2086:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#1664628:bc#8192:fc#1024:\
+	:od#393216:pd#423804:bd#8192:fd#1024:\
+	:oe#817020:pe#423804:be#8192:fe#1024:\
+	:of#1240824:pf#423804:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#452212:bh#8192:fh#1024:
+
+
+rz55|RZ55|DEC RZ55 Winchester:\
+	:ty=winchester:dt=SCSI:ns#36:nt#15:nc#1224:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#649040:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#255824:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+rz56|RZ56|DEC RZ56 Winchester:\
+	:ty=winchester:dt=SCSI:ns#54:nt#15:nc#1632:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#1299174:bc#8192:fc#1024:\
+	:od#393216:pd#301986:bd#8192:fd#1024:\
+	:oe#695202:pe#301986:be#8192:fe#1024:\
+	:of#997188:pf#301986:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#86758:bh#8192:fh#1024:
+
+rz57|RZ57|DEC RZ57 Winchester:\
+	:ty=winchester:dt=SCSI:ns#71:nt#15:nc#1854:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#1954050:bc#8192:fc#1024:\
+	:od#393216:pd#520278:bd#8192:fd#1024:\
+	:oe#913494:pe#520278:be#8192:fe#1024:\
+	:of#1433772:pf#520278:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#741634:bh#8192:fh#1024:
+
+#
+# (RZ58: 1.3 GB Winchester)
+# NOTE: The RZ58 uses a recording technique called zoned recording.
+#   Using this technique, the number of sectors per track will vary
+#   depending on what zone of the disk is in use (simply multiplying
+#   ns*nt*nc does not give true capacity of the drive).  The ns (number
+#   of sectors per track) is calculated by "ns = total sectors/(nt*nc)"
+#   and is a rounded value.  Therefore, the value "ns" is an approximation,
+#   not a true representation, of what is stored on disk.
+#
+#   The 'c' partition listed below gives the true size of the RZ58
+#   (this information can be obtained by use of the DEVGETGEOM ioctl).
+#
+rz58|RZ58|DEC RZ58 Winchester:\
+	:ty=winchester:dt=SCSI:ns#85:nt#15:nc#2117:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#2698061:bc#8192:fc#1024:\
+	:od#393216:pd#768281:bd#8192:fd#1024:\
+	:oe#1161497:pe#768282:be#8192:fe#1024:\
+	:of#1929779:pf#768282:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#1485645:bh#8192:fh#1024:
+
+rz73|RZ73|DEC RZ73 Winchester:\
+	:ty=winchester:dt=SCSI:ns#71:nt#21:nc#2621:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#3907911:bc#8192:fc#1024:\
+	:od#393216:pd#1171565:bd#8192:fd#1024:\
+	:oe#1564781:pe#1171565:be#8192:fe#1024:\
+	:of#2736346:pf#1171565:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#2695495:bh#8192:fh#1024:
+
+#
+# ez disks (solid state disks)
+#
+#
+
+ez51|EZ51|DEC EZ51 Winchester:\
+	:ty=winchester:dt=SCSI:ns#33:nt#9:nc#776:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#40960:bb#8192:fb#1024:\
+	:oc#0:pc#208800:bc#8192:fc#1024:\
+	:od#81920:pd#40960:bd#8192:fd#1024:\
+	:oe#122880:pe#40960:be#8192:fe#1024:\
+	:of#163840:pf#44960:bf#8192:ff#1024:\
+	:og#81920:pg#61440:bg#8192:fg#1024:\
+	:oh#143360:ph#65440:bh#8192:fh#1024:
+
+ez54|EZ54|DEC EZ54 Winchester:\
+	:ty=winchester:dt=SCSI:ns#62:nt#10:nc#1492:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#835300:bc#8192:fc#1024:\
+        :od#393216:pd#147361:bd#8192:fd#1024:\
+        :oe#540577:pe#147361:be#8192:fe#1024:\
+        :of#687938:pf#147362:bf#8192:ff#1024:\
+        :og#393216:pg#442084:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+ez58|EZ58|DEC EZ58 Winchester:\
+        :ty=winchester:dt=SCSI:ns#20:nt#10:nc#8353:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#1670600:bc#8192:fc#1024:\
+        :od#393216:pd#425794:bd#8192:fd#1024:\
+        :oe#819010:pe#425794:be#8192:fe#1024:\
+        :of#1244804:pf#425796:bf#8192:ff#1024:\
+        :og#393216:pg#1277384:bg#8192:fg#1024:\
+        :oh#0:ph#0:bh#8192:fh#1024:
+
+#
+# disklabel does not use the GEOM ioctl to read on disk
+# format, so we must provide the various standard 
+# floppy partition tables at different densities.
+#
+# The "default" layout is always the highest density and the 
+# other densities will be single, double and high (if supported).
+# For instance, the RX23 supports 3 densities and has partition
+# layouts to choose for each:
+#
+#	RX23   (1.44MB high density)
+#	RX23dd (720 KB double density)
+#	RX23sd (360 KB single density) 
+#
+
+#
+# RX23 (1.44 MB)
+# Default (high density) partition layout:
+#
+rx23|RX23|DEC RX23:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#18:nt#2:nc#80:\
+        :oa#0:pa#2880:ba#4096:fa#512:\
+        :oc#0:pc#2880:bc#4096:fc#512:
+
+#
+# RX23 (720 KB)
+# Double density partition layout:
+#
+rx23dd|RX23DD|DEC RX23:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#80:\
+        :oa#0:pa#1440:ba#4096:fa#512:\
+        :oc#0:pc#1440:bc#4096:fc#512:
+
+#
+# RX23 (360 KB)
+# Single density partition layout:
+#
+rx23sd|RX23SD|DEC RX23:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#40:\
+        :oa#0:pa#720:ba#4096:fa#512:\
+        :oc#0:pc#720:bc#4096:fc#512:
+
+#
+# RX26 (2.88 MB)
+# Default (extra density) partition layout:
+#
+rx26|RX26|DEC RX26:\
+	:b0=/dev/null:b1=/dev/null:\
+	:ty=removable:dt=SCSI:ns#36:nt#2:nc#80:\
+	:oa#0:pa#5760:ba#4096:fa#512:\
+	:oc#0:pc#5760:bc#4096:fc#512:
+
+#
+# RX26 (1.44 MB)
+# High density partition layout:
+#
+rx26hd|RX26HD|DEC RX26:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#18:nt#2:nc#80:\
+        :oa#0:pa#2880:ba#4096:fa#512:\
+        :oc#0:pc#2880:bc#4096:fc#512:
+
+#
+# RX26 (720 KB)
+# Double density partition layout:
+#
+rx26dd|RX26DD|DEC RX26:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#80:\
+        :oa#0:pa#1440:ba#4096:fa#512:\
+        :oc#0:pc#1440:bc#4096:fc#512:
+
+#
+# RX26 (360 KB)
+# Single density partition layout:
+#
+rx26sd|RX26SD|DEC RX26:\
+	:b0=/dev/null:b1=/dev/null:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#40:\
+        :oa#0:pa#720:ba#4096:fa#512:\
+        :oc#0:pc#720:bc#4096:fc#512:
+
+#
+# RX33 (1.2 MB)
+# Default (extra density) partition layout:
+#
+rx33|RX33|DEC RX33:\
+        :ty=removable:dt=SCSI:ns#15:nt#2:nc#80:\
+        :oa#0:pa#2400:ba#4096:fa#512:\
+        :oc#0:pc#2400:bc#4096:fc#512:
+
+#
+# RX33 (720 KB)
+# High density partition layout:
+#
+rx33hd|RX33HD|DEC RX33:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#80:\
+        :oa#0:pa#1440:ba#4096:fa#512:\
+        :oc#0:pc#1440:bc#4096:fc#512:
+
+#
+# RX33 (400 KB)
+# Double density partition layout:
+#
+rx33dd|RX33DD|DEC RX33:\
+        :ty=removable:dt=SCSI:ns#10:nt#1:nc#80:\
+        :oa#0:pa#800:ba#4096:fa#512:\
+        :oc#0:pc#800:bc#4096:fc#512:
+
+#
+# RX33 (360 KB)
+# Single density partition layout:
+#
+rx33sd|RX33SD|DEC RX33:\
+        :ty=removable:dt=SCSI:ns#9:nt#2:nc#40:\
+        :oa#0:pa#720:ba#4096:fa#512:\
+        :oc#0:pc#720:bc#4096:fc#512:
+
+#
+# ra disks
+#
+ra60|RA60|DEC RA60 Removable:\
+	:ty=removable:dt=MSCP:ns#42:nt#4:nc#2382:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#41968:bb#8192:fb#1024:\
+	:oc#0:pc#400176:bc#8192:fc#1024:\
+	:od#242928:pd#52416:bd#8192:fd#1024:\
+	:oe#295344:pe#52416:be#8192:fe#1024:\
+	:of#347760:pf#52416:bf#8192:ff#1024:\
+	:og#82928:pg#160000:bg#8192:fg#1024:\
+	:oh#242928:ph#157248:bh#8192:fh#1024:
+
+ra70|RA70|DEC RA70 Winchester:\
+        :ty=winchester:dt=MSCP:ns#33:nt#11:nc#1507:\
+        :oa#0:pa#40960:ba#8192:fa#1024:\
+        :ob#40960:pb#122880:bb#8192:fb#1024:\
+        :oc#0:pc#547041:bc#8192:fc#1024:\
+        :od#0:pd#163840:bd#8192:fd#1024:\
+        :oe#0:pe#471040:be#8192:fe#1024:\
+        :of#471040:pf#76001:bf#8192:ff#1024:\
+        :og#163840:pg#383201:bg#8192:fg#1024:
+
+ra71|RA71|DEC RA71 Winchester:\
+        :ty=winchester:dt=MSCP:ns#51:nt#14:nc#1915:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#1367310:bc#8192:fc#1024:\
+        :od#393216:pd#324698:bd#8192:fd#1024:\
+        :oe#717914:pe#324698:be#8192:fe#1024:\
+        :of#1042612:pf#324698:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#154894:bh#8192:fh#1024:
+
+ra72|RA72|DEC RA72 Winchester:\
+        :ty=winchester:dt=MSCP:ns#51:nt#20:nc#1915:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#1953300:bc#8192:fc#1024:\
+        :od#393216:pd#520028:bd#8192:fd#1024:\
+        :oe#913244:pe#520028:be#8192:fe#1024:\
+        :of#1433272:pf#520028:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#740884:bh#8192:fh#1024:
+
+ra73|RA73|DEC RA73 Winchester:\
+        :ty=winchester:dt=MSCP:ns#70:nt#21:nc#2667:\
+        :oa#0:pa#131072:ba#8192:fa#1024:\
+        :ob#131072:pb#262144:bb#8192:fb#1024:\
+        :oc#0:pc#3920490:bc#8192:fc#1024:\
+        :od#393216:pd#1175552:bd#8192:fd#1024:\
+        :oe#1568768:pe#1175552:be#8192:fe#1024:\
+        :of#2744320:pf#1176170:bf#8192:ff#1024:\
+        :og#393216:pg#819200:bg#8192:fg#1024:\
+        :oh#1212416:ph#2708074:bh#8192:fh#1024:
+
+ra80|RA80|DEC RA80 Winchester:\
+	:ty=winchester:dt=MSCP:ns#31:nt#14:nc#546:\
+	:oa#0:pa#40960:ba#8192:fa#1024:\
+	:ob#40960:pb#41968:bb#8192:fb#1024:\
+	:oc#0:pc#237212:bc#8192:fc#1024:\
+	:od#82928:pd#51428:bd#8192:fd#1024:\
+	:oe#134356:pe#51428:be#8192:fe#1024:\
+	:of#185784:pf#51428:bf#8192:ff#1024:\
+	:og#82928:pg#154284:bg#8192:fg#1024:
+
+ra81|RA81|DEC RA81 Winchester:\
+	:ty=winchester:dt=MSCP:ns#51:nt#14:nc#1248:\
+	:oa#0:pa#81920:ba#8192:fa#1024:\
+	:ob#81920:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#891072:bc#8192:fc#1024:\
+	:od#344064:pd#182336:bd#8192:fd#1024:\
+	:oe#526400:pe#182336:be#8192:fe#1024:\
+	:of#708736:pf#182336:bf#8192:ff#1024:\
+	:og#344064:pg#547008:bg#8192:fg#1024:
+
+ra82|RA82|DEC RA82 Winchester:\
+	:ty=winchester:dt=MSCP:ns#57:nt#15:nc#1423:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#1216665:bc#8192:fc#1024:\
+	:od#393216:pd#274483:bd#8192:fd#1024:\
+	:oe#667699:pe#274483:be#8192:fe#1024:\
+	:of#942182:pf#274483:bf#8192:ff#1024:\
+	:og#393216:pg#823449:bg#8192:fg#1024:
+
+ra90|RA90|DEC RA90 Winchester:\
+	:ty=winchester:dt=MSCP:ns#69:nt#13:nc#2649:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#2376153:bc#8192:fc#1024:\
+	:od#393216:pd#660979:bd#8192:fd#1024:\
+	:oe#1054195:pe#660979:be#8192:fe#1024:\
+	:of#1715174:pf#660979:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#1163737:bh#8192:fh#1024:
+
+ra92|RA92|DEC RA92 Winchester:\
+	:ty=winchester:dt=MSCP:ns#69:nt#13:nc#3279:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#2940951:bc#8192:fc#1024:\
+	:od#393216:pd#660979:bd#8192:fd#1024:\
+	:oe#1054195:pe#660979:be#8192:fe#1024:\
+	:of#1715174:pf#660979:bf#8192:ff#1024:\
+	:og#393216:pg#819200:bg#8192:fg#1024:\
+	:oh#1212416:ph#1728535:bh#8192:fh#1024:
+
+hsx00|HSX00|DEC HSX00 RAID (single-spindle):\
+	:ty=dynamic_geometry:dt=MSCP:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+hsx01|HSX01|DEC HSX01 RAID (multi-spindle):\
+	:ty=dynamic_geometry:dt=MSCP:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+hsz10|HSZ10|DEC HSZ10 RAID (multi-spindle):\
+	:ty=dynamic_geometry:dt=SCSI:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+hsz15|HSZ15|DEC HSZ15 RAID (multi-spindle):\
+	:ty=dynamic_geometry:dt=SCSI:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+hsz20|HSZ20|DEC HSZ20 RAID (multi-spindle):\
+	:ty=dynamic_geometry:dt=SCSI:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:
+
+hsz40|HSZ40|DEC HSZ40 RAID (multi-spindle):\
+	:ty=dynamic_geometry:dt=SCSI:ns#-1:nt#-1:nc#-1:\
+	:oa#0:pa#131072:ba#8192:fa#1024:\
+	:ob#131072:pb#262144:bb#8192:fb#1024:\
+	:oc#0:pc#-1:bc#8192:fc#1024:\
+	:od#0:pd#0:bd#8192:fd#1024:\
+	:oe#0:pe#0:be#8192:fe#1024:\
+	:of#0:pf#0:bf#8192:ff#1024:\
+	:og#393216:pg#-1:bg#8192:fg#1024:\
+	:oh#0:ph#0:bh#8192:fh#1024:

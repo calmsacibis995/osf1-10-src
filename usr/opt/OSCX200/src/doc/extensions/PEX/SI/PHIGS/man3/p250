@@ -1,0 +1,175 @@
+.\"##
+.\" $XConsortium: p250,v 5.1 91/02/16 09:41:36 rws Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the names of Sun Microsystems,
+.\"## the X Consortium, and MIT not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.TH "REDRAW ALL STRUCTURES" 3P "29 February 1991"
+.SH NAME
+REDRAW ALL STRUCTURES \- redisplay all structures posted to a workstation
+.SH SYNOPSIS
+.SS C Syntax
+.ft B
+.ta 1.25i 3i
+.nf
+void
+predraw_all_structs ( ws, control_flag )
+Pint	ws;	\fIworkstation identifier\fP
+Pctrl_flag	control_flag;	\fIcontrols the redraw of the structures\fP
+.fi
+.ft R
+.SS Required PHIGS Operating States
+(PHOP, WSOP, *, *)
+.SH DESCRIPTION
+.SS Purpose
+\s-2REDRAW ALL STRUCTURES\s+2 updates the specified
+workstation's display by:
+.RS
+.ta 0.2i +0.2i +0.2i +0.2i +0.2i
+.LP
+\(bu
+Completing any actions in progress
+.LP
+\(bu
+Clearing the display surface if the surface is \s-2NOT EMPTY\s+2,
+or if the \fIcontrol flag\fP is \s-2ALWAYS\s+2
+.LP
+\(bu
+Updating any pending viewing transformation and pending \s-2HLHSR\s+2 mode
+.LP
+\(bu
+Redisplaying all structures posted to the workstation
+.LP
+\(bu
+Setting the workstation's \fIstate of visual representation\fP
+to \s-2CORRECT\s+2
+.ta
+.RE
+.SS C Input Parameters
+.IP \fIws\fP
+The identifier of the workstation whose structures are to be redrawn.
+.IP \fIcontrol_flag\fP
+Controls whether the display surface is
+automatically cleared.
+Pctrl_flag is defined in phigs.h.
+Valid values are:
+.sp .4
+.ta .5i
+.nf
+typedef enum {
+.sp .2
+	PFLAG_COND,
+	PFLAG_ALWAYS
+.sp .2
+}Pctrl_flag;
+.fi
+.IP
+\s-2PFLAG_COND\s+2 clears the display surface before redrawing only if
+the surface is not empty.
+.IP
+\s-2PFLAG_ALWAYS\s+2
+automatically clears the surface before redrawing.
+.SS Execution
+\s-2REDRAW ALL STRUCTURES\s+2 performs the following actions in
+sequence:
+.sp .5v
+.in +0.5i
+.ta +0.2i
+.ti -0.2i
+1.	Any buffered communications for the specified workstation
+are completed without first clearing the display surface.
+.\"
+.\" I'm think \s-2PEX-SI\s0 never has any data that hasn't been flushed. -wds
+.\"
+.\"		Actions below must match those for UPDATE WORKSTATION!
+.\"
+.sp .5v
+.ti -0.2i
+2.	If the \fIcontrol flag\fP is set to \s-2CONDITIONALLY\s+2, then the
+workstation's display surface is only cleared if
+it is \s-2NOT EMPTY\s+2. If the control
+flag is set to \s-2ALWAYS\s+2, the display surface is cleared regardless
+of whether the display is \s-2EMPTY\s+2. In any case,
+the entry is then set to \s-2EMPTY\s+2.
+.IP
+\fBNote:\fP
+Using a control flag of \s-2CONDITIONALLY\s+2
+avoids unnecessarily clearing an empty display surface.
+A value of \s-2ALWAYS\s+2 is useful when generating 
+multiple copies of the current image on hardcopy devices.
+However, for \s-2PEX-SI\s+2 where an output device is always
+a \s-2CRT\s+2, the value \s-2ALWAYS\s+2 is not meaningful.
+.sp .5v
+.ti -0.2i
+3.	For every view representation in the workstation's state list,
+if the \fIview transformation update state\fP is \s-2PENDING\s+2,
+the current view representation is loaded from the \fIrequested\fP view
+representation,
+and the update state is set to \s-2NOTPENDING\s+2.
+.sp .5v
+.ti -0.2i
+4.	If the workstation transformation update state is \s-2PENDING\s+2,
+the \fIcurrent workstation window\fP and \fIcurrent workstation viewport\fP
+are loaded with the \fIrequested\fP values for each,
+and the update state is set to \s-2NOTPENDING\s+2.
+.sp .5v
+.ti -0.2i
+5.	If the workstation's \fI\s-2HLHSR\s+2 update state\fP
+is \s-2PENDING\s+2, the \fIcurrent \s-2HLHSR\s+2 mode\fP is updated
+to the value of the \fIrequested \s-2HLHSR\s+2 mode\fP, and
+the update state is set to \s-2NOTPENDING\s+2.
+.sp .5v
+.ti -0.2i
+6.	All structure networks posted for this workstation are redisplayed
+in the order of their priority.
+.sp .5v
+.ti -0.2i
+7.	The workstation's \fIstate of visual representation\fP is set
+to \s-2CORRECT\s+2.
+.LP
+The workstation's state of visual representation indicates
+if the display is \s-2CORRECT\s+2, \s-2SIMULATED\s+2, or \s-2DEFERRED\s+2.
+\s-2INQUIRE DISPLAY UPDATE STATE\s+2 returns the
+workstation's \fIdisplay surface empty\fP and state of visual representation
+state list entries.
+Normally, the traversal in Step 6 causes
+the display surface empty workstation state to become \s-2NOTEMPTY\s+2.
+(If all the posted structures are empty, or if they contain elements but no
+output primitive elements, the display surface empty may be
+\s-2EMPTY\s+2 or \s-2NOTEMPTY\s+2.)
+.DT
+.SH ERRORS
+.IP 003
+Ignoring function, function requires state 
+(\s-2PHOP\s+2, \s-2WSOP\s+2, \s-2*\s+2, \s-2*\s+2)
+.IP 054
+Ignoring function, the specified workstation is not open
+.IP 059
+Ignoring function, the specified workstation does not have output capability
+(i.e., the workstation category is neither \s-2OUTPUT\s+2, \s-2OUTIN\s+2, nor \s-2MO\s+2)
+.SH SEE ALSO
+.nf
+.IP
+.ta 0.5i
+.SM "UPDATE WORKSTATION (3P)"
+.SM "INQUIRE DISPLAY UPDATE STATE (3P)"
+.SM "SET DISPLAY UPDATE STATE (3P)"
+.fi

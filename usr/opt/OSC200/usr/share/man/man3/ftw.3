@@ -1,0 +1,228 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ftw.3,v $ $Revision: 3.2.5.2 $ (DEC) $Date: 1993/06/23 22:26:48 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.2
+.\"
+.TH ftw 3
+.SH NAME
+.PP
+\*Lftw\*O, \*Lnftw\*O \- Walks a file tree
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <ftw.h>\*O
+.PP
+\*Lint ftw(\*O
+.nL
+        \*Lconst char *\*Vpath\*L,\*O
+.nL
+        \*Lint(*\*Vfunction\*L)(const char *, const struct stat *, int),
+.nL
+        \*Lint \*Vdepth\*L);\*O
+.PP
+\*Lint nftw(\*O
+.nL
+        \*Lconst char *\*Vpath\*L,\*O
+.nL
+        \*Lint(*\*Vfunction\*L)(const char *, const struct stat *, int, struct FTW),
+.nL
+        \*Lint \*Vdepth\*L),\*O
+.nL
+        \*Lint \*Vflags\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vpath\*O"
+Specifies the directory hierarchy to be searched.
+.LI "\*Vfunction\*O"
+Specifies the function to be invoked for each file in the directory hierarchy.
+.LI "\*Vdepth\*O"
+No longer used.
+.LI "\*Vflags\*O"
+Specifies optional flags that modify the operation of the
+\*Lnftw(\|)\*O function only.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "ftw function"
+.iX "nftw function"
+.iX "directory" "walking a file tree"
+The \*Lftw(\|)\*O function recursively searches the directory
+hierarchy that descends from the directory specified by the \*Vpath\*O
+parameter.
+.PP
+For each file in the hierarchy, the \*Lftw(\|)\*O function calls
+the function specified by the \*Vfunction\*O parameter, passes
+it a pointer to a null-terminated character string containing the
+name of the file, a pointer to a \*Lstat\*O structure containing
+information about the file, and an integer. (See the \*Lstat\*O(2)
+reference page for more information about this structure.)
+.PP
+The integer passed to the \*Vfunction\*O parameter identifies
+the file type, and it has one of the following values:
+.VL
+.LI "FTW_F"
+Regular file.
+.LI "FTW_D"
+Directory.
+.LI "FTW_DNR"
+Directory that cannot be read.
+.LI "FTW_SL"
+Symbolic link.
+.LI "FTW_NS"
+A file for which the \*Llstat(\|)\*O function could
+not be executed successfully.
+.LE
+.PP
+If the integer is FTW_DNR, then the files and subdirectories
+contained in that directory are not processed.
+.PP
+If the integer is FTW_NS, then the \*Lstat\*O structure
+contents are meaningless. An example of a file that causes FTW_NS
+to be passed to the \*Vfunction\*O parameter is a file in a directory
+for which you have read permission but not execute (search) permission.
+.PP
+The \*Lftw(\|)\*O function finishes processing a directory before
+processing any of its files or subdirectories.
+.PP
+The \*Lftw(\|)\*O function continues the search until the directory
+hierarchy specified by the \*Vpath\*O parameter is completed, an
+invocation of the function specified by the \*Vfunction\*O parameter
+returns a nonzero value, or an error is detected within the \*Lftw(\|)\*O function,
+such as an I/O error.
+.PP
+Because the \*Lftw(\|)\*O function is recursive, it is possible
+for it to terminate with a memory fault due to stack overflow when
+applied to very deep file structures.
+.PP
+The \*Lftw(\|)\*O function uses the \*Lmalloc(\|)\*O function
+to allocate dynamic storage during its operation. If the \*Lftw(\|)\*O
+function is terminated prior to its completion, such as by the \*Llongjmp(\|)\*O
+function being executed by the function specified by the \*Vfunction\*O
+parameter or by an interrupt routine, the \*Lftw(\|)\*O function
+cannot free that storage. The storage remains allocated. A safe way
+to handle interrupts is to store the fact that an interrupt has occurred,
+and arrange to have the function specified by the \*Vfunction\*O
+parameter return a nonzero value the next time it is called.
+.PP
+The \*Lftw(\|)\*O
+function traverses symbolic links encountered in the resolution of
+\*Vpath\*O, including the final component.  Symbolic links encountered while
+walking the directory tree rooted at \*Vpath\*O will not be traversed.
+.PP
+The \*Lnftw(\|)\*O function provides the same features as
+does \*Lftw(\|)\*O, but with the following additional flags:
+.VL 1i
+.LI "FTW_PHYS"
+Physically walks the file tree, but does not follow symbolic links. If
+this flag is not specified, the \*Lnftw(\|)\*O function does follow
+links, but does not walk down any path that crosses itself.
+.LI "FTW_MOUNT"
+Mount points are not crossed during the walk.
+.LI "FTW_DEPTH"
+All subdirectories are to be visited before the directory itself.
+.LI "FTW_CHDIR"
+The walk changes to each directory before reading its contents.
+.LE
+.PP
+The \*Lnftw(\|)\*O function calls  the \*Vfunction\*O parameter with four
+arguments at each file and directory. The first argument is the
+pathname of the object. The second argument points to the \*Lstat\*O
+buffer. The third argument identifies
+all of the file types used by the \*Lftw(\|)\*O function (see the
+previous description). In
+addition, the \*Lnftw(\|)\*O function provides the following file
+type:
+.VL 1i
+.LI "FTW_DP"
+A directory whose directories have been visited.
+.LE
+.PP
+The fourth argument is a \*Lstruct FTW\*O. This structure contains the
+following members:
+.PP
+.iS
+int base;
+int level;
+.iE
+.PP
+The value of \*Lbase\*O is the offset into the pathname of the object.
+This pathname is passed as the first argument to the \*Vfunction\*O
+parameter. The value of \*Llevel\*O specifies the depth relative to
+the root of the walk, where the root level has a value of 0 (zero).
+.SH NOTES
+.PP
+The \*Lftw(\|)\*O and \*Lnftw(\|)\*O functions are reentrant; care
+should be
+taken to ensure that the function supplied as argument \*Vfunction\*O
+is also reentrant.
+.PP
+.VL
+.LI "\*LAES Support Level:\*O"
+Trial use.
+.LE
+.SH RETURN VALUES
+.PP
+If the directory hierarchy is completed, the \*Lftw(\|)\*O and
+\*Lnftw(\|)\*O functions
+return a value of 0 (zero).  If the function specified by the \*Vfunction\*O
+parameter returns a nonzero value, the \*Lftw(\|)\*O and
+\*Lnftw(\|)\*O functions stop
+their search and return the value that was returned by the function.
+If the \*Lftw(\|)\*O and \*Lnftw(\|)\*O functions detect an error, a
+value of -1 is returned, and \*Lerrno\*O is set to indicate
+the error.
+.PP
+.SH ERRORS
+.PP
+If any of the following conditions occurs, the \*Lftw(\|)\*O and
+\*Lnftw(\|)\*O functions set
+\*Lerrno\*O to the value that corresponds to the condition.
+.VL
+.LI "[EACCES]"
+Search permission is denied for any component of the
+\*Vpath\*O parameter or read permission is denied for the
+\*Vpath\*O parameter.
+.LI "[ENAMETOOLONG]"
+The length of the \*Vpath\*O string exceeds \*LPATH_MAX\*O,
+or a pathname component is longer than
+\*LNAME_MAX\*O while [_POSIX_NO_TRUNC] is in effect.
+.LI "[ENOENT]"
+The \*Vpath\*O parameter points to the name of a file that does not exist
+or points to an empty string.
+.LI "[ENOTDIR]"
+A component of the \*Vpath\*O parameter is not a directory.
+.LI "[ENOMEM]"
+There is insufficient memory for this operation.
+.LE
+.PP
+In addition, if the function pointed to by the \*Vfunction\*O
+parameter encounters an error, \*Lerrno\*O may be set accordingly.
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lstat\*O(2).
+.EQ
+delim off
+.EN

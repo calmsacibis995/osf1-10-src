@@ -1,0 +1,154 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9112170105.AA03132@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2273) close XBUG #4607: xauth intermittently fails due to locking bugs
+Date: Mon, 16 Dec 91 20:05:28 EST
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4607
+### area:         xauth
+### severity:     low
+
+Suggestion to use random backoff is rejected; this would only be
+necessary if neither process won on a collision.
+
+
+*** /tmp/,RCSt1a03092	Mon Dec 16 19:59:19 1991
+--- lib/Xau/AuLock.c	Mon Dec 16 19:57:44 1991
+***************
+*** 1,7 ****
+  /*
+   * Xau - X Authorization Database Library
+   *
+!  * $XConsortium: AuLock.c,v 1.7 91/04/17 10:59:27 rws Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,7 ----
+  /*
+   * Xau - X Authorization Database Library
+   *
+!  * $XConsortium: AuLock.c,v 1.8 91/12/16 19:56:07 gildea Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 21,32 ****
+  #include <X11/Xauth.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+- #ifndef X_NOT_POSIX
+  #include <errno.h>
+- #else
+- #include <sys/errno.h>
+- #endif
+  
+  #if NeedFunctionPrototypes
+  int
+  XauLockAuth (
+--- 21,30 ----
+  #include <X11/Xauth.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <errno.h>
+  
++ extern int errno;
++ 
+  #if NeedFunctionPrototypes
+  int
+  XauLockAuth (
+***************
+*** 50,56 ****
+      struct stat	statb;
+      long	now;
+      int		creat_fd = -1;
+-     extern int	errno;
+  
+      if (strlen (file_name) > 1022)
+  	return LOCK_ERROR;
+--- 48,53 ----
+***************
+*** 82,87 ****
+--- 79,88 ----
+  	if (creat_fd != -1) {
+  	    if (link (creat_name, link_name) != -1)
+  		return LOCK_SUCCESS;
++ 	    if (errno == ENOENT) {
++ 		creat_fd = -1;	/* force re-creat next time around */
++ 		continue;
++ 	    }
+  	    if (errno != EEXIST)
+  		return LOCK_ERROR;
+  	}
+*** /tmp/,RCSt1a03106	Mon Dec 16 20:00:02 1991
+--- clients/xauth/process.c	Mon Dec 16 19:53:17 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: process.c,v 1.37 91/12/16 14:07:39 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: process.c,v 1.38 91/12/16 19:34:35 gildea Exp $
+   *
+   * Copyright 1989 Massachusetts Institute of Technology
+   *
+***************
+*** 42,48 ****
+  
+  #define SECURERPC "SUN-DES-1"
+  
+! #define XAUTH_DEFAULT_RETRIES 2		/* just a few times */
+  #define XAUTH_DEFAULT_TIMEOUT 2		/* in seconds, be quick */
+  #define XAUTH_DEFAULT_DEADTIME 600L	/* 10 minutes in seconds */
+  
+--- 42,48 ----
+  
+  #define SECURERPC "SUN-DES-1"
+  
+! #define XAUTH_DEFAULT_RETRIES 10	/* number of competitors we expect */
+  #define XAUTH_DEFAULT_TIMEOUT 2		/* in seconds, be quick */
+  #define XAUTH_DEFAULT_DEADTIME 600L	/* 10 minutes in seconds */
+  
+***************
+*** 657,670 ****
+      hexvalues['e'] = hexvalues['E'] = 0xe;
+      hexvalues['f'] = hexvalues['F'] = 0xf;
+  
+-     exists = (access (authfilename, F_OK) == 0);
+-     if (exists && access (authfilename, W_OK) != 0) {
+- 	fprintf (stderr,
+- 	 "%s:  %s not writable, changes will be ignored\n",
+- 		 ProgramName, authfilename);
+- 	xauth_allowed = False;
+-     }
+- 
+      if (break_locks && verbose) {
+  	printf ("Attempting to break locks on authority file %s\n",
+  		authfilename);
+--- 657,662 ----
+***************
+*** 690,695 ****
+--- 682,696 ----
+  		     ProgramName, reason, authfilename);
+  	    return -1;
+  	}
++     }
++ 
++     /* these checks can only be done reliably after the file is locked */
++     exists = (access (authfilename, F_OK) == 0);
++     if (exists && access (authfilename, W_OK) != 0) {
++ 	fprintf (stderr,
++ 	 "%s:  %s not writable, changes will be ignored\n",
++ 		 ProgramName, authfilename);
++ 	xauth_allowed = False;
+      }
+  
+      original_umask = umask (0077);	/* disallow non-owner access */

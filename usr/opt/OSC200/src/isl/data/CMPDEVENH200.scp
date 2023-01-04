@@ -1,0 +1,99 @@
+#!/sbin/sh
+#  
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+# 
+# @(#)$RCSfile: CMPDEVENH200.scp,v $ $Revision: 1.1.2.4 $ (DEC) $Date: 1994/01/24 17:29:53 $
+# 
+# 
+# 	CMPDEVENH200
+#
+
+Main()
+{
+	# Determine what system type is and then only source the scp
+	#    library if the system is an Alpha.
+	#
+	ARCH=`/bin/machine`
+	if [ "$ARCH" = "alpha" ] ; then
+    	. /usr/share/lib/shell/libscp
+	fi
+
+	SubSet=CMPDEVENH200
+
+	Desc="Development Enhancements for OSF/1 AXP Systems"
+
+	#
+	case $ACT in
+
+	# =========================================================================
+	# M: Menu listing query
+	#
+	# $1:   -l  for the subset loading menu (setld -l)
+	#       -x  for the subset extraction menu (setld -x)
+	#
+	# By returning 0 we indicate to setld that this subset should be listed.
+	# Non-zero indicates the subset should
+	# not be listed.  This is a silent elision of the subset.
+	# =========================================================================
+	#
+	M)
+		case $1 in
+			-l)
+				STL_ArchAssert alpha  ||  exit 1
+		 		return 0
+				;;
+		esac
+		;;
+
+	PRE_L)
+		STL_DepInit
+		STL_DepEval OTABASE1?? || {
+			echo "
+The $Desc ($SubSet)
+require the existence of the following uninstalled subset:
+'DEC Compiled Code Support Library (OTABASE1xx) '
+
+Please install the above subset before retrying to install
+$Desc ($SubSet)
+"
+			return 1
+								}
+		;;
+
+	POST_L)
+		STL_LockInit
+		STL_DepLock	$SubSet OTABASE1??
+		;;
+
+	POST_D)
+		STL_LockInit
+		STL_DepUnLock $SubSet OTABASE1??
+		;;
+
+
+	esac
+	return 0
+
+}
+[ "$CHECK_SYNTAX" ] || Main "$@"

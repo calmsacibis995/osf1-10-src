@@ -1,0 +1,1406 @@
+! xcd.uil - user interface language file for the xcd CD player 
+!	    emulation program.
+!
+!
+
+module xcd
+    version = 'v1.2'
+    names = case_sensitive
+
+!
+! declare the callback routines
+!
+
+procedure
+	play_button_activate();
+	stop_button_activate();
+	pause_button_activate();
+	prev_track_button_activate();
+	next_track_button_activate();
+	scan_back_button_arm();
+	scan_ahead_button_arm();
+	scan_button_disarm();
+	eject_button_activate();
+	quit_button_activate();
+	prevent_button_activate();
+	volume_slider_activate();
+	shuffle_button_activate();
+	repeat_button_activate();
+	select_button_activate(string);
+	status_menu_activate(integer);
+	create_cb(integer);
+
+!
+! The CD player main window is a form which contains three other forms:
+!
+!	mainKeyPad - contains the priciple control buttons 
+!		     (eg: play, stop, etc) in a Form.  The buttons 
+!		     are positioned within the for via attachments.
+!
+!	statusDisplay - a Form widget that displays playing time, 
+!			track number, etc.  This form also contains
+!			the volume slider for convenience sake.
+!
+!	selectKeyPad - contains the buttons for selecting individual 
+!		       tracks.  Also, the button corresponding to the 
+!		       current track playing is highlighted so that 
+!		       the select buttons double as a "now playing" 
+!		       display.
+!
+
+!
+! values to be passed with callbacks.  These numbers are duplicated in xcd.c.
+!
+
+value
+	k_prevent_id		: 0;
+	k_stop_id		: 1;
+	k_play_id		: 2;
+	k_pause_id		: 3;
+	k_eject_id		: 4;
+	k_repeat_id		: 5;
+	k_shuffle_id		: 6;
+	k_trackNum_id		: 7;
+	k_trackTime_id		: 8;
+	k_discTime_id		: 9;
+	k_indexNum_id		: 10;
+	k_selectPad_id		: 11;
+	k_selectButton_id	: 12;
+	k_volumeSlider_id	: 13;
+	k_timeElapsed_id	: 14;
+	k_timeRemaining_id	: 15;
+	k_timeTotal_id		: 16;
+	k_timeRC_id		: 17;
+value
+	REMAINING 	: 1;
+	ELAPSED 	: 2;
+	TOTAL	 	: 3;
+
+!
+! string constants
+!
+value
+	k_iconName		: exported 'CD Player';
+	k_volumeLabel		: 'Volume';
+	k_trackLabel		: 'Track';
+	k_singleLabel		: 'Single';
+	k_discLabel		: 'Disc';
+	k_remainingLabel 	: 'Remaining';
+	k_elapsedLabel		: 'Elapsed';
+	k_totalsLabel		: 'Totals';
+	k_zerozeroLabel		: '00';
+	k_zerotimeLabel		: '00:00';
+	k_quitLabel		: 'Quit';
+!#ifdef TIME_RADIOBOX
+!	k_timeDisplayLabel	: 'Display Time and Type';
+!#else
+	k_timeDisplayLabel	: 'Time Display';
+!#endif
+
+!
+! miscellaneous constants
+!
+
+value
+	k_shadowWidth	: 3;
+	k_marginSize	: 6;
+	k_selectSpacing	: 2;
+	k_timeSpacing	: 2;
+
+!
+! color definitions
+!
+
+value 
+	red		: color('red', background);
+	dullRed		: color('orangeRed', foreground);
+
+	iconTopShadow	: color('grey80', foreground);
+	iconMiddle  	: color('grey60', foreground);
+	iconBotShadow  	: color('grey48', background);
+	buttonBackground  : color('black', background);
+
+value passiveColors : color_table(
+	iconTopShadow='t',
+	iconMiddle='m',
+	iconBotShadow='b',
+	buttonBackground=' '
+	);
+
+value activeColors : color_table(
+	iconTopShadow='t',
+	red='m',
+	iconBotShadow='b',
+	buttonBackground=' '
+	);
+
+value repeatColors : color_table(
+	iconTopShadow='t',
+	iconMiddle='m',
+	red='h',
+	iconBotShadow='b',
+	buttonBackground=' '
+	);
+
+value shuffleColors : color_table(
+	iconTopShadow='t',
+	dullRed='3',
+	color('white', foreground) ='1',
+	color('blue', foreground) ='2',
+	iconBotShadow='b',
+	buttonBackground=' '
+	);
+
+!
+! icon button definitions
+!
+
+value
+        passivePlayIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'     ttt                           ',
+'     ttttt                         ',
+'     ttttttt                       ',
+'     tttmmtttt                     ',
+'     tttmmmmtttt                   ',
+'     tttmmmmmmtttt                 ',
+'     tttmmmmmmmmtttt               ',
+'     tttmmmmmmmmmmtttt             ',
+'     tttmmmmmmmmmmmmtttt           ',
+'     tttmmmmmmmmmmmmmmtttt         ',
+'     tttmmmmmmmmmmmmmmmmtttt       ',
+'     tttmmmmmmmmmmmmmmmmbbbb       ',
+'     tttmmmmmmmmmmmmmmbbbb         ',
+'     tttmmmmmmmmmmmmbbbb           ',
+'     tttmmmmmmmmmmbbbb             ',
+'     tttmmmmmmmmbbbb               ',
+'     tttmmmmmmbbbb                 ',
+'     tttmmmmbbbb                   ',
+'     tttmmbbbb                     ',
+'     tttbbbb                       ',
+'     ttbbb                         ',
+'     tbb                           ',
+'                                   ',
+'                                   '
+);
+
+value
+        activePlayIcon: exported icon(color_table = activeColors,
+'                                   ',
+'                                   ',
+'     ttt                           ',
+'     ttttt                         ',
+'     ttttttt                       ',
+'     tttmmtttt                     ',
+'     tttmmmmtttt                   ',
+'     tttmmmmmmtttt                 ',
+'     tttmmmmmmmmtttt               ',
+'     tttmmmmmmmmmmtttt             ',
+'     tttmmmmmmmmmmmmtttt           ',
+'     tttmmmmmmmmmmmmmmtttt         ',
+'     tttmmmmmmmmmmmmmmmmtttt       ',
+'     tttmmmmmmmmmmmmmmmmbbbb       ',
+'     tttmmmmmmmmmmmmmmbbbb         ',
+'     tttmmmmmmmmmmmmbbbb           ',
+'     tttmmmmmmmmmmbbbb             ',
+'     tttmmmmmmmmbbbb               ',
+'     tttmmmmmmbbbb                 ',
+'     tttmmmmbbbb                   ',
+'     tttmmbbbb                     ',
+'     tttbbbb                       ',
+'     ttbbb                         ',
+'     tbb                           ',
+'                                   ',
+'                                   '
+);
+
+value
+        passiveStopIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'     ttttttttttttttttttttttt       ',
+'     tttttttttttttttttttttbb       ',
+'     ttttttttttttttttttttbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     ttbbbbbbbbbbbbbbbbbbbbb       ',
+'     tbbbbbbbbbbbbbbbbbbbbbb       ',
+'     bbbbbbbbbbbbbbbbbbbbbbb       ',
+'                                   ',
+'                                   '
+);
+
+value
+        activeStopIcon: exported icon(color_table = activeColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'     ttttttttttttttttttttttt       ',
+'     tttttttttttttttttttttbb       ',
+'     ttttttttttttttttttttbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     tttmmmmmmmmmmmmmmmmmbbb       ',
+'     ttbbbbbbbbbbbbbbbbbbbbb       ',
+'     tbbbbbbbbbbbbbbbbbbbbbb       ',
+'     bbbbbbbbbbbbbbbbbbbbbbb       ',
+'                                   ',
+'                                   '
+);
+
+value
+        passivePauseIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'     tttttttttb    tttttttttb      ',
+'     ttttttttbb    ttttttttbb      ',
+'     tttttttbbb    tttttttbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttbbbbbbb    tttbbbbbbb      ',
+'     ttbbbbbbbb    ttbbbbbbbb      ',
+'     tbbbbbbbbb    tbbbbbbbbb      ',
+'                                   ',
+'                                   '
+);
+
+value
+        activePauseIcon: exported icon(color_table = activeColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'     tttttttttb    tttttttttb      ',
+'     ttttttttbb    ttttttttbb      ',
+'     tttttttbbb    tttttttbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttmmmmbbb    tttmmmmbbb      ',
+'     tttbbbbbbb    tttbbbbbbb      ',
+'     ttbbbbbbbb    ttbbbbbbbb      ',
+'     tbbbbbbbbb    tbbbbbbbbb      ',
+'                                   ',
+'                                   '
+);
+
+value
+   nextIcon: icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'    tt         tt         tttt     ',
+'    ttt        ttt        tttb     ',
+'    tttt       tttt       tttb     ',
+'    ttttt      ttttt      tmmb     ',
+'    tttttt     ttmttt     tmmb     ',
+'    ttmmttt    ttmmttt    tmmb     ',
+'    ttmmmttt   ttmmmttt   tmmb     ',
+'    ttmmmmttt  ttmmmmttt  tmmb     ',
+'    ttmmmmmttt ttmmmmmttt tmmb     ',
+'    ttmmmmmmtttttmmmmmmttttmmb     ',
+'    ttmmmmmmbbbttmmmmmmbbbtmmb     ',
+'    ttmmmmmbbb ttmmmmmbbb tmmb     ',
+'    ttmmmmbbb  ttmmmmbbb  tmmb     ',
+'    ttmmmbbb   ttmmmbbb   tmmb     ',
+'    ttmmbbb    ttmmbbb    tmmb     ',
+'    ttmbbb     ttmbbb     tmmb     ',
+'    ttbbb      ttbbb      tmmb     ',
+'    ttbb       ttbb       ttbb     ',
+'    tbb        tbb        tbbb     ',
+'    bb         bb         bbbb     ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+   	prevIcon: icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'    tttt         tt         tt     ',
+'    tttb        ttt        ttt     ',
+'    tttb       tttb       tttb     ',
+'    tmmb      tttbb      tttbb     ',
+'    tmmb     tttmbb     tttmbb     ',
+'    tmmb    tttmmbb    tttmmbb     ',
+'    tmmb   tttmmmbb   tttmmmbb     ',
+'    tmmb  tttmmmmbb  tttmmmmbb     ',
+'    tmmb tttmmmmmbb tttmmmmmbb     ',
+'    tmmbtttmmmmmmbbtttmmmmmmbb     ',
+'    tmmbbbbmmmmmmbbbbbmmmmmmbb     ',
+'    tmmb bbbmmmmmbb bbbmmmmmbb     ',
+'    tmmb  bbbmmmmbb  bbbmmmmbb     ',
+'    tmmb   bbbmmmbb   bbmmmmbb     ',
+'    tmmb    bbbmmbb    bbmmmbb     ',
+'    tmmb     bbbmbb     bbmmbb     ',
+'    tmmb      bbbbb      bbmbb     ',
+'    ttbb       bbbb       bbbb     ',
+'    tbbb        bbb        bbb     ',
+'    bbbb         bb         bb     ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+   	scanBackIcon: icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'              tt          tt       ',
+'             ttt         ttt       ',
+'            tttb        tttb       ',
+'           tttbb       tttbb       ',
+'          tttmbb      tttmbb       ',
+'         tttmmbb     tttmmbb       ',
+'        tttmmmbb    tttmmmbb       ',
+'       tttmmmmbb   tttmmmmbb       ',
+'      tttmmmmmbb  tttmmmmmbb       ',
+'     tttmmmmmmbb tttmmmmmmbb       ',
+'     bbbmmmmmmbb bbbmmmmmmbb       ',
+'      bbbmmmmmbb  bbbmmmmmbb       ',
+'       bbbmmmmbb   bbbmmmmbb       ',
+'        bbbmmmbb    bbmmmmbb       ',
+'         bbbmmbb     bbmmmbb       ',
+'          bbbmbb      bbmmbb       ',
+'           bbbbb       bbmbb       ',
+'            bbbb        bbbb       ',
+'             bbb         bbb       ',
+'              bb          bb       ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+   scanAheadIcon: icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'       tt          tt              ',
+'       ttt         ttt             ',
+'       tttt        tttt            ',
+'       ttttt       ttttt           ',
+'       tttttt      ttmttt          ',
+'       ttmmttt     ttmmttt         ',
+'       ttmmmttt    ttmmmttt        ',
+'       ttmmmmttt   ttmmmmttt       ',
+'       ttmmmmmttt  ttmmmmmttt      ',
+'       ttmmmmmmttt ttmmmmmmttt     ',
+'       ttmmmmmmbbb ttmmmmmmbbb     ',
+'       ttmmmmmbbb  ttmmmmmbbb      ',
+'       ttmmmmbbb   ttmmmmbbb       ',
+'       ttmmmbbb    ttmmmbbb        ',
+'       ttmmbbb     ttmmbbb         ',
+'       ttmbbb      ttmbbb          ',
+'       ttbbb       ttbbb           ',
+'       ttbb        ttbb            ',
+'       tbb         tbb             ',
+'       bb          bb              ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+        passiveEjectIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'                tb                 ',
+'               ttbb                ',
+'              tttbbb               ',
+'             tttmmbbb              ',
+'            tttmmmmbbb             ',
+'           tttmmmmmmbbb            ',
+'          tttmmmmmmmmbbb           ',
+'         tttmmmmmmmmmmbbb          ',
+'        tttmmmmmmmmmmmmbbb         ',
+'       ttbbbbbbbbbbbbbbbbbb        ',
+'      tbbbbbbbbbbbbbbbbbbbbb       ',
+'                                   ',
+'                                   ',
+'     tttttttttttttttttttttttt      ',
+'     tttttttttttttttttttttttb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttbbbbbbbbbbbbbbbbbbbbbb      ',
+'     tbbbbbbbbbbbbbbbbbbbbbbb      ',
+'                                   ',
+'                                   '
+);
+
+value
+        activeEjectIcon: exported icon(color_table = activeColors,
+'                                   ',
+'                                   ',
+'                tb                 ',
+'               ttbb                ',
+'              tttbbb               ',
+'             tttmmbbb              ',
+'            tttmmmmbbb             ',
+'           tttmmmmmmbbb            ',
+'          tttmmmmmmmmbbb           ',
+'         tttmmmmmmmmmmbbb          ',
+'        tttmmmmmmmmmmmmbbb         ',
+'       ttbbbbbbbbbbbbbbbbbb        ',
+'      tbbbbbbbbbbbbbbbbbbbbb       ',
+'                                   ',
+'                                   ',
+'     tttttttttttttttttttttttt      ',
+'     tttttttttttttttttttttttb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttmmmmmmmmmmmmmmmmmmmmbb      ',
+'     ttbbbbbbbbbbbbbbbbbbbbbb      ',
+'     tbbbbbbbbbbbbbbbbbbbbbbb      ',
+'                                   ',
+'                                   '
+);
+
+value
+        preventIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'                                   ',
+'                                   ',
+'            tttttttbb              ',
+'          ttmmmmmmmmtbb            ',
+'        ttmmmmmmmmmmmmtbb          ',
+'        ttmmmbbb  btmmmbbb         ',
+'       ttmmmbb     ttmmbbb         ',
+'       ttmmbb       ttmmbbb        ',
+'       ttmmbb       ttmmbbb        ',
+'       tttttttttttttttttttb        ',
+'       ttttttttttttttttttbb        ',
+'       ttmmmmmmmmmmmmmmmbbb        ',
+'       ttmmmmmbbbbbmmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmmtttttmmmmmbbb        ',
+'       ttmmmmmmmmmmmmmmmbbb        ',
+'       ttbbbbbbbbbbbbbbbbbb        ',
+'       tbbbbbbbbbbbbbbbbbbb        ',
+'                                   ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+        allowIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'                                   ',
+'                                   ',
+'            tttttttbb              ',
+'          ttmmmmmmmmbbb            ',
+'        ttmmmmmmmmmmmmbbb          ',
+'        ttmmmbb   tbmmmbbb         ', 
+'       ttmmmbb     ttmmbbb         ',
+'       ttmmbb       ttmmbbb        ',
+'       ttmmbb       ttmmbbb        ',
+'       ttmmbb                      ',
+'       ttmmbb                      ',
+'       tttttttttttttttttttb        ',
+'       ttttttttttttttttttbb        ',
+'       ttmmmmmmmmmmmmmmmbbb        ',
+'       ttmmmmmbbbbbmmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmbb   ttmmmmbbb        ',
+'       ttmmmmmtttttmmmmmbbb        ',
+'       ttmmmmmmmmmmmmmmmbbb        ',
+'       ttbbbbbbbbbbbbbbbbbb        ',
+'       tbbbbbbbbbbbbbbbbbbb        ',
+'                                   ',
+'                                   ',
+'                                   ',
+'                                   '
+);
+
+value
+	repeatOffIcon: exported icon(color_table = repeatColors,
+'                                   ',
+'              tttttttt             ',
+'            ttmmmmmmmmtb           ',
+'          ttmmmmmmmmmmmtb          ',
+'         ttmmmmmmmmmmmmmtb         ',
+'        ttmmmmmmmmmmmmmmmtb        ',
+'       ttmmmmmmmmmmmmmmmmmbb       ',
+'       ttmmmmmmmmmmmmmmmmmbb       ',
+'      ttmmtmmmmmmmmmmmmmtmmbb      ',
+'      ttmttmmmmmmmmmmmmmmtmbb      ',
+'     ttmmtmmtmmmbbbmmmtmmtmmbb     ',
+'     ttmmtmttmmbbbbbmmttmtmmbb     ',
+'     ttmttmtmmbb   ttmmtmttmbb     ',
+'     ttmtmttmmbb   ttmmttmtmbb     ',
+'     ttmttmtmmbb   ttmmtmttmbb     ',
+'     ttmmtmttmmtttttmmttmtmmbb     ',
+'     ttmmtmmtmmmtttmmmtmmtmmbb     ',
+'      ttmttmmmmmmmmmmmmmttmbb      ',
+'      ttmmtmmmmmmmmmmmmmtmmbb      ',
+'       ttmmmmmmmmmmmmmmmmmbb       ',
+'       ttmmmmmmmmmmmmmmmmmbb       ',
+'        ttmmmmmmmmmmmmmmmbb        ',
+'         tbmmmmmmmmmmmmmbb         ',
+'          tbmmmmmmmmmmmbb          ',
+'            tbmmmmmmmmbb           ',
+'              tbbbbbbb             ',
+'                                   '
+);                                        
+                                        
+value
+	repeatDiskIcon: exported icon(color_table = repeatColors,
+'                                   ',
+'          tttttttthtttth           ',
+'        ttmmmmmmmmmmhmmmmh         ',
+'      ttmmmmmmmmmmmmmmhmmmmh       ',
+'     ttmmmmmmmmmmmmmmmmhmmmmh      ',
+'    ttmmmmmmmmmmmmmmmmmmhmmmmh     ',
+'   ttmmmmmmmmmmmmmmmmmmmmhmmmmh    ',
+'   ttmmmmmmmmmmmmmmmmmmmmhmmmmh    ',
+'  ttmmmtmmmmmmmmmmmmmtmmmmhmmmmh   ',
+'  ttmmttmmmmmmmmmmmmmttmmmhmmmmh   ',
+' ttmmmtmmtmmmbbbmmmtmmtmmmmhmmmmh  ',
+' ttmmmtmttmmbbbbbmmttmtmmmmhmmmmh  ',
+' ttmmttmtmmbb   ttmmtmttmmmhmmmmh  ',
+' ttmmtmttmmbb   ttmmttmtmmmhmmmmh  ',
+' ttmmttmtmmbb   ttmmtmttmmmhmmmmh  ',
+' ttmmmtmtmmmtttttmmttmtmmmmhmmmmh  ',
+' ttmmmtmmtmmmtttmmmtmmtmmmmhmmmmh  ',
+'  ttmmttmmmmmmmmmmmmmttmmmhmmmmh   ',
+'  ttmmmtmmmmmmmmmmmmmtmmmmhmmmmh   ',
+'   ttmmmmmmmmmmmmmmmmmmmmhmmmmh    ',
+'   ttmmmmmmmmmmmmmmmmmmmmhmmmmh    ',
+'    ttmmmmmmmmmmmmmmmmmmhmmmmh     ',
+'     ttmmmmmmmmmmmmmmmmhmmmmh      ',
+'      tbmmmmmmmmmmmmmmhmmmmh       ',
+'        tbmmmmmmmmmmhmmmmh         ',
+'          tbbbbbbbhbbbbh           ',
+'                                   '
+);
+
+value
+	repeatTrackIcon: exported icon(color_table = repeatColors,
+'                                   ',
+'             ttttttt               ',
+'           ttmmmmmmmtt             ',
+'         ttmmmmmmmmmmmtt           ',
+'       ttmmmmmmmmmmmmmmmtb         ',
+'      ttmmmmmmhhhhhmmmmmmtb        ',
+'     ttmmmmmhhmmmmmhhmmmmmbb       ',
+'     ttmmmhhmmmmmmmmhhmmmmbb       ',
+'    ttmmmmhmmmmmmmmmmmhmmmmbb      ',
+'    ttmmmhmmmmmmmmmmmmmhmmmbb      ',
+'   ttmmmmhmmmmmbbbmmmmmhmmmmbb     ',
+'   ttmmmhmmmmmbbbbbmmmmmhmmmbb     ',
+'   ttmmmhmmmmbb   ttmmmmhmmmbb     ',
+'   ttmmmhmmmmbb   ttmmmmhmmmbb     ',
+'   ttmmmhmmmmbb   ttmmmmhmmmbb     ',
+'   ttmmmhmmmmmtttttmmmmmhmmmbb     ',
+'   ttmmmmhmmmmmtttmmmmmmhmmmbb     ',
+'    ttmmmhmmmmmmmmmmmmmhmmmbb      ',
+'    ttmmmmhmmmmmmmmmmmhmmmmbb      ',
+'     ttmmmhhmmmmmmmmmhhmmmbb       ',
+'     ttmmmmmhhmmmmmhhmmmmmbb       ',
+'      ttmmmmmmhhhhhmmmmmmbb        ',
+'       tbmmmmmmmmmmmmmmmbb         ',
+'         tbmmmmmmmmmmmmbb          ',
+'           tbmmmmmmmmbb            ',
+'             tbbbbbbb              ',
+'                                   '
+);                                        
+
+value
+	serialPlayIcon: exported icon(color_table = passiveColors,
+'                                   ',
+'   ttttt                           ',
+'   tmmmb                           ',
+'  tmmmmb                           ',
+'  tmmmmb                           ',
+'  ttmmmb     ttttt                 ',
+'   tmmmb    tmmmmmtb               ',
+'   tmmmb   tmmmmmmmb               ',
+'   tmmmb   tmmmtmmmmb              ',
+'   tmmmb   tmmb tmmmb   tttttttt   ',
+'   tmmmb   tbb  tmmmb  tmmmmmmmtb  ',
+'   tmmmb       ttmmmb  tmmmmmmmmb  ',
+'   tmmmb      ttmmmb   tmmtbbbmmb  ',
+'   tmmmb     ttmmmbb   tbb   tmmb  ',
+'  ttmmmbt   ttmmmbb          tmmb  ',
+'  tmmmmmb   tmmmbb         ttmmbb  ',
+'  tmmmmmb  tmmmbb          tmmtb   ',
+'  tbbbbbb  tmmbtttttt      tbmmtb  ',
+'           tmmmmmmmmb        bmmb  ',
+'           tmmmmmmmmb        tmmb  ',
+'           tmmmmmmmmb  ttt   tmmb  ',
+'           tbbbbbbbbb  tmmttttmmb  ',
+'                       tmmmmmmmmb  ',
+'                       tmmmmmmmbb  ',
+'                        bbbbbbbb   ',
+'                                   ',
+'                                   '
+);                                        
+
+value
+	shufflePlayIcon: exported icon(color_table = shuffleColors,
+'                                   ',
+'               ttttt               ',
+'               t111b               ',
+'              t1111b               ',
+'              t1111b               ',
+'              t1111b     ttttt     ',
+'              tb111b    t22222tb   ',
+'               t111b   t2222222b   ',
+'               t111b   t222t2222b  ',
+'    ttttttt    t111b   t22b t222b  ',
+'   t333333tb   t111b   tbb  t222b  ',
+'   t3333333b   t111b       tt222b  ',
+'   t33bbb33b   t111b      tt2222b  ',
+'   tbb  t33b   t111b     tt222bb   ',
+'        t33b  tt111bt   tt222bb    ',
+'      tt33bb  t11111b   t222bb     ',
+'      t33tb   t11111b  t222bb      ',
+'      tb33tb  tbbbbbb  t222bttttb  ',
+'        b33b           t22222222b  ',
+'        t33b           t22222222b  ',
+'   ttt  t33b           t22222222b  ',
+'   t33ttt33b           tbbbbbbbbb  ',
+'   t3333333b                       ',
+'   t3333333b                       ',
+'    bbbbbbb                        ',
+'                                   ',
+'                                   '
+);                                        
+
+
+object
+    xcdMain : XmForm {
+	arguments {
+	    XmNallowOverlap = false;
+	    XmNmarginHeight = k_marginSize;
+	    XmNmarginWidth = k_marginSize;
+	    XmNresizePolicy = XmRESIZE_ANY;
+	};
+	controls {
+	    XmForm	mainKeyPad;
+	    XmForm	statusDisplay;
+	    XmForm	selectKeyPad;
+	};
+    };
+
+object
+    mainKeyPad : XmForm {
+	arguments {
+	    XmNallowOverlap = false;
+	    XmNmarginHeight = k_marginSize;
+	    XmNmarginWidth = k_marginSize;
+	    XmNtopOffset = k_marginSize;
+	    XmNbottomOffset = k_marginSize;
+	    XmNleftOffset = k_marginSize;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = k_shadowWidth;
+	    XmNresizePolicy = XmRESIZE_NONE;
+	};
+	controls {
+	    XmPushButton	playButton;
+	    XmPushButton	stopButton;
+	    XmPushButton	pauseButton;
+	    XmPushButton	prevTrackButton;
+	    XmPushButton	nextTrackButton;
+	    XmPushButton	scanBackButton;
+	    XmPushButton	scanAheadButton;
+	    XmPushButton	ejectButton;
+	    XmPushButton	quitButton;
+	    XmPushButton	preventButton;
+	    XmPushButton	shuffleButton;
+	    XmPushButton	repeatButton;
+	};
+    };
+
+object
+    playButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = passivePlayIcon;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_play_id);
+	    XmNactivateCallback = procedure play_button_activate();
+	};
+    };
+
+object
+    prevTrackButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = prevIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = playButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure prev_track_button_activate();
+	};
+    };
+
+object
+    quitButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmSTRING;
+	    XmNlabelString = k_quitLabel;
+	    XmNforeground = buttonBackground;
+	    XmNbackground = iconTopShadow;
+	    XmNarmColor = red;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = prevTrackButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;	
+	    XmNleftWidget = playButton;
+	    XmNrightAttachment = XmATTACH_OPPOSITE_WIDGET;	
+	    XmNrightWidget = playButton;
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = shuffleButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure quit_button_activate();
+	};
+    };
+
+object
+    stopButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = passiveStopIcon;
+	    XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = playButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_stop_id);
+	    XmNactivateCallback = procedure stop_button_activate();
+	};
+    };
+
+object
+    nextTrackButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = nextIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = stopButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure next_track_button_activate();
+	};
+    };
+
+object
+    shuffleButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = serialPlayIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = prevTrackButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = stopButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_shuffle_id);
+	    XmNactivateCallback = procedure shuffle_button_activate();
+	};
+    };
+
+object
+    pauseButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = passivePauseIcon;
+	    XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = stopButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure pause_button_activate();
+	    MrmNcreateCallback = procedure create_cb(k_pause_id);
+	};
+    };
+
+object
+    scanBackButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = scanBackIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = pauseButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNarmCallback = procedure scan_back_button_arm();
+	    XmNdisarmCallback = procedure scan_button_disarm();
+	};
+    };
+
+object
+    repeatButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = repeatOffIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = prevTrackButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = pauseButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_repeat_id);
+	    XmNactivateCallback = procedure repeat_button_activate();
+	};
+    };
+
+object
+    ejectButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = passiveEjectIcon;
+	    XmNtopAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = pauseButton;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNactivateCallback = procedure eject_button_activate();
+	    MrmNcreateCallback = procedure create_cb(k_eject_id);
+	};
+    };
+
+object
+    scanAheadButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+	    XmNlabelPixmap = scanAheadIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = playButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = ejectButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    XmNarmCallback = procedure scan_ahead_button_arm();
+	    XmNdisarmCallback = procedure scan_button_disarm();
+	};
+    };
+
+object
+    preventButton : XmPushButton {
+	arguments { 
+	    XmNlabelType = XmPIXMAP;
+!	    XmNlabelPixmap = preventIcon;
+	    XmNlabelPixmap = allowIcon;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = prevTrackButton;
+	    XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = ejectButton;
+	    XmNshowAsDefault = 0;
+	    XmNdefaultButtonShadowThickness = 0;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_prevent_id);
+	    XmNactivateCallback = procedure prevent_button_activate();
+	};
+    };
+
+!
+! STATUS DISPLAY WIDGETS START HERE
+!
+
+object
+    statusDisplay : XmForm {
+	arguments {
+	    XmNallowOverlap = false;
+	    XmNmarginHeight = k_marginSize;
+	    XmNmarginWidth = k_marginSize;
+	    XmNtopOffset = k_marginSize;
+	    XmNbottomOffset = k_marginSize;
+	    XmNleftOffset = k_marginSize;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = mainKeyPad;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = k_shadowWidth;
+	    XmNresizePolicy = XmRESIZE_NONE;
+	};
+	controls {
+	    XmFrame	statusInfoDisplay;
+	    XmScale	volumeSlider;
+	};
+    };
+
+object
+    statusInfoDisplay : XmFrame {
+	arguments {
+	    XmNshadowType = XmSHADOW_ETCHED_OUT;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = k_marginSize;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = k_marginSize;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = k_marginSize;
+	    XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget = XmScale volumeSlider;
+	    XmNbottomOffset = k_marginSize;
+	};
+	controls {
+!#if defined(MOTIF_1_2) && defined(TIME_RADIOBOX)
+!	    XmLabelGadget {
+!		arguments {
+!		    XmNchildType = XmFRAME_TITLE_CHILD;
+!		    XmNchildVerticalAlignment = XmALIGNMENT_CENTER;
+!		    XmNlabelString = k_timeDisplayLabel;
+!		};
+!	    };
+!#endif
+	    XmForm statusInfoForm;
+	};
+    };
+		
+object
+    statusInfoForm : XmForm {
+	arguments {
+	    XmNallowOverlap = false;
+	    XmNmarginHeight = k_marginSize;
+	    XmNmarginWidth = k_marginSize;
+	    XmNshadowThickness = 0;
+	    XmNhorizontalSpacing = k_marginSize/2;
+	};
+	controls {
+	    XmLabel	track;
+	    XmLabel	trackNum;
+	    XmLabel	single;
+	    XmLabel	singleTime;
+	    XmLabel	discTime;
+	    XmLabel	disc;
+	    XmLabel	indexNum;
+!#ifdef TIME_RADIOBOX
+!	    XmRadioBox	timeOption;
+!#else
+	    XmOptionMenu timeOption;
+!#endif
+	};
+    };
+
+object
+    track: XmLabel {
+	arguments { 
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = k_marginSize;
+	    XmNlabelString = k_trackLabel;
+	};
+    };
+
+object
+    trackNum: XmLabel {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = track;
+	    XmNlabelString = k_zerozeroLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_trackNum_id);
+	};
+    };
+
+object
+    indexNum: XmLabel {
+	arguments {
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = trackNum;
+	    XmNlabelString = k_zerozeroLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_indexNum_id);
+	};
+    };
+
+object
+    single: XmLabel {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = indexNum;
+	    XmNleftOffset = k_marginSize;
+	    XmNlabelString = k_singleLabel;
+	};
+    };
+
+object
+    singleTime: XmLabel {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = single;
+	    XmNlabelString = k_zerotimeLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_trackTime_id);
+	};
+    };
+
+object
+    disc: XmLabel {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = singleTime;
+	    XmNleftOffset = k_marginSize;
+	    XmNlabelString = k_discLabel;
+	};
+    };
+
+object
+    discTime: XmLabel {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNbottomWidget = track;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = disc;
+!!	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNlabelString = k_zerotimeLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_discTime_id);
+	};
+    };
+
+!#ifdef TIME_RADIOBOX
+!object
+!    timeOption : XmRadioBox {
+!        arguments {
+!	    XmNorientation = XmHORIZONTAL;
+!	    XmNtopAttachment = XmATTACH_WIDGET;
+!	    XmNtopWidget = discTime;
+!	    XmNtopOffset = k_timeSpacing;
+!	    XmNleftAttachment = XmATTACH_FORM;
+!	    XmNleftOffset = k_marginSize;
+!	    XmNrightAttachment = XmATTACH_FORM;
+!	    XmNrightOffset = k_marginSize;
+!	    XmNbottomAttachment = XmATTACH_FORM;
+!	    XmNbottomOffset = k_timeSpacing;
+!	    XmNpacking = XmPACK_COLUMN;
+!	    XmNentryAlignment = XmALIGNMENT_BEGINNING;
+!	    XmNshadowThickness = 0;
+!	};
+!	controls {
+!	    XmToggleButton remainingTime;
+!	    XmToggleButton elapsedTime;
+!	    XmToggleButton totalTime;
+!	};
+!	callbacks {
+!	    MrmNcreateCallback = procedure create_cb(k_timeRC_id);
+!	};
+!    };
+!#else
+object
+    timeOption : XmOptionMenu {
+        arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = discTime;
+	    XmNtopOffset = k_timeSpacing;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = k_marginSize;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = k_marginSize;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = -(k_marginSize);
+	    XmNlabelString = k_timeDisplayLabel;
+        };
+        controls {
+	    XmPulldownMenu {
+		controls {
+		    XmPushButton remainingTime;
+        	    XmPushButton elapsedTime;
+        	    XmPushButton totalTime;
+		};
+	    };
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_timeRC_id);
+	};
+    };
+!#endif
+
+!#ifdef TIME_RADIOBOX
+!object
+!    remainingTime : XmToggleButton {
+!	arguments {
+!	    XmNlabelString = k_remainingLabel;
+!	    XmNborderWidth = 0;
+!	    XmNshadowThickness = 0;
+!	};
+!	callbacks {
+!	    MrmNcreateCallback = procedure create_cb(k_timeRemaining_id);
+!	    XmNvalueChangedCallback = procedure status_menu_activate(REMAINING);
+!	};
+!    };
+!
+!object
+!    elapsedTime : XmToggleButton {
+!	arguments {
+!	    XmNlabelString = k_elapsedLabel;
+!	    XmNborderWidth = 0;
+!	    XmNshadowThickness = 0;
+!	};
+!	callbacks {
+!	    MrmNcreateCallback = procedure create_cb(k_timeElapsed_id);
+!	    XmNvalueChangedCallback = procedure status_menu_activate(ELAPSED);
+!	};
+!    };
+!
+!object
+!    totalTime : XmToggleButton {
+!	arguments {
+!	    XmNlabelString = k_totalsLabel;
+!	    XmNborderWidth = 0;
+!	    XmNshadowThickness = 0;
+!	};
+!	callbacks {
+!	    MrmNcreateCallback = procedure create_cb(k_timeTotal_id);
+!	    XmNvalueChangedCallback = procedure status_menu_activate(TOTAL);
+!	};
+!    };
+!
+!#else
+
+object
+    remainingTime : XmPushButton {
+        arguments {
+	    XmNlabelString = k_remainingLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_timeRemaining_id);
+	    XmNactivateCallback = procedure status_menu_activate(REMAINING);
+	};
+    };
+
+object
+    elapsedTime : XmPushButton {
+        arguments {
+	    XmNlabelString = k_elapsedLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_timeElapsed_id);
+	    XmNactivateCallback = procedure status_menu_activate(ELAPSED);
+	};
+    };
+
+object
+    totalTime : XmPushButton {
+        arguments {
+	    XmNlabelString = k_totalsLabel;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_timeTotal_id);
+	    XmNactivateCallback = procedure status_menu_activate(TOTAL);
+	};
+    };
+!#endif
+
+
+object
+    volumeSlider : XmScale {
+	arguments { 
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = k_marginSize;
+	    XmNleftOffset = k_marginSize;
+	    XmNrightOffset = k_marginSize;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNminimum = 0;
+	    XmNmaximum = 100;
+	    XmNscaleMultiple = 5;
+	    XmNtitleString = k_volumeLabel;
+	    XmNorientation = XmHORIZONTAL;
+	    XmNprocessingDirection = XmMAX_ON_RIGHT;
+	    XmNshowValue = true;
+	};
+	callbacks { 
+	    MrmNcreateCallback = procedure create_cb(k_volumeSlider_id);
+	    XmNvalueChangedCallback = procedure volume_slider_activate();
+	    XmNdragCallback = procedure volume_slider_activate();
+	};
+    };
+
+!
+! SELECTION KEY PAD WIDGETS BEGIN HERE
+!
+
+object
+    selectKeyPad : XmForm {
+	arguments { 
+	    XmNallowOverlap = false;
+	    XmNmarginHeight = k_marginSize;
+	    XmNmarginWidth = k_marginSize;
+	    XmNtopOffset = k_marginSize;
+	    XmNbottomOffset = k_marginSize;
+	    XmNleftOffset = k_marginSize;
+	    XmNrightOffset = k_marginSize;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = statusDisplay;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = k_shadowWidth;
+	    XmNresizable = true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_selectPad_id);
+	};
+	controls {
+	    XmWorkArea selectKeyPad_WA;
+	};
+    };
+
+object
+    selectKeyPad_WA : XmWorkArea {
+	arguments {
+	    XmNborderWidth = 0;
+	    XmNtopOffset = k_marginSize;
+	    XmNbottomOffset = k_marginSize;
+	    XmNleftOffset = k_marginSize;
+	    XmNrightOffset = k_marginSize;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNadjustLast = false;
+	    XmNadjustMargin = true;
+	    XmNentryBorder = 0;
+	    XmNentryAlignment = XmALIGNMENT_CENTER;
+	    XmNorientation = XmHORIZONTAL;
+	    XmNpacking = XmPACK_COLUMN;
+	    XmNresizeHeight = true;
+	    XmNresizeWidth = true;
+	    XmNspacing = k_selectSpacing;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_selectPad_id);
+	};
+	controls {
+	    XmPushButton selectButtonTemplate;
+	};
+    };
+
+! this widget is a template for MrmFetchWidgetOverride() which is used to
+! build the select buttons on the fly by replication of this widget.
+
+object
+   selectButtonTemplate: XmPushButton {
+	arguments {
+	    XmNlabelString = '99';
+	    XmNrecomputeSize = false;
+	    XmNmappedWhenManaged = true;
+	    XmNmultiClick = XmMULTICLICK_DISCARD;
+	    XmNborderWidth = 0;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_cb(k_selectButton_id);
+	};
+    };
+
+end module;

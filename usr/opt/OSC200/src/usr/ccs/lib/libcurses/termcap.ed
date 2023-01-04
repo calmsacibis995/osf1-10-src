@@ -1,0 +1,121 @@
+a
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+#
+# (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+# ALL RIGHTS RESERVED
+#
+# @(#)$RCSfile: termcap.ed,v $ $Revision: 4.1.2.3 $ (DEC) $Date: 1993/12/16 17:54:21 $
+#
+#
+# HISTORY
+
+#
+# @(#)termcap.ed        1.5  com/lib/curses,3.1,8943 10/16/89 23:40:57
+#
+# COMPONENT_NAME: (LIBCURSE) Curses Library
+#
+# FUNCTIONS:    termcap.ed
+#
+#
+# (C) COPYRIGHT International Business Machines Corp. 1985, 1988
+# All Rights Reserved
+# Licensed Material - Property of IBM
+#
+# US Government Users Restricted Rights - Use, duplication or
+# disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+#
+
+The following ed script will edit the caps file and produce the termcap.c
+file which corresponds to the caps defined.  The edit commands assume
+that the caps file is in the following general form.
+
+name,    "code" "cd" comment
+
+the comma after name and the quotes around the codes are expected as
+shown here.  The 'white space' between fields may be spaces or tabs.
+The width of name, code and comment are variable and comment may include
+spaces. cd must be exactly 2 characters wide (within the quotes).
+
+Many of the edit commands below use the following general specification
+to separate the line into the segments identified above.
+
+/.*,.*".*".*".."[  ]*.*/
+		     AA
+		A   A||__  The comment specifier
+	    A  A|___|_____ White space after cd [space tab]*
+	  AA|__|__________ cd specification
+      A  A||______________ white space between code and cd
+    AA|__|________________ code specification
+ A A||____________________ white space after name
+ |_|______________________ name with comma delimiter
+
+These segments will frequently be grouped using \( and \) to pick those
+parts needed for a given operation.
+.
+1,$d
+E caps.e
+g/^#/d
+/--- begin bool/+,/--- end bool/-w bool.termcap
+/--- begin num/+,/--- end num/-w num.termcap
+/--- begin str/+,/--- end str/-w str.termcap
+a
+for each segment of the file produce a copy using cd and name in
+the form
+	 case two('a','b'): rv = name ; break ;
+
+.
+1,$d
+E bool.termcap
+1,$s/"/'/
+1,$s/"/'/
+1,$s/\(.*\),.*"\(.\)\(.\)".*/	case two('\2','\3'): rv = \1; break;/
+w
+E num.termcap
+1,$s/"/'/
+1,$s/"/'/
+1,$s/\(.*\),.*"\(.\)\(.\)".*/	case two('\2','\3'): rv = \1; break;/
+w
+E str.termcap
+1,$s/"/'/
+1,$s/"/'/
+1,$s/\(.*\),.*"\(.\)\(.\)".*/	case two('\2','\3'): if (\1) rv = \1; break;/
+w
+a
+
+insert the segments created above into the template for termcap.c
+at the point indicated by the text BOOL, NUM and STR
+
+.
+1,$d
+E termcap.form.e
+/BOOL/d
+-r bool.termcap
+/NUM/d
+-r num.termcap
+/STR/d
+-r str.termcap
+w termcap.c
+! rm bool.termcap num.termcap str.termcap
+q
+

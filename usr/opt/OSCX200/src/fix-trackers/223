@@ -1,0 +1,355 @@
+Path: news.crl.dec.com!hollie.rdg.dec.com!pa.dec.com!nobody
+Message-Id: <9204131914.AA20333@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2446) close XBUG #4967: server: mi and mfb paint window routines ignore parent relative borders
+Date: Mon, 13 Apr 92 15:14:20 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4967
+### area:         server
+### severity:     low
+### comments:     
+
+
+*** /tmp/d20273	Mon Apr 13 15:08:21 1992
+--- server/ddx/mi/miexpose.c	Fri Mar 13 16:06:27 1992
+***************
+*** 22,28 ****
+  
+  ******************************************************************/
+  
+! /* $XConsortium: miexpose.c,v 5.14 90/11/11 19:08:06 keith Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+--- 22,28 ----
+  
+  ******************************************************************/
+  
+! /* $XConsortium: miexpose.c,v 5.15 92/03/13 16:03:50 eswu Exp $ */
+  
+  #include "X.h"
+  #define NEED_EVENTS
+***************
+*** 109,115 ****
+      srcBox.x2 = srcx+width;
+      srcBox.y2 = srcy+height;
+  
+!     if (pSrcDrawable->type == DRAWABLE_WINDOW)
+      {
+  	BoxRec TsrcBox;
+  
+--- 109,115 ----
+      srcBox.x2 = srcx+width;
+      srcBox.y2 = srcy+height;
+  
+!     if (pSrcDrawable->type != DRAWABLE_PIXMAP)
+      {
+  	BoxRec TsrcBox;
+  
+***************
+*** 160,166 ****
+      {
+  	prgnDstClip = prgnSrcClip;
+      }
+!     else if (pDstDrawable->type == DRAWABLE_WINDOW)
+      {
+  	if (pGC->subWindowMode == IncludeInferiors)
+  	{
+--- 160,166 ----
+      {
+  	prgnDstClip = prgnSrcClip;
+      }
+!     else if (pDstDrawable->type != DRAWABLE_PIXMAP)
+      {
+  	if (pGC->subWindowMode == IncludeInferiors)
+  	{
+***************
+*** 224,230 ****
+       */
+      extents = pGC->graphicsExposures &&
+  	      (REGION_NUM_RECTS(&rgnExposed) > RECTLIMIT) &&
+! 	      (pDstDrawable->type == DRAWABLE_WINDOW);
+  #ifdef SHAPE
+      if (pSrcWin)
+      {
+--- 224,230 ----
+       */
+      extents = pGC->graphicsExposures &&
+  	      (REGION_NUM_RECTS(&rgnExposed) > RECTLIMIT) &&
+! 	      (pDstDrawable->type != DRAWABLE_PIXMAP);
+  #ifdef SHAPE
+      if (pSrcWin)
+      {
+***************
+*** 256,262 ****
+  					 expBox.y2 - expBox.y1,
+  					 FALSE);
+      }
+!     if ((pDstDrawable->type == DRAWABLE_WINDOW) &&
+  	(((WindowPtr)pDstDrawable)->backgroundState != None))
+      {
+  	WindowPtr pWin = (WindowPtr)pDstDrawable;
+--- 256,262 ----
+  					 expBox.y2 - expBox.y1,
+  					 FALSE);
+      }
+!     if ((pDstDrawable->type != DRAWABLE_PIXMAP) &&
+  	(((WindowPtr)pDstDrawable)->backgroundState != None))
+      {
+  	WindowPtr pWin = (WindowPtr)pDstDrawable;
+***************
+*** 541,546 ****
+--- 541,547 ----
+      RegionRec prgnWin;
+      DDXPointRec oldCorner;
+      BoxRec box;
++     WindowPtr	pBgWin;
+      GCPtr pGC;
+      register int i;
+      register BoxPtr pbox;
+***************
+*** 597,602 ****
+--- 598,610 ----
+      i = pScreen->myNum;
+      pRoot = WindowTable[i];
+  
++     pBgWin = pWin;
++     if (what == PW_BORDER)
++     {
++ 	while (pBgWin->backgroundState == ParentRelative)
++ 	    pBgWin = pBgWin->parent;
++     }
++ 
+      if ((pWin->drawable.depth != pRoot->drawable.depth) ||
+  	(pWin->drawable.bitsPerPixel != pRoot->drawable.bitsPerPixel))
+      {
+***************
+*** 624,631 ****
+  	    box.y2 = pScreen->height;
+  	    (*pScreen->RegionInit)(&pWin->clipList, &box, 1);
+  	    pWin->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+! 	    newValues[ABSX] = pWin->drawable.x;
+! 	    newValues[ABSY] = pWin->drawable.y;
+  	}
+  	else
+  	{
+--- 632,639 ----
+  	    box.y2 = pScreen->height;
+  	    (*pScreen->RegionInit)(&pWin->clipList, &box, 1);
+  	    pWin->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+! 	    newValues[ABSX] = pBgWin->drawable.x;
+! 	    newValues[ABSY] = pBgWin->drawable.y;
+  	}
+  	else
+  	{
+***************
+*** 651,658 ****
+  	}
+  	pGC = screenContext[i];
+  	newValues[SUBWINDOW] = IncludeInferiors;
+! 	newValues[ABSX] = pWin->drawable.x;
+! 	newValues[ABSY] = pWin->drawable.y;
+  	gcmask |= GCSubwindowMode;
+  	pWin = pRoot;
+      }
+--- 659,666 ----
+  	}
+  	pGC = screenContext[i];
+  	newValues[SUBWINDOW] = IncludeInferiors;
+! 	newValues[ABSX] = pBgWin->drawable.x;
+! 	newValues[ABSY] = pBgWin->drawable.y;
+  	gcmask |= GCSubwindowMode;
+  	pWin = pRoot;
+      }
+*** /tmp/,RCSt1020278	Mon Apr 13 15:08:56 1992
+--- server/ddx/cfb/cfbwindow.c	Mon Apr 13 15:08:57 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cfbwindow.c,v 5.13 92/02/11 15:04:25 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: cfbwindow.c,v 5.14 92/03/13 16:20:59 eswu Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 45,50 ****
+--- 45,56 ----
+      pPrivWin->fastBackground = FALSE;
+      pPrivWin->fastBorder = FALSE;
+  
++ #ifdef PIXMAP_PER_WINDOW
++     /* Setup pointer to Screen pixmap */
++     pWin->devPrivates[frameWindowPrivateIndex].ptr =
++ 	(pointer) cfbGetScreenPixmap(pWin->drawable.pScreen);
++ #endif
++ 
+      return TRUE;
+  }
+  
+***************
+*** 228,236 ****
+  			 pBgWin->backgroundState == ParentRelative;
+  			 pBgWin = pBgWin->parent);
+  		    cfbXRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pWin->drawable.x - pPrivWin->oldRotate.x);
+  		    cfbYRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pWin->drawable.y - pPrivWin->oldRotate.y);
+  		}
+  	    }
+  	    else if (((width = (pWin->background.pixmap->drawable.width * PSZ)) <= 32) &&
+--- 234,242 ----
+  			 pBgWin->backgroundState == ParentRelative;
+  			 pBgWin = pBgWin->parent);
+  		    cfbXRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pBgWin->drawable.x - pPrivWin->oldRotate.x);
+  		    cfbYRotatePixmap(pPrivWin->pRotatedBorder,
+! 				  pBgWin->drawable.y - pPrivWin->oldRotate.y);
+  		}
+  	    }
+  	    else if (((width = (pWin->background.pixmap->drawable.width * PSZ)) <= 32) &&
+*** /tmp/d20305	Mon Apr 13 15:10:31 1992
+--- server/ddx/mfb/mfbwindow.c	Tue Mar 31 17:54:46 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: mfbwindow.c,v 5.8 89/09/13 18:58:36 rws Exp $ */
+  /* Combined Purdue/PurduePlus patches, level 2.0, 1/17/89 */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: mfbwindow.c,v 5.9 92/03/31 17:54:35 keith Exp $ */
+  /* Combined Purdue/PurduePlus patches, level 2.0, 1/17/89 */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 101,106 ****
+--- 101,108 ----
+  
+      if (!pWin->borderIsPixel && pPrivWin->fastBorder)
+      {
++ 	while (pWin->backgroundState == ParentRelative)
++ 	    pWin = pWin->parent;
+  	mfbXRotatePixmap(pPrivWin->pRotatedBorder,
+  			 pWin->drawable.x - pPrivWin->oldRotate.x);
+  	mfbYRotatePixmap(pPrivWin->pRotatedBorder,
+***************
+*** 195,202 ****
+--- 197,223 ----
+  {
+      register unsigned long index;
+      register mfbPrivWin *pPrivWin;
++     WindowPtr	pBgWin;
+  
+      pPrivWin = (mfbPrivWin *)(pWin->devPrivates[mfbWindowPrivateIndex].ptr);
++     /*
++      * When background state changes from ParentRelative and
++      * we had previously rotated the fast border pixmap to match
++      * the parent relative origin, rerotate to match window
++      */
++     if (mask & (CWBackPixmap | CWBackPixel) &&
++ 	pWin->backgroundState != ParentRelative &&
++ 	pPrivWin->fastBorder &&
++ 	pPrivWin->oldRotate.x != pWin->drawable.x ||
++ 	pPrivWin->oldRotate.y != pWin->drawable.y)
++     {
++ 	mfbXRotatePixmap(pPrivWin->pRotatedBorder,
++ 		      pWin->drawable.x - pPrivWin->oldRotate.x);
++ 	mfbYRotatePixmap(pPrivWin->pRotatedBorder,
++ 		      pWin->drawable.y - pPrivWin->oldRotate.y);
++ 	pPrivWin->oldRotate.x = pWin->drawable.x;
++ 	pPrivWin->oldRotate.y = pWin->drawable.y;
++     }
+      while(mask)
+      {
+  	index = lowbit (mask);
+***************
+*** 203,227 ****
+  	mask &= ~index;
+  	switch(index)
+  	{
+- #ifdef NOTDEF
+- 	  case CWBackingStore:
+- 	      if (pWin->backingStore != NotUseful)
+- 	      {
+- 		  miInitBackingStore(pWin, mfbSaveAreas, mfbRestoreAreas, (void (*)()) 0);
+- 	      }
+- 	      else
+- 	      {
+- 		  miFreeBackingStore(pWin);
+- 	      }
+- 	      /*
+- 	       * XXX: The changing of the backing-store status of a window
+- 	       * is serious enough to warrant a validation, since otherwise
+- 	       * the backing-store stuff won't work.
+- 	       */
+- 	      pWin->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+- 	      break;
+- #endif
+- 
+  	  case CWBackPixmap:
+  	      if (pWin->backgroundState == None)
+  	      {
+--- 224,229 ----
+***************
+*** 230,235 ****
+--- 232,247 ----
+  	      else if (pWin->backgroundState == ParentRelative)
+  	      {
+  		  pPrivWin->fastBackground = FALSE;
++ 		  /* Rotate border to match parent origin */
++ 		  if (pPrivWin->pRotatedBorder) {
++ 		      for (pBgWin = pWin->parent;
++ 			   pBgWin->backgroundState == ParentRelative;
++ 			   pBgWin = pBgWin->parent);
++ 		      mfbXRotatePixmap(pPrivWin->pRotatedBorder,
++ 				    pBgWin->drawable.x - pPrivWin->oldRotate.x);
++ 		      mfbYRotatePixmap(pPrivWin->pRotatedBorder,
++ 				    pBgWin->drawable.y - pPrivWin->oldRotate.y);
++ 		  }
+  	      }
+  	      else if ((pWin->background.pixmap->drawable.width <= 32) &&
+  		       !(pWin->background.pixmap->drawable.width &
+***************
+*** 265,279 ****
+  		  !(pWin->border.pixmap->drawable.width &
+  		    (pWin->border.pixmap->drawable.width - 1)))
+  	      {
+  		  mfbCopyRotatePixmap(pWin->border.pixmap,
+  				      &pPrivWin->pRotatedBorder,
+! 				      pWin->drawable.x,
+! 				      pWin->drawable.y);
+  		  if (pPrivWin->pRotatedBorder)
+  		  {
+  		      pPrivWin->fastBorder = TRUE;
+! 		      pPrivWin->oldRotate.x = pWin->drawable.x;
+! 		      pPrivWin->oldRotate.y = pWin->drawable.y;
+  		  }
+  		  else
+  		  {
+--- 277,294 ----
+  		  !(pWin->border.pixmap->drawable.width &
+  		    (pWin->border.pixmap->drawable.width - 1)))
+  	      {
++ 		  for (pBgWin = pWin;
++ 		       pBgWin->backgroundState == ParentRelative;
++ 		       pBgWin = pBgWin->parent);
+  		  mfbCopyRotatePixmap(pWin->border.pixmap,
+  				      &pPrivWin->pRotatedBorder,
+! 				      pBgWin->drawable.x,
+! 				      pBgWin->drawable.y);
+  		  if (pPrivWin->pRotatedBorder)
+  		  {
+  		      pPrivWin->fastBorder = TRUE;
+! 		      pPrivWin->oldRotate.x = pBgWin->drawable.x;
+! 		      pPrivWin->oldRotate.y = pBgWin->drawable.y;
+  		  }
+  		  else
+  		  {

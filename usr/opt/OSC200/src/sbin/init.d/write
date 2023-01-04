@@ -1,0 +1,86 @@
+#!/sbin/sh
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+# HISTORY
+#
+# @(#)$RCSfile: writesrv,v $ $Revision: 1.2 $ (DEC) $Date: 1993/03/08 06:33:34 $
+#
+# (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+# ALL RIGHTS RESERVED 
+#
+#
+# OSF/1 1.2
+
+# Get actual configuration 
+NUM_NETCONFIG=0;WRITESRV=no
+if [ -f /etc/rc.config ]; then
+       	. /etc/rc.config
+else
+       	echo "$0 ERROR: /etc/rc.config defaults file MISSING"
+	exit 1
+fi
+export NUM_NETCONFIG WRITESRV
+
+# if network not configured, just exit
+if [ "$NUM_NETCONFIG" = '' -o "$NUM_NETCONFIG" = 0 ]; then
+	exit 1
+fi
+
+PATH=/sbin:/usr/sbin:/usr/bin
+export PATH
+#
+# start or stop writesrv daemon
+#
+case $1 in
+'start')
+	if [ "$WRITESRV" = 'yes' ]; then
+		if [ -f /usr/sbin/writesrv ]; then
+			pid=`/bin/ps -e | grep writesrv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+			if [ "X$pid" = "X" ]; then
+				if /usr/sbin/writesrv; then
+					echo "writesrv daemon started"
+				else
+					echo "$0: cannot start writesrv daemon"
+					exit 1
+				fi
+			fi
+		else
+			echo "$0: /usr/sbin/writesrv does not exist"
+			exit 1
+		fi
+	fi
+        ;;
+'stop')
+	if [ -f /usr/sbin/writesrv ]; then
+		pid=`/bin/ps -e | grep writesrv | grep -v grep | sed -e 's/^  *//' -e 's/ .*//' | head -1`
+		if [ "X$pid" != "X" ]; then
+			/bin/kill $pid
+		fi
+	fi
+        ;;
+*)
+        echo "usage: $0 {start|stop}"
+	exit 1
+        ;;
+esac
+exit 0

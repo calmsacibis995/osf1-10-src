@@ -1,0 +1,463 @@
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM
+/*
+ * Make 'all' the default target by putting an instance of it first.
+ */
+all::
+
+#include <Server.tmpl>
+#include "ffbMultiCompile.tmpl"
+#include "ffbCopy.tmpl"
+
+
+#if defined(MipsArchitecture)
+#include "ffbMipsHack.tmpl"
+#else /* ||| should be if defined(AlphaArchitecture), but that doesn't work */
+#define Bits64
+#endif
+
+LGISRC	= $(EXTENSIONSRC)/server/lgi
+
+/*
+ * The following all do copies, of one sort or another.  Each is
+ * the root of a set, all linked to this same root .c file and
+ * compiled with different flags and flag values.  None of the
+ * .o's is named foo.o, where foo.c is the root source file. Instead,
+ * all of the .o's has a suffix that at least describes it's
+ * target depth (logical and physical, source and destination). Some
+ * also have a suffix part that indicates special functionality: 'ts'
+ * stands for transparent stipple.
+ */
+COPY_SRCS= \
+        ffbblt.c \
+        ffbBitbltMemScrDMA.c ffbBitbltScrMemDMA.c \
+        ffbgetsp.c \
+	ffbtilearea.c
+
+/*
+ * The following are root sources for multiple .o's, and not copy codes,
+ * or at least not compiled in as many permutations as leaf copy codes.
+ * For each of these, one of the .o's is named foo.o, where foo.c is
+ * the root source file.
+ */
+MULTICOMPILE_SRCS	= \
+	ffbteplygblt.c \
+	ffbteglyph.c \
+        ffbglyph.c \
+        ffbplygblt.c \
+	ffbpntarea.c \
+        ffbwideline.c \
+	ffbline.c ffbsline.c \
+        ffbfillarc.c \
+	ffbpoly.c \
+	ffbpolypnt.c \
+	ffbarc1.c \
+	ffbzerarc.c \
+	ffbpntwin.c \
+        ffbgc.c \
+	ffbpolyrect.c \
+	ffb463.c \
+	ffbscrinit.c
+
+SINGLECOMPILE_SRCS= \
+	ffb.c \
+        ffbbitblt.c \
+        ffbbltHelper.c \
+        ffbbstore.c \
+        ffbcirclebits.c \
+	ffbcopy.c \
+	ffbdma.c \
+        ffbfillrct.c \
+        ffbpixmap.c \
+        ffbplane.c \
+	ffbpolytext.c \
+	ffbsetsp.c \
+        ffbwindow.c
+
+#
+# also single-compiled
+#
+STATIC_SRCS = acc_ffb.c
+STATIC_OBJS = $(STATIC_SRCS:.c=.o)
+
+SHARED_SRCS =
+SHARED_OBJS = $(SHARED_SRCS:.c=.o)
+
+FILEGEN_SRCS= \
+	ffbgenffb.c \
+        ffbgenarc1bits.c  \
+	ffbgencirclebits.c
+#
+# Special compilation rules below accumulate lists of sources (with
+# appropriate suffixes).  Initialize lists here.
+#
+MULTICOMPILE_SRCS_EXPANDED=
+COPY_SRCS_EXPANDED=
+
+#
+# Include model stuff, if using the model.  Only need to define one
+# of these.  SOFTWARE_MODEL is a superset of WB_MODEL.
+#
+/* #define SOFTWARE_MODEL */
+/* #define WB_MODEL */
+#include "ffbModel.proj"
+
+/*
+ * Presumably we could make this conditional; address this when the need
+ * arises.
+ */
+ARC1BITS = ffbarc1bits32
+
+ffbarc1bits.c:
+	-ln -s $(ARC1BITS).c ffbarc1bits.c
+
+ffbgenffb: ffb.h ffbparams.h ffbgenffb.c
+	-$(RM) $@
+	$(LOCCC) -o ffbgenffb -DPSZ=8 $(LOCCFLAGS) ffbgenffb.c
+
+ffb.c:	ffbgenffb
+	-$(RM) $@
+	./ffbgenffb > ffb.c
+
+ffbgencirclebits: ffb.h ffbparams.h ffbcirclebits.h ffbgencirclebits.c
+	-$(RM) $@
+	$(LOCCC) -o ffbgencirclebits $(LOCCFLAGS) -DPSZ=8 ffbgencirclebits.c
+
+
+ffbcirclebits.c: ffbgencirclebits
+	-$(RM) $@
+	./ffbgencirclebits > ffbcirclebits.c
+
+
+#
+# Copy sources get compiled multiple times in a regular manner,
+# with logical and physical depths varying for both src and dst.
+#
+# The first pass over ffbblt.c does scr-scr and mem-scr procedures,
+# for which the hdwe can handle all rops.
+# Later passes generate rop variants of scr-mem procedure, where
+# we have to do all rops except copy by hand.
+#
+ffbCompileCopySrc(ffbblt,copyChipROPs,, $(CFLAGS),)
+	
+ffbCompileCopyScrMem(ffbblt,copy,, $(CFLAGS),	\
+		-DSCREEN_TO_MEM \
+		-DDMAOK \
+		-DFFBBITBLTSCRMEM=ffbBitbltScrMemCopy 	\
+		-DCFBBITBLT=cfbDoBitbltCopy -DCFBCOPY=DCCOPY)
+
+ffbCompileCopyScrMem(ffbblt,copyx,, $(CFLAGS),   \
+                -DSCREEN_TO_MEM \
+		-DFFBBITBLTSCRMEM=ffbBitbltScrMemCopySPM \
+		-DCFBBITBLT=cfbDoBitbltCopy -DCFBCOPY=DCCOPYSPM)
+
+ffbCompileCopyScrMem(ffbblt,xor,, $(CFLAGS),   \
+                -DSCREEN_TO_MEM \
+                -DFFBBITBLTSCRMEM=ffbBitbltScrMemXor \
+		-DCFBBITBLT=cfbDoBitbltXor -DCFBCOPY=DCXOR)
+
+ffbCompileCopyScrMem(ffbblt,genl,, $(CFLAGS),   \
+                -DSCREEN_TO_MEM \
+                -DFFBBITBLTSCRMEM=ffbBitbltScrMemGeneral \
+		-DCFBBITBLT=cfbDoBitbltGeneral -DCFBCOPY=DCGENERAL)
+
+ffbCompileCopySrc(ffbtilearea,tfa,, $(CFLAGS), \
+		-DFFBTILEFILLSPANS=ffbTileFillSpans \
+		-DFFBTILEFILLAREA=ffbTileFillArea )
+
+ffbCompileCopySrc(ffbgetsp,,, $(CFLAGS),)
+
+ffbCompileCopyScrMem(ffbBitbltScrMemDMA,,, $(CFLAGS),)
+
+ffbCompileCopyMemScr(ffbBitbltMemScrDMA,,, $(CFLAGS),)
+
+#
+# General stipple stuff gets compiled 4x: {8, 32} x {ts, os}
+#
+ffbObjectFromSpecialSource(ffbpntareats, ffbpntarea, \
+                -DDOTRANSPARENTSTIPPLE \
+                -DFFBSTIPPLEAREA=ffbTSFillArea \
+                -DFFBSTIPPLESPAN=ffbTSFillSpans \
+                -DFFBTSAREAWORD=ffbTSFillAreaWord \
+                -DFFBTSAREAWORD2=ffbTSFillAreaWord2 \
+                -DFFBTSSPANWORD=ffbTSSpansWord)
+
+ffbObjectFromSpecialSource(ffbpntareaos, ffbpntarea, \
+                -DDOOPAQUESTIPPLE \
+		-DFFBOSPLANE=ffbOSPlane \
+                -DFFBSTIPPLEAREA=ffbOSFillArea \
+                -DFFBSTIPPLESPAN=ffbOSFillSpans \
+                -DFFBTSAREAWORD=ffbOSFillAreaWord \
+                -DFFBTSAREAWORD2=ffbOSFillAreaWord2 \
+                -DFFBTSSPANWORD=ffbOSSpansWord)
+
+#
+# Paint routines that can take advantage of fill modes get compiled
+# twice, for 8 and 32 bit depths.
+#
+ffbObjectFromSpecialSource(ffbpntareafill, ffbpntarea, \
+		-DFFBPOLYFILLRECTSOLID \
+		-DFFBSOLIDFILLSPANS=ffbSolidFillSpans)
+
+#
+# ffbtilearea.c gets compiled one more time, absent stipple and block
+# stuff (tiles).  this should be the only occurence of -DCOMPILEEVERYTHING.
+#
+ffbObjectFromSameSource(ffbtilearea, ffbtilearea, \
+                -DDOTILE \
+                -DFFBTSSPANWORD=ffbTileSpansWord \
+                -DFFBTILEAREAWORD=ffbTilePolyAreaWord \
+                -DFFBTSAREAWORD=ffbTileFillAreaWord)
+
+#
+# Terminal emulation stuff; everything is compiled twice, for 8 and 32
+# bit depths.
+#
+#ifdef Bits64
+ffbObjectFromSpecialSource(ffbtesplat6, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs6 -DGLYPHWIDTH=8 \
+		-DNGLYPHS=10)
+ffbObjectFromSpecialSource(ffbtesplat8, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs8 -DGLYPHWIDTH=8 \
+		-DNGLYPHS=7)
+ffbObjectFromSpecialSource(ffbtesplat10, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs10 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=6)
+ffbObjectFromSpecialSource(ffbtesplat15, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs15 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=4)
+ffbObjectFromSpecialSource(ffbtesplat16, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs16 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbtesplat20, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs20 -DGLYPHWIDTH=32 \
+		-DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbtesplat30, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs30 -DGLYPHWIDTH=32 \
+		-DNGLYPHS=2)
+ffbObjectFromSpecialSource(ffbtesplat32, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs32 -DGLYPHWIDTH=32 \
+		-DNGLYPHS=1)
+#else
+
+ffbObjectFromSpecialSource(ffbtesplat7, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs7 -DGLYPHWIDTH=8 \
+		-DNGLYPHS=4)
+ffbObjectFromSpecialSource(ffbtesplat8, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs8 -DGLYPHWIDTH=8 \
+		-DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbtesplat14, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs14 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=2)
+ffbObjectFromSpecialSource(ffbtesplat16, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs16 -DGLYPHWIDTH=16 \
+		-DNGLYPHS=1)
+ffbObjectFromSpecialSource(ffbtesplat32, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTESplatGlyphs32 -DGLYPHWIDTH=32 \
+		-DNGLYPHS=1)
+#endif
+
+ffbObjectFromSameSource(ffbplygblt, ffbplygblt, \
+		-DFFBPLYGLYPHBLT=ffbPolyGlyphBlt)
+
+ffbObjectFromSpecialSource(ffbimggblt, ffbplygblt, \
+		-DFFBIMAGETEXT -DFFBPLYGLYPHBLT=ffbImageGlyphBlt)
+
+ffbObjectFromSpecialSource(ffbteimggblt, ffbteplygblt, \
+		-DFFBIMAGETEXT -DFFBTEPLYGLYPHBLT=ffbTEImageGlyphBlt)
+
+#ifdef Bits64
+ffbObjectFromSpecialSource(ffbteimage6, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs6 -DGLYPHWIDTH=8 \
+		-DFFBIMAGETEXT -DNGLYPHS=10)
+ffbObjectFromSpecialSource(ffbteimage8, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs8 -DGLYPHWIDTH=8 \
+		-DFFBIMAGETEXT -DNGLYPHS=7)
+ffbObjectFromSpecialSource(ffbteimage10, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs10 -DGLYPHWIDTH=16 \
+		-DFFBIMAGETEXT -DNGLYPHS=6)
+ffbObjectFromSpecialSource(ffbteimage15, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs15 -DGLYPHWIDTH=16 \
+		-DFFBIMAGETEXT -DNGLYPHS=4)
+ffbObjectFromSpecialSource(ffbteimage16, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs16 -DGLYPHWIDTH=16 \
+		-DFFBIMAGETEXT -DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbteimage20, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs20 -DGLYPHWIDTH=32 \
+		-DFFBIMAGETEXT -DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbteimage30, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs30 -DGLYPHWIDTH=32 \
+		-DFFBIMAGETEXT -DNGLYPHS=2)
+ffbObjectFromSpecialSource(ffbteimage32, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs32 -DGLYPHWIDTH=32 \
+		-DFFBIMAGETEXT -DNGLYPHS=1)
+#else
+ffbObjectFromSpecialSource(ffbteimage6, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs6 -DGLYPHWIDTH=6 \
+		-DFFBIMAGETEXT -DNGLYPHS=4)
+ffbObjectFromSpecialSource(ffbteimage8, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs8 -DGLYPHWIDTH=8 \
+		-DFFBIMAGETEXT -DNGLYPHS=3)
+ffbObjectFromSpecialSource(ffbteimage12, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs12 -DGLYPHWIDTH=12 \
+		-DFFBIMAGETEXT -DNGLYPHS=2)
+ffbObjectFromSpecialSource(ffbteimage16, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs16 -DGLYPHWIDTH=16 \
+		-DFFBIMAGETEXT -DNGLYPHS=1)
+ffbObjectFromSpecialSource(ffbteimage32, ffbteglyph, \
+		-DFFBTESPLATGLYPHS=ffbTEImageGlyphs32 -DGLYPHWIDTH=32 \
+		-DFFBIMAGETEXT -DNGLYPHS=1)
+#endif
+
+
+#
+# Miscellaneous 2-depth stuff.
+#
+ffbObjectFromSpecialSource(ffbsegment, ffbline, \
+		-DSEGMENTS)
+
+ffbObjectFromSpecialSource(ffbssegment, ffbsline, \
+		-DSEGMENTS)
+
+#
+# This set compiles once in it's own name (for 8 bit), and once with suffix for
+# 32 bit depth.
+#
+ffbObjectFromSameSource(ffbarc1, ffbarc1, )
+ffbObjectFromSameSource(ffbfillarc, ffbfillarc, )
+ffbObjectFromSameSource(ffbgc, ffbgc, )
+ffbObjectFromSameSource(ffbpolyrect, ffbpolyrect, )
+ffbObjectFromSameSource(ffb463, ffb463, )
+ffbObjectFromSameSource(ffbglyph, ffbglyph, )
+ffbObjectFromSameSource(ffbline, ffbline, )
+ffbObjectFromSameSource(ffbpntwin, ffbpntwin, )
+ffbObjectFromSameSource(ffbpoly, ffbpoly, )
+ffbObjectFromSameSource(ffbscrinit, ffbscrinit, )
+ffbObjectFromSameSource(ffbsline, ffbsline, )
+ffbObjectFromSameSource(ffbteplygblt, ffbteplygblt, -DFFBTEPLYGLYPHBLT=ffbTEPolyGlyphBlt)
+ffbObjectFromSameSource(ffbwideline, ffbwideline, )
+ffbObjectFromSameSource(ffbzerarc, ffbzerarc, )
+ffbObjectFromSameSource(ffbpolypnt, ffbpolypnt, )
+
+#
+# And finally we get to things that compile only once: depth independent.
+# The "ARule" filters out bogus warnings pertaining to the use of asm().
+#
+$(SINGLECOMPILE_SRCS:.c=.o) $(STATIC_OBJS) $(SHARED_OBJS):
+	$(RM) $@
+	$(CC) -c $(CFLAGS) -DPSZ=8 -DFFB_DEPTH_INDEPENDENT $*.c ARule()
+
+#
+# End special rules.  Lists of sources have been accumulated 
+# along with the special rules, so now we can concatenate all of the
+# lists and define the list of all objects.
+#
+AccumulateSrcs(MULTICOMPILE_SRCS_EXPANDED, COPY_SRCS_EXPANDED, MULTICOMPILE_LINKS)
+
+LINKED_SRCS = \
+	$(MULTICOMPILE_LINKS) \
+	$(COPY_SRCS_EXPANDED)
+
+EXPANDED_SRCS = \
+        $(SINGLECOMPILE_SRCS) $(STATIC_SRCS) $(SHARED_SRCS)\
+        $(MODEL_WB_SRCS) $(MODEL_SRCS_LOC) \
+        $(MULTICOMPILE_SRCS_EXPANDED) \
+        $(COPY_SRCS_EXPANDED)
+
+SRCS =  \
+	$(EXPANDED_SRCS) \
+	$(SRCL) \
+	$(FILEGEN_SRCS)
+
+/* mips make can't evaluate expanded_src:.c=.o, so we break it down */
+LOC_OBJS= $(SINGLECOMPILE_SRCS:.c=.o) \
+	$(MULTICOMPILE_SRCS_EXPANDED:.c=.o) \
+	$(COPY_SRCS_EXPANDED:.c=.o)
+
+OBJS =  $(LOC_OBJS) $(STATIC_OBJS) $(MODEL_WB_OBJS) $(MODEL_OBJS)
+SOBJS=  $(LOC_OBJS) $(SHARED_OBJS) $(MODEL_WB_OBJS) $(MODEL_OBJS)
+
+
+   INCLUDES =	-I. -I../../../include -I$(INCLUDESRC) -I../cfb \
+		-I../../mfb -I../../cfb \
+		-I$(EXTENSIONSRC)/server/lgi/include \
+		-I$(EXTENSIONSRC)/server/lgi/src/include \
+		-I$(FONTSRC)/include -I$(FONTSRC)/lib/font/include \
+		-I../../mi -I$(MODELINCS)
+   LINTLIBS = ../../../dix/llib-ldix.ln \
+	      ../../../os/4.2bsd/llib-los.ln \
+	     ../../mfb/llib-lmfb.ln ../../mi/llib-lmi.ln
+    DEFINES =  $(MODEL_FLAG) $(MODEL_WB_FLAG) $(ENVFLAGS)
+
+
+depend:: ffb.c ffbcirclebits.c ffbarc1bits.c
+
+#
+# convenience for grepping through sources
+#
+show_links::
+	@echo $(LINKED_SRCS)
+	@ls -l $(LINKED_SRCS)
+
+TRASH	= *pp.c *pu.c *up.c *uu.c *8*32*.c *88*.c *bs.c 
+clean_links::
+	-@$(RM) $(LINKED_SRCS)
+	-@$(RM) $(TRASH)
+	-@ls -C1 *32.c | grep -v ffbarc1bits32.c | xargs $(RM)
+	-@$(RM) ffbarc1bits.c 
+clean::
+	$(RM) ffbarc1bits.c
+	$(RM) $(SRCL)
+	$(RM) ffbgenffb ffb.c ffbgencirclebits ffbcirclebits.c
+	$(RM) mflag dflag sflag modelTarget 
+
+NormalLibraryObjectRule()
+NormalDepLibraryTarget(_dec_ffb, $(OBJS), $(OBJS))
+LintLibraryTarget(_dec_ffb, $(SRCS))
+
+#if SharedServerLibs
+#if BuildLGI 
+PROJDIR = sfbplus
+/*
+ * for optimization purposes, a single .a allows much greater control over i-cache
+ * conflicts.  the libucode.a for ffb is specially arranged to minimize i-cache
+ * conflicts, and in a .so it's taken as-is, the way we like it.
+ */
+LGIFFBTUCODE= $(EXTENSIONSRC)/server/lgi/lib/$(LGI_HOST_ARCH)/libucode$(PROJDIR).a
+#endif
+
+FFBADDLIB=../cfb/libcfb.a $(LGIFFBTUCODE) $(EXTENSIONSRC)/server/draw/generic/libdrawgeneric.a $(CROSSBASE)/usr/ccs/lib/libmach.a
+
+SharedLibraryTarget(_dec_ffb,.,$(SOBJS) $(FFBADDLIB))
+InstallSharedLibrary(_dec_ffb,.,$(INSTALLSERVERLIBSDIR))
+
+so:: lib_dec_ffb.so
+#endif
+
+NormalLintTarget($(SRCS))
+
+DependTarget()
+
+# HISTORY
+# 

@@ -1,0 +1,135 @@
+/*
+ * *****************************************************************
+ * *                                                               *
+ * *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+ * *                                                               *
+ * *   All Rights Reserved.  Unpublished rights  reserved  under   *
+ * *   the copyright laws of the United States.                    *
+ * *                                                               *
+ * *   The software contained on this media  is  proprietary  to   *
+ * *   and  embodies  the  confidential  technology  of  Digital   *
+ * *   Equipment Corporation.  Possession, use,  duplication  or   *
+ * *   dissemination of the software and media is authorized only  *
+ * *   pursuant to a valid written license from Digital Equipment  *
+ * *   Corporation.                                                *
+ * *                                                               *
+ * *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+ * *   by the U.S. Government is subject to restrictions  as  set  *
+ * *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+ * *   or  in  FAR 52.227-19, as applicable.                       *
+ * *                                                               *
+ * *****************************************************************
+ */
+/*
+ * HISTORY
+ */
+#ifndef lint
+static char     *sccsid = "@(#)$RCSfile: mstolfp.c,v $ $Revision: 4.2 $ (DEC) $Date: 1991/09/20 04:41:06 $";
+#endif
+/*
+ */
+
+/*
+ * mstolfp - convert an ascii string in milliseconds to an l_fp number
+ */
+#include <stdio.h>
+#include <ctype.h>
+#include <strings.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#include <ntp/ntp_fp.h>
+
+
+int
+mstolfp(str, lfp)
+	char *str;
+	l_fp *lfp;
+{
+	register char *cp;
+	register char *bp;
+	register char *cpdec;
+	char buf[100];
+	extern int atolfp();
+
+	/*
+	 * We understand numbers of the form:
+	 *
+	 * [spaces][-][digits][.][digits][spaces|\n|\0]
+	 *
+	 * This is one enormous hack.  Since I didn't feel like
+	 * rewriting the decoding routine for milliseconds, what
+	 * is essentially done here is to make a copy of the string
+	 * with the decimal moved over three places so the seconds
+	 * decoding routine can be used.
+	 */
+	bp = buf;
+	cp = str;
+	while (isspace(*cp))
+		cp++;
+	
+	if (*cp == '-') {
+		*bp++ = '-';
+		cp++;
+	}
+
+	if (*cp != '.' && !isdigit(*cp))
+		return 0;
+
+
+	/*
+	 * Search forward for the decimal point or the end of the string.
+	 */
+	cpdec = cp;
+	while (isdigit(*cpdec))
+		cpdec++;
+
+	/*
+	 * Found something.  If we have more than three digits copy the
+	 * excess over, else insert a leading 0.
+	 */
+	if ((cpdec - cp) > 3) {
+		do {
+			*bp++ = (char)*cp++;
+		} while ((cpdec - cp) > 3);
+	} else {
+		*bp++ = '0';
+	}
+
+	/*
+	 * Stick the decimal in.  If we've got less than three digits in
+	 * front of the millisecond decimal we insert the appropriate number
+	 * of zeros.
+	 */
+	*bp++ = '.';
+	if ((cpdec - cp) < 3) {
+		register int i = 3 - (cpdec - cp);
+
+		do {
+			*bp++ = '0';
+		} while (--i > 0);
+	}
+
+	/*
+	 * Copy the remainder up to the millisecond decimal.  If cpdec
+	 * is pointing at a decimal point, copy in the trailing number too.
+	 */
+	while (cp < cpdec)
+		*bp++ = (char)*cp++;
+	
+	if (*cp == '.') {
+		cp++;
+		while (isdigit(*cp))
+			*bp++ = (char)*cp++;
+	}
+	*bp = '\0';
+
+	/*
+	 * Check to make sure the string is properly terminated.  If
+	 * so, give the buffer to the decoding routine.
+	 */
+	if (*cp != '\0' && !isspace(*cp))
+		return 0;
+	return atolfp(buf, lfp);
+}

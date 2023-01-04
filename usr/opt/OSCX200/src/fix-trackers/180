@@ -1,0 +1,142 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9203051730.AA02427@excess.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2403) close XBUG #5016: Xt: fails parsing production for a left parenthesis Key event
+Organization: X Consortium, MIT Laboratory for Computer Science
+Date: Thu, 05 Mar 92 12:30:27 EST
+From: Donna Converse <converse@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+        Subject: Xt: fails parsing production for a left parenthesis Key event
+        ### bug number:   5016
+        ### area:         Xt
+        ### severity:     low
+        ### comments:     introduced by recent fix-trackers sequence #2382
+        ### status:       fixed, TMparse.c 1.127
+
+
+*** /tmp/,RCSt1a02371	Thu Mar  5 12:27:31 1992
+--- lib/Xt/TMparse.c	Wed Mar  4 18:00:28 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: TMparse.c,v 1.126 92/02/27 17:01:53 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+--- 1,4 ----
+! /* $XConsortium: TMparse.c,v 1.127 92/03/04 17:56:26 converse Exp $ */
+  
+  /***********************************************************
+  Copyright 1987, 1988 by Digital Equipment Corporation, Maynard, Massachusetts,
+***************
+*** 1073,1080 ****
+           return PanicModeRecovery(str);
+      }
+      else str++;
+!     if (*str == '(')
+! 	str = ParseRepeat(str, reps, plus);
+      str = (*(events[tmEvent].parseDetail))(
+          str, events[tmEvent].closure, event,error);
+      if (*error) return str;
+--- 1073,1082 ----
+           return PanicModeRecovery(str);
+      }
+      else str++;
+!     if (*str == '(') {
+! 	str = ParseRepeat(str, reps, plus, error);
+! 	if (*error) return str;
+!     }
+      str = (*(events[tmEvent].parseDetail))(
+          str, events[tmEvent].closure, event,error);
+      if (*error) return str;
+***************
+*** 1426,1444 ****
+      }
+  }
+  
+! static String ParseRepeat(str, reps, plus)
+      register String str;
+      int	*reps;
+!     Boolean *plus;
+  {
+-     String right_paren;
+  
+      /*** Parse the repetitions, for double click etc... ***/
+!     if (*str != '(') return str;
+      str++;
+!     right_paren = str;
+!     ScanFor(right_paren, ')');
+!     if (isascii(*str) && isdigit(*str)) {
+  	String start = str;
+  	char repStr[7];
+  	int len;
+--- 1428,1444 ----
+      }
+  }
+  
+! static String ParseRepeat(str, reps, plus, error)
+      register String str;
+      int	*reps;
+!     Boolean *plus, *error;
+  {
+  
+      /*** Parse the repetitions, for double click etc... ***/
+!     if (*str != '(' || !(isdigit(str[1]) || str[1] == '+' || str[1] == ')'))
+! 	return str;
+      str++;
+!     if (isdigit(*str)) {
+  	String start = str;
+  	char repStr[7];
+  	int len;
+***************
+*** 1450,1461 ****
+  	    repStr[len] = '\0';
+  	    *reps = StrToNum(repStr);
+  	} else {
+! 	    Syntax ("Repeat count too large; ignored.", "");
+! 	    return right_paren;
+  	}
+!     } else {
+  	Syntax("Missing repeat count.","");
+! 	return right_paren;
+      }
+  
+      if (*str == '+') {
+--- 1450,1464 ----
+  	    repStr[len] = '\0';
+  	    *reps = StrToNum(repStr);
+  	} else {
+! 	    Syntax("Repeat count too large.", "");
+! 	    *error = True;
+! 	    return str;
+  	}
+!     }
+!     if (*reps == 0) {
+  	Syntax("Missing repeat count.","");
+! 	*error = True;
+! 	return str;
+      }
+  
+      if (*str == '+') {
+***************
+*** 1466,1472 ****
+  	str++;
+      else {
+  	Syntax("Missing ')'.","");
+! 	return right_paren;
+      }
+  
+      return str;
+--- 1469,1475 ----
+  	str++;
+      else {
+  	Syntax("Missing ')'.","");
+! 	*error = True;
+      }
+  
+      return str;

@@ -1,0 +1,79 @@
+#
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+#
+# HISTORY
+#!/bin/sh
+# @(#)gen_arrays	1.3 (ULTRIX)        12/19/90
+
+echo '#define DEFINE_ARRAY(name, type) \
+typedef struct _##name##Array { \
+  unsigned int alloced; \
+  unsigned int used; \
+  type *elements; \
+} name##Array'
+
+exec awk '{\
+if(substr($0, 1, 1) != "#"){\
+  type = "";\
+  for(i=1;i<NF;i++){\
+    type = type " " $i;\
+    if(substr($i, length($i), 1) != "\\") break;\
+    split(type, array, "\\");\
+    type = array[1];\
+  }\
+  name = $++i;\
+  proc = $++i;\
+  if(proc == "") proc = "NULL";\
+  printf "DEFINE_ARRAY(%s, %s);\n", name, type;\
+  printf "#define %sArraySize(a) ArrayUsed((Array *) (a))\n", name;\
+  printf "#define %sArrayElements(a) ((%s *) ArrayElements((Array *) (a)))\n", name, type;\
+  printf "#define %sArrayElement(a, n) ((%s *) ArrayElement(a, n))\n", name, type;\
+  printf "#define %sArrayFirstElement(a) ((%s *) ArrayElement(a, 0))\n"a, name, type;\
+  printf "#define %sArrayLastElement(a) ((%s *) ArrayElement(a, ArrayUsed(a) - 1))\n", name, type;\
+  printf "#define %sArrayNew(a) ((%sArray *) ArrayNew((Array *) (a), sizeof(%s)))\n", name, name, type;\
+  printf "#define %sArrayDestroy(a) ArrayDestroy((Array *) (a))\n", name;\
+  printf "#define %sArraySetElement(a, i, d) ArraySetElement((Array *) (a), (i), ((char *) d), sizeof(%s))\n", name, type;\
+  printf "#define %sArrayNextIndex(a) ArrayNextIndex((Array *) (a), sizeof(%s))\n", name, type;\
+  printf "#define %sArrayNextElement(a) ((%s *) ArrayNextElement((Array *) (a), sizeof(%s)))\n", name, type, type;\
+  printf "#define %sArrayIndex(a, e) ArrayIndex((Array *) (a), (char *) (e), sizeof(%s))\n", name, type;\
+  printf "#define %sArraySize(a) ArrayUsed((Array *) (a))\n", name;\
+  printf "#define %sArrayEmpty(a) ArrayEmpty((Array *) (a))\n", name;\
+  printf "#define %sArrayContains(a, d) ArrayContains((Array *) (a), ((char *) d), sizeof(%s))\n", name, type;\
+  printf "#define %sArrayInsert(a, i, d) ArrayInsert((Array *) (a), (unsigned int) (i), ((char *) d), sizeof(%s), (void (*)()) %s)\n", name, type, proc;\
+  printf "#define %sArrayInsertBefore(a, e, ele) %sArrayInsert((a), %sArrayIndex((a), ((char *) e)), (ele))\n", name, name, name;\
+  printf "#define %sArrayInsertAfter(a, e, ele) %sArrayInsert((a), %sArrayIndex((a), ((char *) e)) + 1, (ele))\n", name, name, name;\
+  printf "#define %sArrayDelete(a, i) ArrayDelete((Array *) (a), (i), sizeof(%s), (void (*)()) %s)\n", name, type, proc;\
+  printf "#define %sArrayDeleteElement(a, e) %sArrayDelete((a), %sArrayIndex((a), ((char *) e)))\n", name, name, name;\
+  printf "#define %sArrayAppend(a, e) %sArrayInsert((a), %sArraySize(a), (e))\n", name, name, name;\
+  printf "#define %sArraySort(a, p) ArraySort((Array *) (a), p, sizeof(%s))\n", name, type;\
+  printf "#define %sArrayIterPtr(a, e) for((e)=%sArrayFirstElement(a);(e)<=%sArrayLastElement(a);(e)++)\n", name, name, name;\
+  printf "#define %sArrayIter(a, e, i) for((i)=0,(e)= *%sArrayElement(a, i);(i)<%sArraySize(a);(i)++,(e)= *%sArrayElement(a, i))\n", name, name, name, name;\
+  printf "#define %sArrayIterFull(a, e, i, s, f, n) for((i)=(s),(e)= *%sArrayElement(a, i);(i)!=(f);(n),(e)= *%sArrayElement(a, i))\n", name, name, name;\
+  printf "#define %sArrayIterPtrFull(a, e, i, s, f, n) for((i)=(s),(e)=%sArrayElement(a, i);(i)!=(f);(n),(e)=%sArrayElement(a, i))\n", name, name, name;\
+  printf "#define %sArrayCopyInsert(fa, fi, ta, ti) \\\n", name;\
+  printf "	(void) ArrayCopy((Array *) fa, (unsigned int) fi, (Array *) ta, (unsigned int) ti, 1, sizeof(%s), (void (*)()) %s)\n", type, proc;\
+  printf "#define %sArrayCopyOver(fa, fi, ta, ti) \\\n", name;\
+  printf "	(void) ArrayCopy((Array *) fa, (unsigned int) fi, (Array *) ta, (unsigned int) ti, 0, sizeof(%s), (void (*)()) %s)\n", type, proc;\
+  printf "\n";\
+}\
+}'

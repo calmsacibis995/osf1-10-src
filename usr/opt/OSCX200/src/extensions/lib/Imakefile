@@ -1,0 +1,136 @@
+XCOMM 
+XCOMM *****************************************************************
+XCOMM *                                                               *
+XCOMM *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+XCOMM *                                                               *
+XCOMM *   All Rights Reserved.  Unpublished rights  reserved  under   *
+XCOMM *   the copyright laws of the United States.                    *
+XCOMM *                                                               *
+XCOMM *   The software contained on this media  is  proprietary  to   *
+XCOMM *   and  embodies  the  confidential  technology  of  Digital   *
+XCOMM *   Equipment Corporation.  Possession, use,  duplication  or   *
+XCOMM *   dissemination of the software and media is authorized only  *
+XCOMM *   pursuant to a valid written license from Digital Equipment  *
+XCOMM *   Corporation.                                                *
+XCOMM *                                                               *
+XCOMM *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+XCOMM *   by the U.S. Government is subject to restrictions  as  set  *
+XCOMM *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+XCOMM *   or  in  FAR 52.227-19, as applicable.                       *
+XCOMM *                                                               *
+XCOMM *****************************************************************
+XCOMM
+XCOMM HISTORY
+XCOMM 
+XCOMM $XConsortium: Imakefile,v 1.36 92/01/25 16:12:44 rws Exp $
+#define DoNormalLib NormalLibXext
+#define DoSharedLib SharedLibXext
+#define DoDebugLib DebugLibXext
+#define DoProfileLib ProfileLibXext
+#include <Library.tmpl>
+
+#ifdef RsArchitecture
+REQUIREDLIBS = $(XLIBSRC)/libX11.a
+#endif
+
+#define IHaveSubdirs
+#define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
+
+#if BuildXInputLib
+      XINPUTDIRS = xinput
+#endif
+
+#if BuildPexClients
+      PEXDIRS = PEX
+#endif
+
+#if BuildXTrapLib
+      XTRAPDIRS = xtrap
+#endif
+
+#if BuildSMTExt
+      SMTDIRS = smt
+#endif
+
+#if BuildXieLib
+      XIEDIRS = xie
+#endif
+
+#if BuildXTestLib
+      XTESTDIRS = xtest
+#endif
+
+#if BuildLGIClients
+      LGIDIRS = pexlib gl MITPEXlib
+#endif
+
+      SUBDIRS = $(XINPUTDIRS) $(PEXDIRS) $(XTRAPDIRS) $(SMTDIRS) $(XIEDIRS) $(XTESTDIRS) $(LGIDIRS) 
+
+#if HasShm
+      SHMSRCS = XShm.c
+      SHMOBJS = XShm.o
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+      DEFINES = ExtensionDefines $(ALLOC_DEFINES)
+     INCLUDES = -I$(XLIBSRC) -I../include
+         SRCS = globals.c extutil.c XMultibuf.c XShape.c $(SHMSRCS)  \
+		MITMisc.c XTestExt1.c XKme.c
+         OBJS = globals.o extutil.o XMultibuf.o XShape.o $(SHMOBJS) \
+		MITMisc.o XTestExt1.o XKme.o
+     LINTLIBS = $(LINTXLIB)
+
+LibraryObjectRule()
+
+#if DoSharedLib
+   SO_REQLIBS = -L$(XLIBSRC) -lX11 -lc
+#if DoNormalLib
+SharedLibraryTarget(Xext,$(SOXEXTREV),$(OBJS),shared,..)
+#else
+SharedLibraryTarget(Xext,$(SOXEXTREV),$(OBJS),.,.)
+#endif
+InstallSharedLibrary(Xext,$(SOXEXTREV),$(USRSHLIBDIR))
+#endif
+#if DoNormalLib
+NormalLibraryTarget(Xext,$(OBJS))
+InstallLibrary(Xext,$(USRLIBDIR))
+#if DoInstallExtensionsIntoXlib
+MergeIntoInstalledLibrary($(USRLIBDIR)/libX11.a,libXext.a)
+#endif
+#endif
+#if DoProfileLib
+ProfiledLibraryTarget(Xext,$(OBJS))
+InstallLibrary(Xext_p,$(USRLIBDIR))
+#if DoInstallExtensionsIntoXlib
+MergeIntoInstalledLibrary($(USRLIBDIR)/libX11_p.a,libXext_p.a)
+#endif
+#endif
+#if DoDebugLib
+#if InstallStaticDebugLibraries
+DebuggedLibraryTarget(Xext,$(OBJS))
+InstallLibrary(Xext_d,$(DEBUGUSRLIBDIR))
+#endif
+#if DoSharedLib && InstallSharedDebugLibraries
+SharedDebuggedLibraryTarget(Xext,$(SOXEXTREV),$(OBJS),debugged,..)
+InstallNonExecFile(debugger/libXext.so,$(DEBUGUSRLIBDIR))
+#endif
+#if DoInstallExtensionsIntoXlib
+MergeIntoInstalledLibrary($(USRLIBDIR)/libX11_d.a,libXext_d.a)
+#endif
+#endif
+
+LintLibraryTarget(Xext,$(SRCS))
+InstallLintLibrary(Xext,$(LINTLIBDIR))
+
+DependTarget()
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(SUBDIRS))
+MakeLintSubdirs($(SUBDIRS),install.ln,install.ln)
+#endif
+
+NormalLintTarget($(SRCS))

@@ -1,0 +1,947 @@
+ * Hi mom
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111181457.AA02721@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2225) close XBUG #4608: Xlib: (Xsi) XmbTextProperyToTextList: conversion of CT
+Date: Mon, 18 Nov 91 09:57:33 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4608
+### area:         Xlib
+### severity:     low
+### comments:     
+*** /tmp/,RCSt1001316	Sun Nov 17 16:16:41 1991
+--- lib/X/Xsi/XCnvCTToWC.c	Sun Nov 17 16:15:35 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCnvCTToWC.c,v 1.20 91/09/18 16:29:28 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCnvCTToWC.c,v 1.22 91/11/17 16:15:29 rws Exp $
+   */
+  
+  /*
+***************
+*** 41,46 ****
+--- 41,47 ----
+  #include "Xlibint.h"
+  #include "Xlocaleint.h"
+  #include <X11/Xos.h>
++ #include <X11/Xutil.h>
+  
+  static int _XConvertCTextToWC();
+  extern int _XParseISOEncoding();
+***************
+*** 276,281 ****
+--- 277,283 ----
+      _State		state_sv, state_ext;
+      unsigned char      *ct_str_sv = NULL;
+      int len_sv;
++     char *defstr = XDefaultString();
+  
+      if (!xlocale)
+  	xlocale = _XFallBackConvert();
+***************
+*** 295,302 ****
+              continue;
+          }
+          _XcwGetAll(xlocale, wc, &esc, &woffset, &stateinfo);
+! 	if (woffset == 0)
+! 	    Return (BadEncoding);
+          if ((ctGLorGR = ctGetGLorGR(xlocale)) == GL &&
+  		ctGetGLid(xlocale) != (state_sv & 0xff) ||
+  	    ctGLorGR == GR &&
+--- 297,313 ----
+              continue;
+          }
+          _XcwGetAll(xlocale, wc, &esc, &woffset, &stateinfo);
+! 	if (woffset == 0) {
+! 	    int i;
+! 	    /* XXX BUG: need to check/add designate sequence of default string.
+! 	       But current default string is NULL, so OK. :-) */
+! 	    for (i = 0; *(defstr + i) != 0; i++) {
+! 		SaveStore(*(defstr + i))
+! 	    }
+! 	    error++;
+! 	    wc_str++, wc_len--, wcnt++;
+!             continue;
+! 	}
+          if ((ctGLorGR = ctGetGLorGR(xlocale)) == GL &&
+  		ctGetGLid(xlocale) != (state_sv & 0xff) ||
+  	    ctGLorGR == GR &&
+***************
+*** 434,440 ****
+      ct_str += len; ctcnt += len; ct_bytes -=len;
+  
+      if (ct_bytes < textlen)
+! 	Return(BadEncoding) /* Nor enough data. What should do? */
+  
+      _XcwIdGetWoffset(xlocale, &woffset);
+  
+--- 445,451 ----
+      ct_str += len; ctcnt += len; ct_bytes -=len;
+  
+      if (ct_bytes < textlen)
+! 	Return(BadTerminate); /* Nor enough data. What should do? */
+  
+      _XcwIdGetWoffset(xlocale, &woffset);
+  
+*** /tmp/,RCSt1001422	Sun Nov 17 16:22:48 1991
+--- lib/X/Xsi/XCnvWCToMB.c	Sun Nov 17 16:22:39 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCnvWCToMB.c,v 1.20 91/09/18 16:29:48 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCnvWCToMB.c,v 1.22 91/11/17 16:22:31 rws Exp $
+   */
+  
+  /*
+***************
+*** 40,45 ****
+--- 40,46 ----
+  #include "Xlibint.h"
+  #include "Xlocaleint.h"
+  #include <X11/Xos.h>
++ #include <X11/Xutil.h>
+  
+  #define ESC 0x1b
+  #define CSI 0x9b
+***************
+*** 98,104 ****
+  	    return (2);
+  	} else if (*str >= 0x20 && *str <= 0x2f) {
+  	    for (i++; len > 0; str++,i++, len--) {
+! 		if (*str >= 0x40 && *str <= 0x7e)
+  		    return(i);
+  		if (*str < 0x20 || *str >= 0x7f)
+  		    return (-1); /* Not valid Escape seqence */
+--- 99,105 ----
+  	    return (2);
+  	} else if (*str >= 0x20 && *str <= 0x2f) {
+  	    for (i++; len > 0; str++,i++, len--) {
+! 		if (*str >= 0x30 && *str <= 0x7e)
+  		    return(i);
+  		if (*str < 0x20 || *str >= 0x7f)
+  		    return (-1); /* Not valid Escape seqence */
+***************
+*** 229,235 ****
+          SaveStore((code & 0x7f7f) | woffset);
+          mb_str += codelen, mbcnt += codelen, mb_bytes -= codelen;
+      }
+-     /*error = 0;*/
+      Return(Success);
+  }
+  
+--- 230,235 ----
+***************
+*** 276,281 ****
+--- 276,282 ----
+      _State  state_sv;
+      wchar   wc, woffset, newwoffset;
+      extern void _XmbSetCsid();
++     char *defstr = XDefaultString();
+     
+      if (!xlocale)
+  	xlocale = _XFallBackConvert();
+***************
+*** 296,306 ****
+              continue;
+          }
+  	ctid = _XcwGetWoffset(*wc_str, &newwoffset);
+! 	if(ctid == ND)
+! 	    Return(BadEncoding);
+! 	newcsid = _Xmbctidtocsid(xlocale, ctid);
+! 	if(newcsid == ND)
+! 	    Return(BadEncoding);
+  	_XmbSetCsid(xlocale, newcsid);
+          if (csid_sv != newcsid) {
+  	    int mbGLorGR;
+--- 297,313 ----
+              continue;
+          }
+  	ctid = _XcwGetWoffset(*wc_str, &newwoffset);
+! 	if (ctid == ND || (newcsid = _Xmbctidtocsid(xlocale, ctid)) == ND) {
+! 	    /* XXX BUG: if stateful encoding, need to check/add
+! 			designate sequence of default string.
+! 	       But current default string is NULL, so OK. :-) */
+! 	    for (i = 0; *(defstr + i) != 0; i++) {
+! 		SaveStore(*(defstr + i))
+! 	    }
+! 	    error++;
+! 	    wc_str++, wccnt++, wc_len--;
+! 	    continue;
+! 	}
+  	_XmbSetCsid(xlocale, newcsid);
+          if (csid_sv != newcsid) {
+  	    int mbGLorGR;
+*** /tmp/,RCSt1000707	Sun Nov 17 15:32:13 1991
+--- lib/X/Xsi/XmbTextPrp.c	Sun Nov 17 15:31:34 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XmbTextPrp.c,v 1.5 91/08/12 17:18:39 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: XmbTextPrp.c,v 1.6 91/11/17 15:31:30 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+***************
+*** 56,61 ****
+--- 56,62 ----
+      int i, scand;
+      register unsigned int nbytes;
+      XTextProperty proto;
++     int ret, error = 0;
+  
+      for (i = 0, nbytes = 0; i < count; i++) {
+  	nbytes += (unsigned) ((list[i] ? strlen (list[i]) : 0) + 1);
+***************
+*** 74,85 ****
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if (_XConvertMBToString((unsigned char *)(*list),
+  					    strlen(*list), buf,
+! 					    &len, &scand) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+--- 75,87 ----
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if ((ret = _XConvertMBToString((unsigned char *)(*list),
+  					    strlen(*list), buf,
+! 					    &len, &scand)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
++ 		    error += ret;
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+***************
+*** 95,106 ****
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if (_XConvertMBToCT(0, (unsigned char *)(*list),
+  					strlen(*list), buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+--- 97,109 ----
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if ((ret = _XConvertMBToCT(0, (unsigned char *)(*list),
+  					strlen(*list), buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
++ 		    error += ret;
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+***************
+*** 133,144 ****
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if (_XConvertMBToCT(0, (unsigned char *)*list,
+  					strlen(*list),
+! 					buf, &len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  		    if (is_xstring)
+  			for (i = 0; *(buf+i); i++) {
+  			    if (!_isXString(*(buf+i))) {
+--- 136,148 ----
+  	    for (i = 0; i < count; i++, list++) {
+  		if (*list) {
+  		    len = datalen;
+! 		    if ((ret = _XConvertMBToCT(0, (unsigned char *)*list,
+  					strlen(*list),
+! 					buf, &len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
++ 		    error += ret;
+  		    if (is_xstring)
+  			for (i = 0; *(buf+i); i++) {
+  			    if (!_isXString(*(buf+i))) {
+***************
+*** 169,173 ****
+  	proto.value = 0;
+      }
+      *text_prop = proto;
+!     return (Success);
+  }
+--- 173,177 ----
+  	proto.value = 0;
+      }
+      *text_prop = proto;
+!     return (error);
+  }
+*** /tmp/,RCSt1000707	Sun Nov 17 15:32:15 1991
+--- lib/X/Xsi/XwcPrpText.c	Sun Nov 17 15:31:38 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XwcPrpText.c,v 1.11 91/10/08 16:35:19 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: XwcPrpText.c,v 1.12 91/11/17 15:31:34 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+***************
+*** 56,61 ****
+--- 56,62 ----
+      int i, j;
+      int len, scand;
+      unsigned int datalen = (int) tp->nitems;
++     int ret, error = 0;
+  #ifndef X_WCHAR
+      char *mbuf;
+  #endif
+***************
+*** 101,119 ****
+  		scand = strlen((char *)cp);
+  #ifdef X_WCHAR
+  	    len = datalen + 1;
+! 	    if (_XConvertCTToWC(0, cp,  scand, start,
+! 				&len, &scand, 0) != Success) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
+  #else
+  #ifdef macII
+! 	    len = 0;
+  #else
+  	    len = scand * 2;
+  	    mbuf = _XAllocScratch(dpy, len);
+! 	    if (_XConvertCTToMB(0, cp, scand, mbuf,
+! 				&len, &scand, 0) != Success) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
+--- 102,120 ----
+  		scand = strlen((char *)cp);
+  #ifdef X_WCHAR
+  	    len = datalen + 1;
+! 	    if ((ret = _XConvertCTToWC(0, cp,  scand, start,
+! 				&len, &scand, 0)) < 0) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
+  #else
+  #ifdef macII
+! 	    len = 0; ret = 0;
+  #else
+  	    len = scand * 2;
+  	    mbuf = _XAllocScratch(dpy, len);
+! 	    if ((ret = _XConvertCTToMB(0, cp, scand, mbuf,
+! 				&len, &scand, 0)) < 0) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
+***************
+*** 124,129 ****
+--- 125,131 ----
+  	    }
+  #endif
+  #endif
++ 	    error += ret;
+  	    start += len + 1;
+  	    datalen -= len + 1;
+  	    cp += scand + 1;
+***************
+*** 138,148 ****
+  		scand = datalen;
+  	    else
+  		scand = strlen((char *)cp);
+! 	    if (_XConvertMBToWC(0, cp, scand, start,
+! 				&len, &scand, 0) != Success) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
+  #else
+  #ifdef macII
+  	    len = 0;
+--- 140,151 ----
+  		scand = datalen;
+  	    else
+  		scand = strlen((char *)cp);
+! 	    if ((ret = _XConvertMBToWC(0, cp, scand, start,
+! 				&len, &scand, 0)) < 0) {
+  		XwcFreeStringList(list);
+  		return (XConverterNotFound);
+  	    }
++ 	    error += ret;
+  #else
+  #ifdef macII
+  	    len = 0;
+***************
+*** 162,168 ****
+  
+      *list_return = list;
+      *count_return = nelements;
+!     return Success;
+  }
+  
+  void XwcFreeStringList (list)
+--- 165,171 ----
+  
+      *list_return = list;
+      *count_return = nelements;
+!     return error;
+  }
+  
+  void XwcFreeStringList (list)
+*** /tmp/,RCSt1001354	Sun Nov 17 16:19:01 1991
+--- lib/X/Xsi/XCnvMBToCT.c	Sun Nov 17 16:18:47 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XCnvMBToCT.c,v 1.18 91/06/26 13:55:00 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XCnvMBToCT.c,v 1.20 91/11/17 16:18:34 rws Exp $
+   */
+  
+  /*
+***************
+*** 39,44 ****
+--- 39,45 ----
+   */
+  #include "Xlibint.h"
+  #include "Xlocaleint.h"
++ #include <X11/Xutil.h>
+  #include <X11/Xos.h>
+  
+  static int _XConvertCTextToMB();
+***************
+*** 125,135 ****
+  	    Return(BadEncoding);
+          /*
+           * filter control characters.
+-          * Suppose the space character is always in CODESET0.
+           */
+- 	/*
+-         if (csid == C0 || csid == C1 || (csid == CODESET0 && c == SPACE)) {
+- 	*/
+          if (csid == C0 || csid == C1) {
+              SaveStore(c);
+              mb_str++, mb_bytes--, mbcnt++;
+--- 126,132 ----
+***************
+*** 244,249 ****
+--- 241,247 ----
+      char 	seq[255];
+      ISOStateInfo stateinfo;
+      int tmp;
++     char *defstr = XDefaultString();
+  
+      if (!xlocale)
+  	xlocale = _XFallBackConvert();
+***************
+*** 287,292 ****
+--- 285,291 ----
+  		    if((ret = _XConvertCTextToMB(xlocale, ct_str, ct_bytes,
+  					mb_str, &tmplen, &len)) < 0)
+  			Return(ret);
++ 		    error += ret;
+  		    mb_str += tmplen;
+  		    mbcnt +=tmplen;
+  		    ct_str += len, ct_bytes -= len, ctcnt += len;
+***************
+*** 342,349 ****
+  		    ctid = ctGetid(xlocale);
+  		    newcsid = _Xmbctidtocsid(xlocale, ctid);
+  		}
+! 		if (newcsid == ND)
+! 		    Return(BadEncoding);
+  	    }
+  	    _XmbSetCsid(xlocale, newcsid);
+  	    if (newcsid != csid_sv) {
+--- 341,359 ----
+  		    ctid = ctGetid(xlocale);
+  		    newcsid = _Xmbctidtocsid(xlocale, ctid);
+  		}
+! 		if (newcsid == ND) {
+! 		    /* XXX BUG: if stateful encoding, need to check/add
+! 				designate sequence of default string.
+! 		       But current default string is NULL, so OK. :-) */
+! 		    for (i = 0; *(defstr + i) != 0; i++) {
+! 			SaveStore(*(defstr + i))
+! 		    }
+! 		    ct_str += stateinfo.code_bytes;
+! 		    ct_bytes -= stateinfo.code_bytes;
+! 		    ctcnt += stateinfo.code_bytes;
+! 		    error++;
+! 		    continue;
+! 		}
+  	    }
+  	    _XmbSetCsid(xlocale, newcsid);
+  	    if (newcsid != csid_sv) {
+***************
+*** 461,478 ****
+      int bytes;
+      _CSID csid, ctid;
+      _State state_sv;
+  
+      state_sv = xlocale->ct_state;
+      limit = *mb_bytes;
+      mbcnt = ctcnt = error = 0;
+  
+!     if((len = _XctIsExtendSegment(xlocale, ct_str, &textlen, &bytes)) < 0)
+  	/* not register encoding by X. */
+  	Return(BadEncoding);
+      ct_str += len; ctcnt += len; ct_bytes -=len;
+  
+      if (ct_bytes < textlen)
+! 	Return(BadEncoding) /* Nor enough data. What should do? */
+  
+      if (_Xmbtype(xlocale) == CDS_STATEFUL) {
+  	/* append designation of state-dependent codeset. */
+--- 471,489 ----
+      int bytes;
+      _CSID csid, ctid;
+      _State state_sv;
++     char *defstr = XDefaultString();
+  
+      state_sv = xlocale->ct_state;
+      limit = *mb_bytes;
+      mbcnt = ctcnt = error = 0;
+  
+!     if((len = _XctIsExtendSegment(xlocale, ct_str, &textlen, &bytes)) <= 0)
+  	/* not register encoding by X. */
+  	Return(BadEncoding);
+      ct_str += len; ctcnt += len; ct_bytes -=len;
+  
+      if (ct_bytes < textlen)
+! 	Return(BadTerminate) /* Nor enough data. What should do? */
+  
+      if (_Xmbtype(xlocale) == CDS_STATEFUL) {
+  	/* append designation of state-dependent codeset. */
+***************
+*** 489,496 ****
+  
+      ctid = ctGetid(xlocale);
+      csid = _Xmbctidtocsid(xlocale, ctid);
+!     if (csid == ND)
+!         Return(BadEncoding);
+      _XmbSetCsid(xlocale, csid);
+      codelen = _Xmblen(xlocale);
+  
+--- 500,516 ----
+  
+      ctid = ctGetid(xlocale);
+      csid = _Xmbctidtocsid(xlocale, ctid);
+!     if (csid == ND) {
+! 	int j;
+! 	for (j = textlen/bytes; j > 0; j--) {
+! 	    for (i = 0; *(defstr + i) != 0; i++) {
+! 		SaveStore(*(defstr + i));
+! 	    }
+! 	    error++;
+! 	}
+! 	ctcnt += textlen;
+! 	Return(Success);
+!     }
+      _XmbSetCsid(xlocale, csid);
+      codelen = _Xmblen(xlocale);
+  
+*** /tmp/,RCSt1000707	Sun Nov 17 15:32:21 1991
+--- lib/X/Xsi/XmbPrpText.c	Sun Nov 17 15:31:45 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XmbPrpText.c,v 1.7 91/10/08 16:35:10 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: XmbPrpText.c,v 1.8 91/11/17 15:31:41 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+***************
+*** 57,62 ****
+--- 57,63 ----
+      int len, scand;
+      unsigned int datalen = (int) tp->nitems;
+      XsiLCd lcd = (XsiLCd)_XlcCurrentLC();
++     int ret, error = 0;
+  
+      if (tp->format != 8 ||
+  	(tp->encoding != XA_STRING &&
+***************
+*** 97,107 ****
+  		scand = datalen;
+  	    else
+  		scand = strlen((char *)cp);
+! 	    if (_XConvertCTToMB(0, cp, scand, start,
+! 				&len, &scand, 0) != Success) {
+  		XFreeStringList((char **)list);
+  		return (XConverterNotFound);
+  	    }
+  	    start += len + 1;
+  	    datalen -= len + 1;
+  	    cp += scand + 1;
+--- 98,109 ----
+  		scand = datalen;
+  	    else
+  		scand = strlen((char *)cp);
+! 	    if ((ret = _XConvertCTToMB(0, cp, scand, start,
+! 				&len, &scand, 0)) < 0) {
+  		XFreeStringList((char **)list);
+  		return (XConverterNotFound);
+  	    }
++ 	    error += ret;
+  	    start += len + 1;
+  	    datalen -= len + 1;
+  	    cp += scand + 1;
+***************
+*** 121,125 ****
+  
+      *list_return = (char **)list;
+      *count_return = nelements;
+!     return Success;
+  }
+--- 123,127 ----
+  
+      *list_return = (char **)list;
+      *count_return = nelements;
+!     return error;
+  }
+*** /tmp/,RCSt1001585	Sun Nov 17 16:30:17 1991
+--- lib/X/Xsi/XwcDeGlyph.c	Sun Nov 17 16:30:07 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XwcDeGlyph.c,v 1.13 91/09/18 16:30:03 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XwcDeGlyph.c,v 1.15 91/11/17 16:29:59 rws Exp $
+   */
+  
+  /*
+***************
+*** 38,43 ****
+--- 38,44 ----
+  #include <X11/Xlibint.h>
+  #include "Xlocaleint.h"
+  #include <X11/Xos.h>
++ #include <X11/Xutil.h>
+  
+  #define MAGIC_NUMBER	(9999)
+  
+***************
+*** 75,80 ****
+--- 76,83 ----
+      int             limit, error;
+      ISOStateInfo    stateinfo;
+      char	    *esc;
++     int i;
++     char *defstr = XDefaultString();
+  
+      limit = *cs_bytes;
+      wccnt = cscnt = error = 0;
+***************
+*** 83,91 ****
+  	/*
+  	 * filter control characters.
+  	 */
+- 	/*
+-         if (wc == WCHARSPACE || _Xiswcntrl(wc)) {
+- 	*/
+          if (_Xiswcntrl(wc)) {
+  	    if (cscnt >= limit) 
+  		Return(BadBuffer);
+--- 86,91 ----
+***************
+*** 96,109 ****
+  	}
+  	if (woffset == MAGIC_NUMBER) {
+      	    _XcwGetAll(xlocale, wc, &esc, &woffset, &stateinfo);
+! 	    if (woffset == 0)
+! 		Return(BadEncoding);
+  	    if (ctid != NULL)
+  		*ctid = ctGetid(xlocale);
+  	    newwoffset = woffset;
+! 	} else 
+!             if(_XcwGetWoffset(wc, &newwoffset) == ND) /* MUST not change Status */
+! 		Return(BadEncoding);
+  	if (woffset != newwoffset)
+  	    break;
+          code = wc - woffset;
+--- 96,128 ----
+  	}
+  	if (woffset == MAGIC_NUMBER) {
+      	    _XcwGetAll(xlocale, wc, &esc, &woffset, &stateinfo);
+! 	    if (woffset == 0) {
+! 		/* XXX BUG: need to check designate sequence of default string.
+! 		   But current default string is NULL, so OK. :-) */
+! 		for (i = 0; *(defstr + i) != 0; i++) {
+! 		    *cs_str++ = *(defstr + i);
+! 		    cscnt++;
+! 		}
+! 		error++;
+! 		wc_str++, wc_len--, wccnt++;
+! 		continue;
+! 	    }
+  	    if (ctid != NULL)
+  		*ctid = ctGetid(xlocale);
+  	    newwoffset = woffset;
+! 	} else {
+!             if(_XcwGetWoffset(wc, &newwoffset) == ND) { /* MUST not change Status */
+! 		/* XXX BUG: need to check designate sequence of default string.
+! 		   But current default string is NULL, so OK. :-) */
+! 		for (i = 0; *(defstr + i) != 0; i++) {
+! 		    *cs_str++ = *(defstr + i);
+! 		    cscnt++;
+! 		}
+! 		error++;
+! 		wc_str++, wc_len--, wccnt++;
+! 		continue;
+! 	    }
+! 	}
+  	if (woffset != newwoffset)
+  	    break;
+          code = wc - woffset;
+*** /tmp/,RCSt1000707	Sun Nov 17 15:32:27 1991
+--- lib/X/Xsi/XwcTextPrp.c	Sun Nov 17 15:31:51 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: XwcTextPrp.c,v 1.6 91/08/12 17:19:12 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+--- 1,4 ----
+! /* $XConsortium: XwcTextPrp.c,v 1.7 91/11/17 15:31:47 rws Exp $ */
+  /*
+   * Copyright 1991 by OMRON Corporation
+   * Copyright 1991 by the Massachusetts Institute of Technology
+***************
+*** 67,72 ****
+--- 67,73 ----
+      int i, scand;
+      register unsigned int nbytes;
+      XTextProperty proto;
++     int ret, error = 0;
+  #ifndef X_WCHAR
+      char *mbuf;
+      int mlen;
+***************
+*** 91,98 ****
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if (_XConvertWCToString(*list, _Xwcslen(*list), buf,
+! 					    &len, &scand) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+--- 92,99 ----
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if ((ret = _XConvertWCToString(*list, _Xwcslen(*list), buf,
+! 					    &len, &scand)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+***************
+*** 99,110 ****
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if (_XConvertMBToString(mbuf, mlen, buf,
+! 					    &len, &scand) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+--- 100,112 ----
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if ((ret = _XConvertMBToString(mbuf, mlen, buf,
+! 					    &len, &scand)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
++ 		    error += ret;
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+***************
+*** 121,128 ****
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if (_XConvertWCToCT(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+--- 123,130 ----
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if ((ret = _XConvertWCToCT(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+***************
+*** 129,140 ****
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if (_XConvertMBToCT(0, mbuf, mlen, buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+--- 131,143 ----
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if ((ret = _XConvertMBToCT(0, mbuf, mlen, buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
++ 		    error += ret;
+  		    buf += len + 1;
+  		    datalen -= len + 1;
+  		    proto.nitems += len + 1;
+***************
+*** 157,167 ****
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if (_XConvertWCToMB(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #else
+  #ifdef macII
+  		    len = 0;
+--- 160,171 ----
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if ((ret = _XConvertWCToMB(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
++ 		    error += ret;
+  #else
+  #ifdef macII
+  		    len = 0;
+***************
+*** 189,196 ****
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if (_XConvertWCToCT(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+--- 193,200 ----
+  		if (*list) {
+  		    len = datalen;
+  #ifdef X_WCHAR
+! 		    if ((ret = _XConvertWCToCT(0, *list, _Xwcslen(*list), buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+***************
+*** 197,208 ****
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if (_XConvertMBToCT(0, mbuf, mlen, buf,
+! 					&len, &scand, 0) != Success) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
+  		    if (is_xstring)
+  			for (i = 0; *(buf+i); i++) {
+  			    if(!_isXString(*(buf+i))) {
+--- 201,213 ----
+  #else
+  		    mlen = _Xsiwcstombs(dpy, (XLCd)NULL,
+  					*list, _Xwcslen(*list), True, &mbuf);
+! 		    if ((ret = _XConvertMBToCT(0, mbuf, mlen, buf,
+! 					&len, &scand, 0)) < 0) {
+  			Xfree((char *)buf_sv);
+  			return (XConverterNotFound);
+  		    }
+  #endif
++ 		    error += ret;
+  		    if (is_xstring)
+  			for (i = 0; *(buf+i); i++) {
+  			    if(!_isXString(*(buf+i))) {
+***************
+*** 232,236 ****
+  	proto.value = 0;
+      }
+      *text_prop = proto;
+!     return (Success);
+  }
+--- 237,241 ----
+  	proto.value = 0;
+      }
+      *text_prop = proto;
+!     return (error);
+  }

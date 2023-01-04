@@ -1,0 +1,1243 @@
+! 
+! *****************************************************************
+! *                                                               *
+! *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+! *                                                               *
+! *   All Rights Reserved.  Unpublished rights  reserved  under   *
+! *   the copyright laws of the United States.                    *
+! *                                                               *
+! *   The software contained on this media  is  proprietary  to   *
+! *   and  embodies  the  confidential  technology  of  Digital   *
+! *   Equipment Corporation.  Possession, use,  duplication  or   *
+! *   dissemination of the software and media is authorized only  *
+! *   pursuant to a valid written license from Digital Equipment  *
+! *   Corporation.                                                *
+! *                                                               *
+! *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+! *   by the U.S. Government is subject to restrictions  as  set  *
+! *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+! *   or  in  FAR 52.227-19, as applicable.                       *
+! *                                                               *
+! *****************************************************************
+!
+! HISTORY
+! 
+! @(#)$RCSfile: decw_clock.uil,v $ $Revision: 1.1.5.4 $ (DEC) $Date: 1993/10/19 19:56:48 $
+! 
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+!++
+!
+!       C L O C K . U I L
+!             DECWindows Clock UIL widget definitions
+!
+!----------------------------------------------------------------------
+!
+/*
+  Copyright (c) Digital Equipment Corporation,
+  1987, 1988, 1989, 1990, 1991, 1992
+  All Rights Reserved.  Unpublished rights reserved
+  under the copyright laws of the United States.
+
+  The software contained on this media is proprietary
+  to and embodies the confidential technology of
+  Digital Equipment Corporation.  Possession, use,
+  duplication or dissemination of the software and
+  media is authorized only pursuant to a valid written
+  license from Digital Equipment Corporation.
+
+  RESTRICTED RIGHTS LEGEND   Use, duplication, or
+  disclosure by the U.S. Government is subject to
+  restrictions as set forth in Subparagraph (c)(1)(ii)
+  of DFARS 252.227-7013, or in FAR 52.227-19, as
+  applicable.
+*/
+!
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+! Facility:
+!   DECWindows Clock
+!
+!   Facility:           DECW DECWindows Clock
+!
+!   Modification History:
+!
+!   Version 2.0
+!       Mar - 1989	(NFF) V2.0 internationalization modifications
+!
+!   Version 3.0
+!	Nov - 1990	(ASP) V3.0 Converting to Motif.  Redesigned the
+!			Settings dialog box to use XmForm.
+!   Version 3.1
+!       Mar - 1992	(SP)  V3.1 Performance and more I18N modifications
+!
+!----------------------------------------------------------------------
+!
+! This file does NOT contain any strings for translation
+!
+
+module clock
+	version = 'V2.0'
+	names = case_sensitive
+	objects = { XmSeparator = gadget; XmPushButton = gadget;
+		    XmToggleButton = gadget; XmLabel = gadget;
+		    XmCascadeButton = gadget;}
+
+include file	'clock_def.uil';
+include file	'clock_values.uil';
+include file	'clock_defhlp.uil';
+
+
+value DXmNdelayPopupMenuRealization :
+	argument ('DXmdelayPopupMenuRealization', boolean);
+
+procedure
+!
+! This is the Clock widget creation routines callback
+!
+	DwtMyClockCreate();
+	analog_repaint ();
+	bell_repaint ();
+	create_bell ();
+	create_proc (integer);
+	date_repaint ();
+	digital_repaint ();
+	error_message_done_proc ();
+	exit_proc ();
+	help_done_proc ();
+	main_help_proc (string);
+	message_done_proc ();
+	on_context_activate_proc ();
+	restore_settings_proc ();
+	save_settings_proc ();
+	mode_settings_proc ();
+	mode_settings_ok_proc ();
+	mode_settings_cancel_proc ();
+	alarm_settings_proc ();
+	alarm_settings_ok_proc ();
+	alarm_settings_cancel_proc ();
+	audio_file_selection_box ();
+	audio_file_select_action ();
+	audio_play ();
+	audio_stop ();
+	audio_button_pressed ();
+	audio_set_volume ();
+
+object
+    clock_widget : user_defined	  procedure DwtMyClockCreate {
+	arguments {
+	};
+	controls {
+	    XmMenuBar clock_menu_bar;
+	    XmDrawingArea alarm_bell;
+	    XmDrawingArea Digital;
+	    XmDrawingArea Analog;
+	    XmDrawingArea Date;
+	    unmanaged XmInformationDialog message;
+	    unmanaged XmInformationDialog error_message;
+       	};
+	callbacks {
+	};
+    };
+
+    clock_menu_bar : XmMenuBar {
+	arguments {
+	    XmNorientation = XmHORIZONTAL;
+	    XmNmenuHelpWidget = XmCascadeButton help_pulldown;
+	};
+ 	controls {
+	    XmCascadeButton file;
+	    XmCascadeButton options;
+	    XmCascadeButton help_pulldown;
+ 	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_menu_bar);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_S_MENU_BAR);
+	};
+    };
+
+
+    file : XmCascadeButton {
+	arguments {
+	    XmNlabelString = CLOCK_FILE_L;
+	    XmNmnemonic = FileMnemonic;
+    	};
+	controls {
+	    XmPulldownMenu file_menu;
+    	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_FILE);
+	};
+    };
+
+    file_menu : XmPulldownMenu {
+	arguments {
+	    	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+		DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton exit;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_FILE_MENU);
+	};
+    };
+
+    sep_gadget : XmSeparator {
+    };
+
+
+    options : XmCascadeButton {
+	arguments {
+	    XmNlabelString = CLOCK_OPTIONS_L;
+	    XmNmnemonic = OptionsMnemonic;
+    	};
+	controls {
+	    XmPulldownMenu Options_menu;
+    	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OPTIONS);
+	};
+    };
+
+    Options_menu : XmPulldownMenu {
+	arguments {
+	    	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+		DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton mode_settings;
+	    XmPushButton alarm_settings;
+	    XmSeparator sep_gadget;
+	    XmPushButton save_settings;
+	    XmPushButton restore_settings;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OPTIONS_MENU);
+	};
+    };
+
+    help_pulldown : XmCascadeButton {
+        arguments {
+            XmNlabelString = CLOCK_HELP_MENU_L;
+	    XmNmnemonic = HelpMnemonic;
+        };
+        controls {
+            XmPulldownMenu help_pulldown_menu;
+        };
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_PULLDOWN);
+	};
+    };
+
+    help_pulldown_menu : XmPulldownMenu {
+	arguments {
+	    	XmNtearOffModel = XmTEAR_OFF_ENABLED;
+		DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton help_but_on_context;
+	    XmSeparator sep_gadget;
+	    XmPushButton help_but;
+	    XmPushButton help_but_on_help;
+	    XmPushButton help_about_but;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_MENU);
+	};
+    };
+
+    Analog : XmDrawingArea {
+	arguments {
+	    XmNwidth = CLOCK_DEF_WIDTH;
+	    XmNheight = CLOCK_DEF_HEIGHT;
+	    XmNborderWidth = CLOCK_DEF_BORDER_WIDTH;
+	};
+	controls {
+       	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_analog_part);
+	    XmNexposeCallback = procedure analog_repaint ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ANALOG);
+	};
+    };
+
+    alarm_bell : XmDrawingArea {
+	arguments {
+	    XmNwidth = CLOCK_BELL_WIDTH;
+	    XmNheight = CLOCK_BELL_HEIGHT;
+	    XmNborderWidth = CLOCK_BELL_BORDER_WIDTH;
+       	};
+	controls {
+       	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_bell ();
+	    XmNexposeCallback = procedure bell_repaint ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ALARM_BELL);
+	};
+    };
+
+    Date : XmDrawingArea {
+	arguments {
+	    XmNwidth = CLOCK_DEF_WIDTH;
+	    XmNheight = CLOCK_DEF_HEIGHT;
+	    XmNborderWidth = CLOCK_DEF_BORDER_WIDTH;
+	};
+	controls {
+       	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_date_part);
+	    XmNexposeCallback = procedure date_repaint ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_DATE);
+	};
+    };
+
+    Digital : XmDrawingArea {
+	arguments {
+	    XmNwidth = CLOCK_DEF_WIDTH;
+	    XmNheight = CLOCK_DEF_HEIGHT;
+	    XmNborderWidth = CLOCK_DEF_BORDER_WIDTH;
+	};
+	controls {
+       	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_digital_part);
+	    XmNexposeCallback = procedure digital_repaint ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_DIGITAL);
+	};
+    };
+
+    opt_popup_menu : XmPopupMenu {
+	arguments {
+	    XmNwhichButton = 3;
+    	};
+	controls {
+	    XmPushButton mode_settings;
+	    XmPushButton alarm_settings;
+	    XmSeparator sep_gadget;
+	    XmPushButton save_settings;
+	    XmPushButton restore_settings;
+	    XmSeparator sep_gadget;
+	    XmCascadeButton help_menu;
+	    XmPushButton exit;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OPT_POPUP_MENU);
+	};
+    };
+
+    mode_settings : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_DISPLAY_SETTINGS_L;
+	    XmNmnemonic = ClockSettingsMnemonic;
+!	    XmNaccelerator = CustSettingsAccel;
+!	    XmNacceleratorText = CustSettingsAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure mode_settings_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SETTINGS);
+	};
+    };
+
+    alarm_settings : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_ALARM_SETTINGS_L;
+	    XmNmnemonic = AlarmSettingsMnemonic;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure alarm_settings_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SETTINGS);
+	};
+    };
+
+    save_settings : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_SAVE_SETTINGS_L;
+	    XmNmnemonic = SaveSettingsMnemonic;
+!	    XmNaccelerator = CustSaveSettingsAccel;
+!	    XmNacceleratorText = CustSaveSettingsAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure save_settings_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SAVE_SETTINGS);
+	};
+    };
+
+    restore_settings : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_RESTORE_SETTINGS_L;
+	    XmNmnemonic = RestoreSystemSettingsMnemonic;
+!	    XmNaccelerator = CustRestoreSystemSettingsAccel;
+!	    XmNacceleratorText = CustRestoreSystemSettingsAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure restore_settings_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_RESTORE_SETTINGS);
+	};
+    };
+
+    help_menu : XmCascadeButton {
+	arguments {
+       	    XmNlabelString = CLOCK_HELP_MENU_L;
+    	};
+	controls {
+            XmPulldownMenu help_submenu;
+    	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_MENU);
+	};
+    };
+
+    help_submenu : XmPulldownMenu {
+	arguments {
+		DXmNdelayPopupMenuRealization = true;
+    	};
+	controls {
+	    XmPushButton help_but_on_context;
+	    XmSeparator sep_gadget;
+	    XmPushButton help_but;
+	    XmPushButton help_but_on_help;
+	    XmPushButton help_about_but;
+    	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_SUBMENU);
+	};
+    };
+
+    help_but_on_context : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_HELP_BUT_ON_CONTEXT_L;
+	    XmNmnemonic = OnContextMnemonic;
+ 	    XmNaccelerator = HelpOnContextAccel;
+ 	    XmNacceleratorText = HelpOnContextAtext;
+    	};
+	callbacks {
+            XmNactivateCallback = procedure on_context_activate_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_BUT_ON_CONTEXT);
+	};
+    };
+
+
+    help_but : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_HELP_BUT_L;
+	    XmNmnemonic = OnWindowMnemonic;
+	    XmNaccelerator = HelpOnWindowAccel;
+!	    XmNacceleratorText = HelpOnWindowAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_BUT);
+	};
+    };
+
+    help_but_on_help : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_HELP_BUT_ON_HELP_L;
+	    XmNmnemonic = OnHelpMnemonic;
+	    XmNaccelerator = HelpOnWindowAccel;
+!	    XmNacceleratorText = HelpOnWindowAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure main_help_proc (CLOCK_HLP_ONHELP);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_BUT_ON_HELP);
+	};
+    };
+
+    help_about_but : XmPushButton {
+	arguments {
+       	    XmNlabelString = CLOCK_HELP_ABOUT_BUT_L;
+	    XmNmnemonic = OnVersionMnemonic;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure main_help_proc (CLOCK_HLP_ABOUT);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HELP_ABOUT_BUT);
+	};
+    };
+
+    exit : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_EXIT_L;
+	    XmNmnemonic = ExitMnemonic;
+	    XmNaccelerator = FileExitAccel;
+	    XmNacceleratorText = FileExitAtext;
+    	};
+	callbacks {
+	    XmNactivateCallback = procedure exit_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_EXIT);
+	};
+    };
+
+    mode_settings_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogTitle = MODE_SETTINGS_DIALOG_BOX_T;
+!	    XmNdialogStyle = XmDIALOG_MODELESS;
+	    XmNdefaultButton = XmPushButton mode_ok_button;
+	    XmNcancelButton = XmPushButton mode_cancel_button;
+	    XmNshadowType = XmSHADOW_OUT;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	    XmNnoResize = true;
+	};
+	controls {
+	    XmForm comp_box;
+	    XmPushButton mode_ok_button;
+	    XmPushButton mode_cancel_button;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_mode_settings);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SETTINGS_DIALOG_BOX);
+	};
+    };
+
+   comp_box   : XmForm {
+	arguments {
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+	    XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomOffset = 10;
+	    XmNbottomWidget = mode_ok_button;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	};
+	controls {
+	    XmToggleButton analog_toggle;
+	    XmToggleButton digital_toggle;
+	    XmToggleButton date_toggle;
+	    XmToggleButton menubar_toggle;
+	    XmToggleButton military_toggle;
+	};
+    };
+
+   analog_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_ANALOG_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_FORM;
+!	    XmNtopWidget = comp_label;
+	    XmNtopOffset = 10;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_analog);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ANALOG_TOGGLE);
+	};
+   };
+
+   digital_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_DIGITAL_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_FORM;
+!	    XmNtopWidget = comp_label;
+	    XmNtopOffset = 10;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = analog_toggle;
+	    XmNleftOffset = 30;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_digital);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_DIGITAL_TOGGLE);
+	};
+   };
+
+   date_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_DATE_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_FORM;
+!	    XmNtopWidget = comp_label;
+	    XmNtopOffset = 10;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = digital_toggle;
+	    XmNleftOffset = 20;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_date);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_DATE_TOGGLE);
+	};
+   };
+
+   menubar_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_MENUBAR_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = analog_toggle;
+	    XmNtopOffset = 0;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_menubar);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MENUBAR_TOGGLE);
+	};
+   };
+
+   military_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_MILITARY_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = analog_toggle;
+	    XmNtopOffset = 0;
+            XmNleftAttachment = XmATTACH_OPPOSITE_WIDGET;
+	    XmNleftWidget = digital_toggle;
+	    XmNleftOffset = 0;
+            XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 10;
+            XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_military);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MILITARY_TOGGLE);
+	};
+   };
+
+   mode_ok_button : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_OK_BUTTON_L;
+            XmNrightAttachment = XmATTACH_POSITION;
+	    XmNrightPosition = 50;
+	    XmNrightOffset = 20;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	};
+	callbacks {
+!	    MrmNcreateCallback = procedure create_proc (k_settings_ok);
+	    XmNactivateCallback = procedure mode_settings_ok_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MODE_OK_BUTTON);
+	};
+   };
+
+   mode_cancel_button : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_CANCEL_BUTTON_L;
+            XmNleftAttachment = XmATTACH_POSITION;
+            XmNleftPosition = 50;
+	    XmNleftOffset = 20;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	};
+	callbacks {
+	    XmNactivateCallback = procedure mode_settings_cancel_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MODE_CANCEL_BUTTON);
+	};
+   };
+
+! The two dialog boxes alarm_settings_dialog_box and 
+! no_auido_alarm_settings_dialog_box are the same except 
+! with the no_audio_alarm_setting_dialog_box, the audio 
+! part in the sound setting box has been eliminated.  
+! One of these dialog boxes is used depending on whether 
+! DIVA is supported on the system.  In the no DIVA case,
+! the no_auido_box routine which is similar to the
+! audio_box routine would be used to set up the Sound
+! Settings box without the audio settings.
+
+    alarm_settings_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogTitle = ALARM_SETTINGS_DIALOG_BOX_T;
+	    XmNdefaultButton = XmPushButton alarm_ok_button;
+	    XmNcancelButton = XmPushButton alarm_cancel_button;
+	    XmNshadowType = XmSHADOW_OUT;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	    XmNnoResize = true;
+	};
+	controls {
+	    XmForm alarm_box;
+	    XmForm audio_box;
+	    XmForm message_box;
+	    XmPushButton alarm_ok_button;
+	    XmPushButton alarm_cancel_button;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_alarm_settings);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SETTINGS_DIALOG_BOX);
+	};
+    };
+
+    no_audio_alarm_settings_dialog_box : XmFormDialog {
+	arguments {
+	    XmNdialogTitle = ALARM_SETTINGS_DIALOG_BOX_T;
+	    XmNdefaultButton = XmPushButton alarm_ok_button;
+	    XmNcancelButton = XmPushButton alarm_cancel_button;
+	    XmNshadowType = XmSHADOW_OUT;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	    XmNnoResize = true;
+	};
+	controls {
+	    XmForm alarm_box;
+	    XmForm no_audio_box;
+	    XmForm noaudio_message_box;
+	    XmPushButton alarm_ok_button;
+	    XmPushButton alarm_cancel_button;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_alarm_settings);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_SETTINGS_DIALOG_BOX);
+	};
+    };
+
+    alarm_box : XmForm {
+	arguments {
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+	};
+	controls {
+	    XmLabel alarm_label;
+	    XmToggleButton alarm_toggle;
+	    XmToggleButton alarm_repeat;
+	    XmText hour_text;
+	    XmText minute_text;
+	    XmRadioBox pm_radio;
+	};
+    };
+
+    audio_box : XmForm {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_box;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	};
+	controls {
+	    XmLabel audio_label;
+	    XmToggleButton bell_toggle;
+	    XmToggleButton audio_toggle;
+	    XmOptionMenu audio_output;
+	    XmScale audio_volume;
+	    XmPushButton audio_fname_button;
+	    XmPushButton audio_play_button;
+	    XmPushButton audio_stop_button;
+	    DXmCSText audio_fname;
+	};
+    };
+
+    no_audio_box : XmForm {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_box;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	};
+	controls {
+	    XmLabel audio_label;
+	    XmToggleButton bell_toggle;
+	};
+    };
+
+    noaudio_message_box : XmForm {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = no_audio_box;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+            XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget = alarm_ok_button;
+	    XmNbottomOffset = 5;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	};
+	controls {
+	    XmLabel message_label;
+	    DXmCSText message_text;
+	};
+    };
+
+    message_box : XmForm {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_box;
+	    XmNtopOffset = 5;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 5;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 5;
+            XmNbottomAttachment = XmATTACH_WIDGET;
+	    XmNbottomWidget = alarm_ok_button;
+	    XmNbottomOffset = 5;
+	    XmNshadowType = XmSHADOW_IN;
+	    XmNshadowThickness = SHADOW_THICKNESS;
+	};
+	controls {
+	    XmLabel message_label;
+	    DXmCSText message_text;
+	};
+    };
+
+   alarm_label : XmLabel {
+	arguments {
+	    XmNlabelString = CLOCK_ALARM_LABEL_L;
+            XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = 10;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ALARM_LABEL);
+	};
+   };
+
+   alarm_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_ALARM_TOGGLE_L;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_label;
+	    XmNtopOffset = 0;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_alarm);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ALARM_TOGGLE);
+	};
+   };
+
+   alarm_repeat : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_REPEAT_TOGGLE_L;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_toggle;
+	    XmNtopOffset = 0;
+	    XmNbottomAttachment = XmATTACH_FORM; 
+	    XmNbottomOffset = 15;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_repeat);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ALARM_TOGGLE);
+	};
+   };
+
+   hour_text : XmText {
+	arguments {
+	    XmNvalue = CLOCK_HOUR_TEXT_L;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_label;
+	    XmNtopOffset = 15;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = alarm_repeat;
+	    XmNleftOffset = 10;
+	    XmNcolumns = 2;
+	    XmNrows = 1;
+	    XmNmaxLength = 2;
+	    XmNresizeWidth = false;
+	    XmNresizeHeight = false;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_hr);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_HOUR_TEXT);
+	};
+   };
+
+   minute_text : XmText {
+	arguments {
+	    XmNvalue = CLOCK_MINUTE_TEXT_L;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_label;
+	    XmNtopOffset = 15;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = hour_text;
+	    XmNleftOffset = 0;
+	    XmNcolumns = 2;
+	    XmNrows = 1;
+	    XmNmaxLength = 2;
+	    XmNresizeWidth = false;
+	    XmNresizeHeight = false;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_min);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MINUTE_TEXT);
+	};
+   };
+
+   pm_radio : XmRadioBox {
+	arguments {
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = alarm_label;
+	    XmNtopOffset = -5;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = minute_text;
+	    XmNleftOffset = 10;
+	    XmNrightAttachment = XmATTACH_FORM; 
+	    XmNrightOffset = 10;
+        };
+	controls {
+	    XmToggleButton am_toggle;
+ 	    XmToggleButton pm_toggle;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_PM_RADIO);
+	};
+   };
+
+   am_toggle : XmToggleButton {
+        arguments {
+      	    XmNlabelString = CLOCK_AM_TOGGLE_L;
+	    XmNindicatorOn = on;
+	};
+        callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_am);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_AM_TOGGLE);
+        };
+   };
+
+   pm_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_PM_TOGGLE_L;
+	};
+        callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_pm);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_PM_TOGGLE);
+        };
+   };
+
+    audio_label : XmLabel {
+	arguments {
+	    XmNlabelString = CLOCK_AUDIO_LABEL_L;
+            XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = 10;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+    };
+
+    bell_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_BELL_TOGGLE_L;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_label;
+	    XmNtopOffset = 5;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_bell);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+    };
+
+    audio_toggle : XmToggleButton {
+	arguments {
+	    XmNlabelString = CLOCK_AUDIO_TOGGLE_L;
+            XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+            XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = bell_toggle;
+	    XmNtopOffset = 3;
+!	    XmNbottomAttachment = XmATTACH_WIDGET; 
+!	    XmNbottomWidget = audio_volume;
+!	    XmNbottomOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_audio);
+	    XmNvalueChangedCallback = procedure audio_button_pressed ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+    };
+
+    audio_output : XmOptionMenu {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = bell_toggle;
+	    XmNtopOffset = 0;
+            XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = audio_toggle;
+	    XmNleftOffset = 20;
+!	    XmNrightAttachment = XmATTACH_FORM; 
+	    XmNrightOffset = 10;
+!	    XmNbottomAttachment = XmATTACH_WIDGET; 
+!	    XmNbottomWidget = audio_volume;
+!	    XmNbottomOffset = 10;
+	    XmNlabelString = CLOCK_AUDIO_OUTPUT_L;
+        };
+	controls {
+	    XmPulldownMenu audio_pulldown;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_audio_menu);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+    };
+
+    audio_pulldown : XmPulldownMenu {
+        arguments {
+	};
+        callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+        };
+	controls {
+	    XmPushButton speaker_button;
+ 	    XmPushButton headphone_button;
+	};
+    };
+
+    speaker_button : XmPushButton {
+        arguments {
+      	    XmNlabelString = CLOCK_SPEAKER_BUTTON_L;
+	};
+        callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_speaker);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+        };
+    };
+
+    headphone_button : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_HEADPHONE_BUTTON_L;
+	};
+        callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_headphone);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+        };
+    };
+
+    audio_volume : XmScale {
+        arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_toggle;
+	    XmNtopOffset = 0;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 15;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 15;
+            XmNtitleString = VOLUME_LEVEL_T;
+            XmNshowValue = true;
+            XmNorientation = XmHORIZONTAL;
+	    XmNscaleMultiple = VOLUME_LEVEL_MULTIPLE;
+!	    XmNminimum = VOLUME_LEVEL_MIN_VALUE;
+!	    XmNmaximum = VOLUME_LEVEL_MAX_VALUE;
+        };
+        callbacks {
+            MrmNcreateCallback = procedure create_proc (k_settings_volume);
+	    XmNdragCallback = procedure audio_set_volume();
+	    XmNvalueChangedCallback = procedure audio_set_volume();
+            XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+        };
+    };
+
+    audio_fname_button : XmPushButton {
+	arguments {
+	    XmNlabelString = AUDIO_FNAME_BUTTON_L;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_volume;
+	    XmNtopOffset = 0;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_fname_button);
+	    XmNactivateCallback = procedure audio_file_selection_box ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+   };
+
+    audio_play_button : XmPushButton {
+	arguments {
+	    XmNlabelString = AUDIO_PLAY_BUTTON_L;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_volume;
+	    XmNtopOffset = 0;
+	    XmNleftAttachment = XmATTACH_WIDGET;
+	    XmNleftWidget = audio_fname_button;
+	    XmNleftOffset = 10;
+	    XmNrightAttachment = XmATTACH_WIDGET;
+	    XmNrightWidget = audio_stop_button;
+	    XmNrightOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_play_button);
+	    XmNactivateCallback = procedure audio_play ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+   };
+
+    audio_stop_button : XmPushButton {
+	arguments {
+	    XmNlabelString = AUDIO_STOP_BUTTON_L;
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_volume;
+	    XmNtopOffset = 0;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 10;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_stop_button);
+	    XmNactivateCallback = procedure audio_stop ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+   };
+
+    audio_fname : DXmCSText {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = audio_fname_button;
+	    XmNtopOffset = 5;
+            XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 10;
+	    XmNeditMode = XmSINGLE_LINE_EDIT;
+!	    XmNscrollHorizontal = false;
+!	    XmNmaxLength = 200;
+	    XmNresizeWidth = false;
+	    XmNresizeHeight = false;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_audio_fname);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+	};
+    };
+
+   message_label : XmLabel {
+	arguments {
+	    XmNlabelString = CLOCK_MESSAGE_LABEL_L;
+	    XmNtopAttachment = XmATTACH_FORM;
+	    XmNtopOffset = 10;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	};
+	callbacks {
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MESSAGE_LABEL);
+	};
+   };
+
+    message_text : DXmCSText {
+	arguments {
+	    XmNtopAttachment = XmATTACH_WIDGET;
+	    XmNtopWidget = message_label;
+	    XmNtopOffset = 0;
+	    XmNleftAttachment = XmATTACH_FORM;
+	    XmNleftOffset = 10;
+	    XmNrightAttachment = XmATTACH_FORM;
+	    XmNrightOffset = 10;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	    XmNeditMode = XmMULTI_LINE_EDIT;
+	    XmNcolumns = 20;
+	    XmNrows = 2;
+	    XmNmaxLength = 200;
+	    XmNresizeWidth = false;
+	    XmNresizeHeight = false;
+!	    XmNwordWrap = true;
+	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_settings_alarm_mes);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MESSAGE_TEXT);
+	};
+   };
+
+   alarm_ok_button : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_OK_BUTTON_L;
+            XmNrightAttachment = XmATTACH_POSITION;
+	    XmNrightPosition = 50;
+	    XmNrightOffset = 20;
+	    XmNbottomAttachment = XmATTACH_FORM;
+	    XmNbottomOffset = 10;
+	};
+	callbacks {
+	    XmNactivateCallback = procedure alarm_settings_ok_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MODE_OK_BUTTON);
+	};
+   };
+
+   alarm_cancel_button : XmPushButton {
+	arguments {
+	    XmNlabelString = CLOCK_CANCEL_BUTTON_L;
+            XmNleftAttachment = XmATTACH_POSITION;
+            XmNleftPosition = 50; 
+	    XmNleftOffset = 20;
+	    XmNbottomAttachment = XmATTACH_FORM; 
+	    XmNbottomOffset = 10;
+	};
+	callbacks {
+	    XmNactivateCallback = procedure alarm_settings_cancel_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MODE_CANCEL_BUTTON);
+	};
+   };
+
+    audio_file_select_dialog : XmFileSelectionDialog {
+        arguments {
+            XmNdialogTitle = AUDIO_FSB_TITLE;
+!           XmNdialogStyle = XmDIALOG_MODELESS;
+!           XmNlistVisibleItemCount = AUDIO_FILE_ITEMS_COUNT;
+	    XmNautoUnmanage = true;
+        };
+        callbacks {
+            XmNokCallback = procedure audio_file_select_action ();
+            XmNcancelCallback = procedure audio_file_select_action ();
+            XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_OVERVIEW);
+        };
+    };
+
+
+   message : XmInformationDialog {
+	arguments {
+	    XmNmessageAlignment =  XmALIGNMENT_CENTER;
+	    XmNdialogTitle = CLOCK_MESSAGE_T;
+	    XmNmessageString = CLOCK_MESSAGE_L;
+	    XmNdefaultPosition = true;
+	    XmNnoResize = true;
+      	};
+	callbacks {
+ 	    MrmNcreateCallback = procedure create_proc (k_message);
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_MESSAGE);
+	};
+    };
+
+   error_message : XmInformationDialog {
+	arguments {
+	    XmNmessageAlignment =  XmALIGNMENT_CENTER;
+	    XmNdialogTitle = CLOCK_ERROR_MESSAGE_T;
+	    XmNdialogStyle = XmDIALOG_FULL_APPLICATION_MODAL;
+	    XmNdefaultPosition = true;
+	    XmNnoResize = true;
+      	};
+	callbacks {
+	    MrmNcreateCallback = procedure create_proc (k_error_message);
+	    XmNokCallback = procedure error_message_done_proc ();
+	    XmNhelpCallback = procedure main_help_proc (CLOCK_HLP_ERROR_MESSAGE);
+	};
+    };
+
+    main_help : DXmHelpDialog {
+	arguments {
+	    DXmNapplicationName = CLOCK_HELP_T;
+	    DXmNfirstTopic = 'Overview';
+	    DXmNoverviewTopic = 'Overview';
+	    DXmNlibraryType = DXmTextLibrary;
+	    DXmNdefaultPosition = true;
+	};
+	callbacks {
+	    XmNunmapCallback = procedure help_done_proc ();
+	};
+    };
+
+end module;

@@ -1,0 +1,243 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+ .\" This is source material from himel for manpages for the following routines,
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" many of whose names have changed on sept 24.
+.\" 
+.\" exception_dispatcher --   name stays the same
+.\" lib_signal_to_expt   --   exc_raise_signal
+.\" DispatchException    --   ?? (on lesniak's list there is RtlDispatchException
+.\" RtlRaiseException    --   exc_raise_exception
+.\" RtlRaiseStatus       --   exc_raise_status
+.\" 
+.\" 
+.TH exception_dispatcher 3
+.PP
+.SH NAME
+\*Lexception_dispatcher\*O, \*Lexc_raise_signal_exception\*O, \*Lexc_dispatch_exception\*O, \*Lexc_raise_exception\*O, \*Lexc_raise_status_exception\*O  - routines to search and call handlers for exceptions.
+.SH LIBRARY
+.PP
+\*OException Handling Library (\*Llibexc.a\*O)
+.SH SYNOPSIS
+.PP
+.iX "exception_dispatcher" "search and call exception handling routine"
+.iX "exc_raise_signal_exception" "search and call exception handling routine"
+.iX "exc_dispatch_exception" "search and call exception handling routine"
+.iX "exc_raise_exception" "search and call exception handling routine"
+.iX "exc_raise_status_exception" "search and call exception handling routine"
+.PP
+\*L#include <excpt.h>\*O
+.nL
+.sS
+\*Lvoid exception_dispatcher(
+.nL
+                unsigned long         \*Vexception\*L,
+.nL
+                unsigned long         \*Vcode\*L,
+.nL
+                PCONTEXT              \*Vscp\*L);\*O
+.nL
+\*Lvoid exc_raise_signal_exception(
+.nL
+                unsigned long         \*Vexception\*L,
+.nL
+                unsigned long         \*Vcode\*L,
+.nL
+                PCONTEXT              \*Vscp\*L);\*O
+.nL
+\*Lunsigned long exc_dispatch_exception(
+.nL
+                system_exrec_type     \*VexceptionRecord\*L,
+.nL
+                PCONTEXT              \*VcontextRecord\*L);\*O
+.nL
+\*Lvoid exc_raise_exception(
+.nL
+                system_exrec_type     \*VexceptionRecord\*L);\*O
+.nL
+\*Lvoid exc_raise_status_exception(
+.nL
+                unsigned long         \*Vsts\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vexception"
+\*OAddress of primary exception record.
+.LI "\*Vcode"
+\*OException code.
+.LI "\*Vscp"
+\*OPointer to a \*Lstruct sigcontext\*O (see \*Lsignal\*O(2)) used to represent
+a procedure's context.
+.LI "\*VexceptionRecord"
+\*OAddress of primary exception record.
+.LI "\*VcontextRecord"
+\*OPointer to a \*Lstruct sigcontext\*O (see \*Lsignal\*O(2)) used to represent
+a procedure's context.
+.LI "\*Vsts"
+\*OException code.
+.LE
+.SH DESCRIPTION
+.PP
+These routines allow user and compiler generated code to initiate the
+exception process.  Typically, programs written in the C programming
+language use these routines within the structured exception handling
+capabilities of the language, described in \*Lc_excpt\*O(4).
+.PP
+The exception context is provided by structures
+that describe the point at which either a hardware exception occurred or
+a software program explicitly raised an exception (for example, a user-defined
+exception). The exception code is an integer that uniquely defines the exception.
+See \*Lexcpt\*O(4) and the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+for a detailed description of the structures that contain exception information and
+a discussion on how to select appropriate exception codes.
+.PP
+Both \*Lexception_dispatcher\*O and \*Lexc_raise_signal_exception\*O generate
+an exception context and are typically used
+as arguments to \*Lsignal\*O(2).
+.PP
+\*Lexception_dispatcher\*O, a \*Llibexc\*O interface, directly sets the
+\*LExceptionCode\*O field in an \*LexceptionRecord\*O
+to the \*Vexception\*O argument and calls \*Lexc_dispatch_exception\*O.
+.PP
+\*Lexc_raise_signal_exception\*O applies the
+\*LEXC_VALUE(EXC_SIGNAL, exception)\*O macro (described in \*Lexcpt\*O(4))
+to the \*Vexception\*O argument before calling \*Lexc_dispatch_exception\*O.
+If \*Lexc_dispatch_exception\*O returns, \*Lexc_raise_signal_exception\*O calls
+\*Lexc_unwind\*O(3) to cause an exit unwind, eventually
+resulting in a call to \*L_\|_exc_last_chance\*O(3).
+.PP
+\*Lexc_raise_status_exception\*O and \*Lexc_raise_exception\*O
+are typically called before a context exists and are thus not used as handlers.
+.PP
+\*Lexc_raise_status_exception\*O sets the \*LExceptionCode\*O
+in the \*LexceptionRecord\*O to the \*Vsts\*O argument, marks
+the exception as noncontinuable (because the exception context points at
+\*Lexc_raise_status_exception\*O), and calls \*Lexc_raise_exception\*O.
+.PP
+\*Lexc_raise_exception\*O expects its caller to explicitly set up the
+\*LexceptionRecord\*O argument. It uses its caller's context as the
+exception context, obtaining it by calling \*Lsetjmp\*O(3)
+(to get its own context) and then \*Lexc_virtual_unwind\*O(3) (to
+obtain its caller's context). Finally, it calls \*Lexc_dispatch_exception\*O.
+If \*Lexc_dispatch_exception\*O returns, \*Lexc_raise_exception\*O calls
+\*Lexc_unwind\*O(3) to cause an exit unwind. The exit unwind eventually
+results in the execution of \*L_\|_exc_last_chance\*O(3).
+.PP
+\*Lexc_dispatch_exception\*O attempts to dispatch an exception
+to a frame-based handler (see the
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O
+and  \*Lexcpt\*O(4)) by searching backwards
+through the stack-based call frames.  The search begins with the frame
+specified in the \*VcontextRecord\*O and continues backward until either a
+handler is found that handles the
+exception, the stack is found to be invalid (for example, out of limits or
+unaligned), or the end of the call hierarchy is reached.
+.PP
+As it encounters each frame, the dispatcher determines the PC where control left
+the corresponding function and uses it in a call to
+\*Lexc_lookup_function_entry\*O(3) to obtain exception information
+from the runtime function table built by the linker.
+If the corresponding function has an exception handler, the
+dispatcher calls it. If the handler does not handle the exception,
+the dispatcher then calls \*Lexc_virtual_unwind\*O(3) to unwind to the
+next frame and examines it.
+.PP
+If, during this process, the dispatcher encounters an error,
+the dispatcher raises an internal exception (see \*Lexcpt\*O(4)).
+.PP
+An exception handlers does not have to return. If it does, it may return one of the
+following dispositions:
+.sS
+     typedef enum _EXCEPTION_DISPOSITION {
+         ExceptionContinueExecution,
+         ExceptionContinueSearch,
+         ExceptionNestedException,
+         ExceptionCollidedUnwind
+     } EXCEPTION_DISPOSITION;
+.sE
+.PP
+All dispositions, except for \*LExceptionContinueExecution\*O, cause
+the dispatcher to unwind to the next frame to continue its search for a handler.
+If the disposition \*LExceptionContinueExecution\*O is returned, execution
+continues from the context of the exception.
+.PP
+.SH EXAMPLES
+.PP
+In the following example, \*Lexc_raise_signal_exception\*O is installed
+as the signal handler for SIGFPE and SIGSEGV.  When the divide-by-zero
+occurs, \*Lexc_raise_signal_exception\*O executes, transforming the signal into
+a structured exception to be processed by the C structured exception dispatcher,
+which causes the exception filter to execute.  The filter returns a 1 to the
+dispatcher, resulting in the handler executing and printing the
+\*(lqexception raised correctly\*(rq message.
+.PP
+.oS
+#include <excpt.h>
+#include <stdio.h>
+#include <signal.h>
+struct sigaction foo =  {exc_raise_signal_exception,0,0};
+double x,y=0;
+main()
+ {
+   sigaction(SIGFPE,&foo,0);
+   sigaction(SIGSEGV,&foo,0);
+   try
+      {
+	x = x/y;
+	printf("exception not raised\en");
+      }
+   except(1)
+      {
+	printf("exception raised correctly\en");
+      }
+}
+.oE
+.PP
+.SH RETURN VALUES
+.PP
+If the dispatcher does not find a handler to handle the exception, these functions
+return \*LEXC_FALSE\*O.
+.PP
+.SH FILES
+.PP
+\*L\/usr/ccs/lib/cmplrs/cc/libexc.a\*O - exception handling library
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/pdsc.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.PP
+.SH RELATED INFORMATION
+.PP
+Functions: \*Lexception_intro\*O(3), \*Lexc_lookup_function_entry\*O(3),
+\*Lsignal\*O(2), \*Lsigaction\*O(2), \*Lsetjmp\*O(3), \*Lexc_unwind\*O(3),
+\*L_\|_exc_last_chance\*O(3), \*Lieee\*O(3).
+.PP
+Files: \*Lexcpt\*O(4), \*Lc_excpt\*O(4), \*Lsignal\*O(4), \*Lpdsc\*O(4).
+.PP
+\*EProgrammer's Guide\*O.
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EDEC OSF/1 Calling Standard for AXP Systems\*O.
+.EQ
+delim off
+.EN

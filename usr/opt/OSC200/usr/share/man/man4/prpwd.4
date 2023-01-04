@@ -1,0 +1,259 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: prpwd.4,v $ $Revision: 3.4.5.8 $ (DEC) $Date: 1994/01/14 23:23:57 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\"build rmifdef
+.\" @(#)prpwd.4	1.2 11:10:05 6/11/91 SecureWare, Inc.
+.\"
+.\" Copyright (c) 1988 SecureWare, Inc.
+.\" All rights reserved
+.\"
+.\" #ifdef SEC_BASE
+.TH prpwd 4
+.SH NAME
+.PP
+\*Lprpwd\*O \- Protected password authentication database files (Enhanced Security)
+.SH DESCRIPTION
+.PP
+.iX "protected password database"
+.iX "database" "protected password"
+.iX "database" authentication
+.iX "authentication database"
+An authentication profile is maintained for each user on the system. A user
+profile is kept in a protected password database file that is accessible only
+to trusted programs acting on behalf of the trusted computing base
+(TCB). The protected password
+database files contain among other things the encrypted password for the user
+account.
+On a trusted system, the encrypted password must be hidden from
+untrusted users.
+.P
+The protected password database files do not eliminate the need for the
+\*L/etc/passwd\*O and the \*L/etc/group\*O files. Users must be defined in the
+\*Lpasswd\*O file in order to use the system. The protected password database
+file for a user contains the username and user ID to provide a correlation
+to the user's \*L/etc/passwd\*O entry.
+There must be a match or the user account
+will be treated as invalid.
+.P
+Protected password database files are maintained in the \*L/tcb/files/auth\*O
+hierarchy. This directory contains other directories each named with a single
+letter from the alphabet. User authentication profiles are stored in these
+directories based on the first letter of the user account name. This enables
+an efficient search operation to locate the file for a specific username. For
+instance, the authentication profile for the \*Lroot\*O account is located in
+the \*L/tcb/files/auth/r\*O directory and can be accessed by opening the file
+\*L/tcb/files/auth/r/root\*O.
+.P
+Each file defines a user's authentication profile by specifying values that
+are interpreted by trusted programs acting as part of the TCB. Fields defined
+in a file are user-specific values and are used before a system default value
+for the same field is used.
+Trusted programs check first for the existence of user-specific
+parameters before using a system default value.
+.P
+A protected password database file contains keyword field identifiers and
+depending on the field type a value for that field
+(certain field types do not
+require an explicit value).
+The exact syntax for field specifications is consistent for all
+authentication databases and is described in the
+\*Lauthcap\*O(4) reference page.
+The keyword field identifiers supported by the
+protected password database file and their associated functions are as
+follows:
+.VL
+.LI "\*Lu_name\*O"
+This is the username for the account. The value
+must match the name of the file
+and a username in a corresponding \*L/etc/passwd\*O entry.
+.LI "\*Lu_id\*O"
+This is the user ID for the account. It must match the user ID field of the
+corresponding \*L/etc/passwd\*O entry.
+.LI "\*Lu_pwd\*O"
+This field contains the encrypted password for the account if the account
+has a password.
+.LI "\*Lu_priority\*O"
+This is a priority value used by authentication programs to modify
+the \*Lnice\*O value of a login process for the user (see the \*Lnice\*O(3)
+reference page).
+.LI "\*Lu_auditcntl\*O"
+This field is the numeric value corresponding to SET_PROC_ACNTL.
+.\" consists of a comma-separated list of audit event names
+.\" (\*Linsuff_priv\*O, \*Lpriv\*O, \*Lob_create\*O, ...)
+.\" that define those
+.\" audit events that are explicitly controlled by a disposition mask for any
+.\" process initiated by this user. Any event specified in this mask can be
+.\" enabled or disabled for auditing regardless of the system audit mask. This
+.\" provides a user-specific audit control capability.
+.\" Events not specified in this
+.\" list will be subject to the system-wide audit disposition mask.
+This field is
+used in conjunction with the \*Lu_auditmask\*O mask.
+.LI "\*Lu_auditmask\*O"
+This field consists of a comma-separated list of audit event names
+.\" (\*Linsuff_priv\*O, \*Lpriv\*O, \*Lob_create\*O, ...)
+that define those
+audit events in the audit control mask, \*Lu_auditcntl\*O, that should always
+be audited. If an event appears in the control mask but not in this mask, that
+event should never be audited for this user.
+.LI "\*Lu_minchg\*O"
+This field specifies the minimum password change time in seconds. If nonzero,
+the password cannot be changed until the specified number of seconds since the
+last successful password change have passed unless the person changing the
+password is authorized to override this constraint.
+.LI "\*Lu_maxlen\*O"
+This field specifies the maximum length of the user account password and should
+be less than the system-wide maximum value defined by the <\*Lprot.h\*O>
+constant \*LAUTH_MAX_PASSWD_LENGTH\*O.
+.LI "\*Lu_exp\*O"
+This field is a \*Ltime_t\*O value that specifies when the account password will
+expire. When a password expires, system authentication programs will request
+that the password be changed when the user logs in to the system. If the password
+lifetime expires before the password is changed, the account will be locked.
+.LI "\*Lu_life\*O"
+This field is a \*Ltime_t\*O value that specifies the lifetime of a password.
+If this time is reached, the account will be locked and can only be unlocked
+by an authorized system administrator.
+.LI "\*Lu_succhg\*O"
+This field is a \*Ltime_t\*O value that indicates the time of the last
+successful password change. This field should only be set by programs that
+can be used to change the account password.
+.LI "\*Lu_unsucchg\*O"
+This field is a \*Ltime_t\*O value that indicates the time of the last
+unsuccessful password change. This field should only be set by programs that
+can be used to change the account password.
+.LI "\*Lu_pickpw\*O"
+This field that controls the ability of the user to pick a password
+for the account. This permits an account to be configured so that a
+user cannot pick a password but instead has a password generated by the system.
+.LI "\*Lu_genpwd\*O"
+This field controls the ability of a user to generate a password for the
+account. The system is capable of generating passwords containing random letters,
+characters, or words.
+.LI "\*Lu_restrict\*O"
+This field controls whether password triviality checks are performed on
+any user-selected passwords. Triviality checks include verifying that
+the password is not a login or group name, a palindrome, or a
+word recognized by the \*Lspell\*O program. See the
+\*Lacceptable_password\*O(3) reference page
+for more information on triviality checks for passwords.
+.LI "\*Lu_nullpw\*O"
+This controls the ability of the user to choose a null password for
+the account.
+.LI "\*Lu_pwchanger\*O"
+This field records the user ID of the last person to change the account
+password if that user was not the account's owner. This is used to
+warn the user at login time if the account password has been changed, possibly
+without the knowledge of the user.
+.LI "\*Lu_genchars\*O"
+This field controls the ability of the user to generate random characters
+for a password.
+.LI "\*Lu_genletters\*O"
+This field controls the ability of the user to generate random letters
+for a password.
+.LI "\*Lu_tod\*O"
+This field contains a comma-separated list of time-of-day specification entries
+that control when the user account can be used for login.
+.\"  For more information
+
+.\" on the format of a list entry, see the \*Ltod\*O reference page.
+.LI "\*Lu_suclog\*O"
+This field is a \*Ltime_t\*O value that contains the system time of the last
+successful login to the account.
+.LI "\*Lu_unsuclog\*O"
+This field is a \*Ltime_t\*O value that contains the system time of the last
+unsuccessful login to the account.
+.LI "\*Lu_suctty\*O"
+This field is a character string that identifies the name of the terminal
+associated with the last successful login to the account.
+.LI "\*Lu_numunsuclog\*O"
+This field contains a count of the number of unsuccessful login attempts to
+the account. This field is reset when a successful login to the account occurs.
+.LI "\*Lu_unsuctty\*O"
+This field is a character string that identifies the name of the terminal
+associated with the last unsuccessful login attempt to the account.
+.LI "\*Lu_maxtries\*O"
+This field specifies the maximum number of consecutive unsuccessful login
+attempts to the account that are permitted until the account is locked.
+.LI "\*Lu_retired\*O"
+This field indicates whether the account is retired or not. An account
+that has been retired cannot be used for any purpose.
+.LI "\*Lu_lock\*O"
+This field is used to administratively lock an account. A user cannot
+log in to a locked account.
+.LE
+.SH EXAMPLES
+.PP
+The following example shows a typical protected password database file:
+.oS
+perry:u_name=perry:u_id#101:\e
+        :u_pwd=aZXtu1kmSpEzm:\e
+        :u_minchg#0:u_succhg#653793862:u_unsucchg#622581606:u_nullpw:\e
+        :u_suclog#671996425:u_suctty=tty1:\e
+        :u_unsuclog#660768767:u_unsuctty=tty1:\e
+        :u_maxtries#3:chkent:
+.oE
+.P
+This protected password database file is for the user \*Lperry\*O.  The user
+id for \*Lperry\*O is 101.
+This value must match the \*L/etc/passwd\*O entry
+for this user. The account has a password and its encrypted form is specified
+by the \*Lu_pwd\*O field.
+.P
+The database file specifies a minimum password change time of 0, indicating
+that
+the password can be changed at any time. Furthermore, the account is permitted
+to have a null password.
+The account has a maximum
+consecutive unsuccessful login threshold of 3, indicating that the
+account will be locked after three failed attempts. The remaining fields provide
+account information such as the last successful and unsuccessful password
+change times as well as the last successful and unsuccessful login times and
+terminal names.
+.SH "FILES"
+.PP
+.VL
+.LI "\*L/tcb/files/auth/[a-z]/*\*O"
+Specifies the pathname of the protected password database files.
+.LE
+.SH NOTES
+.PP
+The \*Lgetprpwent\*O routines are used to parse the protected password
+database files into a structure that can be used by programs. A flag in the
+structure indicates whether a particular field in the structure and hence the
+field is defined. System default values are also provided in the structure.
+These values are derived from the \*L/etc/auth/system/default\*O file and can
+be used by programs in the absence of a user-specific value.
+.SH "RELATED INFORMATION"
+.PP
+Commands: \*Llogin(1)\*O, \*Lpasswd(1)\*O, \*Lauthck(8)\*O
+.PP
+Functions: \*Lnice(3)\*O,
+\*Lacceptable_password(3)\*O, \*Lgetprpwent(3)\*O
+.\" , \*Ltod(3)\*O
+.PP
+Files:  \*Lauthcap(4)\*O, \*Ldefault(4)\*O, \*Lgroup(4)\*O,
+\*Lpasswd(4)\*O, \*Lusers(4)\*O
+.\" #endif /* SEC_BASE */
+.EQ
+delim off
+.EN

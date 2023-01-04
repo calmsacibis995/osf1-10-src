@@ -1,0 +1,58 @@
+#!/sbin/sh
+# 
+# *****************************************************************
+# *                                                               *
+# *    Copyright (c) Digital Equipment Corporation, 1991, 1994    *
+# *                                                               *
+# *   All Rights Reserved.  Unpublished rights  reserved  under   *
+# *   the copyright laws of the United States.                    *
+# *                                                               *
+# *   The software contained on this media  is  proprietary  to   *
+# *   and  embodies  the  confidential  technology  of  Digital   *
+# *   Equipment Corporation.  Possession, use,  duplication  or   *
+# *   dissemination of the software and media is authorized only  *
+# *   pursuant to a valid written license from Digital Equipment  *
+# *   Corporation.                                                *
+# *                                                               *
+# *   RESTRICTED RIGHTS LEGEND   Use, duplication, or disclosure  *
+# *   by the U.S. Government is subject to restrictions  as  set  *
+# *   forth in Subparagraph (c)(1)(ii)  of  DFARS  252.227-7013,  *
+# *   or  in  FAR 52.227-19, as applicable.                       *
+# *                                                               *
+# *****************************************************************
+#
+
+SAVECORE_DIR=`rcmgr get SAVECORE_DIR`
+DIR=${SAVECORE_DIR:-"/var/adm/crash"}
+
+BOUNDS=$DIR/bounds
+
+[ "$DIR" -a -d $DIR -a -s $BOUNDS -a -r $BOUNDS ] && {
+  TEMP=`/sbin/cat $BOUNDS`
+  CRASHNUM=`/sbin/expr $TEMP - 1`
+#
+# The output of the CANASTA data collection script /usr/bin/crashdc is saved
+# in the file crash-data.# (where # is the crash number of the latest
+# crash). Execute /usr/bin/crashdc only if crash number is legal, if crash files
+# with that number exist in the crash directory, and the output data file 
+# (crash-data.#) for the latest crash does not exists already (the system 
+# may be just rebooting without actually having crashed) in the crash 
+# directory. The script /usr/bin/crashdc expects the kernel image
+# (vmunix.#) as the first argument and the core file (vmcore.#) as the
+# second argument. 
+#
+# Execute the script in the background. 
+#
+  [ $CRASHNUM -ge 0 ] && {
+    UNIX=$DIR/vmunix.$CRASHNUM
+    CORE=$DIR/vmcore.$CRASHNUM
+    DATA=$DIR/crash-data.$CRASHNUM
+    [ -f $UNIX -a -r $UNIX -a -f $CORE -a -r $CORE -a -x /usr/bin/crashdc -a  ! -f $DATA ]  && {
+      echo "Collecting data from crash dumps in $DATA"
+      /usr/bin/crashdc $UNIX $CORE > $DATA 2>&1 &
+    }
+  }
+}
+
+
+

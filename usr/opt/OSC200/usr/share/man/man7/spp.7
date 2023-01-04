@@ -1,0 +1,178 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: spp.7,v $ $Revision: 3.2.2.2 $ (DEC) $Date: 1992/05/21 11:24:08 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\"
+.\" Copyright (c) 1985 The Regents of the University of California.
+.\" All rights reserved.
+.\" 
+.\" Redistribution and use in source and binary forms are permitted provided
+.\" that: (1) source distributions retain this entire copyright notice and
+.\" comment, and (2) distributions including binaries display the following
+.\" acknowledgement:  ``This product includes software developed by the
+.\" University of California, Berkeley and its contributors'' in the
+.\" documentation or other materials provided with the distribution and in
+.\" all advertising materials mentioning features or use of this software.
+.\" Neither the name of the University nor the names of its contributors may
+.\" be used to endorse or promote products derived from this software without
+.\" specific prior written permission.
+.\" THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+.\" WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+.\" 
+.\" @(#)spp.4	1.4 (Berkeley) 6/23/90
+.\" 
+.TH spp 7
+.SH NAME
+\*Lspp\*O \- Xerox sequenced packet protocol (SPP)
+.SH SYNOPSIS 
+.sS
+\*L#include <sys/socket.h>\*O
+.nL
+\*L#include <netns/ns.h>\*O
+.nL
+\*Ls = socket(AF_NS, SOCK_STREAM, 0);\*O
+.PP 
+\*L#include <netns/sp.h>\*O
+.nL
+\*Ls = socket(AF_NS, SOCK_SEQPACKET, 0);\*O
+.sE 
+.SH DESCRIPTION
+.iX "spp" "Xerox Sequenced Packet protocol"
+.iX "Xerox Sequenced Packet protocol"
+.iX "protocols" "SPP"
+.iX "sockets"
+The SPP provides reliable, flow-controlled, two-way
+transmission of data.  It is a byte-stream protocol used to
+support the SOCK_STREAM abstraction.  SPP uses the standard
+NS address formats.
+.PP 
+Sockets utilizing the SPP are either \*(lqactive\*(rq or
+\*(lqpassive\*(rq.  Active sockets initiate connections to passive
+sockets.  By default, SPP sockets are created active; to create a
+passive socket the
+\*Llisten(\|)\*O
+function must be used
+after binding the socket with the
+\*Lbind(\|)\*O
+function.  Only
+passive sockets may use the
+\*Laccept(\|)\*O
+function to accept incoming connections.  Only active sockets may
+use the
+\*Lconnect(\|)\*O
+function to initiate connections.
+.PP 
+Passive sockets may \*(lqunderspecify\*(rq their location to match
+incoming connection requests from multiple networks.  This
+technique, termed \*Lwildcard addressing\*O, allows a single
+server to provide service to clients on multiple networks.
+To create a socket which listens on all networks, the NS
+address of all zeroes must be bound.
+The SPP port may still be specified
+at this time; if the port is not specified the system will assign one.
+Once a connection has been established the socket's address is
+fixed by the peer entity's location.   The address assigned the
+socket is the address associated with the network interface
+through which packets are being transmitted and received.  Normally
+this address corresponds to the peer entity's network.
+.PP
+If the SOCK_SEQPACKET socket type is specified,
+each packet received includes the actual 12-byte sequenced packet header
+for the user to inspect.
+This facilitates the implementation of higher level Xerox protocols
+which make use of the data stream type field and the end of message bit.
+Conversely, the user is required to supply a 12-byte header,
+the only parts of which are inspected are
+the data stream type and the end of message
+fields.
+.PP
+For either socket type,
+packets received with the \*Vattention\*O bit set are interpreted as
+out of band data.  Data sent with send(..., ..., ..., MSG_OOB)
+cause the attention bit to be set.
+.PP 
+The following socket options are available:
+.\"from TP 1i"  
+.VL 1i
+.LI "SO_DEFAULT_HEADERS"
+Determines the data stream type and whether
+the end of message bit is to be set on every ensuing packet.
+.\"from TP 1i"  
+.LI "SO_MTU" 
+Specifies the maximum amount of user data in a single packet.
+The default is 576 bytes - \*Lsizeof(struct spidp)\*O.  This quantity
+affects windowing; increasing it without increasing the amount
+of buffering in the socket will lower the number of unread packets
+accepted.  Anything larger than the default will not be forwarded
+by a bona fide Xerox product internetwork router.
+The data argument for the
+\*Lsetsockopt(\|)\*O
+function must be
+an
+\*Lunsigned short\*O.
+.LE 
+.SH ERRORS
+If a socket option fails,
+\*Lerrno\*O
+may be set to one of the following values:
+.\"from TP 1i"  
+.VL 1i
+.LI "[EISCONN]"
+The socket to be connected already has a connection.
+.\"from TP 1i"  
+.LI "[ENOBUFS]" 
+The system ran out of memory for
+an internal data structure.
+.\"from TP 1i"  
+.LI "[ETIMEDOUT]" 
+The connection was dropped
+due to excessive retransmissions.
+.\"from TP 1i"  
+.LI "[ECONNRESET]" 
+The remote peer
+forced the connection to be closed.
+.\"from TP 1i"  
+.LI "[ECONNREFUSED]" 
+The remote
+peer actively refused establishment of a connection (usually because
+no process is listening to the port).
+.\"from TP 1i"  
+.LI "[EADDRINUSE]" 
+An attempt
+was made to create a socket with a port which has already been
+allocated.
+.\"from TP 1i"  
+.LI "[EADDRNOTAVAIL]" 
+An attempt was made to create a
+socket with a network address for which no network interface
+exists.
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Files:
+\*Lnetintro\*O(7),
+\*Lns\*O(7)
+.iX "spp" "Xerox Sequenced Packet protocol"
+.EQ
+delim off
+.EN

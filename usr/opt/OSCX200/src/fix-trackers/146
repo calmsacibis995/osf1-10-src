@@ -1,0 +1,104 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9202192157.AA07727@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2369) Close XBUG #4954: server: miValidateTree doesn't handle ParentRelative borders
+Date: Wed, 19 Feb 92 16:57:37 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4954
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da7675	Wed Feb 19 16:56:04 1992
+--- server/ddx/mi/mivaltree.c	Tue Dec 17 19:34:31 1991
+***************
+*** 1,4 ****
+! /* $XConsortium: mivaltree.c,v 5.28 91/07/10 15:19:52 keith Exp $ */
+  /*
+   * mivaltree.c --
+   *	Functions for recalculating window clip lists. Main function
+--- 1,4 ----
+! /* $XConsortium: mivaltree.c,v 5.29 91/12/17 19:34:15 keith Exp $ */
+  /*
+   * mivaltree.c --
+   *	Functions for recalculating window clip lists. Main function
+***************
+*** 111,116 ****
+--- 111,120 ----
+  }
+  #endif
+  
++ #define HasParentRelativeBorder(w) (!(w)->borderIsPixel && \
++ 				    HasBorder(w) && \
++ 				    (w)->backgroundState == ParentRelative)
++ 
+  /*-
+   *-----------------------------------------------------------------------
+   * miComputeClips --
+***************
+*** 228,240 ****
+  	    {
+  		if (pChild->viewable)
+  		{
+- 		    if (pChild->valdata)
+- 		    {
+- 			(* pScreen->RegionInit) (&pChild->valdata->after.borderExposed,
+- 						 NullBox, 0);
+- 			(* pScreen->RegionInit) (&pChild->valdata->after.exposed,
+- 						 NullBox, 0);
+- 		    }
+  		    if (pChild->visibility != VisibilityFullyObscured)
+  		    {
+  			(* pScreen->TranslateRegion) (&pChild->borderClip,
+--- 232,237 ----
+***************
+*** 246,251 ****
+--- 243,261 ----
+  			    (* pScreen->ClipNotify) (pChild, dx, dy);
+  
+  		    }
++ 		    if (pChild->valdata)
++ 		    {
++ 			(* pScreen->RegionInit) (&pChild->valdata->after.borderExposed,
++ 						 NullBox, 0);
++ 			if (HasParentRelativeBorder(pChild))
++ 			{
++ 			    (* pScreen->Subtract)(&pChild->valdata->after.borderExposed,
++ 						  &pChild->borderClip, 
++ 						  &pChild->winSize);
++ 			}
++ 			(* pScreen->RegionInit) (&pChild->valdata->after.exposed,
++ 						 NullBox, 0);
++ 		    }
+  		    if (pChild->firstChild)
+  		    {
+  			pChild = pChild->firstChild;
+***************
+*** 309,315 ****
+      	{
+  	    (* pScreen->Subtract) (exposed, universe, &pParent->borderClip);
+      	}
+!     	(* pScreen->Subtract) (&pParent->valdata->after.borderExposed,
+  			       exposed, &pParent->winSize);
+  
+      	(* pScreen->RegionCopy) (&pParent->borderClip, universe);
+--- 319,330 ----
+      	{
+  	    (* pScreen->Subtract) (exposed, universe, &pParent->borderClip);
+      	}
+! 	if (HasParentRelativeBorder(pParent) && (dx || dy))
+! 	    (* pScreen->Subtract)(&pParent->valdata->after.borderExposed,
+! 				  universe,
+! 				  &pParent->winSize);
+! 	else
+! 	    (* pScreen->Subtract) (&pParent->valdata->after.borderExposed,
+  			       exposed, &pParent->winSize);
+  
+      	(* pScreen->RegionCopy) (&pParent->borderClip, universe);

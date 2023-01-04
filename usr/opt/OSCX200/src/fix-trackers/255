@@ -1,0 +1,193 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204152024.AA27017@alex.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2481) close XBUG #4583: don't use "byte" as a variable name
+Date: Wed, 15 Apr 92 16:24:24 EDT
+From: Stephen Gildea <gildea@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+        Subject: fontlib: spglyph.c uses "byte" as a variable name.
+        ### bug number:   4583
+        ### area:         fontlib
+        ### severity:     low
+
+
+*** /tmp/da26680	Wed Apr 15 16:13:48 1992
+--- fonts/lib/font/Speedo/spglyph.c	Wed Apr 15 16:13:07 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: spglyph.c,v 1.10 91/07/31 01:08:59 keith Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: spglyph.c,v 1.11 92/04/15 16:12:09 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 21,30 ****
+   * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+   *
+-  * $NCDId: @(#)spglyph.c,v 4.7 1991/06/24 16:55:40 lemke Exp $
+-  *
+   * Author: Dave Lemke, Network Computing Devices Inc
+-  *
+   */
+  
+  #include	<X11/X.h>	/* for bit order #defines */
+--- 21,27 ----
+***************
+*** 34,41 ****
+  
+  static CurrentFontValuesRec current_font_values;
+  static CurrentFontValuesPtr cfv = &current_font_values;
+! static int  bit,
+!             byte,
+              scan;
+  
+  unsigned long
+--- 31,38 ----
+  
+  static CurrentFontValuesRec current_font_values;
+  static CurrentFontValuesPtr cfv = &current_font_values;
+! static int  bit_order,
+!             byte_order,
+              scan;
+  
+  unsigned long
+***************
+*** 165,171 ****
+      nmiddle = (xbit2 >> 3);
+      xbit1 &= 7;
+      xbit2 &= 7;
+!     if (bit == MSBFirst) {
+  	startmask = ((CARD8) ~0) >> xbit1;
+  	endmask = ~(((CARD8) ~0) >> xbit2);
+      } else {
+--- 162,168 ----
+      nmiddle = (xbit2 >> 3);
+      xbit1 &= 7;
+      xbit2 &= 7;
+!     if (bit_order == MSBFirst) {
+  	startmask = ((CARD8) ~0) >> xbit1;
+  	endmask = ~(((CARD8) ~0) >> xbit2);
+      } else {
+***************
+*** 260,266 ****
+  	finish_line(cur_spf);
+  	cfv->last_y++;
+      }
+!     if (byte != bit) {
+  	switch (scan) {
+  	case 1:
+  	    break;
+--- 257,263 ----
+  	finish_line(cur_spf);
+  	cfv->last_y++;
+      }
+!     if (byte_order != bit_order) {
+  	switch (scan) {
+  	case 1:
+  	    break;
+***************
+*** 293,299 ****
+  
+      scan = 1;
+      ret = CheckFSFormat(format, fmask,
+! 			&bit, &byte, &scan, &glyph, &image);
+  
+      if (ret != Successful)
+  	return BadFontFormat;
+--- 290,296 ----
+  
+      scan = 1;
+      ret = CheckFSFormat(format, fmask,
+! 			&bit_order, &byte_order, &scan, &glyph, &image);
+  
+      if (ret != Successful)
+  	return BadFontFormat;
+*** /tmp/da26735	Wed Apr 15 16:16:36 1992
+--- fonts/lib/font/util/format.c	Wed Apr 15 16:16:30 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: format.c,v 1.2 91/05/13 16:38:48 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+--- 1,4 ----
+! /* $XConsortium: format.c,v 1.3 92/04/15 16:16:08 gildea Exp $ */
+  /*
+   * Copyright 1990, 1991 Network Computing Devices;
+   * Portions Copyright 1987 by Digital Equipment Corporation and the
+***************
+*** 20,28 ****
+   * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+   * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+-  *
+-  * @(#)format.c	4.1	91/05/02
+-  *
+   */
+  
+  #include	"FSproto.h"
+--- 20,25 ----
+***************
+*** 29,39 ****
+  #include	"font.h"
+  
+  int
+! CheckFSFormat(format, fmask, bit, byte, scan, glyph, image)
+      fsBitmapFormat format;
+      fsBitmapFormatMask fmask;
+!     int        *bit,
+!                *byte,
+                 *scan,
+                 *glyph,
+                 *image;
+--- 26,36 ----
+  #include	"font.h"
+  
+  int
+! CheckFSFormat(format, fmask, bit_order, byte_order, scan, glyph, image)
+      fsBitmapFormat format;
+      fsBitmapFormatMask fmask;
+!     int        *bit_order,
+!                *byte_order,
+                 *scan,
+                 *glyph,
+                 *image;
+***************
+*** 40,51 ****
+  {
+      /* convert format to what the low levels want */
+      if (fmask & BitmapFormatMaskBit) {
+! 	*bit = format & BitmapFormatBitOrderMask;
+! 	*bit = (*bit == BitmapFormatBitOrderMSB) ? MSBFirst : LSBFirst;
+      }
+      if (fmask & BitmapFormatMaskByte) {
+! 	*byte = format & BitmapFormatByteOrderMask;
+! 	*byte = (*byte == BitmapFormatByteOrderMSB) ? MSBFirst : LSBFirst;
+      }
+      if (fmask & BitmapFormatMaskScanLineUnit) {
+  	*scan = format & BitmapFormatScanlineUnitMask;
+--- 37,50 ----
+  {
+      /* convert format to what the low levels want */
+      if (fmask & BitmapFormatMaskBit) {
+! 	*bit_order = format & BitmapFormatBitOrderMask;
+! 	*bit_order = (*bit_order == BitmapFormatBitOrderMSB)
+! 	    	     ? MSBFirst : LSBFirst;
+      }
+      if (fmask & BitmapFormatMaskByte) {
+! 	*byte_order = format & BitmapFormatByteOrderMask;
+! 	*byte_order = (*byte_order == BitmapFormatByteOrderMSB)
+! 	    	      ? MSBFirst : LSBFirst;
+      }
+      if (fmask & BitmapFormatMaskScanLineUnit) {
+  	*scan = format & BitmapFormatScanlineUnitMask;

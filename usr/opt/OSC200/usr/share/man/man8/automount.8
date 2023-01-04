@@ -1,0 +1,513 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: automount.8,v $ $Revision: 3.2.2.4 $ (DEC) $Date: 1993/02/01 13:36:07 $
+.\"
+.TH automount 8
+.SH NAME
+automount \- automatically and transparently mounts and unmounts NFS file systems
+.SH SYNOPSIS
+.PP
+.B /usr/sbin/automount
+[
+.B \-hmnTv
+.\" v
+]
+[
+\*V\-D name=\*O
+\*Vvalue\*O
+]
+[
+.B \-f
+\*Vmaster-file\*O
+]
+.br
+[
+.B \-M
+\*Vmount-directory\*O
+]
+[
+.B \-tl
+\*Vduration \*O
+.\" .I sub-options
+]
+[
+.B \-tm
+\*Vinterval\*O
+]
+[
+.B \-tw
+\*Vinterval  \*O
+]
+.br
+[
+\*Vdirectory mapname\*O
+[
+.B \-
+\*Vmount-options\*O
+]]
+.SH DESCRIPTION
+.PP
+The \*Lautomount\*O
+.iX "automount command"
+daemon automatically and transparently mounts and
+unmounts NFS file systems on an as-needed basis.
+It provides an alternative to using \*L/etc/fstab\*O
+.\" .iX "automount command" "/etc/fstab file"
+.\" .iX "automount command" "/etc/rc.config file"
+for NFS mounting file systems on client machines.
+.PP
+The \*Lautomount\*O daemon can be started from the \*L/etc/rc.config\*O
+file or from the command line. Once started,
+.\".iX "automount command" "and /etc/fstab file"
+.\".iX "automount command" "and /etc/rc.config file"
+it sleeps until a user attempts to access a directory that is
+associated with an \*Lautomount\*O map, or any directory or file in the
+directory structure. The daemon awakes and consults the
+appropriate map and mounts the NFS file system. By default, the daemon mounts
+the remote file system under the directory \*L/tmp_mnt\*O and creates a
+symbolic link to the temporary mount point. If the
+indicated directory has not already been created, the daemon creates it and
+removes it after automatic \*Lunmount\*O. After a specified period of
+inactivity on a file system, 5 minutes by default, the \*Lautomount\*O daemon
+unmounts that file system.
+.PP
+The maps indicate where to find the file system to be
+mounted and the mount options to use. The names of the maps are passed
+to \*Lautomount\*O from the command line, or from a master map.
+If the command line and the master map contain contradictory arguments, the
+command line arguments take precedence.
+.PP
+An individual automount map is either local or served by NIS.
+A system, however, can use both local and NIS automount maps.
+When a map is referenced, the \*Lautomount\*O daemon checks whether a full
+pathname is specified. If it is, \*Lautomount\*O looks for the designated
+\*Vmapname\*O locally. If the \*Vmapname\*O is not a full pathname,
+\*Lautomount\*O looks for an NIS map by that name.
+.SS Maps
+Conventionally, \*Lautomount\*O maps are files that are located in the
+\*L/etc\*O directory with names that have the prefix \*Lauto\*O.
+.iX "automount maps"
+They indicate which remote file systems to mount,
+where to mount them, and which options to use.
+.ne 6
+.SS "\f2The Master Map"
+The \*Lautomount\*O program can consult a master map,
+which contains entries that point to other
+maps that can be either direct or indirect.  If NIS is running,
+\*Lautomount\*O checks for the presence of a NIS map named \*Lauto.master\*O;
+you are not required to run NIS or have an \*Lauto.master\*O
+map. A master map can also be a file whose location is specified with
+the \*L\-f \*O command line option.
+.PP
+The master map provides \*Lautomount\*O with a list of maps,
+and with arguments that pertain to each of the maps.
+Each line in the
+master map has the following syntax:
+.PP
+\*Vmount-point   map  [mount-options]\*O
+.PP
+.IP \(bu 4
+\*Vmount-point\*O \- the full pathname of a local directory if the
+\*Vmap\*O
+argument is the name of an indirect map or the name of a special map.
+If the
+\*Vmap \*O
+argument is the name of a direct map, the dummy directory ``/-'' is
+specified as the
+\*Vmount-point.\*O
+.IP \(bu 4
+\*Vmap\*O \- the name of the map the automount command uses to find the mount
+points and locations.  This can either be a filename, a NIS map name, or a
+special map name.
+.IP \(bu 4
+\*Vmount-options\*O \- a list of options used to regulate the mounting of
+entries listed in \*Vmap.\*O
+.ne 6
+.SS "\f2Direct Maps"
+Direct maps specify which remote file systems to mount locally and what
+the local mount points are. They also can specify mount options.
+Direct maps have the following syntax:
+.PP
+\*Vkey   [mount-options]   location\*O
+.PP
+.IP \(bu 4
+\*Vkey\*O -\ the full pathname of the mount point.
+.IP \(bu 4
+\*Vmount-options\*O -\ the options for this specific mount. When present, these
+options override any mount options specified on the command line
+or in the master map.
+.IP \(bu 4
+\*Vlocation\*O \- the location of the resource being mounted, specified as:
+\*Vserver:pathname.  \*O
+Multiple
+\*Vlocation\*O
+fields can be specified, in which case \*Lautomount\*O
+sends multiple mount requests and mounts from the first server to
+respond.
+.ne 6
+.SS "\f2Indirect Maps"
+Indirect maps have the same format as direct maps.
+However, unlike the key in a direct map, the key in an indirect map is a simple
+name that does not begin with a slash. (Remember that
+the indirect map as a whole has been associated with a directory
+specified in the master map or on the command line.  The entries in an
+indirect map list subdirectories that are individually mounted within
+the directory associated with the map.)
+.\" (the next section is commented out from the original version
+.\"  of this manpage due to the fact that it seemed curiously misleading
+.\".PP
+.\" The maps contain entries in the following format.  While multiple locations
+.\" for a particular \f2basename\f1 can be specified, they
+.\"should only be used for read-only file systems.
+.\".oS
+.\"[\f2basename\f1 [\f2\-mount-options\f1][\f2location1\f1][\f2location2\f1]...
+.\".oE
+.\"The \f2basename\f1 field specifies a subdirectory within the
+.\".I directory
+.\"designated in the
+.\"\*Lautomount\*O
+.\"command line.
+.\"The \f2\-mount-options\f1 tell the
+.\"\*Lautomount\*O
+.\"program what parameters and access restrictions apply to that mount.
+.\"See mount(8) for more information.
+.\".PP
+.\"Each \f2location\f1 field indicates where the file system resides on
+.\"the remote host, and has the following format:
+.\"Maps are considered either direct or indirect depending
+.\"on how the \f2basename\f1 field is specified.
+.\"In a direct map the \f2basename\f1 is a full pathname.
+.\"In an indirect map the \f2basename\f1 is a simple name.
+.\"The rest of the required information about where the remote file system
+.\"is located is provided either on the command line or in another map.
+.\"The rest of the information that
+.\"\*Lautomount\*O
+.\"requires about
+.\"the remote file system location is provided either on the command line
+.\"or in another map.
+.\".oS
+.\"\f2host:remote-pathname[:subdirectory]
+.\".oE
+.\"The \f2host\f1 field specifies the remote host from which
+.\"to mount the designated file system.  The \f2remote-pathname\f1 is
+.\"the absolute pathname of a file system or subtree of a file system that
+.\"is exported by \f2host\f1.
+.\".PP
+.\"If you specify more than one location for a file system, the
+.\"\*Lautomount\*O
+.\"program broadcasts a mount request to all specified hosts.
+.\"The first to respond gets mounted.
+.\".PP
+.\"The \f2subdirectory\f1 field is optional.
+.\"When supplied, it indicates the subdirectory within the
+.\"remote file system to which you want \f2basename\f1 linked.
+.\"Specifying subdirectories allows mount points to be shared.
+.\"Rather than creating a symbolic link directly to the mount point,
+.\"\*Lautomount\*O
+.\"creates a symbolic link to the specified subdirectory.  One
+.\"mount point can have multiple symbolic links to subdirectories
+.\"within the mounted file system.
+.ne 6
+.SS "\f2Special Maps"
+The \*L\-hosts\*O map is a special \*Lautomount\*O
+map that is used to access all directories
+exported by a server to a client.
+.PP
+The following command allows a client to access directories
+that are exported from any host in its \*L/etc/hosts\*O
+file, the NIS hosts database.
+.oS
+# \f(CBautomount /net \-hosts\f(CW
+.oE
+.iX "automount maps" "and Network Information Service"
+.PP
+For example, suppose that \*Lhera\*O and \*Lsheba\*O
+are both hosts on a
+local area network that is running NIS.
+If superuser on \*Lhera\*O enters the
+\*Lautomount /net \-hosts\*O command, users on
+\*Lhera\*O can access any directories that \*Lsheba\*O exports to
+\*Lhera\*O. All of the exported directories are mounted under
+\*L/net/sheba\*O on \*Lhera\*O.
+.PP
+The \*L\-null\*O map, when indicated on the command
+line, cancels the map associated with
+the directory indicated.  It can be used to cancel a map specified in the
+master map.  For example, invoking the \*Lautomount\*O
+command in the following manner causes the \*L/net\*O
+entry in \*Lauto.master\*O to be ignored:
+.oS
+# \f(CBautomount /net \-null\f(CW
+.oE
+.SS Pattern Matching
+The ampersand (&)
+is expanded into the key field in
+a map wherever it appears.  In the following example,
+the ampersand (&) expands to \*Loak\*O:
+.oS
+#key      mount_options      location
+#
+oak                           &:/export/&
+.oE
+.PP
+The asterisk (*), when supplied as the key field, is recognized as the
+catch-all entry.  It is used to substitute for lines that are all
+formatted similarly.
+Any entry following the asterisk is ignored.
+In the following example, the \*Lautomount\*O
+program uses the asterisk to match any hostname other than \*Loak\*O:
+.oS
+#key         mount_options        location
+#
+oak                               &:/export/&
+*                                 &:/home/&
+.oE
+.SS Environment Variables
+The value of an environment variable can be used within an automount map
+by prefixing a dollar sign ($) to its name.  You can also use braces to
+delimit the name of the variable from appended letters or digits.
+The environment variables can be
+inherited from the environment or can be explicitly defined with
+the \*L\-D\*O command line option.
+.SS Multiple Mounts
+A multiple mount entry causes several NFS mount points to be mounted and
+unmounted together. Multiple mounts have the following syntax:
+.PP
+\*Vkey  mountpoint   [mount-options]   location... [mountpoint  [mount-options]  location...] ...\*O
+.PP
+.IP \(bu 4
+\*Vkey\*O \- the full pathname or simple name of the mount point, depending on
+whether it is a direct or indirect map entry.
+.IP \(bu 4
+\*Vmountpoint\*O \- the full pathname of a local directory. All mountpoints
+must begin with a slash (/). A slash is acceptable as the first
+\*Vmountpoint\*O.
+.IP \(bu 4
+\*Vmount-options\*O \- the options for this specific mount. When present, these
+options override any mount options specified on the command line
+or in the master map.
+.IP \(bu 4
+\*Vlocation\*O \- the location of the resource being mounted, specified as:
+\*Vserver:pathname.\*O
+Multiple
+\*Vlocation\*O
+fields can be specified, in which case \*Lautomount\*O
+sends multiple mount requests and mounts from the first server to
+respond.
+.PP
+If multiple mounts are hierarchically related, the order in which they appear
+in the entry is the order in which they are mounted.
+.PP
+In the following example, the directories \*L/usr/local\*O,
+\*L/usr/local/bin\*O, \*L/usr/local/src\*O, and \*L/usr/local/tools\*O
+are mounted from the machines host1, host2, host3, and host4
+respectively.  When the root of the hierarchy is referenced,
+the \*Lautomount\*O program mounts the whole hierarchy.
+.PP
+.oS
+/usr/local \e
+ /         -ro       host1:/usr/local \e
+ /bin      -ro       host2:/usr/local/bin \e
+ /src      -ro       host3:/usr/local/src \e
+ /tools    -ro       host4:/usr/src/tools
+.oE
+.PP
+Readability has been improved by splitting the entry into five
+lines and indenting the continuation lines.
+.SH FLAGS
+.PP
+.iX "automount command" "options"
+.IP \-h 10
+Includes hostname in mount point path names.  Hostname is inserted just
+after the
+\*Vmount-directory\*O
+in a mount point path name.  This insures that
+NFS mount points to different servers are placed in separate directories.  This
+avoids a limitation of \*Lgetwd\*O(3).
+.\"  When computing the pathname
+.\"string, \*Lgetwd\*O(3) moves up the tree from the current working directory
+.\"to the root.  When getwd passes through a mount point, it will \*Lstat\*O(2)
+.\"entries in the directory until it finds the mount point it just
+.\"traversed.  If these other entries are mount points to a server that
+.\"is hard mounted and down, the getwd will block until the down server
+.\"responds.  This side effect can be avoided by forcing the automounter
+.\"to place mount points to different servers in separate directories
+.\"with the -h option.
+.IP \-m 10
+Ignores directory-mapname pairs listed in the \*Lauto.master\*O
+NIS database.
+.IP \-n 10
+Disables dynamic mounts.  Lookups intercepted by the \*Lautomount\*O
+daemon succeed only when the target file system has been previously
+mounted.
+.IP \-T 10
+Traces all NFS requests received by the daemon.  Information about
+the details of the request are expanded and sent to standard output.
+.IP \-v 10
+Logs status messages to the console.  (Stands for ``verbose.'')
+.IP "\-D \f2name\f1=\f2value\f1" 10
+Defines an \*Lautomount\*O environment variable by assigning
+\*Vvalue\*O
+to the
+variable.
+.\".I  name
+.\"and assigns it the value
+.\".I value
+.\"to be used in
+.\"\*Lautomount\*O
+.\"maps.
+.IP "\-f \f2master-file\f1" 10
+Uses \f2master-file\f1
+for a list of initial directory to mapname pairs, ahead of the
+\*Lauto.master\*O NIS map.  If an entry exists in both
+\*Vmaster-file\*O
+and \*Lauto.master\*O, that specified in
+\*Vmaster-file\*O
+is used since it is read first.  Similarly, entries on the
+command line take precedence over
+\*Vmaster-file\*O
+entries.  This technique can be used to replace entries in
+global maps with your own.
+.IP "\-M \f2mount-directory\f1" 10
+Uses
+\*Vmount-directory \*O
+instead of the default, \*L/tmp_mnt\*O.
+.IP "\-tl \f2duration\f1" 10
+Specifies a
+\*Vduration\*O
+in seconds, that a file system is to remain mounted when not in use.
+The default is 5 minutes.
+.IP "\-tm \f2interval\f1" 10
+Specifies an
+\*Vinterval\*O
+in seconds, between attempts to mount a file system. The default
+is 30 seconds.
+.IP "\-tw \f2interval\f1" 10
+Specifies an
+\*Vinterval\*O
+in seconds, between attempts to unmount file systems that have exceeded
+their cached times. The default is 1 minute.
+.\".IP "-t \f2sub-options\f1" 10
+.\"Specify the NFS mount options.  All mount options
+.\"apply except background
+.\"\*L(bg)\*O
+.\"and foreground (
+.\"\*L(fg)\*O.
+.\".IP "\f2directory\f1" 10
+.\"Specifies the mount point for
+.\"\*Lautomount\*O
+.\"itself.
+.\".I Directory
+.\"is an absolute pathname starting with a slash ( / ).  If the
+.\"directory does not exist, it is created by the
+.\"\*Lautomount\*O
+.\"daemon and is removed when the daemon exits.
+.\".IP "\f2mapname\f1" 10
+.\"Specifies the name of the map file that
+.\"\*Lautomount\*O
+.\"is searching for.  The
+.\"\*Lautomount\*O
+.\"command first searches locally for a file called
+.\".I mapname.
+.\"If the file does not exist,
+.\"\*Lautomount\*O
+.\"looks for a NIS map called
+.\".I mapname.
+.IP \f2\-mount_options\f1 10
+Specifies the mount options to be applied to all of the directories listed
+in
+\*Vmapname.  \*O
+If mount options are listed in the specified map, they take precedence
+over these options.
+.PP
+.ce 1
+\f(HBNote\fP
+.sp 6p
+.RS 5
+Sending the SIGTERM signal to the \*Lautomount\*O
+daemon causes it to unmount all file systems that it has
+mounted, and to exit.
+.sp
+Sending the SIGHUP signal to the \*Lautomount\*O
+daemon causes it to reread the system mount table to update its internal
+record of currently mounted file systems.  If a file system mounted
+with \*Lautomount\*O is unmounted by a \*Lumount\*O command,
+\*Lautomount\*O should be forced to reread the system mount table.
+.sp 6p
+.RE
+.SH RESTRICTIONS
+.PP
+Shell filename expansion does not apply to objects not currently
+mounted.
+.PP
+Because \*Lautomount\*O is single-threaded, any request
+that is delayed by a slow or
+non-responding NFS server will delay all subsequent \*Lautomount\*O
+requests
+until the delayed request has been completed.
+.SH EXAMPLES
+.PP
+The following is a sample \*Lauto.master\*O map:
+.oS
+#
+# mount-point           mapname           mount-options
+#
+/net                    -hosts
+/home                   auto.indirect     -rw
+/-                      auto.direct       -ro,intr
+.oE
+The following is a typical \*Lautomount\*O indirect map:
+.oS
+#
+# key               mount-options         location
+#
+john                                      merge:/usr/staff/john
+mary                                      stripe:/usr/staff/mary
+fred                                      blur:/usr/staff/fred
+.oE
+The following is a typical \*Lautomount\*O direct map:
+.oS
+#
+# key               mount-options         location
+#
+/usr/source         -ro                   merge:/usr/src/proto
+/usr/local                                blur:/usr/bin/tools
+.oE
+The following is a sample indirect map that specifies multiple
+mount locations for the file system \*Lreference\*O.
+The file system is mounted from the first server to respond to
+the \*Lmount\*O request.
+.oS
+reference           \-ro            earl:/usr/src/ref\e
+                                   fern:/usr/staff/ron/ref\e
+                                   irv:/usr/backup/reference
+.oE
+.SH FILES
+.PP
+.TP 15
+\*L/tmp_mnt\*O
+Directory where automounted file systems reside
+.SH RELATED INFORMATION
+.PP
+\*Lmount\*O(8), \*Lumount\*O(8)
+.br
+\*ENetwork Configuration\*O
+.br
+\*ENetwork Administration and Problem Solving\*O
+.EQ
+delim off
+.EN

@@ -1,0 +1,139 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207311554.AA01144@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2636) close XBUG #5327: xon: on HP (system V ???) using wrong remote shell
+Date: Fri, 31 Jul 92 11:54:08 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5327
+### area:         xon
+### severity:     low
+### comments:     
+
+*** /tmp/d01101	Fri Jul 31 11:52:09 1992
+--- util/scripts/xon.sh	Thu Jul 30 18:11:07 1992
+***************
+*** 1,5 ****
+  #!/bin/sh
+! # $XConsortium: xon.sh,v 1.6 92/01/24 16:48:29 rws Exp $
+  # start up xterm (or any other X command) on the specified host
+  # Usage: xon host [arguments] [command]
+  case $# in
+--- 1,5 ----
+  #!/bin/sh
+! # $XConsortium: xon.sh,v 1.7 92/07/30 18:10:47 rws Exp $
+  # start up xterm (or any other X command) on the specified host
+  # Usage: xon host [arguments] [command]
+  case $# in
+***************
+*** 13,19 ****
+  shift
+  label=$target
+  resource=xterm-$label
+! rcmd="rsh $target -n"
+  case $DISPLAY in
+  unix:*)
+  	DISPLAY=`echo $DISPLAY | sed 's/unix//'`
+--- 13,26 ----
+  shift
+  label=$target
+  resource=xterm-$label
+! if [ -x /usr/bin/remsh ]; then
+!     rsh=/usr/bin/remsh
+! elif [ -x /usr/bin/rcmd ]; then
+!     rsh=/usr/bin/rcmd
+! else
+!     rsh=rsh
+! fi
+! rcmd="$rsh $target -n"
+  case $DISPLAY in
+  unix:*)
+  	DISPLAY=`echo $DISPLAY | sed 's/unix//'`
+***************
+*** 51,57 ****
+  		shift
+  		username="-l $1"
+  		label="$target $1"
+! 		rcmd="rsh $target $username -n"
+  		shift
+  		case x$XAUTHORITY in
+  		x)
+--- 58,64 ----
+  		shift
+  		username="-l $1"
+  		label="$target $1"
+! 		rcmd="$rsh $target $username -n"
+  		shift
+  		case x$XAUTHORITY in
+  		x)
+*** /tmp/d01120	Fri Jul 31 11:52:18 1992
+--- util/scripts/xon.man	Fri Jul 31 11:51:47 1992
+***************
+*** 1,3 ****
+--- 1,4 ----
++ .\" $XConsortium: xon.man,v 1.3 92/07/31 11:51:38 rws Exp $
+  .TH XON 1 "Release 5" "X Version 11"
+  .SH NAME
+  xon \- start an X program on a remote machine
+***************
+*** 8,22 ****
+  .SH DESCRIPTION
+  .I Xon
+  runs the specified command (default xterm -ls) on the remote machine using
+! rsh.  Xon passes the DISPLAY, XAUTHORITY and XUSERFILESEARCHPATH environment
+! variables to the remote command.
+  .PP
+  When no command is specified, xon runs 'xterm -ls'.  It additionally
+  specifies the application name to be 'xterm-\fIremote-host\fP' and the
+  window title to be '-fIremote-host\fP'.
+  .PP
+! Xon can only work when the remote host will allow you to use rsh, by having
+! an entry in the .rhosts file permitting access.
+  .SH OPTIONS
+  .PP
+  Note that the options follow the remote host name (as they do with rlogin).
+--- 9,23 ----
+  .SH DESCRIPTION
+  .I Xon
+  runs the specified command (default xterm -ls) on the remote machine using
+! rsh, remsh, or rcmd.  Xon passes the DISPLAY, XAUTHORITY and
+! XUSERFILESEARCHPATH environment variables to the remote command.
+  .PP
+  When no command is specified, xon runs 'xterm -ls'.  It additionally
+  specifies the application name to be 'xterm-\fIremote-host\fP' and the
+  window title to be '-fIremote-host\fP'.
+  .PP
+! Xon can only work when the remote host will allow you to log in without a
+! password, by having an entry in the .rhosts file permitting access.
+  .SH OPTIONS
+  .PP
+  Note that the options follow the remote host name (as they do with rlogin).
+***************
+*** 41,50 ****
+  This changes the screen number of the DISPLAY variable passed to the remote
+  command.
+  .IP "\fB-user user-name\fP"
+! By default, xon simply uses rsh to connect to the remote machine using the
+  same user name as on the local machine.  This option cause xon to specify an
+  alternative user name.  This will not work unless you have authorization to
+! access the remote account via rsh by placing an appropriate entry in the
+  remote users .rhosts file.
+  .SH BUGS
+  Xon can get easily confused when the remote-host, user-name or various
+--- 42,52 ----
+  This changes the screen number of the DISPLAY variable passed to the remote
+  command.
+  .IP "\fB-user user-name\fP"
+! By default, xon simply uses rsh/remsh/rcmd to connect to the remote machine
+! using the
+  same user name as on the local machine.  This option cause xon to specify an
+  alternative user name.  This will not work unless you have authorization to
+! access the remote account, by placing an appropriate entry in the
+  remote users .rhosts file.
+  .SH BUGS
+  Xon can get easily confused when the remote-host, user-name or various

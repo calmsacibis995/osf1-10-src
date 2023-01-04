@@ -1,0 +1,1554 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111181504.AA02968@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2227) close XBUG #4650: Xlib: (Xsi) Bugs of LocalIM
+Date: Mon, 18 Nov 91 10:04:44 EST
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   4650
+### area:         Xlib
+### severity:     low
+### comments:     
+
+*** /tmp/,RCSt1001143	Sun Nov 17 15:59:51 1991
+--- lib/X/Xsi/ProtoFlt.c	Sun Nov 17 15:58:56 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.22 91/09/12 13:34:27 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: ProtoFlt.c,v 1.23 91/11/17 15:57:41 rws Exp $
+   */
+  
+  /*
+***************
+*** 417,423 ****
+  		if (reply1.type == XIM_KEYSYM || reply1.type == XIM_STRING) {
+  		    if (_XipPutICQueue(ic, (short)reply1.type,
+  				       (int)reply1.length,
+! 				       (KeySym)reply1.keysym, 0) < 0) {
+  			return(-1);
+  		    }
+  		    count++;
+--- 417,423 ----
+  		if (reply1.type == XIM_KEYSYM || reply1.type == XIM_STRING) {
+  		    if (_XipPutICQueue(ic, (short)reply1.type,
+  				       (int)reply1.length,
+! 				       (KeySym)reply1.keysym, 0, NULL) < 0) {
+  			return(-1);
+  		    }
+  		    count++;
+*** /tmp/,RCSt1001143	Sun Nov 17 15:59:58 1991
+--- lib/X/Xsi/XIMQueue.c	Sun Nov 17 15:59:03 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.8 91/06/29 13:38:44 xguest Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMQueue.c,v 1.9 91/11/17 15:58:54 rws Exp $
+   */
+  
+  /*
+***************
+*** 59,64 ****
+--- 59,72 ----
+      return((KeySym)ic->out->keysym);
+  }
+  
++ char *
++ _XipStringOfNextICQueue(ic)
++     XipIC ic;
++ {
++     if (ic->out == NULL || ic->out->length == 0) return(0);
++     return((char *)ic->out->ptr);
++ }
++ 
+  void
+  _XipFreeNextICQueue(ic)
+      XipIC ic;
+***************
+*** 76,87 ****
+   * Stack 
+   */
+  int
+! _XipPutICQueue(ic, type, length, keysym, state)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
+      unsigned int state;
+  {
+      XipIM im = ipIMofIC(ic);
+  
+--- 84,96 ----
+   * Stack 
+   */
+  int
+! _XipPutICQueue(ic, type, length, keysym, state, str)
+      XipIC ic;
+      short type;
+      int length;
+      KeySym keysym;
+      unsigned int state;
++     unsigned char *str;
+  {
+      XipIM im = ipIMofIC(ic);
+  
+***************
+*** 113,118 ****
+--- 122,130 ----
+  
+      ic->in->type = type;
+      if (type == XIM_KEYSYM) {
++ 	if (str) {
++ 	    length = strlen((char *)str);
++ 	}
+  	ic->in->length = length;
+  	ic->in->keysym = keysym;
+  	ic->in->state = state;
+***************
+*** 122,129 ****
+  					       (unsigned)length);
+  		ic->in->buf_max = length;
+  	    }
+! 	    if (_XipReadFromIM(im, ic->in->ptr, ic->in->length) < 0)
+! 	        return(-1);
+  	}
+      } else if (type == XIM_STRING) {
+  	ic->in->length = length;
+--- 134,145 ----
+  					       (unsigned)length);
+  		ic->in->buf_max = length;
+  	    }
+! 	    if (!str) {
+! 		if (_XipReadFromIM(im, ic->in->ptr, ic->in->length) < 0)
+! 		    return(-1);
+! 	    } else {
+! 		(void) strcpy(ic->in->ptr, (char *)str);
+! 	    }
+  	}
+      } else if (type == XIM_STRING) {
+  	ic->in->length = length;
+*** /tmp/,RCSt1001143	Sun Nov 17 16:00:04 1991
+--- lib/X/Xsi/XIMlibint.h	Sun Nov 17 15:59:07 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XIMlibint.h,v 1.10 91/05/07 19:29:27 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XIMlibint.h,v 1.11 91/11/17 15:59:01 rws Exp $
+   */
+  
+  /*
+***************
+*** 56,61 ****
+--- 56,62 ----
+  extern short	_XipTypeOfNextICQueue();
+  extern KeySym	_XipKeySymOfNextICQueue();
+  extern unsigned int	_XipStateOfNextICQueue();
++ extern char *	_XipStringOfNextICQueue();
+  extern void	_XipFreeNextICQueue();
+  extern int	_XipPutICQueue();
+  extern void	_XipGetNextICQueue();
+*** /tmp/,RCSt1001143	Sun Nov 17 16:00:10 1991
+--- lib/X/Xsi/XLocalIM.c	Sun Nov 17 15:59:14 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.5 91/07/23 12:04:48 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: XLocalIM.c,v 1.6 91/11/17 15:59:05 rws Exp $
+   */
+  
+  /*
+***************
+*** 36,41 ****
+--- 36,42 ----
+  #include "Xi18nint.h"
+  #include "XIMlibint.h"
+  #include <X11/Xos.h>
++ #include <X11/keysymdef.h>
+  #if NeedVarargsPrototypes
+  # include <stdarg.h>
+  # define Va_start(a,b) va_start(a,b)
+***************
+*** 185,198 ****
+  } StateTbl;
+  
+  static StateTbl state_tbl[] = {
+-     { "Shift",	ShiftMask },
+      { "Lock",	LockMask },
+      { "Control",	ControlMask },
+      { "Mod1",	Mod1Mask },
+!     { "Mod1",	Mod2Mask },
+!     { "Mod1",	Mod3Mask },
+!     { "Mod1",	Mod4Mask },
+!     { "Mod1",	Mod5Mask },
+      { NULL,	0 }
+  };
+  
+--- 186,198 ----
+  } StateTbl;
+  
+  static StateTbl state_tbl[] = {
+      { "Lock",	LockMask },
+      { "Control",	ControlMask },
+      { "Mod1",	Mod1Mask },
+!     { "Mod2",	Mod2Mask },
+!     { "Mod3",	Mod3Mask },
+!     { "Mod4",	Mod4Mask },
+!     { "Mod5",	Mod5Mask },
+      { NULL,	0 }
+  };
+  
+***************
+*** 225,231 ****
+--- 225,343 ----
+      return(0);
+  }
+  
++ static int
++ parse_bslash(buf, work)
++ register char *buf;
++ register unsigned char *work;
++ {
++     register int i;
++     switch(*buf) {
++ 	case 'x': /* 16 */
++ 	    for (buf++, *work = '\0', i = 1; i >= 0; i--, buf++) {
++ 		if (*buf >= '0' && *buf <= '9') {
++ 		    *work |= ((1 << (i * 4)) * (*buf - '0'));
++ 		} else if (*buf >= 'A' && *buf <= 'F') {
++ 		    *work |= ((1 << (i * 4)) * (*buf - 'A' + 10));
++ 		} else if (*buf >= 'a' && *buf <= 'f') {
++ 		    *work |= ((1 << (i * 4)) * (*buf - 'a' + 10));
++ 		} else {
++ 		    return(0);
++ 		}
++ 	    }
++ 	    return(3);
++ 	case 'o': /* 8 */
++ 	    for (buf++, *work = '\0', i = 2; i >= 0; i--, buf++) {
++ 		if (*buf >= '0' && *buf <= '7') {
++ 		    *work |= ((1 << (i * 3)) * (*buf - '0'));
++ 		} else {
++ 		    return(0);
++ 		}
++ 	    }
++ 	    return(4);
++ 	case 'n': /*  */
++ 	    *work = '\n'; return(1);
++ 	case 't': /* */
++ 	    *work = '\t'; return(1);
++ 	case 'b': /* */
++ 	    *work = '\b'; return(1);
++ 	case 'r': /* */
++ 	    *work = '\r'; return(1);
++ 	case 'f': /* */
++ 	    *work = '\f'; return(1);
++ 	case 'e': /* */
++ 	case 'E': /* */
++ 	    *work = '\033'; return(1);
++ 	case '\\': /* */
++ 	    *work = '\\'; return(1);
++ 	default:
++ 	    for (*work = '\0', i = 2; i >= 0; i--, buf++) {
++ 		if (*buf >= '0' && *buf <= '7') {
++ 		    *work |= ((1 << (i * 3)) * (*buf - '0'));
++ 		} else {
++ 		    return(*buf);
++ 		}
++ 	    }
++ 	    return(3);
++     }
++ }
++ 
+  static XipLocalKeySymTbl *
++ get_string(buf, tbl)
++ register char *buf;
++ XipLocalKeySymTbl *tbl;
++ {
++     XipLocalKeySymTbl work_tbl[8], *p, *t;
++     unsigned char work[32], *str;
++     register int i = 0, j = 0, total = 0, ret;
++ 
++     for (p = work_tbl, total = 0; *buf; p++, total++, buf++) {
++ 	if ((buf = index(buf, '{')) == NULL) {
++ 	    break;
++ 	}
++ 	buf++;
++ 	for ( i = 0; *buf != '}';) {
++ 	    if (*buf == (char)0x5c) {
++ 		buf++;
++ 		if (!(ret = parse_bslash(buf, &work[i]))) {
++ 		    return(NULL);
++ 		}
++ 		buf += ret;
++ 		i++;
++ 	    } else {
++ 		work[i++] = *buf;
++ 		buf++;
++ 	    }
++ 	    if (!*buf) return(NULL);
++ 	}
++ 	if (i == 0) return(NULL);
++ 	work[i] = '\0';
++ 	str = (unsigned char *) Xmalloc(i + 1);
++ 	strcpy((char *)str, (char *)work);
++ 	p->str = str;
++ 	p->keysym = NoSymbol;
++ 	p->state = 0;
++ 	total++;
++     }
++     if (total < 1) return(NULL);
++     p->str = NULL;
++     p->keysym = XK_VoidSymbol;
++     p->state = 0;
++     if (tbl) {
++ 	for (i = 0, t = tbl, p = work_tbl;
++ 	     t->keysym != XK_VoidSymbol && i < total; i++, t++, p++) {
++ 	    t->str = p->str;
++ 	}
++     } else {
++ 	tbl = (XipLocalKeySymTbl *) Xmalloc((sizeof(XipLocalKeySymTbl)
++ 					    * (total + 1)));
++ 	if (!tbl) return (NULL);
++ 	bcopy((char *)work_tbl, (char *)tbl,
++ 	      sizeof(XipLocalKeySymTbl) * (total + 1));
++     }
++     return(tbl);
++ }
++ 
++ static XipLocalKeySymTbl *
+  get_keysym(buf, len)
+  char *buf;
+  int *len;
+***************
+*** 258,266 ****
+  		    "Can't convert to KeySym \"%s\".", k[i]);
+  	    return (NULL);
+  	}
+  	total++;
+      }
+!     p->keysym = 0;
+      total++;
+      keysym_tbl = (XipLocalKeySymTbl *) Xmalloc((sizeof(XipLocalKeySymTbl)
+  						* total));
+--- 370,380 ----
+  		    "Can't convert to KeySym \"%s\".", k[i]);
+  	    return (NULL);
+  	}
++ 	p->str = NULL;
+  	total++;
+      }
+!     p->keysym = XK_VoidSymbol;
+!     p->str = NULL;
+      total++;
+      keysym_tbl = (XipLocalKeySymTbl *) Xmalloc((sizeof(XipLocalKeySymTbl)
+  						* total));
+***************
+*** 268,274 ****
+  	return (NULL);
+      bcopy((char *)work_tbl, (char *)keysym_tbl,
+  	  sizeof(XipLocalKeySymTbl) * total);
+!     *len = (total - 1);;
+      return (keysym_tbl);
+  }
+  
+--- 382,388 ----
+  	return (NULL);
+      bcopy((char *)work_tbl, (char *)keysym_tbl,
+  	  sizeof(XipLocalKeySymTbl) * total);
+!     *len = (total - 1);
+      return (keysym_tbl);
+  }
+  
+***************
+*** 286,296 ****
+  is_command(c)
+  char c;
+  {
+!     if (c != '<')
+  	return (1);
+      return (0);
+  }
+  
+  static FuncTbl *
+  get_command(name)
+  char *name;
+--- 400,419 ----
+  is_command(c)
+  char c;
+  {
+!     if (c != '<' && c != '{')
+  	return (1);
+      return (0);
+  }
+  
++ static int
++ is_keysym(c)
++ char c;
++ {
++     if (c == '<')
++ 	return (1);
++     return (0);
++ }
++ 
+  static FuncTbl *
+  get_command(name)
+  char *name;
+***************
+*** 327,349 ****
+  }
+  
+  static Bool
+! convert_on_init(xcvt, tbl)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+  {
+!     xcvt->off_tbl.fromkey = (XipLocalKeySymTbl *)
+! 			    Xmalloc(sizeof(XipLocalKeySymTbl));
+!     xcvt->off_tbl.fromkey->keysym = tbl->fromkey->keysym;
+!     xcvt->off_tbl.fromkey->state = tbl->fromkey->state;
+      xcvt->off_tbl.to.func = tbl->to.func;
+      xcvt->off_tbl.com = True;
+      return(True);
+  }
+  
+  static Bool
+! no_filter(xcvt, tbl)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
+  {
+      XipLocalNestedKeySym *nested_keysym;
+  
+--- 450,481 ----
+  }
+  
+  static Bool
+! convert_on_init(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
++ int len;
+  {
+!     register XipLocalKeySymTbl *to, *from, *p;
+! 
+!     p = (XipLocalKeySymTbl *) Xmalloc(sizeof(XipLocalKeySymTbl) * (len + 1));
+!     if (!to) return(False);
+!     for (to = p, from = tbl->fromkey; len > 0; to++, from++, len--) {
+! 	to->keysym = from->keysym;
+! 	to->state = from->state;
+!     }
+!     to->keysym = XK_VoidSymbol;
+!     to->state = 0;
+      xcvt->off_tbl.to.func = tbl->to.func;
+      xcvt->off_tbl.com = True;
++     xcvt->off_tbl.fromkey = p;
+      return(True);
+  }
+  
+  static Bool
+! no_filter(xcvt, tbl, len)
+  XipLocalCvt *xcvt;
+  XipLocalCvtTbl *tbl;
++ int len;
+  {
+      XipLocalNestedKeySym *nested_keysym;
+  
+***************
+*** 369,379 ****
+  }
+  
+  static FILE *
+! open_convert_file(lang)
+  char *lang;
+  {
+      FILE	*fp;
+-     char	filename[PATH_MAX];
+      char	nlspath[PATH_MAX];
+      char	*path;
+      char	*dir;
+--- 501,511 ----
+  }
+  
+  static FILE *
+! open_convert_file(lang, filename)
+  char *lang;
++ char *filename;
+  {
+      FILE	*fp;
+      char	nlspath[PATH_MAX];
+      char	*path;
+      char	*dir;
+***************
+*** 386,394 ****
+      strcpy(path, env);
+      while (1) {
+  	if (path == NULL) {
+! 	    fprintf(stderr, "%s \"%s\".\n%s%s%s.",
+! 		    "Couldn't find any convert table for lang", lang,
+! 		    "Please, create xnls_fir/", LOCAL_CVT_TBL_DIR, lang);
+  	    return(NULL);
+  	}
+  	dir = path;
+--- 518,526 ----
+      strcpy(path, env);
+      while (1) {
+  	if (path == NULL) {
+! 	    fprintf(stderr, "%s \"%s\".\n%s%s%s.\n",
+! 		    "XIM: Couldn't find any convert table for lang", lang,
+! 		    "Please, create xnls_dir", LOCAL_CVT_TBL_DIR, lang);
+  	    return(NULL);
+  	}
+  	dir = path;
+***************
+*** 401,406 ****
+--- 533,539 ----
+  	if (fp = fopen(filename, "r")) {
+  	    return(fp);
+  	}
++ 	path = dir;
+      }
+  }
+  
+***************
+*** 408,416 ****
+  _XipLocalCvtSetUp(xlc)
+  XLocale	xlc;
+  {
+      char	tmp_buf[32], *p;
+      FILE	*fp;
+!     char buf[256], tobuf[256], frombuf[256];
+      int	 cnt = 0;
+      int len;
+      int k;
+--- 541,550 ----
+  _XipLocalCvtSetUp(xlc)
+  XLocale	xlc;
+  {
++     char	filename[PATH_MAX];
+      char	tmp_buf[32], *p;
+      FILE	*fp;
+!     char buf[256], tobuf[256], frombuf[256], tostr[256];
+      int	 cnt = 0;
+      int len;
+      int k;
+***************
+*** 417,422 ****
+--- 551,557 ----
+      XipLocalCvt *cvt;
+      KeySym bs;
+      FuncTbl *func_tbl;
++     int line = 0;
+  
+      strcpy(tmp_buf, xlc->xlc_db->lc_name);
+      for (p = tmp_buf; *p && *p != '@'; p++);
+***************
+*** 423,431 ****
+      if (*p)  *p = '\0';
+  
+      if(CHANGE_MAX < div_up(ENTRY_CNT, BITSIZ)){
+! 	fprintf(stderr, "%s%s%d%s",
+  		"Sorry, please set CHANGE_MAX(in file ",
+! 		"conv/cvt_head.h) larger than ",
+  		div_up(ENTRY_CNT, BITSIZ) - 1,
+  		",\r\nand recompile.\r\n");
+  	return(NULL);
+--- 558,566 ----
+      if (*p)  *p = '\0';
+  
+      if(CHANGE_MAX < div_up(ENTRY_CNT, BITSIZ)){
+! 	fprintf(stderr, "XIM: %s%s%d%s",
+  		"Sorry, please set CHANGE_MAX(in file ",
+! 		"Xi18nint.h) larger than ",
+  		div_up(ENTRY_CNT, BITSIZ) - 1,
+  		",\r\nand recompile.\r\n");
+  	return(NULL);
+***************
+*** 432,452 ****
+      }
+  
+      
+!     if(!(fp = open_convert_file(tmp_buf))) return(NULL);
+!     if (!(cvt = (XipLocalCvt *) Xmalloc(sizeof(XipLocalCvt))))
+  	goto _err_ret2;
+!     if (!(cvt->tbl = (XipLocalCvtTbl *) Xmalloc(sizeof(XipLocalCvtTbl) * ENTRY_CNT)))
+  	goto _err_ret1;
+  
+      cnt = 0;
+      cvt->nmax = 0;
+      cvt->no_filter = NULL;
+      while(fgets(buf, BUFSIZ, fp)) {
+  	if(is_comment(*buf) || 
+! 	   (k = sscanf(buf, "%s %s", frombuf, tobuf)) <= 0)
+  	    continue;
+! 	if (k != 2) {
+! 	    continue;
+  	}
+  	if(!(cvt->tbl[cnt].fromkey = get_keysym(frombuf, &len))){
+  	    goto _err_ret;
+--- 567,592 ----
+      }
+  
+      
+!     if(!(fp = open_convert_file(tmp_buf, filename))) return(NULL);
+!     if (!(cvt = (XipLocalCvt *) Xmalloc(sizeof(XipLocalCvt)))) {
+! 	fprintf(stderr, "XIM: Malloc failed\n");
+  	goto _err_ret2;
+!     }
+!     if (!(cvt->tbl = (XipLocalCvtTbl *) Xmalloc(sizeof(XipLocalCvtTbl) * ENTRY_CNT))) {
+! 	fprintf(stderr, "XIM: Malloc failed\n");
+  	goto _err_ret1;
++     }
+  
+      cnt = 0;
+      cvt->nmax = 0;
+      cvt->no_filter = NULL;
+      while(fgets(buf, BUFSIZ, fp)) {
++ 	line++;
+  	if(is_comment(*buf) || 
+! 	   (k = sscanf(buf, "%s %s %s", frombuf, tobuf, tostr)) <= 0)
+  	    continue;
+! 	if (k < 2) {
+! 	    goto _err_ret;
+  	}
+  	if(!(cvt->tbl[cnt].fromkey = get_keysym(frombuf, &len))){
+  	    goto _err_ret;
+***************
+*** 459,470 ****
+  	    cvt->tbl[cnt].to.func = func_tbl->func;
+  	    cvt->tbl[cnt].com = True;
+  	    if (func_tbl->init_func) {
+! 		if ((*func_tbl->init_func)(cvt, &cvt->tbl[cnt]) == True)
+! 		    continue;
+  	    }
+  	} else {
+! 	    if(!(cvt->tbl[cnt].to.tokey = get_keysym(tobuf, &len))){
+! 		goto _err_ret;
+  	    }
+  	    cvt->tbl[cnt].com = False;
+  	}
+--- 599,621 ----
+  	    cvt->tbl[cnt].to.func = func_tbl->func;
+  	    cvt->tbl[cnt].com = True;
+  	    if (func_tbl->init_func) {
+! 		if ((*func_tbl->init_func)(cvt, &cvt->tbl[cnt], len) == False)
+! 		    goto _err_ret;
+  	    }
+  	} else {
+! 	    if (is_keysym(*tobuf)) {
+! 		if(!(cvt->tbl[cnt].to.tokey = get_keysym(tobuf, &len))){
+! 		    goto _err_ret;
+! 		}
+! 		if (k > 2) {
+! 		    if(!(get_string(tostr, cvt->tbl[cnt].to.tokey))){
+! 			goto _err_ret;
+! 		    }
+! 		}
+! 	    } else {
+! 		if(!(cvt->tbl[cnt].to.tokey = get_string(tobuf, NULL))){
+! 		    goto _err_ret;
+! 		}
+  	    }
+  	    cvt->tbl[cnt].com = False;
+  	}
+***************
+*** 480,485 ****
+--- 631,638 ----
+      fclose(fp);
+      return(cvt);
+  _err_ret:
++     fprintf(stderr, "XIM: Error occurred at line %d in file \"%s\".\n",
++ 	    line, filename);
+      Xfree(cvt->tbl);
+  _err_ret1:
+      Xfree(cvt);
+***************
+*** 514,527 ****
+  _XipLocalFreeCvt(cvt)
+  XipLocalCvt *cvt;
+  {
+!     register int i;
+      XipLocalCvtTbl *tbl;
+  
+      tbl = cvt->tbl;
+      for (i = 0; i < cvt->cnt; i++, tbl++) {
+  	Xfree((*tbl).fromkey);
+! 	if ((*tbl).com != True)
+! 	  Xfree((*tbl).to.tokey);
+      }
+      Xfree(cvt->tbl);
+      Xfree(cvt);
+--- 667,683 ----
+  _XipLocalFreeCvt(cvt)
+  XipLocalCvt *cvt;
+  {
+!     register int i, j;
+      XipLocalCvtTbl *tbl;
+  
+      tbl = cvt->tbl;
+      for (i = 0; i < cvt->cnt; i++, tbl++) {
+  	Xfree((*tbl).fromkey);
+! 	if ((*tbl).com != True) {
+! 	    for (j = 0; (*tbl).to.tokey[j].str; j++)
+! 		Xfree((*tbl).to.tokey[j].str);
+! 	    Xfree((*tbl).to.tokey);
+! 	}
+      }
+      Xfree(cvt->tbl);
+      Xfree(cvt);
+***************
+*** 624,641 ****
+      XipLocalKeySymTbl	*code_p;
+      int		i;
+  
+!     for(base = 0; cvt->buf[base].keysym != 0; base++) {
+  	for(dist = 0; dist < cvt->cnt; dist++) {
+  	    if(BITONP(cvt->check_flg, dist) &&
+! 	       cvt->tbl[dist].fromkey->keysym != 0){
+  		code_p = cvt->tbl[dist].fromkey + base;
+  		if((code_p->keysym == cvt->buf[base].keysym) &&
+! 		   ((code_p->state == 0) ||
+! 		    (code_p->state == cvt->buf[base].state))) {
+! 		    if((code_p + 1)->keysym == (KeySym)0){
+  			/* matched */
+  			for(i = 0, base++;
+! 			    (cvt->buf[i].keysym = cvt->buf[base].keysym) != 0;
+  			    i++, base++);
+  			return(dist);
+  		    }
+--- 780,797 ----
+      XipLocalKeySymTbl	*code_p;
+      int		i;
+  
+!     for(base = 0; cvt->buf[base].keysym != XK_VoidSymbol; base++) {
+  	for(dist = 0; dist < cvt->cnt; dist++) {
+  	    if(BITONP(cvt->check_flg, dist) &&
+! 	       cvt->tbl[dist].fromkey->keysym != XK_VoidSymbol){
+  		code_p = cvt->tbl[dist].fromkey + base;
+  		if((code_p->keysym == cvt->buf[base].keysym) &&
+! 		   ((!(code_p->state | (cvt->buf[base].state & ~ShiftMask))) ||
+! 		    (code_p->state == (cvt->buf[base].state & ~ShiftMask)))) {
+! 		    if((code_p + 1)->keysym == (KeySym)XK_VoidSymbol){
+  			/* matched */
+  			for(i = 0, base++;
+! 			    (cvt->buf[i].keysym = cvt->buf[base].keysym) != XK_VoidSymbol;
+  			    i++, base++);
+  			return(dist);
+  		    }
+***************
+*** 665,677 ****
+      XipLocalKeySymTbl	*code_p = cvt->off_tbl.fromkey;
+      int		i;
+  
+!     for(base = 0; cvt->buf[base].keysym != 0; base++) {
+  	if((code_p->keysym == cvt->buf[base].keysym) &&
+! 	   (code_p->state == cvt->buf[base].state)) {
+! 	    if((code_p + 1)->keysym == (KeySym)0){
+  		/* matched */
+  		for(i = 0, base++;
+! 		    (cvt->buf[i].keysym = cvt->buf[base].keysym) != 0;
+  		    i++, base++);
+  		return(0);
+  	    }
+--- 821,834 ----
+      XipLocalKeySymTbl	*code_p = cvt->off_tbl.fromkey;
+      int		i;
+  
+!     for(base = 0; cvt->buf[base].keysym != XK_VoidSymbol; base++) {
+  	if((code_p->keysym == cvt->buf[base].keysym) &&
+! 	   ((!(code_p->state | (cvt->buf[base].state & ~ShiftMask))) ||
+! 	   (code_p->state == (cvt->buf[base].state & ~ShiftMask)))) {
+! 	    if((code_p + 1)->keysym == (KeySym)XK_VoidSymbol){
+  		/* matched */
+  		for(i = 0, base++;
+! 		    (cvt->buf[i].keysym = cvt->buf[base].keysym) != XK_VoidSymbol;
+  		    i++, base++);
+  		return(0);
+  	    }
+***************
+*** 712,718 ****
+      if (ev->xkey.keycode == (display->max_keycode + 1)) {
+  	if (_XipTypeOfNextICQueue((XipIC)ic) == XIM_KEYSYM){
+  	    if ((keycode = XKeysymToKeycode(display,
+! 			    _XipKeySymOfNextICQueue((XipIC)ic))) != 0){
+  		ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  		ev->xkey.keycode = keycode;
+  		_XipFreeNextICQueue((XipIC)ic);
+--- 869,876 ----
+      if (ev->xkey.keycode == (display->max_keycode + 1)) {
+  	if (_XipTypeOfNextICQueue((XipIC)ic) == XIM_KEYSYM){
+  	    if ((keycode = XKeysymToKeycode(display,
+! 			    _XipKeySymOfNextICQueue((XipIC)ic))) != 0
+! 		&& _XipStringOfNextICQueue((XipIC)ic) == NULL){
+  		ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  		ev->xkey.keycode = keycode;
+  		_XipFreeNextICQueue((XipIC)ic);
+***************
+*** 746,752 ****
+      }
+      xcvt->buf[xcvt->buf_cnt].keysym = keysym;
+      xcvt->buf[xcvt->buf_cnt].state = ev->xkey.state;
+!     xcvt->buf[++xcvt->buf_cnt].keysym = 0;
+      bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+      dummy_ev.type = KeyPress;
+      dummy_ev.xkey.state = 0;
+--- 904,910 ----
+      }
+      xcvt->buf[xcvt->buf_cnt].keysym = keysym;
+      xcvt->buf[xcvt->buf_cnt].state = ev->xkey.state;
+!     xcvt->buf[++xcvt->buf_cnt].keysym = XK_VoidSymbol;
+      bcopy((char *)ev, (char *)&dummy_ev, sizeof(XEvent));
+      dummy_ev.type = KeyPress;
+      dummy_ev.xkey.state = 0;
+***************
+*** 768,780 ****
+      case -2: /* No match */
+  	for (i = 0; i < xcvt->buf_cnt; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0, xcvt->buf[i].keysym,
+! 				xcvt->buf[i].state) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+  	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+! 				_XipKeySymOfNextICQueue((XipIC)ic))) != 0) {
+  	    ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  	    ev->xkey.keycode = keycode;
+  	    _XipFreeNextICQueue((XipIC)ic);
+--- 926,939 ----
+      case -2: /* No match */
+  	for (i = 0; i < xcvt->buf_cnt; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0, xcvt->buf[i].keysym,
+! 				xcvt->buf[i].state, NULL) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+  	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+! 				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+! 	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {
+  	    ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  	    ev->xkey.keycode = keycode;
+  	    _XipFreeNextICQueue((XipIC)ic);
+***************
+*** 793,813 ****
+  		return(True);
+  	    }
+  	}
+! 	for (i = 0; xcvt->tbl[c].to.tokey[i].keysym; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0,
+  				xcvt->tbl[c].to.tokey[i].keysym,
+! 				xcvt->tbl[c].to.tokey[i].state) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+  	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+! 				_XipKeySymOfNextICQueue((XipIC)ic))) != 0) {
+  	    ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  	    ev->xkey.keycode = keycode;
+  	    _XipFreeNextICQueue((XipIC)ic);
+  	}
+! 	for (i = 1; xcvt->tbl[c].to.tokey[i].keysym; i++) {
+  	    XPutBackEvent(display, &dummy_ev);
+  	}
+  	xcvt->buf_cnt = 0;
+--- 952,974 ----
+  		return(True);
+  	    }
+  	}
+! 	for (i = 0; xcvt->tbl[c].to.tokey[i].keysym != XK_VoidSymbol; i++) {
+  	     if (_XipPutICQueue(ic, XIM_KEYSYM, 0,
+  				xcvt->tbl[c].to.tokey[i].keysym,
+! 				xcvt->tbl[c].to.tokey[i].state,
+! 				xcvt->tbl[c].to.tokey[i].str) < 0)
+  	       return(False);
+  	}
+  	ev->xkey.state = 0;
+  	ev->xkey.keycode = display->max_keycode + 1;
+  	if ((keycode = XKeysymToKeycode(display,
+! 				_XipKeySymOfNextICQueue((XipIC)ic))) != 0
+! 	    && _XipStringOfNextICQueue((XipIC)ic) == NULL) {
+  	    ev->xkey.state = _XipStateOfNextICQueue((XipIC)ic);
+  	    ev->xkey.keycode = keycode;
+  	    _XipFreeNextICQueue((XipIC)ic);
+  	}
+! 	for (i = 1; xcvt->tbl[c].to.tokey[i].keysym != XK_VoidSymbol; i++) {
+  	    XPutBackEvent(display, &dummy_ev);
+  	}
+  	xcvt->buf_cnt = 0;
+***************
+*** 967,972 ****
+--- 1128,1135 ----
+      register XrmName		Name;
+      register XIMrmResourceList	xrmres;
+      unsigned int		num_resources = im->num_resources;
++     XrmQuark			query_input =
++ 				     XrmPermStringToQuark(XNQueryInputStyle);
+  
+      for (arg = args; arg->name && *(arg->name); arg++) {
+  	Name = XrmStringToName(arg->name);
+***************
+*** 973,981 ****
+  	for (xrmres = im->resources, i = 0;
+  	     i < num_resources; i++, xrmres++) {
+  	    if (Name == xrmres->xrm_name) {
+! 		(void) _XCopyToArg((char *)im - xrmres->xrm_offset - 1,
+! 				   &arg->value,
+! 				   (unsigned int)xrmres->xrm_size);
+  		break;
+  	    }
+  	}
+--- 1136,1163 ----
+  	for (xrmres = im->resources, i = 0;
+  	     i < num_resources; i++, xrmres++) {
+  	    if (Name == xrmres->xrm_name) {
+! 		if (Name == query_input) {
+! 		    char *p;
+! 		    XIMStyles *styles;
+! 		    int size = sizeof(XIMStyle)
+! 			       * im->values.input_styles.count_styles;
+! 		    int all_size = sizeof(XIMStyles) + size;
+! 		    if ((p = Xmalloc((unsigned)all_size)) == NULL) {
+! 			continue;
+! 		    }
+! 		    styles = (XIMStyles *)p;
+! 		    styles->count_styles = im->values.input_styles.count_styles;
+! 		    styles->supported_styles =
+! 					(XIMStyle *)(p + sizeof(XIMStyles));
+! 		    bcopy((char *)im->values.input_styles.supported_styles,
+! 			  (char *)styles->supported_styles, size);
+! 		    bcopy((char *)&styles, (char *)arg->value,
+! 			  sizeof(XIMStyles *));
+! 		} else {
+! 		    (void) _XCopyToArg((char *)im - xrmres->xrm_offset - 1,
+! 				       &arg->value,
+! 				       (unsigned int)xrmres->xrm_size);
+! 		}
+  		break;
+  	    }
+  	}
+*** /tmp/,RCSt1001143	Sun Nov 17 16:00:19 1991
+--- lib/X/Xsi/Xi18nint.h	Sun Nov 17 15:59:20 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: Xi18nint.h,v 1.17 91/05/07 21:29:46 rws Exp $
+   */
+  
+  /*
+--- 1,5 ----
+  /*
+!  * $XConsortium: Xi18nint.h,v 1.18 91/11/17 15:59:13 rws Exp $
+   */
+  
+  /*
+***************
+*** 82,87 ****
+--- 82,88 ----
+  typedef struct {
+      KeySym	keysym;
+      unsigned int	state;
++     unsigned char	*str;
+  } XipLocalKeySymTbl;
+  
+  typedef struct _XipLocalNestedKeySym {
+*** /tmp/,RCSt1001174	Sun Nov 17 16:02:10 1991
+--- lib/nls/Xsi/local_im_tbl/lt_LN.bit7	Sun Nov 17 16:02:00 1991
+***************
+*** 1,3 ****
+--- 1,17 ----
++ #
++ #	Conversion file for Local Input Method
++ #
++ # The format of this file follows.
++ #
++ #	<from>[<from>...]	[<to>[<to>...]]	[{to_string}[{to_string}...]
++ #  or
++ #	<from>[<from>...]	Command
++ #
++ #  from : Input keysym
++ #  to_keysym : Output keysym
++ #  to_string : Output string
++ #  Command : Special commad (NoFilter/ConvertOn/ConvertOff)
++ 
+  <Shift_L>			NoFilter
+  <Shift_R>			NoFilter
+  <Control_L>			NoFilter
+***************
+*** 14,119 ****
+  <Hyper_R>			NoFilter
+  <Execute>			ConvertOn
+  <Execute>			ConvertOff
+! # <backslash>NBSP		<nobreakspace>
+! <backslash><exclam>:		<exclamdown>
+! # <backslash>cen		<cent>       	
+! # <backslash>pou		<sterling>
+! # <backslash>cur		<currency>
+! # <backslash>yen		<yen>
+! <backslash><bar>:		<brokenbar>
+! # <backslash>sec		<section>
+! <backslash><quotedbl>:		<diaeresis>
+! <backslash><C>:			<copyright>
+! ##<backslash><a>:			<ordfeminine>
+! <backslash><less>:		<guillemotleft>
+! # <backslash>not		<notsign>
+! # <backslash>shy		<hyphen>
+! <backslash><R>:			<registered>
+! # <backslash>mac		<macron>
+  
+! # <backslash>deg		<degree>
+! <backslash><plus><minus>:	<plusminus>
+! <backslash><2>:			<twosuperior>
+! <backslash><3>:			<threesuperior>
+! <backslash><apostrophe>:		<acute>
+! <backslash><u>:			<mu>
+! ##<backslash><P>:			<paragraph>
+! <backslash><period>:		<periodcentered>
+! ##<backslash><S>:			<cedilla>
+! <backslash><1>:			<onesuperior>
+! ##<backslash><o>:			<masculine>
+! <backslash><greater>:		<guillemotright>
+! ##<backslash><1><slash><4>:	<onequarter>
+! ##<backslash><1><slash><2>:	<onehalf>
+! ##<backslash><3><slash><4>:	<threequarters>
+! <backslash><question>:		<questiondown>
+  
+! <grave><A>:			<Agrave>
+! <apostrophe><A>:		<Aacute>
+! <asciicircum><A>:		<Acircumflex>
+! <asciitilde><A>:		<Atilde>
+! <quotedbl><A>:			<Adiaeresis>
+! <backslash><o><A>:		<Aring>
+! <backslash><A><E>:		<AE>
+! <backslash><S><C>:		<Ccedilla>
+! <grave><E>:			<Egrave>
+! <apostrophe><E>:		<Eacute>
+! <asciicircum><E>:		<Ecircumflex>
+! <quotedbl><E>:			<Ediaeresis>
+! <grave><I>:			<Igrave>
+! <apostrophe><I>:		<Iacute>
+! <asciicircum><I>:		<Icircumflex>
+! <quotedbl><I>:			<Idiaeresis>
+! <backslash><D>:			<Eth>                
+! <asciitilde><N>:		<Ntilde>             
+! <grave><O>:			<Ograve>             
+! <apostrophe><O>:		<Oacute>             
+! <asciicircum><O>:		<Ocircumflex>        
+! <asciitilde><O>:		<Otilde>             
+! <quotedbl><O>:			<Odiaeresis>         
+! <backslash><X>:			<multiply>           
+! <backslash><O><slash>:		<Ooblique>           
+! <grave><U>:			<Ugrave>             
+! <apostrophe><U>:		<Uacute>             
+! <asciicircum><U>:		<Ucircumflex>        
+! <quotedbl><U>:			<Udiaeresis>         
+! <apostrophe><Y>:		<Yacute>             
+! <backslash><P>:			<Thorn>              
+! <backslash><s><s>:		<ssharp>             
+  
+! <grave><a>:			<agrave>             
+! <apostrophe><a>:		<aacute>             
+! <asciicircum><a>:		<acircumflex>        
+! <asciitilde><a>:		<atilde>             
+! <quotedbl><a>:			<adiaeresis>         
+! <backslash><o><a>:		<aring>              
+! <backslash><a><e>:		<ae>                 
+! <backslash><s><c>:		<ccedilla>           
+! <grave><e>:			<egrave>             
+! <apostrophe><e>:		<eacute>             
+! <asciicircum><e>:		<ecircumflex>        
+! <quotedbl><e>:			<ediaeresis>         
+! <grave><i>:			<igrave>             
+! <apostrophe><i>:		<iacute>             
+! <asciicircum><i>:		<icircumflex>        
+! <quotedbl><i>:			<idiaeresis>         
+  
+! <backslash><d>:			<eth>                
+! <asciitilde><n>:		<ntilde>             
+! <grave><o>:			<ograve>             
+! <apostrophe><o>:		<oacute>             
+! <asciicircum><o>:		<ocircumflex>        
+! <asciitilde><o>:		<otilde>             
+! <quotedbl><o>:			<odiaeresis>         
+! <backslash><slash>:		<division>           
+! <backslash><o><slash>:		<oslash>             
+! <grave><u>:			<ugrave>             
+! <apostrophe><u>:		<uacute>             
+! <asciicircum><u>:		<ucircumflex>        
+! <quotedbl><u>:			<udiaeresis>         
+! <apostrophe><y>:		<yacute>             
+! <backslash><p>:			<thorn>             
+! <quotedbl><y>:			<ydiaeresis>         
+  
+  # BackSpace		
+  # Clear		
+--- 28,135 ----
+  <Hyper_R>			NoFilter
+  <Execute>			ConvertOn
+  <Execute>			ConvertOff
+! <backslash><backslash>		<backslash>	{\E-A\x5c}
+! <backslash><space>		<nobreakspace>	{\E-A\xa0}
+! <backslash><exclam>		<exclamdown>	{\E-A\xa1}
+! <backslash><Mod1><C>		<cent>       	{\E-A\xa2}
+! <backslash><Mod1><p>		<sterling>	{\E-A\xa3}
+! <backslash><Mod1><c>		<currency>	{\E-A\xa4}
+! <backslash><Mod1><y>		<yen>		{\E-A\xa5}
+! <backslash><Mod1><b>		<brokenbar>	{\E-A\xa6}
+! <backslash><Mod1><s>		<section>	{\E-A\xa7}
+! <backslash><quotedbl>		<diaeresis>	{\E-A\xa8}
+! <backslash><Mod1><r>		<copyright>	{\E-A\xa9}
+! <backslash><Mod1><a>		<ordfeminine>	{\E-A\xaa}
+! <backslash><less>		<guillemotleft>	{\E-A\xab}
+! <backslash><Mod1><n>		<notsign>	{\E-A\xac}
+! <backslash><Mod1><h>		<hyphen>	{\E-A\xad}
+! <backslash><Mod1><R>		<registered>	{\E-A\xae}
+! <backslash><Mod1><m>		<macron>	{\E-A\xaf}
+  
+! <backslash><Mod1><d>		<degree>	{\E-A\xb0}
+! <backslash><plus><minus>	<plusminus>	{\E-A\xb1}
+! <backslash><Mod1><2>		<twosuperior>	{\E-A\xb2}
+! <backslash><Mod1><3>		<threesuperior> {\E-A\xb3}
+! <backslash><apostrophe>		<acute>		{\E-A\xb4}
+! <backslash><Mod1><u>		<mu>		{\E-A\xb5}
+! <backslash><Mod1><P>		<paragraph>	{\E-A\xb6}
+! <backslash><period>		<periodcentered>	{\E-A\xb7}
+! <backslash><Mod1><S>		<cedilla>	{\E-A\xb8}
+! <backslash><Mod1><1>		<onesuperior>	{\E-A\xb9}
+! <backslash><Mod1><o>		<masculine>	{\E-A\xba}
+! <backslash><greater>		<guillemotright>	{\E-A\xbb}
+! <backslash><1><slash><4>	<onequarter>	{\E-A\xbc}
+! <backslash><1><slash><2>	<onehalf>	{\E-A\xbd}
+! <backslash><3><slash><4>	<threequarters>	{\E-A\xbe}
+! <backslash><question>		<questiondown>	{\E-A\xbf}
+  
+! <grave><A>			<Agrave>	{\E-A\xc0}
+! <apostrophe><A>			<Aacute>	{\E-A\xc1}
+! <asciicircum><A>		<Acircumflex>	{\E-A\xc2}
+! <asciitilde><A>			<Atilde>	{\E-A\xc3}
+! <quotedbl><A>			<Adiaeresis>	{\E-A\xc4}
+! <backslash><o><A>		<Aring>		{\E-A\xc5}
+! <backslash><A><E>		<AE>		{\E-A\xc6}
+! <backslash><S><C>		<Ccedilla>	{\E-A\xc7}
+! <grave><E>			<Egrave>	{\E-A\xc8}
+! <apostrophe><E>			<Eacute>	{\E-A\xc9}
+! <asciicircum><E>		<Ecircumflex>	{\E-A\xca}
+! <quotedbl><E>			<Ediaeresis>	{\E-A\xcb}
+! <grave><I>			<Igrave>	{\E-A\xcc}
+! <apostrophe><I>			<Iacute>	{\E-A\xcd}
+! <asciicircum><I>		<Icircumflex>	{\E-A\xce}
+! <quotedbl><I>			<Idiaeresis>	{\E-A\xcf}
+  
+! <backslash><D>			<Eth>		{\E-A\xd0}
+! <asciitilde><N>			<Ntilde>	{\E-A\xd1}
+! <grave><O>			<Ograve>	{\E-A\xd2}
+! <apostrophe><O>			<Oacute>	{\E-A\xd3}
+! <asciicircum><O>		<Ocircumflex>	{\E-A\xd4}
+! <asciitilde><O>			<Otilde>	{\E-A\xd5}
+! <quotedbl><O>			<Odiaeresis>	{\E-A\xd6}
+! <backslash><X>			<multiply>	{\E-A\xd7}
+! <backslash><O><slash>		<Ooblique>	{\E-A\xd8}
+! <grave><U>			<Ugrave>	{\E-A\xd9}
+! <apostrophe><U>			<Uacute>	{\E-A\xda}
+! <asciicircum><U>		<Ucircumflex>	{\E-A\xdb}
+! <quotedbl><U>			<Udiaeresis>	{\E-A\xdc}
+! <apostrophe><Y>			<Yacute>	{\E-A\xdd}
+! <backslash><P>			<Thorn>		{\E-A\xde}
+! <backslash><s><s>		<ssharp>	{\E-A\xdf}
+  
+! <grave><a>			<agrave>	{\E-A\xe0}
+! <apostrophe><a>			<aacute>	{\E-A\xe1}
+! <asciicircum><a>		<acircumflex>	{\E-A\xe2}
+! <asciitilde><a>			<atilde>	{\E-A\xe3}
+! <quotedbl><a>			<adiaeresis>	{\E-A\xe4}
+! <backslash><o><a>		<aring>		{\E-A\xe5}
+! <backslash><a><e>		<ae>		{\E-A\xe6}
+! <backslash><s><c>		<ccedilla>	{\E-A\xe7}
+! <grave><e>			<egrave>	{\E-A\xe8}
+! <apostrophe><e>			<eacute>	{\E-A\xe9}
+! <asciicircum><e>		<ecircumflex>	{\E-A\xea}
+! <quotedbl><e>			<ediaeresis>	{\E-A\xeb}
+! <grave><i>			<igrave>	{\E-A\xec}
+! <apostrophe><i>			<iacute>	{\E-A\xed}
+! <asciicircum><i>		<icircumflex>	{\E-A\xee}
+! <quotedbl><i>			<idiaeresis>	{\E-A\xef}
+! 
+! <backslash><d>			<eth>		{\E-A\xf0}
+! <asciitilde><n>			<ntilde>	{\E-A\xf1}
+! <grave><o>			<ograve>	{\E-A\xf2}
+! <apostrophe><o>			<oacute>	{\E-A\xf3}
+! <asciicircum><o>		<ocircumflex>	{\E-A\xf4}
+! <asciitilde><o>			<otilde>	{\E-A\xf5}
+! <quotedbl><o>			<odiaeresis>	{\E-A\xf6}
+! <backslash><slash>		<division>	{\E-A\xf7}
+! <backslash><o><slash>		<oslash>	{\E-A\xf8}
+! <grave><u>			<ugrave>	{\E-A\xf9}
+! <apostrophe><u>			<uacute>	{\E-A\xfa}
+! <asciicircum><u>		<ucircumflex>	{\E-A\xfb}
+! <quotedbl><u>			<udiaeresis>	{\E-A\xfc}
+! <apostrophe><y>			<yacute>	{\E-A\xfd}
+! <backslash><p>			<thorn>		{\E-A\xfe}
+! <quotedbl><y>			<ydiaeresis>	{\E-A\xff}
+  
+  # BackSpace		
+  # Clear		
+*** /tmp/,RCSt1001174	Sun Nov 17 16:02:13 1991
+--- lib/nls/Xsi/local_im_tbl/lt_LN.bit8	Sun Nov 17 16:02:04 1991
+***************
+*** 1,3 ****
+--- 1,17 ----
++ #
++ #	Conversion file for Local Input Method
++ #
++ # The format of this file follows.
++ #
++ #	<from>[<from>...]	[<to>[<to>...]]	[{to_string}[{to_string}...]
++ #  or
++ #	<from>[<from>...]	Command
++ #
++ #  from : Input keysym
++ #  to_keysym : Output keysym
++ #  to_string : Output string
++ #  Command : Special commad (NoFilter/ConvertOn/ConvertOff)
++ 
+  <Shift_L>			NoFilter
+  <Shift_R>			NoFilter
+  <Control_L>			NoFilter
+***************
+*** 14,119 ****
+  <Hyper_R>			NoFilter
+  <Execute>			ConvertOn
+  <Execute>			ConvertOff
+! # <backslash>NBSP		<nobreakspace>
+! <backslash><exclam>:		<exclamdown>
+! # <backslash>cen		<cent>       	
+! # <backslash>pou		<sterling>
+! # <backslash>cur		<currency>
+! # <backslash>yen		<yen>
+! <backslash><bar>:		<brokenbar>
+! # <backslash>sec		<section>
+! <backslash><quotedbl>:		<diaeresis>
+! <backslash><C>:			<copyright>
+! ##<backslash><a>:			<ordfeminine>
+! <backslash><less>:		<guillemotleft>
+! # <backslash>not		<notsign>
+! # <backslash>shy		<hyphen>
+! <backslash><R>:			<registered>
+! # <backslash>mac		<macron>
+  
+! # <backslash>deg		<degree>
+! <backslash><plus><minus>:	<plusminus>
+! <backslash><2>:			<twosuperior>
+! <backslash><3>:			<threesuperior>
+! <backslash><apostrophe>:		<acute>
+! <backslash><u>:			<mu>
+! ##<backslash><P>:			<paragraph>
+! <backslash><period>:		<periodcentered>
+! ##<backslash><S>:			<cedilla>
+! <backslash><1>:			<onesuperior>
+! ##<backslash><o>:			<masculine>
+! <backslash><greater>:		<guillemotright>
+! ##<backslash><1><slash><4>:	<onequarter>
+! ##<backslash><1><slash><2>:	<onehalf>
+! ##<backslash><3><slash><4>:	<threequarters>
+! <backslash><question>:		<questiondown>
+  
+! <grave><A>:			<Agrave>
+! <apostrophe><A>:		<Aacute>
+! <asciicircum><A>:		<Acircumflex>
+! <asciitilde><A>:		<Atilde>
+! <quotedbl><A>:			<Adiaeresis>
+! <backslash><o><A>:		<Aring>
+! <backslash><A><E>:		<AE>
+! <backslash><S><C>:		<Ccedilla>
+! <grave><E>:			<Egrave>
+! <apostrophe><E>:		<Eacute>
+! <asciicircum><E>:		<Ecircumflex>
+! <quotedbl><E>:			<Ediaeresis>
+! <grave><I>:			<Igrave>
+! <apostrophe><I>:		<Iacute>
+! <asciicircum><I>:		<Icircumflex>
+! <quotedbl><I>:			<Idiaeresis>
+! <backslash><D>:			<Eth>                
+! <asciitilde><N>:		<Ntilde>             
+! <grave><O>:			<Ograve>             
+! <apostrophe><O>:		<Oacute>             
+! <asciicircum><O>:		<Ocircumflex>        
+! <asciitilde><O>:		<Otilde>             
+! <quotedbl><O>:			<Odiaeresis>         
+! <backslash><X>:			<multiply>           
+! <backslash><O><slash>:		<Ooblique>           
+! <grave><U>:			<Ugrave>             
+! <apostrophe><U>:		<Uacute>             
+! <asciicircum><U>:		<Ucircumflex>        
+! <quotedbl><U>:			<Udiaeresis>         
+! <apostrophe><Y>:		<Yacute>             
+! <backslash><P>:			<Thorn>              
+! <backslash><s><s>:		<ssharp>             
+  
+! <grave><a>:			<agrave>             
+! <apostrophe><a>:		<aacute>             
+! <asciicircum><a>:		<acircumflex>        
+! <asciitilde><a>:		<atilde>             
+! <quotedbl><a>:			<adiaeresis>         
+! <backslash><o><a>:		<aring>              
+! <backslash><a><e>:		<ae>                 
+! <backslash><s><c>:		<ccedilla>           
+! <grave><e>:			<egrave>             
+! <apostrophe><e>:		<eacute>             
+! <asciicircum><e>:		<ecircumflex>        
+! <quotedbl><e>:			<ediaeresis>         
+! <grave><i>:			<igrave>             
+! <apostrophe><i>:		<iacute>             
+! <asciicircum><i>:		<icircumflex>        
+! <quotedbl><i>:			<idiaeresis>         
+  
+! <backslash><d>:			<eth>                
+! <asciitilde><n>:		<ntilde>             
+! <grave><o>:			<ograve>             
+! <apostrophe><o>:		<oacute>             
+! <asciicircum><o>:		<ocircumflex>        
+! <asciitilde><o>:		<otilde>             
+! <quotedbl><o>:			<odiaeresis>         
+! <backslash><slash>:		<division>           
+! <backslash><o><slash>:		<oslash>             
+! <grave><u>:			<ugrave>             
+! <apostrophe><u>:		<uacute>             
+! <asciicircum><u>:		<ucircumflex>        
+! <quotedbl><u>:			<udiaeresis>         
+! <apostrophe><y>:		<yacute>             
+! <backslash><p>:			<thorn>             
+! <quotedbl><y>:			<ydiaeresis>         
+  
+  # BackSpace		
+  # Clear		
+--- 28,135 ----
+  <Hyper_R>			NoFilter
+  <Execute>			ConvertOn
+  <Execute>			ConvertOff
+! <backslash><backslash>		<backslash>	{\x5c}
+! <backslash><space>		<nobreakspace>	{\xa0}
+! <backslash><exclam>		<exclamdown>	{\xa1}
+! <backslash><Mod1><C>		<cent>       	{\xa2}
+! <backslash><Mod1><p>		<sterling>	{\xa3}
+! <backslash><Mod1><c>		<currency>	{\xa4}
+! <backslash><Mod1><y>		<yen>		{\xa5}
+! <backslash><Mod1><b>		<brokenbar>	{\xa6}
+! <backslash><Mod1><s>		<section>	{\xa7}
+! <backslash><quotedbl>		<diaeresis>	{\xa8}
+! <backslash><Mod1><r>		<copyright>	{\xa9}
+! <backslash><Mod1><a>		<ordfeminine>	{\xaa}
+! <backslash><less>		<guillemotleft>	{\xab}
+! <backslash><Mod1><n>		<notsign>	{\xac}
+! <backslash><Mod1><h>		<hyphen>	{\xad}
+! <backslash><Mod1><R>		<registered>	{\xae}
+! <backslash><Mod1><m>		<macron>	{\xaf}
+  
+! <backslash><Mod1><d>		<degree>	{\xb0}
+! <backslash><plus><minus>	<plusminus>	{\xb1}
+! <backslash><Mod1><2>		<twosuperior>	{\xb2}
+! <backslash><Mod1><3>		<threesuperior> {\xb3}
+! <backslash><apostrophe>		<acute>		{\xb4}
+! <backslash><Mod1><u>		<mu>		{\xb5}
+! <backslash><Mod1><P>		<paragraph>	{\xb6}
+! <backslash><period>		<periodcentered>	{\xb7}
+! <backslash><Mod1><S>		<cedilla>	{\xb8}
+! <backslash><Mod1><1>		<onesuperior>	{\xb9}
+! <backslash><Mod1><o>		<masculine>	{\xba}
+! <backslash><greater>		<guillemotright>	{\xbb}
+! <backslash><1><slash><4>	<onequarter>	{\xbc}
+! <backslash><1><slash><2>	<onehalf>	{\xbd}
+! <backslash><3><slash><4>	<threequarters>	{\xbe}
+! <backslash><question>		<questiondown>	{\xbf}
+  
+! <grave><A>			<Agrave>	{\xc0}
+! <apostrophe><A>			<Aacute>	{\xc1}
+! <asciicircum><A>		<Acircumflex>	{\xc2}
+! <asciitilde><A>			<Atilde>	{\xc3}
+! <quotedbl><A>			<Adiaeresis>	{\xc4}
+! <backslash><o><A>		<Aring>		{\xc5}
+! <backslash><A><E>		<AE>		{\xc6}
+! <backslash><S><C>		<Ccedilla>	{\xc7}
+! <grave><E>			<Egrave>	{\xc8}
+! <apostrophe><E>			<Eacute>	{\xc9}
+! <asciicircum><E>		<Ecircumflex>	{\xca}
+! <quotedbl><E>			<Ediaeresis>	{\xcb}
+! <grave><I>			<Igrave>	{\xcc}
+! <apostrophe><I>			<Iacute>	{\xcd}
+! <asciicircum><I>		<Icircumflex>	{\xce}
+! <quotedbl><I>			<Idiaeresis>	{\xcf}
+  
+! <backslash><D>			<Eth>		{\xd0}
+! <asciitilde><N>			<Ntilde>	{\xd1}
+! <grave><O>			<Ograve>	{\xd2}
+! <apostrophe><O>			<Oacute>	{\xd3}
+! <asciicircum><O>		<Ocircumflex>	{\xd4}
+! <asciitilde><O>			<Otilde>	{\xd5}
+! <quotedbl><O>			<Odiaeresis>	{\xd6}
+! <backslash><X>			<multiply>	{\xd7}
+! <backslash><O><slash>		<Ooblique>	{\xd8}
+! <grave><U>			<Ugrave>	{\xd9}
+! <apostrophe><U>			<Uacute>	{\xda}
+! <asciicircum><U>		<Ucircumflex>	{\xdb}
+! <quotedbl><U>			<Udiaeresis>	{\xdc}
+! <apostrophe><Y>			<Yacute>	{\xdd}
+! <backslash><P>			<Thorn>		{\xde}
+! <backslash><s><s>		<ssharp>	{\xdf}
+  
+! <grave><a>			<agrave>	{\xe0}
+! <apostrophe><a>			<aacute>	{\xe1}
+! <asciicircum><a>		<acircumflex>	{\xe2}
+! <asciitilde><a>			<atilde>	{\xe3}
+! <quotedbl><a>			<adiaeresis>	{\xe4}
+! <backslash><o><a>		<aring>		{\xe5}
+! <backslash><a><e>		<ae>		{\xe6}
+! <backslash><s><c>		<ccedilla>	{\xe7}
+! <grave><e>			<egrave>	{\xe8}
+! <apostrophe><e>			<eacute>	{\xe9}
+! <asciicircum><e>		<ecircumflex>	{\xea}
+! <quotedbl><e>			<ediaeresis>	{\xeb}
+! <grave><i>			<igrave>	{\xec}
+! <apostrophe><i>			<iacute>	{\xed}
+! <asciicircum><i>		<icircumflex>	{\xee}
+! <quotedbl><i>			<idiaeresis>	{\xef}
+! 
+! <backslash><d>			<eth>		{\xf0}
+! <asciitilde><n>			<ntilde>	{\xf1}
+! <grave><o>			<ograve>	{\xf2}
+! <apostrophe><o>			<oacute>	{\xf3}
+! <asciicircum><o>		<ocircumflex>	{\xf4}
+! <asciitilde><o>			<otilde>	{\xf5}
+! <quotedbl><o>			<odiaeresis>	{\xf6}
+! <backslash><slash>		<division>	{\xf7}
+! <backslash><o><slash>		<oslash>	{\xf8}
+! <grave><u>			<ugrave>	{\xf9}
+! <apostrophe><u>			<uacute>	{\xfa}
+! <asciicircum><u>		<ucircumflex>	{\xfb}
+! <quotedbl><u>			<udiaeresis>	{\xfc}
+! <apostrophe><y>			<yacute>	{\xfd}
+! <backslash><p>			<thorn>		{\xfe}
+! <quotedbl><y>			<ydiaeresis>	{\xff}
+  
+  # BackSpace		
+  # Clear		
+*** /dev/null	Sun Nov 17 15:07:59 1991
+--- doc/I18N/Xsi/Xim/LocalIM.man	Sun Nov 17 15:52:38 1991
+***************
+*** 0 ****
+--- 1,94 ----
++ '\" t
++ .\" $XConsortium: LocalIM.man,v 1.1 91/11/17 15:52:34 rws Exp $
++ .\" Copyright 1991 by OMRON Corp.  All Rights Reserved.
++ .TH LocalIM 3X11 "Release 5" "X Version 11" "XSI FUNCTIONS"
++ .SH NAME
++ LocalIM \- Conversion table of Local Input Method
++ .SH DESCRIPTION
++ .PP
++ Converts keysyms to some keysym and strings.
++ .PP
++ If the modifier @im is defined "\fILocal\fP", this table is loaded
++ by the input method.
++ .PP
++ .B Coding format:
++ .sp
++ .RS
++ .TS
++ <from>[<from>...]  [<to>[<to>...]]  [{str}[{str}...]
++ .br
++ or
++ .br
++ <from>[<from>...]  Command
++ .sp
++ .TE
++ .RE
++ .IP \fBfrom\fP 1i
++ Specifies a input keysym name which is enclosed with '<' and '>'.
++ .IP \fBto\fP 1i
++ Specifies a output keysym name which is enclosed with '<' and '>'.
++ .IP \fBstr\fP 1i
++ Specifies output string name which is enclosed with '{' and '}'.
++ the number of \fIstr\fP must equal to the number of \fIto.\fP
++ .IP \fBCommand\fP 1i
++ Specifies which command (NoFilter/ConvertOn/ConvertOff).
++ .br
++ .sp
++ .RS
++ .TS
++ .IPNoFilter 1i
++ The input keysym(s) (from) is(are) not filtered by the input method.
++ .IPConvertOn 1i
++ If the input keysym(s) (from) is(are) pressed, the input method
++ move in a conversion \fBon\fP state.
++ .IPConvertOn 1i
++ If the input keysym(s) (from) is(are) pressed, the input method
++ move in a conversion \fBoff\fP state.
++ .sp
++ .TE
++ .RE
++ .PP
++ It is possible to omit \fIto\fP or \fIstr\IP. But either must be set.
++ .PP
++ .B Code notation of str:
++ .sp
++ .RS
++ .TS
++ \\n	--> NewLine
++ .br
++ \\t	--> Tab
++ .br
++ \\b	--> BackSpace
++ .br
++ \\r	--> CarriageReturn
++ .br
++ \\f	--> FormFeed
++ .br
++ \\e or \\E	--> Escape
++ .br
++ \\\\	--> BackSlash
++ .br
++ \\??? or \\o???	--> Octal
++ .br
++ \\x??	--> Hexadecimal
++ .br
++ other	--> raw code
++ .sp
++ .TE
++ .RE
++ .SH EXAMPLE
++ .sp
++ .RS
++ .TS
++ <Meta_L>                NoFilter
++ .br
++ <Execute>               ConvertOn
++ .br
++ <Execute>               ConvertOff
++ .br
++ <backslash><Mod1><C>    <cent>          {\\E-A\\xa2}
++ .br
++ <grave><A>              <Agrave>        {\\E-A\\xc0}
++ .sp
++ .TE
++ .RE

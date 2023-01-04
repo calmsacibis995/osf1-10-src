@@ -1,0 +1,412 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: ieee.3,v $ $Revision: 1.1.6.13 $ (DEC) $Date: 1993/12/20 23:43:10 $
+.\"
+.\" This is the source file for the ieee manpages for the exception handling
+.\" routines in the exception handling library. On sept 24 many of the routines'
+.\" names changed, although the ieee routines do not have new names.
+.\"  
+.\" *****************  ieee.m
+.\" 
+.TH ieee 3
+.PP
+.SH NAME
+.PP
+\*Lieee\*O, \*Lieee_set_fp_control\*O, \*Lieee_get_fp_control\*O, \*Lieee_set_state_at_signal\*O, \*Lieee_get_state_at_signal\*O, \*Lieee_ignore_state_at_signal\*O \- libc ieee trap enable support routines.
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.so\*O, \*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <machine/fpu.h>\*O
+.PP
+\*Lvoid ieee_set_fp_control(
+.nL
+        unsigned long        \*Vfp_control\*L);\*O
+.PP
+\*Lunsigned long ieee_get_fp_control(\*O);
+.PP
+\*Lvoid ieee_set_state_at_signal(
+.nL
+        unsigned long        \*Vfp_control\*L,
+.nL
+        unsigned long        \*Vfpcr\*L);\*O
+.nL
+\*Lint ieee_get_state_at_signal(
+.nL
+        unsigned long        \*V*fp_control\*L,
+.nL
+        unsigned long        \*V*fpcr\*L);\*O
+.PP
+\*Lvoid ieee_ignore_state_at_signal()\*O;
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vfp_control"
+\*OSoftware IEEE floating-point control.
+.LI "\*Vfpcr"
+\*OHardware IEEE floating-point control register.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "ieee" "trap enable support routine"
+.iX "ieee_set_fp_control" "trap enable support routine"
+.iX "ieee_get_fp_control" "trap enable support routine"
+.iX "ieee_set_state_at_signal" "trap enable support routine"
+.iX "ieee_get_state_at_signal" "trap enable support routine"
+.iX "ieee_ignore_state_at_signal" "trap enable support routine"
+.PP
+These routines support the implementation of the \*EIEEE Standard for Binary
+Floating-Point Arithmetic\*O.
+.PP
+IEEE-format floating-point operations can incur any of the following five traps:
+.ML
+.LI
+Invalid operation
+.LI
+Division by zero
+.LI
+Overflow
+.LI
+Underflow
+.LI
+Inexact result
+.LE
+.PP
+(Note that floating-point-to-integer conversion operations may generate
+an integer overflow trap, which the operating system traps and delivers as an
+invalid operation.)
+.PP
+By default, floating-point operations are capable of causing invalid operation,
+division by zero, and overflow traps; this default cannot be overridden.  To
+generate floating-point code capable of causing overflow, underflow, or inexact
+result traps, you must specify
+\*L\-ieee_with_inexact\*O,
+\*L\-ieee_with_no_inexact\*O, or an appropriate floating-point trapping
+mode option  when compiling the C language source (see
+\*Lcc\*O(1) for details), or use the appropriate instruction operators when
+writing assembly language code.
+.PP
+The delivery of all floating-point traps to a user program is disabled by default.
+A user program can request the
+delivery of any of the five types of trap by calling \*Lieee_set_fp_control\*O to
+set the associated flags in the software IEEE floating-point control register
+(\*Vfp_control\*O) that control trap delivery.
+.PP
+The following constants are defined in \*Lmachine/fpu.h\*O
+and can be used to construct an appropriate set mask in the
+\*Vfp_control\*O argument to an \*Lieee_set_fp_control\*O
+call:
+.TS
+tab(@);
+lfHB lfHB
+ll.
+_
+.sp 4p
+Constant@Meaning
+.sp 4p
+_
+.sp 6p
+IEEE_TRAP_ENABLE_INV@T{
+Invalid operation.
+T}
+.sp
+IEEE_TRAP_ENABLE_DZE@T{
+Divide by 0.
+T}
+.sp
+IEEE_TRAP_ENABLE_OVF@T{
+Overflow.
+T}
+.sp
+IEEE_TRAP_ENABLE_UNF@T{
+Underflow.
+T}
+.\" The following is not implemented according to Mark Himelstein
+.\"Note that, when the underflow trap is enabled, setting IEEE_MAP_UMZ
+.\"causes the system, upon underflow, to provide an appropriately-signed zero as a
+.\"result, instead of the IEEE-defined result.
+.sp
+IEEE_TRAP_ENABLE_INE@T{
+Inexact.
+T}
+.sp 6p
+_
+.TE
+.PP
+The \*Vfp_control\*O also contains five status flags which, when set, indicate
+one or more occurrences of individual floating-point exception conditions.
+These flags remain set until a user program explicitly clears them by calling
+\*Lieee_set_fp_control\*O.  \*Lmachine/fpu.h\*O defines the following constants to
+allow manipulation of these flags:
+.TS
+tab(@);
+lfHB lfHB
+ll.
+_
+.sp 4p
+Constant@Meaning
+.sp 4p
+_
+.sp 6p
+IEEE_STATUS_INV@T{
+Invalid operation
+T}
+.sp
+IEEE_STATUS_DZE@T{
+Divide by 0
+T}
+.sp
+IEEE_STATUS_OVF@T{
+Overflow
+T}
+.sp
+IEEE_STATUS_UNF@T{
+Underflow
+T}
+.sp
+IEEE_STATUS_INE@T{
+Inexact
+T}
+.sp 6p
+_
+.TE
+.PP
+At thread creation (and process creation as a result of an exec(2) call), the
+delivery of all-floating point traps is disabled and
+all floating-point exception status flags in the \*Vfp_control\*O are set.
+If the thread creating the new process has set the inherit bit in its
+\*Vfp_control\*O (by specifying the constant IEEE_INHERIT
+in the \*Vfp_control\*O mask  to an \*Lieee_set_fp_control\*O
+call), the newly-created process will inherit its creator's \*Vfpcr\*O
+and \*Vfp_control\*O settings.
+.PP
+At a fork(2) call, the child process always inherits its parents
+\*Vfp_control\*O
+and \*Vfpcr\*O settings, regardless of the setting of the inherit bit.
+.PP
+Users should be careful to remember that setting the bits in the
+\*Vfp_control\*O, like setting signal handlers, will affect other code within
+their thread.
+.PP
+A user program calls \*Lieee_get_fp_control\*O to obtain a copy of the current
+\*Vfp_control\*O.  Additionally,
+the \*Ljmp_buf\*O argument for \*Lsetjmp\*O(3), which uses struct \*Lsigcontext\*O
+from \*Lsignal\*O(4) as an overlay, provides an \*Lsc_fp_control\*O
+field. When a user program issues a \*Llongjmp\*O(3) or \*Lsigreturn\*O(2), the
+\*Lsc_fp_control\*O includes the current set of trap flags.
+.PP
+The IEEE standard specifies default result values (including denormalized
+numbers, NaNs, and infinities) for operations that cause traps that are not
+user-enabled. An operating system trap handler must "complete" these operations by
+supplying the default IEEE result.  For the
+operating system to properly fix the results of these operations, the code must
+have been generated as resumption safe and software completion must have been
+specified in the trapping mode.
+.PP
+The concept of resumption-safe code warrants further explanation.
+Because AXP systems incorporate pipelining and multi-instruction issue techniques,
+when an arithmetic exception occurs, the program counter
+may not contain the address of the instruction
+that actually caused the trap (referred to as the trigger PC). It may instead
+contain the address of the instruction that was executing at the time the
+trap was executed (referred to as the trap PC).  There may have been
+several intervening instructions, which could have changed the machine state from
+what it was at the time of the exception. The
+instructions between the trigger PC and the trap PC are called
+the trap shadow.
+.PP
+The \*EAlpha Architecture Reference Manual\*O specifies conventions
+for creating the trap shadow so that the operating system trap handler can provide
+an IEEE result value for an operation and continue execution.
+The architecture provides a way for software to mark instructions
+which abide by the conventions and a user may request this of
+the compiler driver (\*Lcc\*O(1)) by specifying the
+\*L\-resumption_safe\*O flag on the command line.
+.PP
+In order to determine which exception occurred, the operating system trap
+handler must
+back up instructions and look for the trigger PC. Once it finds the trigger
+PC, the software may need to re-execute or emulate the
+trigger instruction in order to determine which trap it actually
+caused.
+.PP
+Once the validity of the trap shadow and the trigger exception is determined,
+the operating system can then decide what to do when an exception occurs,
+depending on three factors:
+.br
+.ne 12P
+.ML
+.LI
+Whether the user program has set any of the trap-enable flags in
+\*Vfp_control\*O
+.LI
+Whether the user program has been created as resumption safe code
+.LI
+Whether the user program has specified a handler for SIGFPE, has decided to ignore
+the signal (SIG_IGN), or has accepted the signal's default treatment (SIG_DFL).
+.LE
+.PP
+The following table describes the system's actions based on these three factors:
+.PP
+.TS
+tab(@);
+lfHB lfHB lfHB lfHB
+llll.
+_
+.sp 4p
+SIGFPE@Trap enable@Shadow@Actions
+.sp 4p
+_
+.sp 6p
+SIG_IGN@clear@invalid@T{
+continue at trap PC + 4
+T}
+.sp
+SIG_DFL@clear@invalid@T{
+cause core dump
+T}
+.sp
+SIG_IGN|SIG_DFL@clear@safe@T{
+supply default IEEE result value continue at trigger PC + 4
+T}
+.sp
+SIG_IGN@set@invalid@T{
+continue at trap PC + 4
+T}
+.sp
+SIG_DFL@set@invalid@T{
+cause core dump
+T}
+.sp
+SIG_IGN@set@safe@T{
+supply default IEEE result value, continue at trigger PC + 4
+T}
+.sp
+SIG_DFL@set@safe@T{
+cause core dump
+T}
+.sp
+user handler@clear@invalid@T{
+deliver SIGFPE to user program
+T}
+.sp
+user handler@clear@safe@T{
+supply default IEEE result value, continue at trigger PC + 4
+T}
+.sp
+user handler@set@invalid@T{
+deliver SIGFPE to user program, trap PC == trigger PC,
+set ieee_invalid_shadow
+T}
+.sp
+user handler@set@safe@T{
+deliver SIGFPE to user program, possibly trap PC != trigger PC
+T}
+.sp
+_
+.TE
+.PP
+See \*Lsignal\*O(4) for additional information on default actions for SIGFPE.
+.PP
+A SIGFPE handler can also obtain additional information about floating-point
+exceptions from the \*Lsigcontext\*O. The \*Lsigcontext\*O
+contains a copy of the current \*Vfp_control\*O in \*Lsc_fp_control\*O, allowing
+a handler to determine which traps were enabled at the time of the exception.
+.PP
+On precise floating faults (in which the system trap handler has indicated a valid
+trap shadow and executed successfully), indicated by codes
+\*LFPE_\*Vxxxxx\*L_FAULT\*O,
+relevant \*Lsigcontext\*O fields contain the following information:
+.ML
+.LI
+\*Lsc_traparg_a0\*O contains the exception summary register reported by hardware.
+.LI
+\*Lsc_traparg_a1\*O contains the exception register write mask reported by hardware.
+.LI
+\*Lsc_fp_trap_pc\*O contains the trap PC.
+.LI
+\*Lsc_pc\*O contains the trigger PC.
+.LI
+\*Lsc_fp_trigger_sum\*O contains the exception summary register reported by
+hardware with the SWC bit masked off.
+.LI
+\*Lsc_fp_trigger_inst\*O is a copy of the trigger instruction.
+.LE
+.PP
+On imprecise arithmetic traps (for instance, when an invalid trap shadow has
+been detected), indicated by codes "FPE_xxxxx_TRAP",
+\*Lsigcontext\*O provides the same information, with the following differences:
+.ML
+.LI
+\*Lsc_pc\*O contains the trap PC.
+.LI
+\*Lsc_fp_trigger_inst\*O is a copy of the trigger instruction.
+.LE
+.PP
+By default,
+the exception state at the time of a floating-point exception, as represented by
+the \*Vfp_control\*O and \*Vfpcr\*O, is the state provided to
+a signal handler.
+.PP
+The \*Lieee_set_state_at_signal\*O routine allows a user program to specify
+the values to be placed in the \*Vfp_control\*O and the \*Vfpcr\*O
+at the call to a signal handler.  This enables the program to
+easily modify
+the trap enables or rounding modes so that a critical region (for instance,
+in third-party code executed from a signal handler) is immune from
+certain exception state.
+The original settings of the \*Vfp_control\*O and the \*Vfpcr\*O are saved
+in the \*Lsigcontext\*O prior to the signal.  When the handler returns, the
+original floating-point context is restored.
+.PP
+A user program can retrieve the current exception state reporting behavior by
+calling \*Lieee_get_state_at_signal\*O.
+.PP
+The \*Lieee_ignore_state_at_signal\*O routine specifies that floating-point state
+is not modified when calling a signal handler.  A user program
+calls this routine to restore the default exception state reporting behavior.
+.PP
+.SH FILES
+.PP
+.nL
+\*L\/usr/include/excpt.h\*O - include file
+.nL
+\*L\/usr/include/signal.h\*O - include file
+.nL
+\*L\/usr/include/machine/fpu.h\*O - include file
+.SH RELATED INFORMATION
+.PP
+Commands: \*Lcc\*O(1).
+.PP
+Functions:  \*Lieee_functions\*O(3), \*Lexec\*O(2), \*Lsetjmp\*O(3),
+\*Lsigreturn\*O(2), \*Llongjmp\*O(3), \*Lwrite_rnd\*O(3).
+.PP
+Files: \*Lsignal\*O(4), \*Lexcpt\*O(4), \*Lc_excpt\*O(4).
+.PP
+\*EIEEE Standard for Binary Floating-Point Arithmetic\*O (ANSI/IEEE Std 754-1985).
+.PP
+\*EAlpha Architecture Reference Manual\*O.
+.PP
+\*EAssembly Language Programmer's Guide\*O.
+.PP
+\*EProgrammer's Guide\*O.
+.EQ
+delim off
+.EN

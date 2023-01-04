@@ -1,0 +1,200 @@
+# Generated automatically from Makefile.in by configure.
+# Makefile for GNU Awk.
+#
+# Copyright (C) 1986, 1988-1992 the Free Software Foundation, Inc.
+# 
+# This file is part of GAWK, the GNU implementation of the
+# AWK Progamming Language.
+# 
+# GAWK is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# GAWK is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GAWK; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+srcdir = .
+VPATH = .
+
+CC = cc
+YACC = yacc
+
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL) -m 644
+
+LIBS = 
+LIBOBJS = 
+
+ALLOCA = 
+
+prefix = /usr/local
+exec_prefix = $(prefix)
+binprefix =
+manprefix =
+
+bindir = $(exec_prefix)/bin
+libdir = $(exec_prefix)/lib
+mandir = $(prefix)/man/man1
+manext = .1
+infodir = $(prefix)/info
+
+SHELL = /bin/sh
+CFLAGS= -g -DGAWK -DHAVE_CONFIG_H
+LDFLAGS= -non_shared
+
+# object files
+AWKOBJS = main.o eval.o builtin.o msg.o iop.o io.o field.o array.o \
+	node.o version.o re.o getopt.o
+
+ALLOBJS = $(AWKOBJS) awktab.o
+
+# GNUOBJS
+#	GNU stuff that gawk uses as library routines.
+GNUOBJS= regex.o dfa.o $(ALLOCA)
+
+# source and documentation files
+SRC =	main.c eval.c builtin.c msg.c version.c \
+	iop.c io.c field.c array.c node.c re.c getopt.c
+
+ALLSRC= $(SRC) awktab.c
+
+AWKSRC= awk.h awk.y $(ALLSRC) patchlevel.h protos.h getopt.h
+
+GNUSRC = alloca.c alloca.s dfa.c dfa.h regex.c regex.h
+
+COPIES = missing/system.c missing/tzset.c \
+	missing/memcmp.c missing/memcpy.c missing/memset.c \
+	missing/random.c missing/strncasecmp.c missing/strchr.c \
+	missing/strerror.c missing/strtod.c \
+	missing/strftime.c missing/strftime.3 
+
+SUPPORT = support/texindex.c support/texinfo.tex
+
+DOCS = gawk.1 gawk.texi
+
+INFOFILES = gawk.info gawk.info-*
+
+MISC =	NEWS COPYING FUTURES Makefile.* PROBLEMS README* PORTS POSIX \
+	configure configure.in config.h.in ACKNOWLEDGMENT \
+	INSTALL LIMITATIONS
+
+OTHERS = pc/* atari/* vms/*
+
+ALLDOC = gawk.dvi $(INFOFILES)
+
+ALLFILES = $(AWKSRC) $(GNUSRC) $(COPIES) $(MISC) $(DOCS) $(ALLDOC) $(OTHERS) \
+	  $(SUPPORT)
+
+# Release of gawk.  There can be no leading or trailing white space here!
+REL=2.14
+
+# rules to build gawk
+all:	gawk
+
+gawk: $(ALLOBJS) $(GNUOBJS) $(REOBJS) $(LIBOBJS)
+	$(CC) -o gawk $(CFLAGS) $(LDFLAGS) $(ALLOBJS) $(GNUOBJS) $(REOBJS) $(LIBOBJS) -lm $(LIBS)
+
+$(AWKOBJS) regex.o dfa.o:	awk.h dfa.h regex.h config.h
+
+getopt.o:	getopt.h
+
+main.o: patchlevel.h
+
+awktab.c: awk.y
+	$(YACC) -v awk.y
+	sed '/^extern char .malloc(), .realloc();$$/d' y.tab.c >awktab.c
+	rm y.tab.c
+
+dummy $(LIBOBJS):	config.h
+	for i in $(LIBOBJS); do $(CC) $(CFLAGS) -c missing/`basename $$i .o`.c ; done
+
+alloca.o: alloca.c
+
+install: gawk gawk.info gawk.1
+	$(INSTALL_PROG) gawk $(bindir)
+	$(INSTALL_DATA) gawk.1 $(mandir)/gawk$(manext)
+	$(INSTALL_DATA) gawk.info* $(infodir)
+
+uninstall:
+	rm -f $(bindir)/gawk $(mandir)/gawk$(manext) $(infodir)/gawk.info*
+
+# auxiliary rules for release maintenance
+lint: $(ALLSRC)
+	lint -hcbax $(FLAGS) $(ALLSRC)
+
+xref:
+	cxref -c $(FLAGS) $(ALLSRC) | grep -v '	/' >xref
+
+clean:
+	rm -rf gawk *.o core
+
+distclean:	clean
+	rm -f Makefile *.orig *.rej */*.orig */*.rej awk.output gmon.out \
+	      make.out y.output config.h config.status
+
+mostlyclean:	clean
+
+realclean:	distclean
+	rm -f awktab.c $(ALLDOC)
+
+gawk.dvi: gawk.texi
+	tex gawk.texi; texindex gawk.??
+	tex gawk.texi; texindex gawk.??
+	tex gawk.texi
+	rm -f gawk.?? gawk.???
+
+gawk.info:	gawk.texi
+	makeinfo gawk.texi
+
+gawk-test-$(REL).tar.Z::
+	-rm -f gawk-test-$(REL).tar.Z
+	tar -cf - test | compress >gawk-test-$(REL).tar.Z
+
+dist:	$(AWKSRC) $(GNUSRC) $(DOCS) $(MISC) $(COPIES) $(SUPPORT)
+	-rm -rf gawk-$(REL) gawk-$(REL).*.tar.Z
+	-mkdir gawk-$(REL)
+	-rm -f awktab.c
+	make YACC=yacc awktab.c
+	make distclean
+	cp -p $(AWKSRC) $(GNUSRC) $(DOCS) $(MISC) gawk-$(REL)
+	-mkdir gawk-$(REL)/missing
+	cp -p $(COPIES) gawk-$(REL)/missing
+	-mkdir gawk-$(REL)/atari
+	cp -p  atari/* gawk-$(REL)/atari
+	-mkdir gawk-$(REL)/pc
+	cp -p pc/* gawk-$(REL)/pc
+	-mkdir gawk-$(REL)/vms
+	cp -p vms/* gawk-$(REL)/vms
+	-mkdir gawk-$(REL)/support
+	cp -p support/* gawk-$(REL)/support
+	tar -cf - test | (cd gawk-$(REL); tar xpf - )
+	tar -cf - gawk-$(REL) | compress > gawk-$(REL).`gawk '{print $$3}' patchlevel.h`.tar.Z
+
+gawk-doc-$(REL).tar.Z:	gawk.info gawk.dvi gawk.1
+	-rm -rf gawk-doc-$(REL) gawk-doc-$(REL).tar.Z
+	-mkdir gawk-doc-$(REL)
+	cp -p $(INFOFILES) gawk.dvi gawk-doc-$(REL)
+	nroff -man gawk.1 > gawk-doc-$(REL)/gawk.1.pr
+	tar -cf - gawk-doc-$(REL) | compress > gawk-doc-$(REL).tar.Z
+
+gawk-ps-$(REL).tar.Z:	gawk.dvi gawk.1
+	-rm -rf gawk-ps-$(REL) gawk-ps-$(REL).tar.Z
+	-mkdir gawk-ps-$(REL)
+	dvips -o !cat gawk.dvi > gawk-ps-$(REL)/gawk.postscript
+	pstroff -man gawk.1 > gawk-ps-$(REL)/gawk.1.ps
+	tar -cf - gawk-ps-$(REL) | compress > gawk-ps-$(REL).tar.Z
+
+release: gawk-$(REL).tar.Z gawk-doc-$(REL).tar.Z gawk-ps-$(REL).tar.Z
+
+test:	gawk
+	cd test; $(MAKE) -k
+
+check:	test

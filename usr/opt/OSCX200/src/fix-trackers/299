@@ -1,0 +1,171 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9205041941.AA12112@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2527) Close XBUG #4620: server: cfbClipPoint doesn't match mfbClipLine
+Date: Mon, 04 May 92 15:41:14 EDT
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4620
+### area:         server
+### severity:     low
+### comments:     
+
+*** /tmp/da2067	Mon May  4 15:38:57 1992
+--- server/ddx/cfb/cfb8line.c	Mon May  4 15:38:30 1992
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: cfb8line.c,v 1.20 91/12/19 14:15:34 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: cfb8line.c,v 1.22 92/05/04 15:38:21 keith Exp $
+   *
+   * Copyright 1990 Massachusetts Institute of Technology
+   *
+***************
+*** 623,640 ****
+      }
+  }
+  
+! #define round(dividend, divisor) \
+! ( (((dividend)<<1) + (divisor)) / ((divisor)<<1) )
+! #define ceiling(m,n)  (((m)-1)/(n) + 1)
+  #define SignTimes(sign,n)   (((sign) < 0) ? -(n) : (n))
+  
+! cfbClipPoint (oc, xp, yp, dx, dy, boxp)
+      int	oc;
+      int	*xp, *yp;
+      BoxPtr  boxp;
+  {
+      int	x, y;
+!     int	adx, ady, signdx, signdy;
+      int	utmp;
+      
+      signdx = 1;
+--- 623,639 ----
+      }
+  }
+  
+! #define round(m,n)	    ((((m)<<1) + (n)) / ((n)<<1))
+  #define SignTimes(sign,n)   (((sign) < 0) ? -(n) : (n))
+  
+! cfbClipPoint (oc, xp, yp, dx, dy, boxp, first)
+      int	oc;
+      int	*xp, *yp;
+      BoxPtr  boxp;
++     Bool    first;
+  {
+      int	x, y;
+!     int	signdx, signdy;
+      int	utmp;
+      
+      signdx = 1;
+***************
+*** 664,676 ****
+      	utmp *= dy;
+  	if (dy > dx)
+  	{
+! 	    utmp = (utmp << 1) - dy + 1;
+! 	    y = *yp + SignTimes(signdy, ceiling(utmp, (dx << 1)));
+  	}
+  	else
+! 	{
+!     	    y = *yp + SignTimes(signdy, round(utmp, dx));
+! 	}
+  	oc = 0;
+  	OUTCODES (oc, x, y, boxp);
+      }
+--- 663,681 ----
+      	utmp *= dy;
+  	if (dy > dx)
+  	{
+! 	    utmp = (utmp << 1) + dy - 1;
+! 	    /*
+!  	     * trust me -- there's a difference in how this
+! 	     * works depending on which end of the line is
+! 	     * being clipped
+! 	     */
+! 	    if (first)
+! 		utmp -= (dy - dx) << 1;
+! 	    utmp = utmp / (dx << 1);
+  	}
+  	else
+! 	    utmp = round (utmp, dx);
+! 	y = *yp + SignTimes (signdy, utmp);
+  	oc = 0;
+  	OUTCODES (oc, x, y, boxp);
+      }
+***************
+*** 689,701 ****
+  	utmp *= dx;
+  	if (dx > dy)
+  	{
+! 	    utmp = (utmp << 1) - dx + 1;
+! 	    x = *xp + SignTimes(signdx, ceiling(utmp, (dy << 1)));
+  	}
+  	else
+! 	{
+! 	    x = *xp + SignTimes(signdx, round(utmp, dy));
+! 	}
+  	oc = 0;
+  	OUTCODES (oc, x, y, boxp);
+      }
+--- 694,708 ----
+  	utmp *= dx;
+  	if (dx > dy)
+  	{
+! 	    utmp = (utmp << 1) + dx - 1;
+! 	    /* see comment above */
+! 	    if (first)
+! 		utmp -= (dx - dy) << 1;
+! 	    utmp = utmp / (dx << 1);
+  	}
+  	else
+! 	    utmp = round (utmp, dy);
+! 	x = *xp + SignTimes(signdx, utmp);
+  	oc = 0;
+  	OUTCODES (oc, x, y, boxp);
+      }
+***************
+*** 784,790 ****
+  	int	dx = x2 - x1, dy = y2 - y1;
+  	int change;
+  
+! 	oc2 = cfbClipPoint (oc2, &xt, &yt, -dx, -dy, boxp);
+  	if (axis == Y_AXIS)
+  	    change = y2 - yt;
+  	else
+--- 791,797 ----
+  	int	dx = x2 - x1, dy = y2 - y1;
+  	int change;
+  
+! 	oc2 = cfbClipPoint (oc2, &xt, &yt, -dx, -dy, boxp, FALSE);
+  	if (axis == Y_AXIS)
+  	    change = y2 - yt;
+  	else
+***************
+*** 800,806 ****
+  	int	dx = x2 - x1, dy = y2 - y1;
+  	int	changex, changey;
+  
+! 	oc1 = cfbClipPoint (oc1, &xt, &yt, dx, dy, boxp);
+  	changex = x1 - xt;
+  	if (changex < 0)
+  	    changex = -changex;
+--- 807,813 ----
+  	int	dx = x2 - x1, dy = y2 - y1;
+  	int	changex, changey;
+  
+! 	oc1 = cfbClipPoint (oc1, &xt, &yt, dx, dy, boxp, TRUE);
+  	changex = x1 - xt;
+  	if (changex < 0)
+  	    changex = -changex;

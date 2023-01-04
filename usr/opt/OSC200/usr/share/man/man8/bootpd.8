@@ -1,0 +1,348 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: bootpd.8,v $ $Revision: 3.2.4.2 $ (DEC) $Date: 1993/04/01 19:21:39 $
+.\"
+.\" Copyright (c) 1988, 1989 Carnegie Mellon University
+.\"
+.\"
+.TH bootpd 8
+.SH NAME
+\*Lbootpd\*O, \*Lbootptab\*O, \*Lbootp\*O \- Internet Boot Protocol server
+.SH SYNOPSIS
+.PP
+\*L/usr/sbin/bootpd\*O [ \*L\-s \-t\*Vtimeout\*O \*L\-d\*O ]
+[ \*Vconfigfile\*O [ \*Vdumpfile\*O ] ]
+.SH FLAGS
+.PP
+.VL 4m
+.LI "\*L\-d\*O"
+Specifies the level of debugging output.  The level is increased for
+each instance of \*L\-d\*O.
+.LI "\*L\-s\*O"
+Calls for \*Lbootpd\*O to be run in standalone mode.
+.LI "\*L\-t\*O"
+Specifies a different timeout value in minutes.  It has no effect if the
+\*L\-s\*O flag is used.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "bootpd"
+.iX "bootp protocol"
+.iX "Internet Boot Protocol server"
+.iX "server" "Internet Boot Protocol"
+The \*Lbootpd\*O daemon
+implements an Internet Boot Protocol server as defined in RFC951
+and RFC1048.  It is normally run by \*L/usr/sbin/inetd\*O
+by including the following line in the file \*L/etc/inetd.conf\*O:
+.PP
+\*Lbootps dgram udp wait root /usr/sbin/bootpd bootpd\*O
+.PP
+This causes \*Lbootpd\*O to be started only when a boot request arrives.  If
+\*Lbootpd\*O
+does not receive another boot request within fifteen minutes of the last one
+it received, it will exit to conserve system resources.  The \*L\-t\*O
+flag can be used to specify a different timeout value in minutes (for
+example, \-t20).  A timeout value of zero means forever.
+.PP
+It is also possible to run \*Lbootpd\*O in a standalone configuration
+using the \*L\-s\*O flag.
+This is usually the desired mode of operation for large network installations
+with many \*Lbootpd\*O clients.  In this case, the \*L\-t\*O
+flag has no effect since \*Lbootpd\*O will never exit.
+.PP
+Each instance of the \*L\-d\*O flag increases the level of debugging output.
+.PP
+To run the \*Lbootpd\*O daemon, you must also run the \*Ltftpd\*O daemon.
+.PP
+.iX "bootptab file"
+.iX "bootp configuration file"
+Upon startup, \*Lbootpd\*O first reads its configuration file,
+\*L/etc/bootptab\*O,
+and then begins listening for BOOTREQUEST packets.  The configuration file
+has a format similar to that of \*Ltermcap\*O(4)
+in which two-character case-sensitive tag symbols are used to
+represent host parameters.  These parameter declarations are separated by
+colons (:).  The general format is:
+.PP
+\*V hostname:tg=value. . . :tg=value. . . :tg=value. . . .\*O
+.PP
+The \*Vhostname\*O is the actual name of a bootp client; \*Vtg\*O
+is a two-character tag symbol.  Most tags must be followed by an equals-sign
+and a value as above.  Some may also appear in a boolean form with no
+value (that is, \*L:\*Vtg\*L:\*O).
+The currently recognized tags are:
+.PP
+.VL 4m
+.LI "\*Lbf\*O"
+Bootfile
+.LI "\*Lbs\*O"
+Bootfile size in 512-octet blocks
+.LI "\*Lcs\*O"
+Cookie server address list
+.LI "\*Lds\*O"
+Domain name server address list
+.LI "\*Lgw\*O"
+Gateway address list
+.LI "\*Lha\*O"
+Host hardware address
+.LI "\*Lhd\*O"
+Bootfile home directory
+.LI "\*Lhn\*O"
+Send hostname
+.LI "\*Lht\*O"
+Host hardware type (see Assigned Numbers RFC)
+.LI "\*Lim\*O"
+Impress server address list
+.LI "\*Lip\*O"
+Host IP address
+.LI "\*Llg\*O"
+Log server address list
+.LI "\*Llp\*O"
+LPR server address list
+.LI "\*Lns\*O"
+IEN-116 name server address list
+.LI "\*Lrl\*O"
+Resource location protocol server address list
+.LI "\*Lsm\*O"
+Host subnet mask
+.LI "\*Ltc\*O"
+Table continuation (points to similar "template" host entry)
+.LI "\*Lto\*O"
+Time offset in seconds from UTC
+.LI "\*Lts\*O"
+Time server address list
+.LI "\*Lvm\*O"
+Vendor magic cookie selector
+.LE
+.PP
+There is also a generic tag, \*LT\*Vn\*O, where \*Vn\*O
+is an RFC1048 vendor field tag number.  Thus it is possible to immediately
+take advantage of future extensions to RFC1048 without being forced to modify
+\*Vbootpd\*O
+first.  Generic data may be represented as either a stream of hexadecimal
+numbers or as a quoted string of ASCII characters.  The length of the generic
+data is automatically determined and inserted into the proper field(s) of the
+RFC1048-style bootp reply.
+.PP
+The following tags take a whitespace-separated list of IP addresses:
+.VL 4m
+.LI "\*Lcs\*O"
+.LI "\*Lds\*O"
+.LI "\*Lgw\*O"
+.LI "\*Lim\*O"
+.LI "\*Llg\*O"
+.LI "\*Llp\*O"
+.LI "\*Lns\*O"
+.LI "\*Lrl\*O"
+.LI "\*Lts\*O"
+.LE
+.PP
+The \*Lip\*O and \*Lsm\*O tags each take a single IP address.
+All IP addresses are specified in standard Internet "dot" notation and may use
+decimal, octal, or hexadecimal numbers (octal numbers begin with 0,
+hexadecimal numbers begin with '0x' or '0X').
+.PP
+The \*Lht\*O
+tag specifies the hardware type code as either an unsigned decimal, octal, or
+hexadecimal integer or one of the following symbolic names: \*Lethernet\*O
+or \*Lether\*O for 10Mb Ethernet; \*Lethernet3\*O or \*Lether3\*O
+for 3Mb experimental Ethernet; \*Lieee802\*O, \*Ltr\*O, or \*Ltoken-ring\*O
+for IEEE 802 networks; \*Lpronet\*O for Proteon ProNET Token Ring or
+\*Lchaos\*O, \*Larcnet\*O, or \*Lax.25\*O
+for Chaos, ARCNET, and AX.25 Amateur Radio networks, respectively.
+The \*Lha\*O tag takes a hardware address which \*Vmust\*O
+be specified in hexadecimal; optional periods and/or a leading '0x' may be
+included for readability.  The \*Lha\*O tag must be preceded by the \*Lht\*O
+tag (either explicitly or implicitly; see \*Ltc\*O below).
+.PP
+The hostname, home directory, and bootfile are ASCII strings which may be
+optionally surrounded by double quotation marks (").  The client's request
+and the values of the \*Lhd\*O and \*Lbf\*O
+symbols determine how the server fills in the bootfile field of the bootp
+reply packet.
+.PP
+If the client specifies an absolute pathname and that file exists on the
+server machine, that pathname is returned in the reply packet.  If the file
+cannot be found, the request is discarded; no reply is sent.  If the client
+specifies a relative pathname, a full pathname is formed by prepending the
+value of the \*Lhd\*O tag and testing for existence of the file.  If the
+\*Lhd\*O tag is not supplied in the configuration file or if the
+resulting boot file cannot be found, then the request is discarded.
+.PP
+Clients which specify null boot files will always elicit a reply from the
+server.  The exact reply will again depend upon the \*Lhd\*O and \*Lbf\*O
+tags.  If the \*Lbf\*O tag gives an absolute pathname and the file exists,
+that pathname is returned in the reply packet.  Otherwise, if the
+\*Lhd\*O and \*Lbf\*O
+tags together specify an accessible file, that filename is returned in the
+reply.  If a complete filename cannot be determined or the file does not
+exist, the reply will contain a zeroed-out bootfile field.
+.PP
+In all these cases, existence of the file means that, in addition to actually
+being present, the file must have its public read access bit set, since this
+is required by \*Ltftpd\*O(8) to permit the file transfer.
+(For other \*Ltftpd\*O file access restrictions
+see the \*Ltftpd\*O(8) reference page.) Also, all filenames are first tried as
+\*Vfilename.hostname\*O
+and then simply as \*Vfilename\*O,
+thus providing for individual per-host bootfiles.
+.PP
+The time offset \*Lto\*O
+may be either a signed decimal integer specifying the client's
+time zone offset in seconds from UTC, or the keyword \*Lauto\*O
+which uses the server's time zone offset.  Specifying the \*Lto\*O
+symbol as a boolean has the same effect as specifying \*Lauto\*O
+as its value.
+.PP
+The bootfile size \*Lbs\*O may be either a decimal, octal, or hexadecimal
+integer specifying the size of the bootfile in 512-octet blocks, or the
+keyword \*Lauto\*O which causes the server to automatically calculate
+the bootfile size at each request.  As with the time offset, specifying
+the \*Lbs\*O symbol as a boolean has the same effect as specifying
+\*Lauto\*O as its value.
+.PP
+The vendor magic cookie selector (the \*Lvm\*O tag) may take one of the
+following keywords:
+.VL 10m
+.LI "\*Lauto\*O"
+Indicates that vendor information is determined by the client's request.
+.LI "\*Lrfc1048\*O"
+Always forces an RFC1048-style reply.
+.LI "\*Lcmu\*O"
+Always forces a CMU-style reply.
+.LE
+.PP
+The \*Lhn\*O tag is strictly a boolean tag;
+it does not take the usual equals-sign and
+value.  It's presence indicates that the hostname should be sent to RFC1048
+clients.  The \*Lbootpd\*O daemon
+attempts to send the entire hostname as it is specified in the configuration
+file; if this will not fit into the reply packet, the name is shortened to
+just the host field (up to the first period, if present) and then tried.
+In no case is an arbitrarily-truncated hostname sent (if nothing reasonable
+will fit, nothing is sent).
+.PP
+Often, many host entries share common values for certain tags (such as name
+servers, etc.).  Rather than repeatedly specifying these tags, a full
+specification can be listed for one host entry and shared by others via the
+\*Ltc\*O (table continuation) mechanism.
+Often, the template entry is a dummy host which doesn't actually exist and
+never sends bootp requests.  This feature is similar to the \*Ltc\*O
+feature of \*Ltermcap\*O(4) for similar terminals.  Note that
+\*Lbootpd\*O allows the \*Ltc\*O
+tag symbol to appear anywhere in the host entry, unlike \*Vtermcap\*O,
+which requires it to be the last tag.  Information explicitly specified for a
+host always overrides information implied by a \*Ltc\*O
+tag symbol, regardless of its location within the entry.  The
+value of the \*Ltc\*O tag may be the hostname or IP address of any host entry
+previously listed in the configuration file.
+.PP
+Sometimes it is necessary to delete a specific tag after it has been inferred
+via \*Ltc\*O.  This can be done using the construction \*Vtag\*L@\*O
+which removes the effect of \*Vtag\*O as in \*Ltermcap\*O(4).
+For example, to completely undo an IEN-116 name server specification, use
+"\*L:ns@:\*O" at an appropriate place in the configuration entry.
+After removal with \*L@\*O, a tag is eligible to be set again through the
+\*Ltc\*O mechanism.
+.PP
+Blank lines and lines beginning with "#" are ignored in the configuration
+file.  Host entries are separated from one another by newlines; a single host
+entry may be extended over multiple lines if the lines end with a backslash
+(\\).  It is also acceptable for lines to be longer than 80 characters.  Tags
+may appear in any order, with the following exceptions:  the hostname must be
+the very first field in an entry, and the hardware type must precede the
+hardware address.
+.PP
+A sample \*L/etc/bootptab\*O file follows:
+.oS
+# Sample bootpd file
+
+default1:\\
+:hd=/usr/boot:bf=null:\\
+:ds=128.2.35.50 128.2.13.21:\\
+:ns=0x80020b4d 0x80020ffd:\\
+:ts=0x80020b4d 0x80020ffd:\\
+:sm=255.255.0.0:gw=0x8002fe24:\\
+:hn:vm=auto:to=-18000:\\
+:T37=0x12345927AD3BCF:T99="Special ASCII string":
+
+carnegie:ht=6:ha=7FF8100000AF:ip=128.2.11.1:tc=default1:
+
+baldwin:ht=1:ha=0800200159C3:ip=128.2.11.10:tc=default1:
+
+wylie:ht=1:ha=00DD00CADF00:ip=128.2.11.100:tc=default1:
+
+arnold:ht=1:ha=0800200102AD:ip=128.2.11.102:tc=default1:
+
+bairdford:ht=1:ha=08002B02A2F9:ip=128.2.11.103:tc=default1:
+
+bakerstown:ht=1:ha=08002B0287C8:ip=128.2.11.104:tc=default1:
+
+
+# Special domain name server for next host
+
+bojct:ht=1:ha=08002001560D:ip=128.2.11.108:ds=128.2.13.42:tc=default1:
+
+
+gastonville:ht=6:ha=7FFF81000A47:ip=128.2.11.115:tc=default1:
+
+hahntown:ht=6:ha=7FFF81000434:ip=128.2.11.117:tc=default1:
+
+hickman:ht=6:ha=7FFF810001BA:ip=128.2.11.118:tc=default1:
+
+lowber:ht=1:ha=00DD00CAF000:ip=128.2.11.121:tc=default1:
+
+mtoliver:ht=1:ha=00DD00FE1600:ip=128.2.11.122:tc=default1:
+.oE
+.PP
+The \*Lbootpd\*O daemon looks in \*L/etc/services\*O
+to find the port numbers it should use.  Two entries are extracted:
+.VL 10m
+.LI "\*Lbootps\*O"
+The bootp server listening port
+.LI "\*Lbootpc\*O"
+The destination port used to reply to clients.
+.LE
+If the port numbers cannot be determined this way, they are assumed
+to be 67 for the server and 68 for the client.
+.PP
+The \*Lbootpd\*O daemon
+rereads its configuration file when it receives a hangup signal, SIGHUP, or
+when it receives a bootp request packet and detects that the file has been
+updated. Hosts can be added, deleted or modified when the configuration file
+is reread.  If \*Lbootpd\*O
+is compiled with the -DDEBUG option, receipt of a SIGUSR1 signal causes it
+to dump its memory-resident database to the file \*L/etc/bootpd.dump\*O
+or the command-line-specified dumpfile.
+.SH RESTRICTIONS
+.PP
+Individual host entries must not exceed 1024 characters.
+.SH FILES
+.PP
+\*L/etc/bootptab\*O
+.br
+\*L/etc/bootpd.dump\*O
+.br
+\*L/etc/services\*O
+.SH RELATED INFORMATION
+.PP
+Commands: \*Ltftpd\*O(8), \*Linetd\*O(8)
+.PP
+DARPA Internet Request For Comments RFC951, RFC1048, RFC1084, Assigned Numbers
+.EQ
+delim off
+.EN

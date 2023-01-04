@@ -1,0 +1,109 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9204132121.AA21150@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2450) close XBUG #5150: server: cfbCopyWindow leaks memory
+Date: Mon, 13 Apr 92 17:21:22 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5150
+### area:         server
+### severity:     low
+### comments:     
+
+
+*** /tmp/d21131	Mon Apr 13 17:19:38 1992
+--- server/ddx/cfb/cfbwindow.c	Tue Mar 31 17:52:30 1992
+***************
+*** 1,4 ****
+! /* $XConsortium: cfbwindow.c,v 5.14 92/03/13 16:20:59 eswu Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+--- 1,4 ----
+! /* $XConsortium: cfbwindow.c,v 5.15 92/03/31 17:52:18 keith Exp $ */
+  /***********************************************************
+  Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts,
+  and the Massachusetts Institute of Technology, Cambridge, Massachusetts.
+***************
+*** 145,151 ****
+  {
+      DDXPointPtr pptSrc;
+      register DDXPointPtr ppt;
+!     RegionPtr prgnDst;
+      register BoxPtr pbox;
+      register int dx, dy;
+      register int i, nbox;
+--- 145,151 ----
+  {
+      DDXPointPtr pptSrc;
+      register DDXPointPtr ppt;
+!     RegionRec rgnDst;
+      register BoxPtr pbox;
+      register int dx, dy;
+      register int i, nbox;
+***************
+*** 153,169 ****
+  
+      pwinRoot = WindowTable[pWin->drawable.pScreen->myNum];
+  
+!     prgnDst = (* pWin->drawable.pScreen->RegionCreate)(NULL, 1);
+  
+      dx = ptOldOrg.x - pWin->drawable.x;
+      dy = ptOldOrg.y - pWin->drawable.y;
+      (* pWin->drawable.pScreen->TranslateRegion)(prgnSrc, -dx, -dy);
+!     (* pWin->drawable.pScreen->Intersect)(prgnDst, &pWin->borderClip, prgnSrc);
+  
+!     pbox = REGION_RECTS(prgnDst);
+!     nbox = REGION_NUM_RECTS(prgnDst);
+!     if(!(pptSrc = (DDXPointPtr )ALLOCATE_LOCAL(nbox * sizeof(DDXPointRec))))
+  	return;
+      ppt = pptSrc;
+  
+      for (i = nbox; --i >= 0; ppt++, pbox++)
+--- 153,172 ----
+  
+      pwinRoot = WindowTable[pWin->drawable.pScreen->myNum];
+  
+!     (* pWin->drawable.pScreen->RegionInit) (&rgnDst, NullBox, 0);
+  
+      dx = ptOldOrg.x - pWin->drawable.x;
+      dy = ptOldOrg.y - pWin->drawable.y;
+      (* pWin->drawable.pScreen->TranslateRegion)(prgnSrc, -dx, -dy);
+!     (* pWin->drawable.pScreen->Intersect)(&rgnDst, &pWin->borderClip, prgnSrc);
+  
+!     pbox = REGION_RECTS(&rgnDst);
+!     nbox = REGION_NUM_RECTS(&rgnDst);
+!     if(!nbox || !(pptSrc = (DDXPointPtr )ALLOCATE_LOCAL(nbox * sizeof(DDXPointRec))))
+!     {
+! 	(* pWin->drawable.pScreen->RegionUninit) (&rgnDst);
+  	return;
++     }
+      ppt = pptSrc;
+  
+      for (i = nbox; --i >= 0; ppt++, pbox++)
+***************
+*** 173,181 ****
+      }
+  
+      cfbDoBitbltCopy((DrawablePtr)pwinRoot, (DrawablePtr)pwinRoot,
+! 		GXcopy, prgnDst, pptSrc, ~0L);
+      DEALLOCATE_LOCAL(pptSrc);
+!     (* pWin->drawable.pScreen->RegionDestroy)(prgnDst);
+  }
+  
+  
+--- 176,184 ----
+      }
+  
+      cfbDoBitbltCopy((DrawablePtr)pwinRoot, (DrawablePtr)pwinRoot,
+! 		GXcopy, &rgnDst, pptSrc, ~0L);
+      DEALLOCATE_LOCAL(pptSrc);
+!     (* pWin->drawable.pScreen->RegionUninit) (&rgnDst);
+  }
+  
+  

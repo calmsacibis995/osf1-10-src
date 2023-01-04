@@ -1,0 +1,426 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getprpwent.3,v $ $Revision: 3.5.4.8 $ (DEC) $Date: 1994/01/15 02:03:15 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1988 SecureWare, Inc.
+.\" All rights reserved
+.\" @(#)getprpwent.3	1.2 17:44:53 3/28/90 SecureWare
+.\" #ifdef SEC_BASE
+.TH getprpwent 3
+.SH NAME
+.PP
+\*Lgetprpwent\*O, \*Lgetprpwuid\*O, \*Lgetprpwnam\*O, \*Lsetprpwent\*O, \*Lendprpwent\*O, \*Lputprpwnam\*O, \*Lfgetpwent\*O, \*Lfgetpwent_r\*O, \*Lgetpwent_r\*O \- Manipulate protected password database entry (Enhanced Security)
+.SH LIBRARY
+.PP
+Security Library \*Llibsecurity.a\*O
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+#include <sys/security.h>
+.nL
+#include <prot.h>
+.sp 0.4v
+struct pr_passwd *getprpwent(void);
+.sp 0.4v
+struct pr_passwd *getprpwent(void);
+.sp 0.4v
+struct pr_passwd *getprpwuid(
+.nL
+	int \*Vuid\*L);
+.sp 0.4v
+struct pr_passwd *getprpwnam(
+.nL
+	char *\*Vname\*L);
+.sp 0.4v
+void setprpwent(void);
+.sp 0.4v
+void endprpwent(void);
+.sp 0.4v
+int putprpwnam(
+.nL
+	char *\*Vname\*L,
+.nL
+	struct pr_passwd *\*Vpr\*L );
+.P
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vuid\*O"
+Specifies the user ID in the protected password database.
+.LI "\*Vname\*O"
+Specifies a protected password database entry name.
+.LI "\*Vpr\*O"
+Specifies a protected password database entry structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "database" "manipulating entry in protected password"
+.iX "protected password database" "defined"
+.iX "protected password database" "manipulating entry in"
+.iX "password database"
+.iX "getprpwent function"
+.iX "getprpwuid function"
+.iX "getprpwnam function"
+.iX "setprpwent function"
+.iX "endprpwent function"
+.iX "putprpwnam function"
+The
+\*Lgetprpwent(\|)\*O,
+\*Lgetprpwuid(\|)\*O
+and
+\*Lgetprpwnam(\|)\*O
+functions
+each return a pointer to
+an object with the following structure containing the
+broken-out fields of a line in the protected password database.
+Each line in the database contains a \*Lpr_passwd\*O structure, declared
+in the
+\*Lprot.h\*O
+header file:
+...\". Ignore Bold in iS !!! changed to oS
+.oS
+struct pr_field  {
+ /* Identity: */
+ char    fd_name[AUTH_MAX_UNAME_SIZE]; /* uses 8 character \\
+                                       maximum (and \\0) from utmp */
+ uid_t   fd_uid;         /* uid associated with name above */
+ char    fd_encrypt[AUTH_MAX_CIPHERTEXT_LENGTH]; /* Encrypted \\
+                                                   password */
+ char    fd_owner[AUTH_MAX_UNAME_SIZE];  /* if a pseudo -user, \\
+                                           the user behind it */
+ int     fd_nice;        /* nice value with which to login */
+ mask_t  fd_cprivs[AUTH_CPRIVVEC_SIZE];  /* command auths vector */
+ privvec_t  fd_sprivs;   /* kernel auths vector */
+ privvec_t  fd_bprivs;   /* base privilege vector */
+ char    fd_auditdisp[AUTH_MAX_AUDIT_LENGTH];   /* auditmask text */
+ uchar_t fd_auditcntl;   /* audit mask use control */
+
+ /* Password maintenance parameters: */
+ time_t  fd_min;         /* minimum time between password changes */
+ int     fd_minlen;      /* minimum length of password */
+ int     fd_maxlen;      /* maximum length of password */
+ time_t  fd_expire;      /* expiration time duration in secs */
+ time_t  fd_lifetime;    /* account death duration in seconds */
+ time_t  fd_schange;     /* last successful change in secs \\
+                                                   past 1/1/70 */
+ time_t  fd_uchange;     /* last unsuccessful change */
+ char    fd_pick_pwd;    /* can user pick his own passwords? */
+ char    fd_gen_pwd;     /* can user get passwords generated \\
+                                                       for him? */
+ char    fd_restrict;    /* should generated passwords be \\
+                                                    restricted? */
+ char    fd_policy;      /* check passwords by policy callout ? */
+ char    fd_nullpw;      /* is user allowed to have a null \\
+                                                      password? */
+ uid_t   fd_pwchanger;   /* who last changed user's password */
+ char    fd_gen_chars;   /* can have password of random ASCII? */
+ char    fd_gen_letters; /* can have password of random letters? */
+ char    fd_pwdepth;     /* depth of password dictionary to keep */
+
+ /* Mandatory policy parameters: */
+ mand_ir_t fd_clearance; /* internal representation of clearance */
+ char fd_clearance_filler[200]; /* MUST follow fd_clearance */
+
+ /* Login parameters: */
+ time_t  fd_slogin;      /* last successful login */
+ time_t  fd_ulogin;      /* last unsuccessful login */
+ char    fd_suctty[14];  /* tty of last successful login */
+ short   fd_nlogins;     /* consecutive unsuccessful logins */
+ char    fd_unsuctty[14];/* tty of last unsuccessful login */
+ char    fd_tod[AUTH_TOD_SIZE];  /* times when user may login */
+ short   fd_max_tries;   /* maximum unsuc login tries allowed */
+ time_t  fd_unlockint;   /* interval (seconds) before unlocking \\
+                                                          again */
+ char	 fd_retired;	/* Is account retired? */
+ char    fd_lock;        /* Unconditionally lock account? */
+ time_t  fd_expdate;     /* time at which to auto-retire the \\
+                                                         account */
+};
+
+
+struct pr_flag  {
+ unsigned int
+ /* Identity: */
+ fg_name:1,              /* Is fd_name set? */
+ fg_uid:1,               /* Is fd_uid set? */
+ fg_encrypt:1,           /* Is fd_encrypt set? */
+ fg_owner:1,             /* Is fd_owner set? */
+ fg_nice:1,              /* Is fd_nice set? */
+ fg_cprivs:1,            /* Is fd_sprivs set? */
+ fg_sprivs:1,            /* Is fd_sprivs set? */
+ fg_bprivs:1,            /* Is fd_bprivs set? */
+ fg_auditcntl:1,         /* Is fd_auditcntl set? */
+ fg_auditdisp:1,         /* Is fd_auditdisp set? */
+
+ /* Password maintenance parameters: */
+ fg_min:1,               /* Is fd_min set? */
+ fg_minlen:1,            /* Is fd_minlen set? */
+ fg_maxlen:1,            /* Is fd_maxlen set? */
+ fg_expire:1,            /* Is fd_expire set? */
+ fg_lifetime:1,          /* Is fd_lifetime set? */
+ fg_schange:1,           /* Is fd_schange set? */
+ fg_uchange:1,           /* Is fd_fchange set? */
+ fg_pick_pwd:1,          /* Is fd_pick_pwd set? */
+ fg_gen_pwd:1,           /* Is fd_gen_pwd set? */
+ fg_restrict:1,          /* Is fd_restrict set? */
+ fg_policy:1,            /* Is fd_policy set? */
+ fg_nullpw:1,            /* Is fd_nullpw set? */
+ fg_pwchanger:1,         /* Is fd_pwchanger set? */
+ fg_pwdepth:1,           /* Is fd_pwdepth set? */
+ fg_pwdict:1,            /* Is fd_pwdict set? */
+ fg_gen_chars:1,         /* Is fd_gen_chars set? */
+ fg_gen_letters:1,       /* Is fd_gen_letters set? */
+
+
+ /* Mandatory policy parameters: */
+ fg_clearance:1,         /* Is fd_clearance set? */
+
+ /* Login parameters: */
+ fg_slogin:1,            /* Is fd_slogin set? */
+ fg_suctty: 1,           /* is fd_suctty set ? */
+ fg_unsuctty: 1,         /* is fd_unsuctty set ? */
+ fg_ulogin:1,            /* Is fd_ulogin set? */
+ fg_nlogins:1,           /* Is fd_nlogins set? */
+ fg_max_tries:1,         /* Is fd_max_tries set? */
+ fg_retired:1,		/* Is fd_retired set? */
+ fg_lock:1,              /* Is fd_lock set? */
+ fg_unlockint:1,         /* Is fd_unlockint set? */
+ fg_tod:1,               /* Is fd_tod set? */
+ fg_expdate:1,           /* Is fd_expdate set? */
+};
+
+
+
+struct pr_passwd  {
+ struct pr_field ufld;   /* user specific fields */
+ struct pr_flag uflg;    /* user specific flags */
+ struct pr_field sfld;   /* system wide fields */
+ struct pr_flag sflg;    /* system wide flags */
+};
+.oE
+.PP
+The protected password database stores user authentication
+profiles. The \*Lpr_passwd\*O structure in the user-specific
+entry refers to parameters specific to a user, while the
+\*Lpr_passwd\*O structure in the system default database sets
+parameters that are used when there is no user-specific
+override. The user-specific entry is keyed on the \*Vfd_name\*O
+field, which is a cross reference to the \*L/etc/passwd\*O entry
+for the user. The \*Lfd_uid\*O field must match the UID in
+that file as well.
+The \*Lfd_encrypt\*O field is the encrypted password.
+The password is encrypted in eight character segments,
+so the size of this field is a multiple of the number of
+characters in an encrypted segment (AUTH_CIPHERTEXT_SIZE
+macro). \*Lfd_owner\*O is the user name accountable for the
+account. The system guarantees that only that user is allowed to
+use the \*Lsu\*O program to assume the identity of the user.
+\*Lfd_nice\*O sets the \*Lnice(\|)\*O value of the login shell.
+\*Lfd_cprivs\*O is the command authorizations vector for the
+user (see the \*Lcmdauth\*O functions). \*Lfd_sprivs\*O stores the
+user's kernel authorizations, and \*Lfd_bprivs\*O stores the
+user's base privileges.  \*Lfd_sprivs\*O must be a superset of
+\*Lfd_bprivs\*O. The audit control mask lists
+the user's overrides of the corresponding disposition bit. If
+the bit is on, the system always audits the event type for
+that user. If the bit is off, the user is never audited for that
+event type. \*Lfd_min\*O is the time, in seconds, that must
+elapse before the user can change passwords. \*Lfd_maxlen\*O is
+the maximum password length (in characters) for the user.
+\*Lfd_expire\*O is the time, in seconds, between the successful
+password change and the password expiration time.
+\*Lfd_lifetime\*O is the number of seconds
+that must elapse after a successful password change before the
+password dies. The account is
+considered locked if the password is dead. \*Lfd_schange\*O and
+\*Lfd_uchange\*O record the last successful and unsuccessful
+password change times.
+.P
+The next flag fields control password generation.
+\*Lfd_pick_pwd\*O, if set, allows the user to pick his/her own
+password. \*Lfd_nullpw\*O, if set, allows the account to be used
+without a password. \*Lfd_gen_pwd\*O enables the use of the
+random pronounceable password generator for passwords for this
+account. \*Lfd_gen_chars\*O and \*Lfd_gen_letters\*O allow the
+password generator to generate passwords composed of random
+printable characters and random letters, neither of which is
+easy to remember. The password change software allows the user
+to pick from whichever options are available for his/her
+account. \*Lfd_pwchanger\*O is the user ID of the user who last
+changed the password on the user's account, if it was not the
+account owner. \*Lfd_restrict\*O, if set, causes triviality
+checks to be made after the account password has been chosen, to
+avoid palindromes, user name and machine name permutations, and
+words appearing in the dictionary.
+.P
+The \*Lfd_tod\*O specifier is a string, formatted like the UUCP
+Systems file, which specifies time intervals, during which the user may
+log in.
+The next fields are used to protect against
+login spoofing, listing the time and location of last login.
+\*Lfd_slogin\*O and \*Lfd_ulogin\*O are timestamps of the last
+successful and unsuccessful login attempts. \*Lfd_suctty\*O and
+\*Lfd_unsuctty\*O are the terminal device or host (if supported)
+names of the terminal or host from which the last login attempt
+occurred. \*Lfd_nlogins\*O is the number of unsuccessful login
+attempts since the last successful login. It is reset to zero
+after a successful login. \*Lfd_max_tries\*O is the number of
+unsuccessful attempts until the account is considered locked.
+\*Lfd_lock\*O indicates whether the administrative lock on the
+account is set. The account is considered disabled (locked) if
+the password is dead, if the maximum number of unsuccessful
+attempts has been exceeded, or the administrative lock is set.
+\*Lfd_retired\*O is an indicator of whether the
+account has been retired.  Once retired, the user ID
+and name may not be reused.
+.P
+When the
+\*Lgetprpwent(\|)\*O
+function
+is first called, it returns a pointer to the first
+user \*Lpr_passwd\*O structure in the database; thereafter, it returns a
+pointer to the next \*Lpr_passwd\*O structure in the database, so
+successive calls can be used to search the database.
+Note that entries without a corresponding entry in
+\*L/etc/passwd\*O
+are skipped.
+The entries are scanned in the order they appear in
+\*L/etc/passwd\*O\&.
+The
+\*Lgetprpwuid(\|)\*O
+function
+searches from the beginning of the database until a
+numerical user ID matching \*Vuid\*O is found and returns a
+pointer to the particular structure in which it was found.
+The
+\*Lgetprpwnam(\|)\*O
+function
+searches from the beginning of the database until a
+login name matching \*Vname\*O is found, and returns a pointer to
+the particular structure in which it was found.
+If an End-of-File or an error is encountered on reading, these
+functions return a
+null
+pointer.
+.P
+A call to
+\*Lsetprpwent(\|)\*O
+has the effect of rewinding the protected password
+database to allow repeated searches.
+The
+\*Lendprpwent(\|)\*O
+function
+may be called to
+close the protected password database when processing is complete.
+.P
+The
+\*Lputprpwnam(\|)\*O
+function
+puts a new or replaced protected password entry
+\*Vpr\*O
+with key
+\*Vname\*O
+into the database.
+If the \*Luflg.fg_name\*O field is 0 (zero), the
+requested entry is deleted from the
+protected password database.
+The
+\*Lputprpwnam(\|)\*O
+function
+locks the database for all update operations,
+and performs a
+\*Lendprpwent(\|)\*O
+after the update or failed attempt.
+.SH NOTES
+.PP
+Programs must call \*Lset_auth_parameters(\|)\*O before any other
+action in \*Vmain(\|)\*O.
+.P
+The value returned by the \*Lgetprpwent(\|)\*O and \*Lgetprpwnam(\|)\*O
+function
+refers to a structure that is overwritten by calls to these
+routines. To retrieve an entry, modify it, and replace it in the
+database, you must copy the entry using structure assignment and
+supply the modified buffer to \*Lputprpwnam(\|)\*O.
+.P
+On systems supporting network connections, the \*Lfd_suctty\*O
+and \*Lfd_unsuctty\*O fields may be the ASCII representation of
+the network address of the host from which the last
+successful/unsuccessful remote login to the account occurred.
+Use the \*Lgetdvagnam(\|)\*O function to investigate the type of device to
+determine whether a host or terminal was used at last
+successful/unsuccessful login.
+.P
+Programs using these routines must be compiled with \%\*L-lsecurity\*O.
+.P
+The
+\*Lgetprpwent(\|)\*O
+function
+assumes one name per UID and one UID per name.
+The sequential scan will loop between the first two instances of
+a multiple UID.
+.P
+The program uses the \*Vgetpwent(\|)\*O routines to sequentially
+scan the databases.  User program references to password entries
+obtained using these routines will not be valid after using any
+of the routines on this page.
+.SH RETURN VALUES
+.PP
+The
+\*Lgetprpwent(\|), getprpwuid(\|)\*O, and \*Lgetprpwnam(\|)\*O
+functions return
+null pointers on EOF or error. The \*Lputprpwnam(\|)\*O function
+returns 0 (zero) if it cannot add or update the entry.
+.SH FILES
+.PP
+...\"from TP "
+...\" Bold under TP !"
+.VL
+.LI "\*L/etc/passwd\*O"
+System password file
+...\"from TP "
+...\" Bold under TP !"
+.LI "\*L/tcb/files/auth/*/*\*O"
+Protected password database
+...\"from TP "
+...\" Bold under TP !"
+.LI "\*L/etc/auth/system/default\*O"
+System defaults database
+.LI "\*L/usr/include/prot.h\*O"
+General security databases file.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lgetpwent\*O(3),
+\*Lgetprdfent\*O(3)
+.iX "getprpwent function"
+.iX "getprpwuid function"
+.iX "getprpwnam function"
+.iX "setprpwent function"
+.iX "endprpwent function"
+.iX "putprpwnam function"
+.\" #endif /* SEC_BASE */
+.EQ
+delim off
+.EN

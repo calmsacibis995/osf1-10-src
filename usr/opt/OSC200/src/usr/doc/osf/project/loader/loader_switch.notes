@@ -1,0 +1,184 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+		Loader Switch				12/04/89 lwa
+		-------------				------------
+							edited 06/09/90
+							---------------
+
+
+   WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+            IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+            IT IS PROVIDED FOR INFORMATION ONLY.
+
+typedef	void	*ldr_module_handle;	/* opaque type for fmt-dep handle */
+typedef	void	*ldr_export_list;	/* opaque type for fmt-dep exports */
+typedef	int	(*entry_pt_t)();	/* program entry point */
+
+(see ldr_region.h, ldr_package.h, ldr_import.h for definitions of the
+ data structures used by these routines).
+
+typedef	int (*lsw_recog_p)(const char *filename, ldr_file_t fd,
+			   ldr_module_handle *handle);
+
+The recognizer routine checks to see whether the specified file
+(opened for at least read access on file descriptor fd)
+is of an object file format supported by this format-dependent
+manager.  It returns LDR_SUCCESS on success or a negative loader error
+status on failure.  On success, the format-dependent manager's handle
+is left in the handle variable.  Also, after a successful recognition,
+the open file descriptor is the resposibility of the format-dependent
+manager; it is never used again by the format-independent manager.
+
+
+typedef int (*lsw_get_static_dep_p)(ldr_module_handle handle, int depno,
+				    char **dep);
+
+Iterator returing the pathnames of the static dependencies of the object
+module with the specified format-dependent handle.  depno is the index of
+the dependency to be found, starting at zero.  Return pointer to pathname
+of static dependency (as a ldr_strdup'ed string; caller will ldr_free it)
+in *dep.  Returns LDR_SUCCESS on success, a negative loader error
+status on error (including LDR_ESRCH to indicate the end of the
+dependencies). 
+
+
+typedef int (*lsw_get_imports_p)(ldr_module_handle handle, int *pkg_count,
+				 ldr_package_rec **pkgs, int *sym_count,
+				 ldr_import_rec **imports);
+
+Return the lists of import packages and import symbols for the
+specified object module.  The callee allocates the lists and their
+contents, and will be responsible for freeing them.  The callee must
+fill in the following fields of each package record:
+ - structure version number (compatibility check)
+ - import package name
+ - import package kind
+and the following fields of each symbol record:
+ - structure version number (compatibility check)
+ - symbol name
+ - import package number
+Returns the number of packages in the package list in *pkg_count, and
+the number of symbols in the import list in *sym_count.
+Return LDR_SUCCESS on success or negative error status on error.
+
+
+typedef int (*lsw_map_regions_p)(ldr_module_handle handle,
+				 ldr_region_allocs *allocsp,
+				 int *reg_count, ldr_region_rec **regions);
+
+Map the regions of the object file into the process' address space.
+The callee allocates the list of mapped regions and its contents,
+and will be responsible for freeing it.  The callee must fill in
+these fields of the region descriptor record for each region mapped:
+  - structure version number
+  - region name (may be NULL if no region name is known)
+  - region kind
+  - region protection
+  - the address it is to ultimately live at in the destination process'
+    address space (vaddr)
+  - the address it is currently mapped at in this process (mapaddr)
+  - region size
+
+allocsp is pointer to structure holding address allocation and deallocation
+procedures to use; see ldr_types.h for description.
+Returns the number of regions in the region list in *reg_count.
+Return LDR_SUCCESS on success or negative error status on error.
+
+
+typedef int (*lsw_get_export_pkgs_p)(ldr_module_handle handle, int *count,
+				     ldr_package_rec **packages);
+
+Return the list of packages exported by this object module.  The
+callee allocates the list and its contents, and will be responsible
+for freeing it. The calle must fill in the following fields of each
+package record:
+ - structure version number
+ - export package name
+ - export package kind
+Returns the number of exported packages in *count.
+Return LDR_SUCCESS on success or negative error status on error.
+
+
+typedef int (*lsw_lookup_export_p)(ldr_module_handle handle,
+				   ldr_package_rec *package,
+				   ldr_import_rec *symbol);
+
+Look up the specified import symbol from the specified packge in
+the specified object module, and fill in its value in the import
+symbol record.  Can use the following fields in the import record:
+ - symbol name
+Must fill in the following fields in the import symbol record:
+ - symbol value
+Return LDR_SUCCESS on success or negative error status on error.
+
+
+typedef int (*lsw_relocate_p)(ldr_module_handle handle, int nregions,
+			      ldr_region_rec *regions, int npackages,
+			      ldr_package_rec *import_pkgs, int nimports,
+			      ldr_import_rec *imports);
+
+Relocate all the relocatable addresses everywhere in the specified
+object module.  regions is the array of nregions region description
+records describing the regions mapped from this object module, as
+returned from the lsw_map_regions call.  import_pkgs and imports
+are arrays on npackages package records and nimports import records
+(respectively) describing the packages and symbols imported by this
+object module, as returned by the lsw_get_imports call.  All
+symbols have been resolved to a symbol value.  Return LDR_SUCCESS
+on success or negative error status on error.
+
+
+typedef int (*lsw_get_entry_pt_p)(ldr_module_handle handle,
+				  ldr_entry_pt_t *entry_pt);
+
+Return the address of the entry point for the specified module, if
+any, in *entry_pt.  Return LDR_SUCCESS on success or negative error
+status on error.
+
+
+typedef int (*lsw_run_inits_p)(ldr_module_handle handle, entry_pt_kind kind);
+
+Run the specified module's initialization or termination entry points,
+as specified by the kind flag, if any.  Return LDR_SUCCESS on success
+or negative error status on error.
+
+
+typedef int (*lsw_cleanup_p)(ldr_module_handle handle);
+
+Complete the loading of the specified module, clean up open files,
+temporary data structures, etc.  Return LDR_SUCCESS on success or
+negative error status on error.
+
+
+typedef int (*lsw_unload_p)(ldr_module_handle handle, ldr_region_allocs *allocsp,
+			    int reg_count, ldr_region_rec *regions,
+			    int ipkg_count, ldr_package_rec *import_pkgs,
+			    int import_count, ldr_import_rec *imports,
+			    int epkg_count, ldr_package_rec *export_pkgs);
+
+Unload the specified object module.  allocsp is pointer to
+structure holding address allocation and deallocation procedures to
+use; see ldr_types.h for description.  The region list describes
+the address and size of each mapped region; the callee is
+responsible for freeing this list.  The imports, import_pkgs, and
+export_pkgs lists are also passed in to this procedure in case they
+are needed during unloading; the callee is also responsible for
+freeing them.  On return, the module handle, and the region,
+import, import package, and export package lists are dead and
+cannot be used further by the caller.
+
+
+Need at least one new one:
+typedef int (*lsw_get_export_list_p)(ldr_module_handle handle, int *count,
+				     ldr_export_list **list);
+
+Return a pointer to the exported symbol list for the specified object
+module, in the canonical format that can be understood by the manager
+for pre-loaded libraries, in *list.  Return LDR_SUCCESS on success or
+negative error status on error.  This routine is normally only called
+when pre-loading a shared library.  (The canonical format is just a
+simple list of export symbol name and value, in no specified order).

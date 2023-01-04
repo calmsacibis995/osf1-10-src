@@ -1,0 +1,75 @@
+Path: news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9111202240.AA06608@xenon.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2235) Close XBUG #4688: server: crashed by drawing wide zero-length on-off-dash 
+Date: Wed, 20 Nov 91 17:40:18 EST
+From: Keith Packard <keith@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+
+### bug number:   4688
+### area:         server
+### severity:     high
+### comments:     
+
+*** /tmp/,RCSt1a06580	Wed Nov 20 17:38:06 1991
+--- server/ddx/mi/miwideline.c	Wed Nov 20 15:33:41 1991
+***************
+*** 1,5 ****
+  /*
+!  * $XConsortium: miwideline.c,v 1.44 91/11/13 14:53:37 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+--- 1,5 ----
+  /*
+!  * $XConsortium: miwideline.c,v 1.45 91/11/20 15:33:19 keith Exp $
+   *
+   * Copyright 1988 Massachusetts Institute of Technology
+   *
+***************
+*** 2131,2151 ****
+      {
+  	/* not the same as endIsFg computation above */
+  	pixel = (dashIndex & 1) ? pGC->bgPixel : pGC->fgPixel;
+! 	projectLeft = pGC->capStyle == CapProjecting;
+! 	miWideDashSegment (pDrawable, pGC, spanData, &dashOffset, &dashIndex,
+! 			    x1, y1, x2, y2,
+! 			    projectLeft, projectRight, &leftFace, &rightFace);
+! 	if (pGC->capStyle == CapRound)
+! 	{
+  	    miLineArc (pDrawable, pGC, pixel, spanData,
+! 		       &leftFace, (LineFacePtr) NULL,
+! 		       (double)0.0, (double)0.0,
+! 		       TRUE);
+! 	    rightFace.dx = -1;	/* sleezy hack to make it work */
+! 	    miLineArc (pDrawable, pGC, pixel, spanData,
+! 		       (LineFacePtr) NULL, &rightFace,
+!  		       (double)0.0, (double)0.0,
+! 		       TRUE);
+  	}
+      }
+      if (spanData)
+--- 2131,2148 ----
+      {
+  	/* not the same as endIsFg computation above */
+  	pixel = (dashIndex & 1) ? pGC->bgPixel : pGC->fgPixel;
+! 	switch (pGC->capStyle) {
+! 	case CapRound:
+  	    miLineArc (pDrawable, pGC, pixel, spanData,
+! 		       (LineFacePtr) NULL, (LineFacePtr) NULL,
+! 		       (double)x1, (double)y1,
+! 		       FALSE);
+! 	    break;
+! 	case CapProjecting:
+! 	    x2 = pGC->lineWidth;
+! 	    miFillRectPolyHelper (pDrawable, pGC, pixel, spanData,
+! 				  x1 - (x2 >> 1), y1 - (x2 >> 1), x2, x2);
+! 	    break;
+  	}
+      }
+      if (spanData)

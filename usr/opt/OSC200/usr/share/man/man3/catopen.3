@@ -1,0 +1,220 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: catopen.3,v $ $Revision: 3.2.7.3 $ (DEC) $Date: 1993/08/23 21:52:46 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC. 
+.\" ALL RIGHTS RESERVED 
+.\" OSF/1 1.2
+.\"
+.TH catopen 3
+.SH NAME
+.PP
+\*Lcatopen\*O \- Opens a specified message catalog
+.SH LIBRARY
+.PP
+Standard C Library (\*Llibc.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <nl_types.h>
+.sp 0.4v
+nl_catd catopen(
+.nL
+	\*Lconst char *\*Vname\*L,
+.nL
+	int \*Voflag\*L);\*O
+.sE
+.SH PARAMETERS
+.PP
+.VL
+.LI "\*Vname\*O"
+Specifies the catalog file to open.
+.LI "\*Voflag\*O"
+Specify the constant \*LNL_CAT_LOCALE\*O
+to open the message catalog
+for the locale set for the \*LLC_MESSAGES\*O variable; using
+\*LNL_CAT_LOCALE\*O conforms to the XPG4 standard.
+You can specify 0 (zero) for compatibility with XPG3; when
+\*Voflag\*O is set to zero, the locale set for the
+\*LLANG\*O variable determines the message catalog locale.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "catopen function"
+.iX "message catalog" "opening"
+The \*Lcatopen(\|)\*O function
+opens a specified message catalog and returns a catalog descriptor
+that is used to retrieve messages from the catalog.
+.PP
+The \*Vname\*O parameter specifies the name of the message catalog to
+be opened.  If \*Vname\*O contains a / (slash), then \*Vname\*O
+specifies a full pathname for the message catalog.  Otherwise, the
+environment variable \*LNLSPATH\*O is used with substitutions based on
+the value of the \*Vname\*O parameter and the value of the
+\*LLC_MESSAGES\*O locale category.  \*LNLSPATH\*O is a colon-separated
+list of pathnames. The \*Lcatopen(\|)\*O function makes variable
+substitutions in each pathname and attempts to open the specified
+catalog. If the open succeeds, it returns the catalog descriptor for
+that catalog. If the open does not succeed, the \*Lcatopen(\|)\*O
+function attempts to open the next pathname in the value of the
+\*LNLSPATH\*O environment variable.
+.PP
+If \*LNLSPATH\*O does not exist in the environment, then the following
+system default for \*LNLSPATH\*O is used:
+.iS
+/usr/lib/nls/msg/%L/%N
+.iE
+.PP
+If no message catalog can be opened in any of the components specified
+by \*LNLSPATH\*O, then \*Lcatopen(\|)\*O returns a value of -1 cast to
+\*L(nl_catd)\*O.  This is not a valid catalog descriptor and causes
+subsequent calls to \*Lcatgets(\|)\*O to return a pointer to the
+default message string.
+.PP
+The meaning of each variable in the \*LNLSPATH\*O
+environment variable is as follows:
+.VL 1i
+.LI "\*L%N\*O"
+The value passed in the \*Vname\*O parameter.
+.LI "\*L%L\*O"
+The current locale name defined for the LC_MESSAGES category, for
+example, \*Lfr_BE.ISO8859-1\*O.
+.LI "\*L%l\*O"
+The language element of the current locale name, for example, \*Lfr\*O.
+.LI "\*L%t\*O"
+The territory element from the current locale name, for example,
+\*LBE\*O.
+.LI "\*L%c\*O"
+The code set element from the current locale name, for example,
+\*LISO8859-1\*O.
+.LI "\*L%\&%\&\*O"
+A single % (percent sign) character.
+.LE
+.PP
+For example, if the \*Lcatopen(\|)\*O function specifies
+a catalog with the name \*Lmycmd.cat\*O, and the environment variables
+are set as follows:
+.PP
+.iS
+NLSPATH=../%N:/usr/lib/nls/msg/%L/%N:/usr/lib/nls/msg/%l/%N
+LANG=fr_BE.ISO8859-1
+.iE
+.PP
+then the application searches for the catalog in the following
+order:
+.PP
+.iS
+\&../mycmd.cat
+/usr/lib/nls/msg/fr_BE.ISO88591-1/mycmd.cat
+/usr/lib/nls/msg/fr/mycmd.cat
+.iE
+.PP
+The \*Lsetlocale(\|)\*O function sets the value of the
+\*LLC_MESSAGES\*O category based on the values of the parameters to
+\*Lsetlocale(\|)\*O and on the values of the \*LLC_MESSAGES\*O,
+\*LLANG\*O, and \*LLC_ALL\*O environment variables.  The application
+program must call \*Lsetlocale(\|)\*O to set the \*LLC_MESSAGES\*O
+category before calling \*Lcatopen(\|)\*O.
+.SH NOTES
+.PP
+The message catalog is not opened until the first \*Lcatgets\*O
+call that refers to the catalog.  Therefore, the overhead associated
+with opening the catalog file:
+.ML
+.LI
+Does not affect the speed of program startup
+.LI
+Is eliminated altogether if the catalog is
+not used during a particular program execution cycle
+.LE
+.PP
+Because the operation of opening the message catalog is deferred, the
+\*Lcatopen(\|)\*O function always returns a valid catalog descriptor and
+sets \*Lerrno\*O for a very limited number of conditions.
+Therefore, you cannot directly determine
+if the catalog open succeeds. You can indirectly check if the catalog
+open succeeds by comparing the address of the string that the
+\*Lcatgets(\|)\*O function returns with the address of the default
+string. If the \*Lcatgets(\|)\*O function returns the default string,
+then either the
+catalog open failed or the catalog does not contain the requested
+message.
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Trial use.
+.LE
+.SH RETURN VALUES
+.PP
+When successful, the \*Lcatopen(\|)\*O function returns a catalog
+descriptor that can be used in calls to the \*Lcatgets(\|)\*O and
+\*Lcatclose(\|)\*O functions. When the \*Lcatopen(\|)\*O function
+does not succeed, it returns a value of -1 cast to
+\*L(nl_catd)\*O.
+.SH ERRORS
+.PP
+If any of the following conditions occur, the \*Lcatopen(\|)\*O
+function sets \*Lerrno\*O to the corresponding value. See the
+\*LNOTES\*O section for information on the impact of deferred open.
+.\"
+.\" Following errnos revised as per comments from rnf, tw, and dl;
+.\" Some errno values were commented out and one (ENOMEM) added.
+.\" Others cannot be returned until actual open done by catgets; however,
+.\" catgets must preserve the current errno and cannot set it.
+.\"
+.VL
+.\" .LI "[EACCES]"
+.\" Search permission is denied on a component of the pathname prefix; or read
+.\" is denied for the named file.
+.\" #ifdef SEC_ARCH
+.\" .PP
+.\" The requested action requires reading or writing in a directory to
+.\" which the process does not have access with respect to one of the
+.\" system's security policies.
+.\" #endif /* SEC_ARCH */
+.\" .LI "[EFAULT]"
+.\" The \*Vname\*O parameter specifies an invalid file descriptor.
+.LI "[EINTR]"
+A signal was caught during the function.
+.\" .LI "[ELOOP]"
+.\" Too many links were encountered in translating the path of the file.
+.\" .LI "[EMFILE]"
+.\" The system limit for open file descriptors per
+.\" process has already reached \*LOPEN_MAX\*O.
+.LI "[ENAMETOOLONG]"
+The length of the
+path of the file
+exceeds \*LPATH_MAX\*O, or a pathname component is longer than
+\*LNAME_MAX\*O.
+.LI "[ENOMEM]"
+Insufficient storage space is available.
+.\" .LI "[ENOTDIR]"
+.\" A component of the pathname prefix is not a directory.
+.LE
+.SH RELATED INFORMATION
+.PP
+Functions:
+\*Lcatgets\*O(3),
+\*Lcatclose\*O(3),
+\*Lsetlocale\*O(3).
+.PP
+Commands:
+\*Ldspcat\*O(1),
+\*Ldspmsg\*O(1),
+\*Lgencat\*O(1).
+.EQ
+delim off
+.EN

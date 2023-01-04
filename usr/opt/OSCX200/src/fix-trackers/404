@@ -1,0 +1,71 @@
+Path: news!news.crl.dec.com!pa.dec.com!nobody
+Message-Id: <9207292253.AA02085@explain.lcs.mit.edu>
+To: fix-trackers@expo.lcs.mit.edu
+Subject: (seq: 2632) close XBUG #5400: config: SeparateSharedCompile and ForceNormalLibs don't cooperate.
+Date: Wed, 29 Jul 92 18:53:04 EDT
+From: Bob Scheifler <rws@expo.lcs.mit.edu>
+Distribution: dec
+X-Mailing-List: fix-trackers@expo.lcs.mit.edu
+X-Disclaimer: This message originated from a mailing list outside of Digital.
+Newsgroups: dec.mail.lists.x.fix-trackers
+Approved: news@usenet.pa.dec.com
+
+### bug number:   5400
+### area:         config
+### severity:     low
+### comments:     
+
+*** /tmp/d02064	Wed Jul 29 18:50:52 1992
+--- config/osfLib.rules	Tue Jul 21 08:55:54 1992
+***************
+*** 1,4 ****
+! XCOMM $XConsortium: osfLib.rules,v 1.3 92/06/28 19:53:30 rws Exp $
+  
+  /*
+   * OSF/1 shared library rules
+--- 1,4 ----
+! XCOMM $XConsortium: osfLib.rules,v 1.4 92/07/21 08:55:14 rws Exp $
+  
+  /*
+   * OSF/1 shared library rules
+***************
+*** 56,61 ****
+--- 56,62 ----
+   * the library gone for long periods.
+   */
+  #ifndef SharedLibraryTarget
++ #if SeparateSharedCompile
+  #define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
+  AllTarget(Concat(lib,libname.so.rev))					@@\
+  									@@\
+***************
+*** 69,75 ****
+  									@@\
+  clean::									@@\
+  	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
+! 
+  #endif /* SharedLibraryTarget */
+  
+  /*
+--- 70,90 ----
+  									@@\
+  clean::									@@\
+  	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
+! #else
+! #define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
+! AllTarget(Concat(lib,libname.so.rev))					@@\
+! 									@@\
+! Concat(lib,libname.so.rev):  solist					@@\
+! 	$(RM) $@~							@@\
+! 	$(LD) -o $@~ $(SHLIBLDFLAGS) -package $@ -soname $@ solist $(REQUIREDLIBS) -lc @@\
+! 	$(RM) $@ 							@@\
+! 	$(MV) $@~ $@							@@\
+! 	$(RM) Concat(lib,libname.so)					@@\
+! 	$(LN) $@ Concat(lib,libname.so)					@@\
+! 									@@\
+! clean::									@@\
+! 	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
+! #endif /* SeparateSharedCompile */
+  #endif /* SharedLibraryTarget */
+  
+  /*

@@ -1,0 +1,260 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: t_rcv.3,v $ $Revision: 3.3.6.2 $ (DEC) $Date: 1993/07/27 13:27:47 $
+.\"
+.\" 
+.\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" 
+.\"
+.\" Copyright (c) 1990, OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\"
+.\" Begin Digital-specific information - CORRECTION
+.\" Recoded entire manpage to fix multitute of font errors.
+.TH t_rcv 3
+.SH NAME
+.PP
+t_rcv \- Receives normal data or expedited data on a connection
+.SH LIBRARY
+.PP
+XTI Library (\*Llibxti.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <xti.h>\*O
+.sp 4p
+\*Lint t_rcv(\*O
+    \*Lint \*Vfd\*L,\*O
+    \*Lchar *\*Vbuf\*L,\*O
+    \*Lunsigned \*Vnbytes\*L,\*O
+    \*Lint *\*Vflags\*L) ;\*O
+.sE
+.SH "PARAMETERS"
+.PP
+The
+\*Lt_rcv\*O(\|)
+function can only be called in the T_DATAXFER and
+T_OUTREL transport provider states. The following table
+summarizes the relevance of input and output parameters before and
+after
+\*Lt_rcv\*O(\|)
+is called:
+.sp
+.TS
+center, tab(@);
+lb  lb lb
+l  c  c.
+Parameters@Before Call@After Call
+_
+\*Vfd\*O@y@n
+\*Vbuf\*O@y@(y)
+\*Vnbytes\*O@y@n
+\*Vflags\*O@n@y
+.TE
+Notes to Table:
+.RS
+.nf
+.ta 5
+y	This is a meaningful parameter.
+n	This is not a meaningful parameter.
+(y)	The content of the object pointed to by \*Vy\*O is meaningful.
+.fi
+.RE
+.TP
+.I fd
+Specifies a file descriptor returned by the
+\*Lt_open\*O(\|)
+function that
+identifies the local transport endpoint where an active connection exists.
+.TP
+\*Vbuf\*O
+Points to the receive data buffer where returned data is to be written.
+.TP
+\*Vnbytes\*O
+Specifies the length in bytes of the received-data buffer pointed to
+by the
+\*Vbuf\*O
+parameter.
+.sp
+.ne 3i
+.TP
+\*Vflags\*O
+Points to an unsigned integer (least significant bit rightmost) whose
+bits are flags
+that specify the action that must be taken by the responding transport
+user when the
+\*Lt_rcv\*O(\|)
+function is processed. Corresponding values and
+symbolic names for the following flag bits are defined in the
+\*Lxti.h\*O
+include file:
+.sp 3p
+.in -1i
+.TS
+center, tab(@) ;
+lb  lb  lb
+cw(0.5i)  lw(1.0i)  lw(3.0i).
+Bit@Symbolic Name@Meaning
+_
+.sp 3p
+0@T_MORE@T{
+When set, this bit notifies the transport user that received data is a
+fragment of a Transport Service Data Unit (TSDU) or Expedited
+Transport Service Data Unit (ETSDU), and that more data is available.
+The rest of the TSDU or
+ETSDU can be received
+through further
+\*Lt_rcv\*O(\|)
+function calls. Each time this flag is
+set on return, another
+\*Lt_rcv\*O(\|)
+call can
+receive additional pieces of the TSDU or ETSDU. When the final TSDU or
+ETSDU is received,
+this flag bit has a value of 0 (zero) on return. When the transport
+provider does not support TSDU or ETSDU data exchanges (refer to the
+\*Lt_open\*O(\|)
+and
+\*Lt_getinfo\*O(\|)
+functions), the state of this flag bit should
+be ignored.
+T}
+.sp 3p
+1@T_EXPEDITED@T{
+When set, this bit notifies the transport user that received data is
+an ETSDU. When the number of ETSDU data bytes exceeds the value
+specified by the
+\*Vnbytes\*O
+ parameter, this flag bit and the T_MORE flag bit
+is set on return of the initial
+\*Lt_rcv\*O(\|)
+call. Subsequent
+\*Lt_rcv\*O(\|)
+calls issued to retrieve the rest of the ETSDU have both these
+flag bits set on return. When the final piece of the ETSDU is received, the
+T_MORE flag bit has a value of 0 (zero) on return.
+T}
+@@T{
+When an ETSDU is received during reception of a TSDU, no remaining
+pieces of the
+TSDU may be received until the current ETSDU has been completely received.
+T}
+.TE
+.\"Additionally, the process can arrange to be notified via the EM 
+.\"interface.
+.sp
+.ne 3i
+.SH "DESCRIPTION"
+.PP
+.iX "t_rcv function"
+.iX "XTI" "t_rcv function"
+The
+\*Lt_rcv\*O(\|)
+function is an XTI connection-oriented service
+function that is used to
+receive normal or expedited data. The transport endpoint through
+which data arrives is specified by a file descriptor previously
+returned by the
+\*Lt_open\*O(\|)
+function. By default,
+\*Lt_rcv\*O(\|)
+executes in the synchronous operating mode. In synchronous mode
+\*Lt_rcv\*O(\|)
+waits for data to arrive even when none is currently
+available before returning control to the calling transport user.
+.PP
+When the transport endpoint, specified by the
+\*Vfd\*O
+parameter, has
+been opened with
+the O_NONBLOCK flag set in the
+\*Lt_open\*O(\|)
+or
+\*Lfcntl\*O(\|)
+functions, the
+\*Lt_rcv\*O(\|)
+function executes
+in asynchronous mode. In
+asynchronous mode, when no data is available,
+this function fails.
+.SH "NOTES"
+.PP
+In synchronous mode, the only way for a transport user to be notified of
+the arrival of normal or expedited data is to call the
+\*Lt_rcv\*O(\|)
+function
+or to check for states T_DATA or T_EXDATA using the
+\*Lt_look\*O(\|)
+function.
+.SH "RETURN VALUES"
+.PP
+Upon successful completion, the
+\*Lt_rcv\*O(\|)
+function returns the
+number of bytes
+of data received. Otherwise, the value -1 is returned and
+\*Lt_errno\*O
+is set to indicate the error.
+.SH ERRORS
+.PP
+If the
+\*Lt_rcv\*O(\|)
+function fails,
+\*Lt_errno\*O
+is set to one of
+the following values:
+.TP 1i
+[TBADF]
+The specified file descriptor does not refer to a valid transport endpoint.
+.TP
+[TNODATA]
+Asynchronous mode is indicated because O_NONBLOCK was set, but no data
+is currently available from the transport provider.
+.TP
+[TLOOK]
+An asynchronous event has occurred on this transport endpoint and
+requires immediate attention (refer to
+\*Lt_look\*O(\|)
+function).
+.TP
+[TOUTSTATE]
+The
+\*Lt_look\*O(\|)
+function was issued in the wrong sequence on the
+transport endpoint referenced by the
+\*Vfd\*O
+parameter.
+.TP
+[TSYSERR]
+A system error occurred during execution of
+\*Lt_look\*O(\|).
+.TP
+[TNOTSUPPORT]
+This function is not supported by the underlying transport provider.
+.SH "RELATED INFORMATION"
+.PP
+Functions:
+\*Lfcntl\*O(2),
+\*Lt_getinfo\*O(3),
+\*Lt_look\*O(3),
+\*Lt_open\*O(3),
+\*Lt_snd\*O(3)
+.\" End Digital-specific information - CORRECTION
+.EQ
+delim off
+.EN

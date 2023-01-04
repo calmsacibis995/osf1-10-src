@@ -1,0 +1,347 @@
+
+(c) Copyright 1990, OPEN SOFTWARE FOUNDATION, INC.
+ALL RIGHTS RESERVED
+
+OSF/1 Release 1.0
+
+		Address Space Management		lwa 2/05/90
+		------------------------		-----------
+							edited 06/04/90
+							--------------
+
+   WARNING: THIS IS A PRELIMINARY, INTERNAL DESIGN SPECIFICATION.
+            IT IS SUBJECT TO CHANGE WITHOUT NOTICE AT ANY TIME.
+            IT IS PROVIDED FOR INFORMATION ONLY.
+
+Desirables:
+-----------
+
+  - Address space management must be machine-dependent,but shouldn't
+    need to be format-dependent.
+  - Address space layout info (where the code, data, stack, shared
+    libraries, loader, etc. live by default) should be maintained in
+    only one place; it's machine-dependent info.
+  - The format-dependent loader routines (and the core
+    format-independent loader routines) shouldn't depend on which loader
+    context you're loading into (ie process, kernel, pre-load).
+
+Basic design:
+-------------
+
+Define new allocation and deallocation procedure interfaces for
+deciding where to map a given region (possibly allocating storage for
+the region in the process), and for deallocating any allocated space
+during cleanup or unmap.  Separate instances of these
+procedural interfaces are provided for managing process space, kernel
+space, and pre-load space.  The interfaces are machine-independent, but
+the procedures are machine-dependent.  Interfaces are:
+
+Allocation Procedure
+---------------------
+
+int (*alloc_abs_region_p)(univ_t vaddr, size_t size, region_kind_t kind,
+			  prot_t prot, univ_t *baseaddr)
+
+This procedure is used to decide what base address to use to attempt to
+map an absolute region.  vaddr is the virtual address the region is
+relocated to run at, size is its size, kind is the region type (currently only
+text, data, and bss are distinguished) and prot is the protection.
+Returns the baseaddr, which is the address at which the caller should attempt
+to map the region in this process.
+
+There are two cases:
+ 1) This is normal process loading, so the region is to be mapped at the
+    address it is relocated to run at.  In this case the alloc_abs_region_p
+    returns baseaddr == vaddr.
+ 2) This is kernel or pre-load loading, in which case the region is to
+    be mapped at a base address different from its virtual address.
+    In this case baseaddr != vaddr.
+
+The pointer to the absolute allocation procedure is passed in to the
+format-dependent map_region routine.  It decide whether or not to map
+the region using MAP_FIXED based on whether or not vaddr == baseaddr.
+It should use baseaddr as the starting address for mmap; and it should
+return the vaddr and the actual mapped address (returned from mmap) as
+its return values.  It should execute code something like the following:
+
+    if (region being loaded is absolute) {
+
+	vaddr = base address of region;
+
+	(*allocp)(vaddr,region.size, region.kind, region.prot, &baseaddr);
+
+	if (baseaddr == vaddr)
+
+		/* must map at this address */
+
+		map_flags |= MAP_FIXED;
+
+        mapaddr = ldr_mmap(baseaddr, region.size, region.prot, map_flags, fd,
+			   region.offset);
+
+        return(vaddr, mapaddr);
+
+    } else {
+
+        /* Region being loaded is relocatable; see below */
+
+
+int (*alloc_rel_region_p)(size_t size, region_kind_t kind, prot_t prot,
+			  univ_t *vaddr, univ_t *baseaddr)
+
+This procedure is used to decide what virtual address a relocatable
+region is to be relocated to run at, and what base address to use to
+attempt to map it at in the current process.  size is the size of the
+region being loaded, kind is the region type (currently only text,
+data, and bss are distinguished) and prot is the protection.  Returns
+the vaddr, which is the address to which the region is to be relocated
+to run at, and the baseaddr, which is the address at which the caller
+should attempt to map the region in this process.
+
+Again, there are two cases:
+ 1) This is normal process loading, so the region is to be relocated to
+    whatever address it ends up being mapped at.  In this case
+    alloc_rel_region_p returns vaddr == 0, to indicate that the actual
+    vaddr will not be known until mmap has asssigned the actual mapaddr.
+ 2) This is kernel or pre-load loading, in which case the virtual
+    address must be assigned by the alloc_rel_region_p procedure.  In
+    this case, alloc_rel_region_p will return a non-zero vaddr,
+    indicating that whatever address the region ends up mapped at in
+    this process, the vaddr has already been allocated.
+
+So, continuing the "else" clause of the above code:
+
+    } else {
+
+        /* Region being loaded is relocatable */
+
+        (*allocp)(region.size, region.kind, region.prot, &vaddr, &baseaddr);
+
+	mapaddr = ldr_mmap(baseaddr, region.size, region.prot,
+			   map_flags, fd, region.offset); /* NOTE NO MAP_FIXED */
+
+	if (vaddr == NULL)
+
+		/* loading into process, so relocate to mapped addr */
+
+		vaddr = mapaddr;
+
+	return(vaddr, mapaddr);
+    }
+
+Deallocation Procedure
+----------------------
+
+int (*dealloc_region_p)(univ_t vaddr, univ_t mapaddr, size_t size);
+
+The arguments must be:
+ - the vaddr to which the region was relocated; this must be equal to
+   the vaddr returned by the alloc routine if it was non-NULL
+ - the actual address at which the region was
+   mapped (which may be different than the mapaddr returned by the
+   alloc_region routine, if it was not an absolute mapping)
+ - the size passed in to the alloc_region routine
+
+Note that this routine does NOT automatically unmap anything from the
+process' address space; the caller is responsible for unmapping the
+region.  So, in all the cases I can think of, it won't actually use
+the mapaddr argument at all; it's just there for symmetry.
+
+Allocation and Deallocation Procedure Details
+---------------------------------------------
+
+We'll supply at least three separate pairs of allocation procedures
+(and corresponding deallocation procedures):
+ 1) one pair for allocating space for normal in-process loading
+ 2) one pair for allocating space for kernel loading
+ 3) one pair for allocating space for preloaded libraries.
+The "correct" allocation and deallocation procedures to use for
+loading into any given loader context are specified at the time the
+context is created by the creator of the context (he's supposed to
+know), and are stored in the ldr_context structure.  The following
+subsections give details on each of the three allocation/deallocation
+procedure sets.
+
+Normal In-Process Loading
+-------------------------
+
+For the normal in-process loading case, no special allocation of
+virtual address space will be required, and so no special deallocation
+will be needed.  So, the absolute allocation routine will always
+return baseaddr == vaddr.  The relocatable allocation routine will
+return a "best guess" starting address for use in the call to mmap()
+as the baseaddr, and NULL for the vaddr; it will determine the
+best-guess address based on the type of the region by looking at the
+address-space configuration record as described below.
+
+The deallocation routine will simply be a no-op.
+
+Kernel Loading
+--------------
+
+For loading into the kernel, the allocation routines must preallocate
+the kernel virtual address space to be used by the region.  The
+absolute allocation routine will try to allocate kernel virtual
+address space at the specified vaddr for the specified size.  (It will
+allocate the space by calling a privileged kernel entry point to
+actually allocate a specified region of kernel space; this might just
+end up being "vm_alloc" on the kernel task).  If it succeeds, it will
+return a baseaddr that's somewhere down in the user-mode address space
+for the region to be mapped at (vaddr != baseaddr).
+
+The relocatable allocation routine will also have to preallocate
+kernel space, but it can allow the kernel to decide which address to
+use (this preallocation is required, because the relocation routines
+will need to know the region addresses, and because it's not possible
+to lock out other processes that might be allocating kernel address
+space during the entire duration of the loading.)  It will call the
+privileged kernel allocator with an "anywhere" flag, and use the
+resulting virtual address as its vaddr.  Like the absolute allocation
+routine, it will return a baseaddr that's somewhere down in the
+user-mode address space for the region to be mapped at (vaddr !=
+baseaddr).
+
+The kernel space allocated in this way must be reclaimed when the
+region is unloaded, whether that unloading is as a result of an
+explicit user call or as a result of an error during the loading
+process.  So, the corresponding deallocation routine must cause the
+kernel address space allocated by the allocator to be freed.  It must
+call a privileged kernel entry point to do this.  (This kernel entry
+point might just be "vm_dealloc" on the kernel task).
+
+Library Preloading
+------------------
+
+The library preload allocation routines operate very similarly to the
+kernel allocation routines: both must preallocate space in the
+preloaded library area to be used by the region.  This preallocation
+is required because multiple libraries are preloaded at once (due to
+inter-library dependencies).  The allocation will be done by using a
+simple allocation map maintained by the preload process.  The absolute
+allocator will try to allocate space at the user-specified vaddr; the
+relocatable allocator will take any space that's available.  Both
+allocators will simply return a best-guess address in user-mode space
+for the baseaddr, as the kernel allocators do.
+
+Since it's not possible to unload a preloaded library (the loader
+handles are not retained once the libraries are preloaded), the
+deallocation routine is a no-op.
+
+
+Address Space Configuration Record
+----------------------------------
+
+We want to manage the process address space so that:
+
+ 1) "Normal" UNIX processes doing "normal" UNIX things get expected
+    behavior.  This means (at least for absolute programs) text (and
+    read-only data) at the bottom, initialized read/write data
+    immediately above it, bss immediately above that, break area above
+    that.  Shared libraries, and dynamically loaded routines, and
+    mapped files, and System V shared memory regions, should all live
+    in a piece of the address space that's unlikely to run into either
+    the program's stack or its break area.
+
+ 2) But, we support systems like the PMAX and RIOS where it's
+    conventional for text and data to live in separate "segments" of
+    address space.  On such machines, it may be desirable to put
+    library code or dynamically loaded routines directly above the
+    program text in the same segment.  One reason for doing this is
+    for machines like RIOS where protection is only maintained per
+    segment.
+
+ 3) We want to use a single mechansim for assigning address space
+    locations, both for the loader and for mmap.  This means that the
+    basic data structures need to be stored in and accessible from the
+    kernel.
+
+ 4) It ought to be possible to manage stacks using this mechanism.
+    Since on many machines, stacks grow towards lower addresses while
+    other areas such as the break area grow towards higher addresses,
+    the data structure ought to be able to handle areas that grow in
+    either direction.
+
+ 5) It ought to be possible for the linker to use this mechanism for
+    determining the default text, data, and bss locations for absolute
+    programs being linked on the machine.
+
+My proposal for managing this is to put a machine-dependent
+address-space configuration record in the kernel, and add a new system
+call to read it from user space.  For each area, the address-space
+configuration record specifies the base address of the area and flags
+for the area.  One flag indicate the growth direction of the area.
+Another flag indicates whether the area is normally fixed at the
+specified address (for example, the stack; or ordinary program text),
+or whether the area "floats" above any other areas mapped at the base
+address (for example, the data area on most machines floats above the
+text; but on the PMAX the data area is normally fixed at 0x10000000).
+
+The configuration record should at least contain the base address,
+growth direction (towards higher addresses, or towards lower
+addresses), and flags of each of the following areas:
+
+ - program text area.  This is the address of the "default" text area,
+   where absolute code will be linked to run at.
+ - program data area.  Again, this is the address of the "default"
+   data area, where absolute code is linked to run at.
+ - program bss area.  Again, this is the address of the "default" bss
+   area, where absolute code is linked to run at.
+ - stack area.
+ - loader text area.  This is the absolute address the loader itself
+   is linked to run at.
+ - loader data area.
+ - loader bss area.
+ - shared library text area.  This is the area where pre-loaded
+   library text will live.
+ - shared library data area (for pre-loaded library data)
+ - shared library bss area (for pre-loaded library bss)
+ - shared memory/mapped file area
+ - dynamically loaded module area
+ - per-process kernel area (for completeness, if applicable)
+ - shared kernel area (for completeness, if applicable)
+
+Note that the "base address" for an area growing towards lower
+addresses (such as the stack on most machines) will be the *top* of
+the area (actually the first address *beyond* the area).
+
+Note a reason for having separate code, data, and bss areas for each
+type of usage: machines like the PMAX want to keep all code areas
+"close together" (eg. within the same 2^28 byte segment) so that calls
+can be cheap.  This is why the PMAX currently puts the text at 0 (or
+as close to 0 as it conveniently can) and the data at 0x10000000
+(bottom of the next 2^28 byte segment).  So, this gives us maximum
+flexibility.
+
+So, the address-space configuration record would look like this:
+
+struct address_configuration {
+	caddr_t		base_address;
+	unsigned		flags;
+
+#define		AC_GROWTH_UPWARD	0
+#define		AC_GROWTH_DOWNWARD	1
+#define		AC_FIXED		0
+#define		AC_FLOAT		2
+
+};
+
+struct address_configuration address_configuration[N_KNOWN_AREAS];
+
+#define TEXT_AREA		0
+#define DATA_AREA		1
+#define BSS_AREA		2
+#define STACK_AREA		3
+#define LDR_TEXT_AREA		4
+#define LDR_DATA_AREA		5
+#define LDR_BSS_AREA		6
+#define PRELOAD_TEXT_AREA	7
+	...
+#define N_KNOWN_AREAS		...
+
+Then, the kernel call would look like:
+
+  size_t getaddressconf(struct address_configuration *buf, size_t size);
+
+which would fill in as many entries into the specified buf as will fit,
+and return the actual size of the returned data in bytes.  size is the
+size of the buffer.

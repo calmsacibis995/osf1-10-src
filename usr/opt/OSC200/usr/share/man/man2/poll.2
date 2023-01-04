@@ -1,0 +1,259 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: poll.2,v $ $Revision: 3.2.2.3 $ (DEC) $Date: 1992/07/22 13:38:56 $
+.\" 
+...\" 
+...\" (c) Copyright 1991, OPEN SOFTWARE FOUNDATION, INC.
+...\" ALL RIGHTS RESERVED
+...\" 
+...\"
+...\"
+.TH poll 2
+.iX "poll function"
+.SH NAME
+.PP
+\*Lpoll\*O - 
+Monitors conditions on multiple file descriptors
+.iX "file" "polling"
+.iX "file descriptor" "monitoring conditions on multiple"
+.SH SYNOPSIS 
+.PP
+.sS
+\*L#include <sys/poll.h>
+.sp .4v
+\*Lint poll(
+.nL
+	struct pollfd \*Vfiledes\*L[ ],
+.nL
+	unsigned int \*Vnfds\*L,
+.nL
+	int \*Vtimeout \*L);
+.sE 
+.SH PARAMETERS
+.PP
+...\"from TP "  
+.VL 
+.LI "\*Vfiledes\*O"
+Points to an array of \*Lpollfd\*O
+structures, one for each file descriptor of interest.
+...\"from TP "  
+.LI "\*Vnfds\*O" 
+Specifies the number of
+\*Lpollfd\*O
+structures in the
+\*Vfiledes\*O
+array.
+...\"from TP "  
+.LI "\*Vtimeout\*O" 
+Specifies the maximum length of time (in milliseconds)
+to wait for at least one of the specified events to occur.
+.LE 
+.SH DESCRIPTION
+.PP
+The \*Lpoll(\|)\*O function
+provides a general mechanism for reporting I/O conditions associated
+with a set of file descriptors and for waiting until one or more
+specified conditions
+becomes true.
+Specified conditions include the ability to read or write data without
+blocking, and error conditions.
+.PP
+Each \*Lpollfd\*O structure includes the following members:
+...\"from TP 1i"  
+.VL 1i
+.LI "\*Lint fd\*O"
+The file descriptor
+...\"from TP 1i"  
+.LI "\*Lshort events\*O" 
+The requested conditions
+...\"from TP 1i"  
+.LI "\*Lshort revents\*O"
+The reported conditions
+.LE 
+.PP 
+The \*Lfd\*O member of each \*Lpollfd\*O structure
+specifies an open file descriptor.
+The \*Lpoll(\|)\*O function uses the \*Levents\*O member
+to determine what
+conditions to report for this file descriptor.
+If one or more of these conditions is true, the
+\*Lpoll(\|)\*O function sets the associated \*Lrevents\*O member.
+.PP 
+The \*Lpoll(\|)\*O function ignores any \*Lpollfd\*O structure
+whose \*Lfd\*O member is less than 0 (zero).
+If the \*Lfd\*O member of all \*Lpollfd\*O structures is less than
+0, the \*Lpoll(\|)\*O function will return 0 and have no other
+results.
+.PP
+\*Lpoll(\|)\*O
+provides users with a mechanism for multiplexing input/output
+over a set of file descriptors that reference open streams.
+\*Lpoll(\|)\*O
+identifies those streams on which a user can send or
+receive messages, or on which certain events have occurred.
+A user can receive messages using
+\*Lread(\|)\*O
+or
+\*Lgetmsg(\|)\*O
+and can send messages using
+\*Lwrite(\|)\*O 
+and
+\*Lputmsg(\|)\*O.
+Certain
+\*Lioctl(\|)\*O
+calls, such as I_RECVFD and I_SENDFD [see
+\*Lstreamio(\|)\*O ],
+can also be used to receive and send messages.
+.PP
+Neither the O_NDELAY or O_NONBLOCK flag affects 
+\*Lpoll(\|)\*O.
+.PP 
+The \*Levents\*O and \*Lrevents\*O members of the \*Lpollfd\*O
+structure are bitmasks.  The calling process sets the \*Levents\*O
+bitmask, and \*Lpoll(\|)\*O sets the \*Lrevents\*O bitmasks.
+These bitmasks contain ORed combinations of condition flags.  The
+following condition flags are defined:
+.PP 
+.VL 1i
+.LI "POLLERR" 
+An error has occurred on the file descriptor.
+.LI "POLLERR"
+Only valid in \*Lrevents\*O bitmask; it is not used in the \*Levents\*O field.
+...\"from TP 1i"  
+.LI "POLLHUP" 
+The device has been disconnected.
+.LI "POLLHUP"
+A hangup has occurred on the stream. It is mutually exclusive with
+POLLOUT, a stream can never be writable if a hangup occurred.
+.LI "POLLIN"
+A non-priority or file descriptor passing message (see I_RECVFD) is 
+present on the \*Lstream head\*O read queue.
+This flag is set even if the message is of zero length.
+In \*Lrevents\*O, this flag is mutually exclusive with POLLPRI.
+.LI "POLLNORM"
+Data may be read without blocking.
+...\"from TP 1i"  
+.LI "POLLNVAL" 
+The value specified for \*Lfd\*O is invalid.
+.LI "POLLOUT" 
+Data may be written without blocking.
+...\"from TP 1i"  
+.LI "POLLPRI"
+A priority message is present on the \*Lstream head\*O read queue.
+This flag is set even if the message is of zero length.
+In \*Lrevents\*O, this flag is mutually exclusive with POLLIN.
+.LE 
+.PP 
+The conditions indicated by POLLNORM and POLLOUT are true if and only
+if at least one byte of data can be read or written
+without blocking.
+The exception is regular files, which always poll true for
+POLLNORM and POLLOUT.
+.PP 
+The condition flags POLLERR, POLLHUP, and POLLNVAL are always
+set in \*Lrevents\*O if the conditions they indicate are true
+for the specified file descriptor, whether or not these flags are set
+in \*Levents\*O.
+.PP 
+For each call to the
+\*Lpoll(\|)\*O
+function, the set of reportable conditions for each file descriptor
+consists of those conditions that are always reported, together with any
+further conditions for which flags are set in \*Levents\*O.
+If any reportable condition is true for any file descriptor, the
+\*Lpoll(\|)\*O
+function will return with flags set in
+\*Lrevents\*O
+for each true condition for that file descriptor.
+.PP 
+If no reportable condition is true for any of the
+file descriptors, the \*Lpoll(\|)\*O function waits up to \*Vtimeout\*O
+milliseconds for a reportable condition to become true.
+If, in that time interval, a reportable condition becomes true for
+any of the file descriptors,
+\*Lpoll(\|)\*O reports the condition in the file descriptor's
+associated \*Lrevents\*O member and returns.
+If no reportable condition becomes true,
+\*Lpoll(\|)\*O returns without setting any \*Lrevents\*O bitmasks.
+.PP 
+.PP 
+If the \*Vtimeout\*O
+parameter is a value of -1, the \*Lpoll(\|)\*O function does
+not return until at least one specified event has occurred.
+If the value of the \*Vtimeout\*O parameter is 0 (zero), the \*Lpoll(\|)\*O
+function does not wait for an event to occur but returns immediately,
+even if no specified event has occurred.  The
+behavior of the \*Lpoll(\|)\*O function is not affected by whether
+the O_NONBLOCK flag is set on any of the specified file descriptors.
+.SH NOTES
+.PP 
+For compatibility with
+BSD systems, the \*Lselect(\|)\*O function is also supported.
+.VL 1.5i
+.LI "\*LAES Support Level:\*O"
+Trial use
+.LE
+.SH RETURN VALUES
+.PP
+Upon successful completion,
+the \*Lpoll(\|)\*O function returns a nonnegative value.
+If the call returns 0 (zero),
+\*Lpoll(\|)\*O has timed out and has not
+set any of the \*Lrevents\*O bitmasks.  A positive value indicates
+the number of file descriptors for which \*Lpoll(\|)\*O has set the
+\*Lrevents\*O bitmask.
+If the
+\*Lpoll(\|)\*O
+function fails, -1 is returned
+and \*Lerrno\*O is set to indicate the error.
+.SH ERRORS
+.PP 
+If the \*Lpoll(\|)\*O function fails,
+\*Lerrno\*O
+may be set to one of the following values:
+...\"from TP 1i"  
+.VL 1i
+.LI "[EAGAIN]"
+Allocation of internal data structures failed.  A later call to the
+\*Lpoll(\|)\*O function may complete successfully.
+...\"from TP 1i"  
+.LI "[EINTR]" 
+A signal was caught during the \*Lpoll(\|)\*O function and the signal handler was installed with an indication that
+functions are not to be restarted.
+...\"from TP 1i"  
+.LI "[EINVAL]" 
+The \*Vtimeout\*O parameter is a negative
+number other than -1.
+...\"from TP 1i"  
+.LI "[EFAULT]" 
+The \*Vfiledes\*O parameter in conjunction
+with the \*Vnfds\*O parameter addresses a location outside
+of the allocated address space of the process.
+.iX "poll function"
+.LE 
+.SH RELATED INFORMATION
+.PP 
+Functions:
+\*Lread\*O(2),
+\*Lwrite\*O(2),
+.\"\*Lintro\*O(2),
+\*Lgetmsg\*O(2),
+\*Lputmsg\*O(2),
+\*Lstreamio\*O(7)
+.EQ
+delim off
+.EN

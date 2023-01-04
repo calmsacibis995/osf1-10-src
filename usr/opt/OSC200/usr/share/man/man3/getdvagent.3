@@ -1,0 +1,314 @@
+.\" This manpage source uses rsml coding. 
+.so /usr/share/lib/tmac/sml
+.so /usr/share/lib/tmac/rsml
+.\"
+.\"
+.\" *********************************************************************
+.\" *                                                                   *
+.\" *      Copyright (c) Digital Equipment Corporation, 1991, 1994      *
+.\" *                                                                   *
+.\" *                       All Rights Reserved.                        *
+.\" *                                                                   *
+.\" *********************************************************************
+.\"
+.\" HISTORY
+.\"
+.\" @(#)$RCSfile: getdvagent.3,v $ $Revision: 3.5.4.9 $ (DEC) $Date: 1994/01/15 01:50:21 $
+.\"
+.\" (c) Copyright 1990, 1991, 1992, 1993 OPEN SOFTWARE FOUNDATION, INC.
+.\" ALL RIGHTS RESERVED
+.\" OSF/1 1.2
+.\"
+.\" Copyright (c) 1988 SecureWare, Inc.
+.\" All rights reserved
+.\" @(#)getdvagent.3	1.2 17:49:33 3/28/90
+.\" #ifdef SEC_BASE
+.TH getdvagent 3
+.SH NAME
+.PP
+\*Lgetdvagent\*O, \*Lgetdvagnam\*O, \*Lsetdvagent\*O, \*Lenddvagent\*O, \*Lputdvagnam\*O, \*Lcopydvagent\*O \- Manipulate device assignment database entry (Enhanced Security)
+.SH LIBRARY
+.PP
+Security Library (\*Llibsecurity.a\*O)
+.SH SYNOPSIS
+.PP
+.sS
+\*L#include <sys/types.h>
+.nL
+\*L#include <sys/security.h>
+.nL
+\*L#include <prot.h>
+.sp 0.4v
+\*Lstruct dev_asg *getdvagent(void);
+.sp 0.4v
+\*Lstruct dev_asg *getdvagnam(
+.nL
+	char *\*Vname\*L);
+.sp 0.4v
+\*Lvoid setdvagent(void);
+.sp 0.4v
+\*Lvoid enddvagent(void);
+.sp 0.4v
+\*Lint putdvagnam(
+.nL
+	char *\*Vname\*L,
+.nL
+	struct dev_asg *\*Vdv\*L);
+.sp 0.4v
+\*Lstruct dev_asg *copydvagent(
+.nL
+	struct dev_asg *\*Vdv\*L);
+.sE
+.SH PARAMETERS
+.PP
+.PP
+.VL
+.LI "\*Vname\*O"
+Is a cross reference to the terminal control database.
+.LI "\*Vdv\*O"
+Contains a device assignment structure.
+.LE
+.SH DESCRIPTION
+.PP
+.iX "device assignment" "manipulating database entry"
+.iX "database" "device assignment"
+.iX "getdvagent function"
+.iX "getdvagnam function"
+.iX "setdvagent function"
+.iX "enddvagent function"
+.iX "putdvagnam function"
+.iX "copydvagent function"
+The
+\*Lgetdvagent(\|)\*O,
+\*Lgetdvagnam(\|)\*O,
+and
+\*Lcopydvagent(\|)\*O
+functions
+each return a pointer to an object with the following structure
+containing the separated-out fields of an entry in the device assignment
+database.
+Each database entry is returned as a
+\*Ldev_asg\*O
+structure, declared in the
+\*Lprot.h\*O
+header file:
+.oS
+struct dev_field {
+	char	  	*fd_name;	/* external name */
+	char	  	**fd_devs;	/* device list */
+	mask_t		fd_type[1];	/* tape, printer, terminal */
+	mask_t		fd_assign[1]; 	/* single-lvl, multlvl, etc. */
+	char	  	**fd_users;	/* authorized user list */
+};
+
+/* Device Assignment Database entry */
+
+#define AUTH_DEV_TYPE "device type"
+#define AUTH_DEV_PRINTER    	0
+#define AUTH_DEV_TERMINAL       1
+#define AUTH_DEV_TAPE           2
+#define AUTH_DEV_REMOTE         3
+#define AUTH_DEV_XDISPLAY       4
+#define AUTH_MAX_DEV_TYPE       4
+#define AUTH_DEV_TYPE_SIZE      (WORD_OF_BIT (AUTH_MAX_DEV_TYPE) + 1)
+
+#define AUTH_DEV_ASSIGN "device assignment"
+
+#define AUTH_DEV_IMPORT   4     /* enabled for import */
+#define AUTH_DEV_EXPORT   5     /* enabled for export */
+#define AUTH_DEV_PASS       6     /* *internal* to mltape */
+#define AUTH_MAX_DEV_ASSIGN 6
+#define AUTH_DEV_ASSIGN_SIZE    (WORD_OF_BIT (AUTH_MAX_DEV_ASSIGN) + 1)
+
+/* this structure tells which of the corresponding fields in dev_field
+ * are valid (filled).
+ */
+struct dev_flag {
+        unsigned short
+                        fg_name : 1,
+                        fg_devs : 1,
+                        fg_type   : 1,
+                        fg_assign : 1,
+                        fg_users  : 1,
+                        ;
+};
+
+struct dev_asg {
+        struct dev_field ufld;
+        struct dev_flag  uflg;
+        struct dev_field sfld;
+        struct dev_flag  sflg;
+};
+.oE
+.P
+The device assignment database stores device characteristics
+that are related to
+.\" user authorizations, and
+synonyms. On systems supporting network
+connections, the device assignment database stores information
+about hosts initiating connections.
+.P
+Each entry contains a
+\*Vname\*O,
+which is a cross reference to the terminal control database, and
+a list of devices,
+each of which is a pathname that corresponds to that device.
+This list allows the device assignment software to invalidate
+all references to a device when reassigning it.
+The list is a table of character string pointers, whose last entry is a
+null
+pointer.
+.P
+The
+\*Lfd_type\*O fields are bit masks that can be manipulated with
+\*LADDBIT(\|), RMBIT(\|)\*O, and
+\*LISBITSET(\|)\*O
+macros. \*Lfd_users\*O
+is a pointer to a null-terminated table of character string
+pointers referring to user allowed access.
+.P
+For system versions supporting network connections, the device
+name can be a 12 character host name, where the first 8
+characters are the ASCII hex address of the device, and the last
+4 characters are ASCII zeros. For example, a host with Internet
+address 129.75.0.3 has device name 814b00030000. The trailing
+four zeros are for compatibility with ports on
+terminal concentrators.
+.\" NON_SILVER
+.\" Thus,
+.\" #ifdef SEC_MAC
+.\" sensitivity level ranges and
+.\" #endif /* SEC_MAC */
+.\" user authorization
+.\" lists can be enforced on hosts as well as on directly connected
+.\" terminals.
+.PP
+When the
+\*Lgetdvagent(\|)\*O
+function
+is first called, it returns a pointer to the first device assignment entry.
+Thereafter, it returns a pointer to the next entry, so successive calls can
+be used to search the database.
+The
+\*Lgetdvagnam(\|)\*O
+function
+searches from the beginning of the database until an entry with
+device name matching
+\*Vname\*O
+is found, and returns a pointer to that entry.
+If an End-of-File or an error is encountered on reading, these functions
+return a
+null
+pointer.
+.PP
+The
+\*Lcopydvagent(\|)\*O
+function
+copies \*Vdv\*O, and the fields to which it refers, to
+a newly-allocated data area.
+Since the
+\*Lgetdvagent(\|)\*O,
+\*Lgetdvagnam(\|)\*O,
+and
+\*Lputdvagent(\|)\*O
+functions
+reuse a static structure when accessing the database, the values of any
+entry must be saved if these routines are used again.
+The
+\*Ldev_asg\*O
+structure returned by
+\*Lcopydvagent(\|)\*O
+can be freed using the
+\*Lfree(\|)\*O
+function.
+.P
+A call to the
+\*Lsetdvagent(\|)\*O
+function
+has the effect of setting the device assignment database back to the first
+entry, to allow repeated searches of the database.
+The
+\*Lenddvagent(\|)\*O
+function
+frees all memory and closes all files used to support these routines.
+.P
+The
+\*Lputdvagnam(\|)\*O
+function
+rewrites or adds an entry to the database.
+If there is an entry whose
+\*Lfd_name\*O
+field matches the
+\*Vname\*O
+argument, that entry is replaced with the contents of the
+\*Vdv\*O
+structure.
+Otherwise, that entry is added to the database.
+.SH NOTES
+.PP
+Programs using these routines must be compiled with \%\*L-lsecurity\*O.
+.SH CAUTIONS
+.PP
+The structure returned by this routine contains pointers
+to character strings and lists rather than being self-contained.
+The
+\*Lcopydvagent(\|)\*O
+function must be used rather than structure assignment
+to save a returned structure.
+.P
+The value returned by the \*Lgetdvagent(\|)\*O and \*Lgetdvagnam(\|)\*O
+functions
+refers to a structure that is overwritten by calls to these
+routines. To retrieve an entry, modify it, and replace it in the
+database, you must copy the entry using the \*Lcopydvagent(\|)\*O
+function and
+supply the modified buffer to the \*Lputdvagent(\|)\*O
+function.
+.SH RETURN VALUES
+.PP
+The
+\*Lgetdvagent(\|)\*O
+and
+\*Lgetdvagnam(\|)\*O
+functions
+return a pointer to a static structure on success, or a
+null
+pointer on failure.
+This static structure is overwritten by
+the
+\*Lgetdvagent(\|)\*O,
+\*Lgetdvagnam(\|)\*O,
+and
+\*Lputdvagnam(\|)\*O
+functions.
+The
+\*Lputdvagnam(\|)\*O
+function
+returns a value of 1 on success, or a value of 0 (zero) on failure.
+The
+\*Lcopydvagent(\|)\*O
+function
+returns a pointer to the newly allocated structure on success, or a
+null
+pointer if there was a memory allocation error.
+.SH FILES
+.PP
+.VL
+.LI "\*L/etc/auth/system/devassign\*O"
+File containing device assignment entries.
+.LE
+.SH RELATED INFORMATION
+.PP
+.PP
+Files:
+\*Lauthcap\*O(4).
+.iX "getdvagent function"
+.iX "getdvagnam function"
+.iX "setdvagent function"
+.iX "enddvagent function"
+.iX "putdvagnam function"
+.iX "copydvagent function"
+.\" #endif /* SEC_BASE */
+.EQ
+delim off
+.EN
